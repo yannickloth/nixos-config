@@ -1,0 +1,18 @@
+# copy this into .config/systemd/user/, then reload systemd and enable this service
+[Unit]
+Description=Tresorit Daemon Service
+
+Wants=network.target
+After=syslog.target network-online.target
+
+[Service]
+Type=simple
+ExecStart=/run/current-system/sw/bin/nice -n 10 /run/current-system/sw/bin/steam-run ~/.local/share/tresorit/tresorit-cli start
+ExecStop=/run/current-system/sw/bin/steam-run ~/.local/share/tresorit/tresorit-cli stop
+# ExecStop=/run/current-system/sw/bin/killall tresorit-daemon
+Restart=on-failure
+RestartSec=10
+KillMode=process
+
+[Install]
+WantedBy=default.target
