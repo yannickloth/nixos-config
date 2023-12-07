@@ -84,6 +84,7 @@
     geogebra6
     gitFull
     gnome.simple-scan
+    gnome.gnome-tweaks
     gparted
     htop
     kcalc
