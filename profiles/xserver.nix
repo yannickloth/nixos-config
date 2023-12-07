@@ -6,8 +6,11 @@ with lib;
 
 {
   config = {
-  # enable xserver on workstations
-  services.xserver = {
+    programs.ssh.askPassword = lib.mkForce "${pkgs.ksshaskpass}/bin/ksshaskpass"; # resolves the conflict between seahorse (gnome) and ksshaskpass (plasma). Is just useful if both KDE and Gnome are installed.
+    services.gnome.games.enable = true;
+    services.gnome.core-developer-tools.enable = true;
+    # enable xserver on workstations
+    services.xserver = {
     # By default, enable the X11 windowing system
     enable = mkDefault true;
     autorun = true;
@@ -20,10 +23,20 @@ with lib;
     xkbVariant = "";
 
     desktopManager.xterm.enable = true;
-
-    # Enable the KDE Plasma Desktop Environment.
-    desktopManager.plasma5.enable = true;
+    
+    desktopManager = {
+      gnome = {
+        enable = true;
+      };
+      # Enable the KDE Plasma Desktop Environment.
+      plasma5 = {
+        enable = true;
+      };
+    };
     displayManager = {
+      gdm = {
+        enable = false;
+      };
       sddm = {
         autoNumlock = true;
         enable = true;
