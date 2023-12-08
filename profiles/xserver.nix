@@ -6,7 +6,7 @@ with lib;
 
 {
   config = {
-    programs.ssh.askPassword = lib.mkForce "${pkgs.ksshaskpass}/bin/ksshaskpass"; # resolves the conflict between seahorse (gnome) and ksshaskpass (plasma). Is just useful if both KDE and Gnome are installed.
+    #programs.ssh.askPassword = lib.mkForce "${pkgs.ksshaskpass}/bin/ksshaskpass"; # resolves the conflict between seahorse (gnome) and ksshaskpass (plasma). Is just useful if both KDE and Gnome are installed.
     services.gnome.games.enable = true;
     services.gnome.core-developer-tools.enable = true;
     # enable xserver on workstations
@@ -29,24 +29,26 @@ with lib;
         enable = true;
       };
       # Enable the KDE Plasma Desktop Environment.
-      plasma5 = {
-        enable = true;
-      };
+      # plasma5 = {
+      #   enable = false;
+      # };
     };
     displayManager = {
       gdm = {
-        enable = false;
+        enable = true;
       };
       sddm = {
         autoNumlock = true;
-        enable = true;
+        enable = false;
       };
-      defaultSession = "plasmawayland";
+      defaultSession = "gnome";# = "plasmawayland";
     };
   };
   security = {
     pam.services.aeiuno.enableKwallet = true;
     pam.services.nicky.enableKwallet = true;
+    pam.services.aeiuno.enableGnomeKeyring = true;
+    pam.services.nicky.enableGnomeKeyring = true;
   };
   fonts = {
     packages = with pkgs; [
