@@ -7,8 +7,7 @@ with lib;
 {
   config = {
     #programs.ssh.askPassword = lib.mkForce "${pkgs.ksshaskpass}/bin/ksshaskpass"; # resolves the conflict between seahorse (gnome) and ksshaskpass (plasma). Is just useful if both KDE and Gnome are installed.
-    services.gnome.games.enable = true;
-    services.gnome.core-developer-tools.enable = true;
+    
     # enable xserver on workstations
     services.xserver = {
     # By default, enable the X11 windowing system
@@ -45,8 +44,8 @@ with lib;
     };
   };
   security = {
-    pam.services.aeiuno.enableKwallet = true;
-    pam.services.nicky.enableKwallet = true;
+    #pam.services.aeiuno.enableKwallet = true;
+    #pam.services.nicky.enableKwallet = true;
     pam.services.aeiuno.enableGnomeKeyring = true;
     pam.services.nicky.enableGnomeKeyring = true;
   };

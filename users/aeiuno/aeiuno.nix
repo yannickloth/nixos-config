@@ -1,9 +1,10 @@
 { config, pkgs, ... }:
 let 
   username="aeiuno";
-  userDescription="Christine Andres";
+  userDescription="aeiuno";
 in
 {
+  security.pam.services.aeiuno.logFailures = true;
   users = {
     groups.aeiuno = {
       name = username;

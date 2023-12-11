@@ -195,5 +195,16 @@
       videos = "/home/nicky/Tresors/yannick/LaptopSync/Videos/";
     };
   };
-
+  # services.syncthing = {
+  #   openDefaultPorts = true; # Whether to open the default ports in the firewall: TCP/UDP 22000 for transfers and UDP 21027 for discovery.
+  # };
+  networking.firewall= {
+    allowedTCPPorts = [ 
+      22000 # syncthing transfers
+    ];
+    allowedUDPPorts = [ 
+      21027 # syncthing discovery
+      22000 # syncthing transfers
+    ];
+  };
 }
