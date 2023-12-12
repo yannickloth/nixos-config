@@ -7,7 +7,7 @@ The config uses the nix flake feature.
 
 To update packages
 1. Inside the root directory of this project, run `nix flake update`. This will update the `flake.lock` file.
-2. Run `nixos-rebuild switch`. This will automatically detect the flake and use the flake feature. (TODO: check whether the --upgrade has any impact when the config is a flake). (TODO adapt the command with the parameters to specify another location of the config files if they are not inside `/etc/nix`).
+2. In the same directory, run `sudo nixos-rebuild switch --flake ./`. This will automatically detect the flake and use the flake feature. (TODO: check whether the --upgrade has any impact when the config is a flake). (TODO adapt the command with the parameters to specify another location of the config files if they are not inside `/etc/nix`).
 
 Et voilà!
 
