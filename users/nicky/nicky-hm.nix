@@ -63,6 +63,7 @@
         vivaldi
         vivaldi-ffmpeg-codecs
         vlc
+        xmind
         zotero
       ];
       sessionVariables = {
