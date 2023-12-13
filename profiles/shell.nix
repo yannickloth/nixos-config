@@ -15,6 +15,8 @@ with lib;
     ".." = "cd ..";
     nrs = "sudo nixos-rebuild switch";
     nrsu = "sudo nixos-rebuild switch --upgrade";
+    nrsf = "sudo nixos-rebuild switch --flake";
+    nrsfh = "sudo nixos-rebuild switch --flake ./"; # nrsf here
     myip = "curl ipinfo.io/ip"; # print public IPv4 address
   };
 }
