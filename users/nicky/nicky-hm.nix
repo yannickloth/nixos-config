@@ -50,14 +50,17 @@
         pantheon.sideload
         plantuml
         podman-desktop
+        powershell # Powerful cross-platform (Windows, Linux, and macOS) shell and scripting language based on .NET
         protonvpn-cli
         protonvpn-gui
         qalculate-qt
         recoll
+        scrcpy
         signal-desktop
         skypeforlinux
         speechd # speech-dispatcher, useful for Firefox
         stellarium # Desktop planetarium
+        szyszka # A simple but powerful and fast bulk file renamer
         thunderbird
         tuner
         vivaldi
