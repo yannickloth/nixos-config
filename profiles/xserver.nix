@@ -62,6 +62,7 @@ with lib;
       gelasio
       gyre-fonts
       hasklig
+      inconsolata-nerdfont
       iosevka
       iosevka-comfy.comfy
       liberation_ttf
