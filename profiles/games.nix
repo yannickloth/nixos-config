@@ -35,7 +35,7 @@ with lib;
     lutris
     quake3e
     #quake3hires
-    speed_dreams
+    #speed_dreams
     #vkquake
     xmoto
     zeroad
