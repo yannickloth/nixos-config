@@ -51,8 +51,6 @@
         plantuml
         podman-desktop
         powershell # Powerful cross-platform (Windows, Linux, and macOS) shell and scripting language based on .NET
-        protonvpn-cli
-        protonvpn-gui
         qalculate-qt
         recoll
         scrcpy

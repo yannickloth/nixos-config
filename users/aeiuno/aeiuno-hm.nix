@@ -40,8 +40,6 @@
         microsoft-edge
         pantheon.sideload
         #podman-desktop
-        protonvpn-cli
-        protonvpn-gui
         qalculate-qt
         recoll
         signal-desktop

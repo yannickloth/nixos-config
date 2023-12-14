@@ -19,7 +19,9 @@ with lib;
   environment.systemPackages = with pkgs; [
     endless-sky
     gcompris
+    gogdl # GOG Downloading module for Heroic Games Launcher
     hedgewars
+    heroic # A Native GOG, Epic, and Amazon Games Launcher for Linux, Windows and Mac
     #ioquake3
     libsForQt5.granatier
     libsForQt5.katomic
