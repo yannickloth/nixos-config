@@ -32,9 +32,9 @@
     "pipewire/pipewire.conf.d/92-low-latency.conf".text = ''
       context.properties = {
         default.clock.rate = 48000
-        default.clock.quantum = 32
-        default.clock.min-quantum = 32
-        default.clock.max-quantum = 128
+        default.clock.quantum = 128
+        default.clock.min-quantum = 128
+        default.clock.max-quantum = 256
       }
     '';
 	"pipewire/pipewire-pulse.d/92-low-latency.conf".source = json.generate "92-low-latency.conf" {
@@ -42,11 +42,11 @@
         {
           name = "libpipewire-module-protocol-pulse";
           args = {
-            pulse.min.req = "32/48000";
-            pulse.default.req = "32/48000";
-            pulse.max.req = "128/48000";
-            pulse.min.quantum = "32/48000";
-            pulse.max.quantum = "128/48000";
+            pulse.min.req = "128/48000";
+            pulse.default.req = "128/48000";
+            pulse.max.req = "256/48000";
+            pulse.min.quantum = "128/48000";
+            pulse.max.quantum = "256/48000";
           };
         }
       ];
@@ -57,6 +57,7 @@
     };
   };
   environment.systemPackages = with pkgs; [
+    helvum
     jamesdsp
   ];
 }
