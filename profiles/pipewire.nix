@@ -1,7 +1,8 @@
+# Cf. https://nixos.wiki/wiki/PipeWire
 { config, lib, pkgs,... }:
 
 {
-    # Enable sound with pipewire.
+  # Enable sound with pipewire.
   sound.enable = true;
   hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
@@ -31,8 +32,8 @@
     "pipewire/pipewire.conf.d/92-low-latency.conf".text = ''
       context.properties = {
         default.clock.rate = 48000
-        default.clock.quantum = 64
-        default.clock.min-quantum = 64
+        default.clock.quantum = 32
+        default.clock.min-quantum = 32
         default.clock.max-quantum = 128
       }
     '';
@@ -41,10 +42,10 @@
         {
           name = "libpipewire-module-protocol-pulse";
           args = {
-            pulse.min.req = "64/48000";
-            pulse.default.req = "64/48000";
+            pulse.min.req = "32/48000";
+            pulse.default.req = "32/48000";
             pulse.max.req = "128/48000";
-            pulse.min.quantum = "64/48000";
+            pulse.min.quantum = "32/48000";
             pulse.max.quantum = "128/48000";
           };
         }
