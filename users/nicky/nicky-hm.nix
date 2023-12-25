@@ -54,6 +54,7 @@
         qalculate-qt
         recoll
         scrcpy
+        setzer # LaTeX editor written in Python with Gtk
         signal-desktop
         skypeforlinux
         speechd # speech-dispatcher, useful for Firefox
