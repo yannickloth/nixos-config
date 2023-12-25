@@ -43,6 +43,8 @@ with lib;
       defaultSession = "gnome";# = "plasmawayland";
     };
   };
+  services.gnome.gnome-keyring.enable = lib.mkForce false;
+  programs.seahorse.enable = true;
   security = {
     #pam.services.aeiuno.enableKwallet = true;
     #pam.services.nicky.enableKwallet = true;
