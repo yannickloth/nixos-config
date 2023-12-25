@@ -2,7 +2,7 @@
 
 {
   fileSystems."/nestor/DA" = {
-      device = "//nestor/usbshare1/DA/";
+      device = "//nestor.bee-blues.ts.net/usbshare1/DA/";
       fsType = "cifs";
       options = let
         # this line prevents hanging on network split
@@ -10,7 +10,7 @@
       in ["${automount_opts},credentials=/etc/nixos/smb-secrets,uid=1000"];
   };
   fileSystems."/nestor/multimedia" = {
-      device = "//nestor/multimedia/";
+      device = "//nestor.bee-blues.ts.net/multimedia/";
       fsType = "cifs";
       options = let
         # this line prevents hanging on network split
