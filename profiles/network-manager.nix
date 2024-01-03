@@ -10,7 +10,7 @@ with lib;
         enable = true;
 
         # always use local dnsmasq for dns server
-        #insertNameservers = ["127.0.0.1"];
+        appendNameservers = ["192.168.190.79" "192.168.190.1" "9.9.9.9" "1.1.1.1"];
       };
       # enable resolvconf
       resolvconf.enable = false;
