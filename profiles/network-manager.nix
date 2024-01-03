@@ -13,7 +13,7 @@ with lib;
         #insertNameservers = ["127.0.0.1"];
       };
       # enable resolvconf
-      resolvconf.enable = true;
+      resolvconf.enable = false;
 
       # disable wpasupplicant, as networkmanager manages wireless
       wireless.enable = false;
