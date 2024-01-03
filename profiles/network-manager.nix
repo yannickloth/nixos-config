@@ -10,7 +10,7 @@ with lib;
         enable = true;
 
         # always use local dnsmasq for dns server
-        insertNameservers = ["127.0.0.1"];
+        #insertNameservers = ["127.0.0.1"];
       };
       # enable resolvconf
       resolvconf.enable = true;
@@ -21,13 +21,20 @@ with lib;
 
     # enable dnsmasq for dns caching server
     services.dnsmasq = {
-      enable = mkDefault true;
+      #enable = mkDefault true;
+      enable = false;
 
       # additional secure configuration for dnsmasq
 #       extraConfig = ''
 #         strict-order # obey strict order of dns servers
 #       '';
       settings = {
+        server = [
+          "192.168.190.79"
+          "192.168.190.1"
+          "9.9.9.9"
+          "1.1.1.1"
+        ];
         strict-order = true; # obey strict order of dns servers
       };
     };    
