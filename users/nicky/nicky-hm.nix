@@ -165,6 +165,14 @@
         viAlias = true;
         vimAlias = true;
       };
+      ssh = {
+        enable = true;
+      };
+      starship = {
+        enable = true;
+        enableBashIntegration = true;
+        enableZshIntegration = true;
+      };
       vscode = {
         enable = true;
         enableExtensionUpdateCheck = true;

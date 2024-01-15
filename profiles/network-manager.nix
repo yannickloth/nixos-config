@@ -10,10 +10,10 @@ with lib;
         enable = true;
 
         # always use local dnsmasq for dns server
-        appendNameservers = ["192.168.190.79" "192.168.190.1" "9.9.9.9" "1.1.1.1"];
+        #appendNameservers = ["192.168.190.79" "192.168.190.1" "9.9.9.9" "1.1.1.1"];
       };
       # enable resolvconf
-      resolvconf.enable = false;
+      resolvconf.enable = true;
 
       # disable wpasupplicant, as networkmanager manages wireless
       wireless.enable = false;
