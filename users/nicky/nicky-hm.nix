@@ -14,6 +14,7 @@
         xfce.catfish
         curlFull
         drawio
+        ffmpeg
         freac
         freecad
         gnome.gnome-disk-utility
