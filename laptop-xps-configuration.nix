@@ -98,6 +98,7 @@
     plasma5Packages.plasma-thunderbolt
     ocrmypdf
     qpwgraph # PipeWire graph manager
+    shutter # Screenshot and annotation tool
     usbutils
     virt-manager
     virtiofsd
