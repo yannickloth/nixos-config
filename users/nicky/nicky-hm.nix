@@ -14,7 +14,16 @@
         xfce.catfish
         curlFull
         drawio
-        ffmpeg
+        fdk_aac # A high-quality implementation of the AAC codec from Android
+        fdk-aac-encoder # Command line encoder frontend for libfdk-aac encoder
+        # (ffmpeg_5-full.overrideAttrs (old: rec {
+        #   fdk_aac = pkgs.fdk_aac;
+        #   fdkaacExtlib = true;
+        #   gplLicensing = true;
+        #   nonfreeLicensing = true;
+        #   version3Licensing = true;
+        # })
+        #(pkgs.callPackage ./packages/development/ffmpeg/default.nix) # A complete, cross-platform solution to record, convert and stream audio and video
         freac
         freecad
         gnome.gnome-disk-utility
@@ -55,6 +64,7 @@
         qalculate-qt
         recoll
         scrcpy
+        scribus
         setzer # LaTeX editor written in Python with Gtk
         signal-desktop
         skypeforlinux
@@ -67,6 +77,7 @@
         vivaldi-ffmpeg-codecs
         vlc
         xmind
+        xplorer # A customizable, modern file manager
         zotero
       ];
       sessionVariables = {
