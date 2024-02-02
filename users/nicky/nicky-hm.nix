@@ -13,6 +13,7 @@
         calibre
         xfce.catfish
         curlFull
+        devbox
         drawio
         fdk_aac # A high-quality implementation of the AAC codec from Android
         fdk-aac-encoder # Command line encoder frontend for libfdk-aac encoder
