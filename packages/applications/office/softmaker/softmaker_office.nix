@@ -9,6 +9,22 @@
   version = "1032";
   edition = "2021";
   hash = "sha256-LchSqLVBdkmWJQ8hCEvtwRPgIUSDE0URKPzCkEexGbc=";
+  #         # 2018
+  #         edition = "2018";
+  #         version = "982";
+  #         hash = "sha256-A45q/irWxKTLszyd7Rv56WeqkwHtWg4zY9YVxqA/KmQ=";
+  #         # 2021
+  #         edition = "2021";
+  #         version = "1064";
+  #         hash = "sha256-UyA/Bl4K9lsvZsDsPPiy31unBnxOG8PVFH/qisQ85NM=";
+  #         # 2024         
+  #         edition = "2024";
+  #         version = "1204";
+  #         hash = "sha256-E58yjlrFe9uFiWY0nXoncIxDgvwXD+REfmmdSZvgTTU=";
+  #         # 2024
+  #         edition = "2024";
+  #         version = "1208";
+  #         hash = "sha256-qe5I2fGjpANVqd5KIDIUGzqFVgv+3gBoY7ndp0ByvPs=";
 }
 
 , ... } @ args:

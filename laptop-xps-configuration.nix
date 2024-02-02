@@ -74,6 +74,7 @@
     ###
 
     brave
+    cryptomator # Free client-side encryption for your cloud files
     direnv # for lorri
     nix-direnv # for direnv
     distrobox
@@ -124,8 +125,8 @@
 #     })
     (pkgs.callPackage ./packages/applications/office/softmaker/softmaker_office.nix { officeVersion = {
         edition = "2024";
-        version = "1204";
-        hash = "sha256-E58yjlrFe9uFiWY0nXoncIxDgvwXD+REfmmdSZvgTTU=";
+        version = "1208";
+        hash = "sha256-qe5I2fGjpANVqd5KIDIUGzqFVgv+3gBoY7ndp0ByvPs=";
         }; })
     vlc
     xdg-utils
