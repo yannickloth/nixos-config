@@ -17,7 +17,7 @@ with lib;
       ../../hardware/intel_graphics.nix
       ../../hardware/thunderbolt.nix
       
-      ../../modules/xpad.nix
+      #../../modules/xpad.nix
       
       ../../profiles/i18n/fr_BE.nix
       ../../profiles/android.nix
@@ -33,6 +33,7 @@ with lib;
       ../../profiles/gstreamer.nix
       ../../profiles/java.nix
       ../../profiles/jitsi-meet.nix
+      ../../profiles/kubernetes.nix
       ../../profiles/libvirt.nix
       ../../profiles/network-manager.nix
       ../../profiles/nix.nix
@@ -69,4 +70,5 @@ with lib;
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+  hardware.xone.enable = true; # Whether to enable the xone driver for Xbox One and Xbox Series X|S accessories.
 }

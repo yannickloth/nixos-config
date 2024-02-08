@@ -74,6 +74,7 @@
     ###
 
     brave
+    clamtk
     cryptomator # Free client-side encryption for your cloud files
     direnv # for lorri
     nix-direnv # for direnv
