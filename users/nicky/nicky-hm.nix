@@ -77,8 +77,10 @@
         vivaldi
         vivaldi-ffmpeg-codecs
         vlc
+        whatsapp-for-linux
         xmind
         xplorer # A customizable, modern file manager
+        zoom-us
         zotero
       ];
       sessionVariables = {
