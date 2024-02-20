@@ -38,6 +38,7 @@
         fsearch
         gimp-with-plugins
         gnome.gnome-software
+        
         hunspellDicts.fr-any
         hunspellDicts.en_US-large
         hunspellDicts.en_GB-large
@@ -72,12 +73,14 @@
         speechd # speech-dispatcher, useful for Firefox
         stellarium # Desktop planetarium
         szyszka # A simple but powerful and fast bulk file renamer
+        #teams-for-linux
         thunderbird
         tuner
         vivaldi
         vivaldi-ffmpeg-codecs
         vlc
         whatsapp-for-linux
+        whitesur-gtk-theme
         xmind
         xplorer # A customizable, modern file manager
         zoom-us
