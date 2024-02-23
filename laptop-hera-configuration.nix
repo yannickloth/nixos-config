@@ -82,7 +82,7 @@
     fuse3
     fuseiso
     #geogebra
-    geogebra6
+    #geogebra6
     gitFull
     gnome.simple-scan
     gparted
