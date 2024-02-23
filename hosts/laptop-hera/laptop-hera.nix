@@ -39,7 +39,7 @@ with lib;
       ../../profiles/pipewire.nix
       ../../profiles/plantuml.nix
       ../../profiles/podman.nix
-      ../../profiles/postgresql.nix # containerized postgresql
+      #../../profiles/postgresql.nix # containerized postgresql
       ../../profiles/printing.nix
       ../../profiles/purescript.nix
       ../../profiles/samba.nix
