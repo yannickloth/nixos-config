@@ -118,8 +118,8 @@
           enable = true;
         };
         package = pkgs.gitFull;
-        # userName  = "aeiuno";
-        # userEmail = "727881+yannickloth@users.noreply.github.com";
+        userName  = "aeiuno";
+        userEmail = "727881+yannickloth@users.noreply.github.com";
       };
       gitui = {
         enable = true;
