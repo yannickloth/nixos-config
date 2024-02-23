@@ -84,6 +84,7 @@
     #geogebra
     #geogebra6
     gitFull
+    gnome.gnome-tweaks
     gnome.simple-scan
     gparted
     htop
