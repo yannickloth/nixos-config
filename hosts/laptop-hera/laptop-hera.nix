@@ -27,6 +27,7 @@ with lib;
       #../../profiles/corsair.nix
       ../../profiles/firmware.nix
       ../../profiles/flatpak.nix
+      ../../profiles/gnome.nix
       ../../profiles/gstreamer.nix
       ../../profiles/java.nix
       ../../profiles/jitsi-meet.nix
