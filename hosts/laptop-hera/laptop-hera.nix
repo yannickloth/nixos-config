@@ -6,7 +6,7 @@ with lib;
   [
     # Include the results of the hardware scan.
       #<nixpkgs/nixos/modules/services/hardware/sane_extra_backends/brscan4.nix>
-      <home-manager/nixos>
+      #<home-manager/nixos>
       ./hardware-configuration.nix
 
       ../../nix-automatic-gc-7d.nix
