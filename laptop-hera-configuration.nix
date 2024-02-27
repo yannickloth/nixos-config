@@ -82,19 +82,16 @@
     fuse3
     fuseiso
     #geogebra
-    #geogebra6
+    geogebra6
     gitFull
     gnome.gnome-tweaks
     gnome.simple-scan
     gparted
     htop
-    kcalc
     killall
     libsForQt5.kig
-    libsForQt5.plasma-browser-integration # TODO manually: copy org.kde.plasma.browser_integration.json from the derivation in the Nix Store into "~/.mozilla/native-messaging-hosts/", then make it R/W, then set the path to "/run/current-system/sw/bin/plasma-browser-integration-host"
     libsForQt5.kfind
     lightly-boehs # QT application theme
-    plasma5Packages.plasma-thunderbolt
     ocrmypdf
     qpwgraph # PipeWire graph manager
     usbutils
@@ -138,7 +135,8 @@
     netcat-gnu
 
     ### LibreOffice
-    libreoffice-qt
+    #libreoffice-qt
+    libreoffice-fresh
     hunspell
     hunspellDicts.nl_nl
     hunspellDicts.fr-moderne

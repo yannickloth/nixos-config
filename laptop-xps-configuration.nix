@@ -89,15 +89,12 @@
     gnome.gnome-tweaks
     gparted
     htop
-    kcalc
     killall
     libsForQt5.kig
-    libsForQt5.plasma-browser-integration # TODO manually: copy org.kde.plasma.browser_integration.json from the derivation in the Nix Store into "~/.mozilla/native-messaging-hosts/", then make it R/W, then set the path to "/run/current-system/sw/bin/plasma-browser-integration-host"
     libsForQt5.kfind
     lightly-boehs # QT application theme
     p7zip # A new p7zip fork with additional codecs and improvements
     peazip # Cross-platform file and archive manager
-    plasma5Packages.plasma-thunderbolt
     ocrmypdf
     qpwgraph # PipeWire graph manager
     shutter # Screenshot and annotation tool
