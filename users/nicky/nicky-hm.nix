@@ -118,6 +118,9 @@
 #           hunspellDicts.de_DE
 #         ];
       };
+      command-not-found = {
+        enable = true;
+      };
       direnv = {
         enable = true;
         enableBashIntegration = true; # see note on other shells below
