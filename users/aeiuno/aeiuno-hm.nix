@@ -93,21 +93,21 @@
         enableBashIntegration = true; # see note on other shells below
         nix-direnv.enable = true;
       };
-      emacs =  with pkgs;{
-        enable = true;
-        package = emacs29-gtk3;
-        extraConfig = (builtins.readFile ../nicky/emacs-config.el);
-        extraPackages = epkgs: [
-          epkgs.magit
-          epkgs.markdown-mode
-          epkgs.org-modern
-          epkgs.org-roam
-          epkgs.org-roam-bibtex
-          epkgs.org-roam-timestamps
-          epkgs.org-roam-ui
-          epkgs.typescript-mode
-        ];
-      };
+#       emacs =  with pkgs;{
+#         enable = true;
+#         package = emacs29-gtk3;
+#         extraConfig = (builtins.readFile ../nicky/emacs-config.el);
+#         extraPackages = epkgs: [
+#           epkgs.magit
+#           epkgs.markdown-mode
+#           epkgs.org-modern
+#           epkgs.org-roam
+#           epkgs.org-roam-bibtex
+#           epkgs.org-roam-timestamps
+#           epkgs.org-roam-ui
+#           epkgs.typescript-mode
+#         ];
+#       };
       firefox = {
         enable = true;
         package = pkgs.firefox-bin;
@@ -121,8 +121,8 @@
           enable = true;
         };
         package = pkgs.gitFull;
-        # userName  = "aeiuno";
-        # userEmail = "727881+yannickloth@users.noreply.github.com";
+        userName  = "aeiuno";
+        userEmail = "727881+yannickloth@users.noreply.github.com";
       };
       gitui = {
         enable = true;
@@ -173,19 +173,33 @@
         indicator = true;
       };
       # keybase.enable = true;
+      syncthing = {
+        enable = true;
+        tray = {
+          enable = false;
+        };
+      };
     };
     xdg.userDirs = {
       createDirectories = false;
       enable = true;
-      desktop = "/home/aeiuno/Tresors/christine/LaptopSync/Desktop/";
-      documents = "/home/aeiuno/Tresors/christine/LaptopSync/Documents/";
-      download = "/home/aeiuno/Tresors/christine/LaptopSync/Downloads/";
-      music = "/home/aeiuno/Tresors/christine/LaptopSync/Music/";
-      pictures = "/home/aeiuno/Tresors/christine/LaptopSync/Pictures/";
-      publicShare = "/home/aeiuno/Tresors/christine/LaptopSync/Public/";
-      templates = "/home/aeiuno/Tresors/christine/LaptopSync/Templates/";
-      videos = "/home/aeiuno/Tresors/christine/LaptopSync/Videos/";
+      desktop = "/home/aeiuno/syncthing/christine/LaptopSync/Desktop/";
+      documents = "/home/aeiuno/syncthing/christine/LaptopSync/Documents/";
+      download = "/home/aeiuno/syncthing/christine/LaptopSync/Downloads/";
+      music = "/home/aeiuno/syncthing/christine/LaptopSync/Music/";
+      pictures = "/home/aeiuno/syncthing/christine/LaptopSync/Pictures/";
+      publicShare = "/home/aeiuno/syncthing/christine/LaptopSync/Public/";
+      templates = "/home/aeiuno/syncthing/christine/LaptopSync/Templates/";
+      videos = "/home/aeiuno/syncthing/christine/LaptopSync/Videos/";
     };
   };
-
+  networking.firewall= {
+    allowedTCPPorts = [ 
+      22000 # syncthing transfers
+    ];
+    allowedUDPPorts = [ 
+      21027 # syncthing discovery
+      22000 # syncthing transfers
+    ];
+  };
 }

@@ -6,7 +6,7 @@ with lib;
   [
     # Include the results of the hardware scan.
       #<nixpkgs/nixos/modules/services/hardware/sane_extra_backends/brscan4.nix>
-      <home-manager/nixos>
+      #<home-manager/nixos>
       ./hardware-configuration.nix
 
       ../../nix-automatic-gc-7d.nix
@@ -27,6 +27,7 @@ with lib;
       #../../profiles/corsair.nix
       ../../profiles/firmware.nix
       ../../profiles/flatpak.nix
+      ../../profiles/gnome.nix
       ../../profiles/gstreamer.nix
       ../../profiles/java.nix
       ../../profiles/jitsi-meet.nix
@@ -39,7 +40,7 @@ with lib;
       ../../profiles/pipewire.nix
       ../../profiles/plantuml.nix
       ../../profiles/podman.nix
-      ../../profiles/postgresql.nix # containerized postgresql
+      #../../profiles/postgresql.nix # containerized postgresql
       ../../profiles/printing.nix
       ../../profiles/purescript.nix
       ../../profiles/samba.nix
@@ -60,7 +61,7 @@ with lib;
       ../../users/nicky/nicky-hm.nix
   ];
   # In this file comes everything that is specific to this host.
-  networking.hostName = "laptop-xps"; # Define your hostname.
+  networking.hostName = "laptop-hera"; # Define your hostname.
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;

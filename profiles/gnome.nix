@@ -2,12 +2,35 @@
 
 with lib;
 {
+ 
+  xdg.mime.defaultApplications = {
+    # Replace Nautilus with Nemo as the default file manager
+    "application/x-gnome-saved-search" = [
+      "nemo.desktop"
+    ];
+    
+    # Replace Nautilus with Nemo as the default file manager
+    "inode/directory" = [
+      "nemo.desktop"
+    ];
+  };
+ 
   environment.systemPackages = with pkgs; [
+    cinnamon.nemo-with-extensions
+    flat-remix-gnome
+    flat-remix-gtk
+    flat-remix-icon-theme 
     gnome.cheese
     gnome.gnome-themes-extra
     gnome.gpaste # Clipboard management system with GNOME 3 integration
     gnome.vinagre
     gnome.zenity
+    gnomeExtensions.prime-gpu-profile-selector
+    layan-gtk-theme
+    orchis-theme
+    sysprof # Install sysprof
+    yaru-theme
+    yaru-remix-theme
   ];
   services = {
     gnome = {
@@ -17,6 +40,7 @@ with lib;
       core-shell.enable = true;
       core-utilities.enable = true;
       games.enable = true;
+      glib-networking.enable = true;
       gnome-browser-connector.enable = true;
       gnome-initial-setup.enable = true;
       gnome-online-accounts.enable = true;
@@ -31,5 +55,6 @@ with lib;
       tracker-miners.enable = true;
       gnome-user-share.enable = true;
     };
+    sysprof.enable = true; # Enable sysprof
   };
 }
