@@ -126,21 +126,21 @@
         enableBashIntegration = true; # see note on other shells below
         nix-direnv.enable = true;
       };
-      emacs =  with pkgs;{
-        enable = true;
-        package = emacs29-gtk3;
-        extraConfig = (builtins.readFile ./emacs-config.el);
-        extraPackages = epkgs: [
-          epkgs.magit
-          epkgs.markdown-mode
-          epkgs.org-modern
-          epkgs.org-roam
-          epkgs.org-roam-bibtex
-          epkgs.org-roam-timestamps
-          epkgs.org-roam-ui
-          epkgs.typescript-mode
-        ];
-      };
+      #emacs =  with pkgs;{
+      #  enable = false;
+      #  package = emacs29-gtk3;
+      #  extraConfig = (builtins.readFile ./emacs-config.el);
+      #  extraPackages = epkgs: [
+      #    epkgs.magit
+      #    epkgs.markdown-mode
+      #    epkgs.org-modern
+      #    epkgs.org-roam
+      #    epkgs.org-roam-bibtex
+      #    epkgs.org-roam-timestamps
+      #    epkgs.org-roam-ui
+      #    epkgs.typescript-mode
+      #  ];
+      #};
       firefox = {
         enable = true;
         package = pkgs.firefox-bin;
