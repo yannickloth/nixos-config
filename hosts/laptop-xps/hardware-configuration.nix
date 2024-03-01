@@ -22,7 +22,7 @@
         devices.luks_swap.device = "/dev/disk/by-uuid/0fac828e-7388-4ce7-8d7d-3713c40d1e75"; # encrypted swap partition
       };
     };
-    kernelModules = [ "kvm-intel" ];
+    kernelModules = [ "kvm-intel" "iwlwifi"];
     kernelParams = [
       "i915.enable_fbc=1"
       "i915.enable_psr=2"
