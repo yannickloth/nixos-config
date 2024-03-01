@@ -54,6 +54,7 @@
         kodi
         krita
         libsForQt5.elisa
+        libsForQt5.filelight
         libsForQt5.ksudoku # Sudoku for KDE
         lua
         mastodon

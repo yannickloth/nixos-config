@@ -37,6 +37,7 @@
         kodi
         krita
         libsForQt5.elisa
+        libsForQt5.filelight
         libsForQt5.ksudoku # Sudoku for KDE
         microsoft-edge
         obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
