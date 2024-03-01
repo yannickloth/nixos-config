@@ -135,8 +135,8 @@
     netcat-gnu
 
     ### LibreOffice
-    #libreoffice-qt
-    libreoffice-fresh
+    libreoffice-qt
+    #libreoffice-fresh
     hunspell
     hunspellDicts.nl_nl
     hunspellDicts.fr-moderne
