@@ -35,23 +35,31 @@ with lib;
         # Export configuration, so it's easier to debug
         exportConfiguration = true;
 
-        # Configure keymap in X11
-        xkb.layout = "be";
-        xkb.variant = "";
+      # Configure keymap in X11
+      xkb.layout = "be";
+      xkb.variant = "";
 
-        # Enable touchpad support (enabled default in most desktopManager).
-        libinput.enable = lib.mkDefault true;
-      
-        desktopManager = {
-          gnome = {
-            enable = false;
-          };
-          xterm.enable = false;
+      desktopManager = {
+       gnome = {
+          enable = false;
         };
-        displayManager = {
-          gdm = {
-            enable = false;
-          };
+        # Enable the KDE Plasma Desktop Environment.
+        # plasma5 = {
+        #   enable = false;
+        # };
+        plasma6 = {
+           enable = true;
+        };
+        xterm.enable = false;
+      };
+      displayManager = {
+        gdm = {
+          enable = false;
+        };
+        sddm = {
+          autoNumlock = true;
+          enable = true;
+          wayland.enable = false;
         };
       };
     };
