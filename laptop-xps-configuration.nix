@@ -84,7 +84,7 @@
     fuseiso
     #geogebra
     geogebra6
-    gitFull
+    #gitFull
     gnome.simple-scan
     gnome.gnome-tweaks
     gparted
@@ -94,7 +94,7 @@
     libsForQt5.kfind
     lightly-boehs # QT application theme
     p7zip # A new p7zip fork with additional codecs and improvements
-    peazip # Cross-platform file and archive manager
+    #peazip # Cross-platform file and archive manager
     ocrmypdf
     qpwgraph # PipeWire graph manager
     shutter # Screenshot and annotation tool
