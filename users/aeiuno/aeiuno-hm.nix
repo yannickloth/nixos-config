@@ -19,7 +19,7 @@
         gnome.gnome-disk-utility
         flatpak
         fsearch
-        gimp-with-plugins
+        gimp
         gnome.gnome-software
         hunspellDicts.fr-any
         hunspellDicts.en_US-large
