@@ -33,8 +33,6 @@ with lib;
 
     boot.enableContainers = mkDefault true;
 
-    documentation.doc.enable = mkDefault true;
-
     system.nixos = {
       versionSuffix = mkDefault ".latest";
       revision = mkDefault "latest";
