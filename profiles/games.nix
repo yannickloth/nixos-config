@@ -20,7 +20,7 @@ with lib;
     endless-sky
     gcompris
     gogdl # GOG Downloading module for Heroic Games Launcher
-    hedgewars
+    #hedgewars # caution, is compiled for install
     heroic # A Native GOG, Epic, and Amazon Games Launcher for Linux, Windows and Mac
     #ioquake3
     libsForQt5.granatier
