@@ -33,11 +33,13 @@
         # keybase-gui
         kgraphviewer
         #kicad
+        kid3-qt # A simple and powerful audio tag editor
         kodi
         krita
         libsForQt5.elisa
         libsForQt5.ksudoku # Sudoku for KDE
         microsoft-edge
+        obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
         pantheon.sideload
         #podman-desktop
         qalculate-qt

@@ -50,6 +50,7 @@
         # keybase-gui
         kgraphviewer
         #kicad
+        kid3-qt # A simple and powerful audio tag editor
         kodi
         krita
         libsForQt5.elisa
@@ -58,6 +59,7 @@
         mastodon
         meld # Visual diff and merge tool
         microsoft-edge
+        obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
         pantheon.sideload
         plantuml
         podman-desktop
