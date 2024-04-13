@@ -101,14 +101,15 @@
     usbutils
     virt-manager
     virtiofsd
-    (masterpdfeditor.overrideAttrs (old: rec {
+    /* (masterpdfeditor.overrideAttrs (old: rec {
       pname = "masterpdfeditor-${version}";
       version = "5.8.70";
       src = fetchurl {
         url = "https://code-industry.net/public/master-pdf-editor-${version}-qt5.x86_64.tar.gz";
         sha256 = "sha256-mheHvHU7Z1jUxFWEEfXv2kVO51t/edTK3xV82iteUXM=";
       };
-    }))
+    })) */
+    masterpdfeditor
 #     (softmaker-office.override {
 #       officeVersion = {
 # #         # 2018
