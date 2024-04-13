@@ -29,7 +29,7 @@ with lib;
       ../../profiles/firmware.nix
       ../../profiles/flatpak.nix
       ../../profiles/games.nix
-      ../../profiles/gnome.nix
+      #../../profiles/gnome.nix
       ../../profiles/gstreamer.nix
       ../../profiles/java.nix
       ../../profiles/jitsi-meet.nix
