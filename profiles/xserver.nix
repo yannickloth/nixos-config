@@ -47,19 +47,11 @@ with lib;
         # plasma5 = {
         #   enable = false;
         # };
-        plasma6 = {
-           enable = true;
-        };
         xterm.enable = false;
         };
         displayManager = {
           gdm = {
             enable = false;
-          };
-          sddm = {
-            autoNumlock = true;
-            enable = true;
-            wayland.enable = false;
           };
         };
       };
