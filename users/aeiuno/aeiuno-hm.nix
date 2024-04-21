@@ -5,6 +5,7 @@
     home = {
       packages = with pkgs; [
         amarok
+        anki-bin
         (aspellWithDicts (dicts: with dicts; [ en en-computers en-science de fr nl wa])) # for emacs
         audacious
         audacious-plugins
