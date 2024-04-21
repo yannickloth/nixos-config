@@ -35,14 +35,14 @@ with lib;
         # Export configuration, so it's easier to debug
         exportConfiguration = true;
 
-      # Configure keymap in X11
-      xkb.layout = "be";
-      xkb.variant = "";
+        # Configure keymap in X11
+        xkb.layout = "be";
+        xkb.variant = "";
 
-      desktopManager = {
-       gnome = {
-          enable = false;
-        };
+        desktopManager = {
+          gnome = {
+            enable = false;
+          };
         # Enable the KDE Plasma Desktop Environment.
         # plasma5 = {
         #   enable = false;
@@ -51,19 +51,19 @@ with lib;
            enable = true;
         };
         xterm.enable = false;
-      };
-      displayManager = {
-        gdm = {
-          enable = false;
         };
-        sddm = {
-          autoNumlock = true;
-          enable = true;
-          wayland.enable = false;
+        displayManager = {
+          gdm = {
+            enable = false;
+          };
+          sddm = {
+            autoNumlock = true;
+            enable = true;
+            wayland.enable = false;
+          };
         };
       };
     };
-    
     security = {
       pam.services.aeiuno.enableKwallet = true;
       pam.services.nicky.enableKwallet = true;
