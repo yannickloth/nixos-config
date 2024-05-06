@@ -82,7 +82,7 @@
     fuse3
     fuseiso
     #geogebra
-    geogebra6
+    #geogebra6
     #gitFull
     gnome.gnome-tweaks
     gnome.simple-scan
@@ -97,15 +97,36 @@
     usbutils
     virt-manager
     virtiofsd
-    /* (masterpdfeditor.overrideAttrs (old: rec {
-      pname = "masterpdfeditor-${version}";
+    (masterpdfeditor.overrideAttrs (old: rec {
+      pname = "masterpdfeditor";
       version = "5.8.70";
       src = fetchurl {
         url = "https://code-industry.net/public/master-pdf-editor-${version}-qt5.x86_64.tar.gz";
         sha256 = "sha256-mheHvHU7Z1jUxFWEEfXv2kVO51t/edTK3xV82iteUXM=";
       };
-    })) */
-    masterpdfeditor
+      # I don't know why the installPhase must be overridden, but without it, the script does not find license_en.txt (which it shouldn't even try to use...) and fails.
+      installPhase = ''
+        runHook preInstall
+
+        p=$out/opt/masterpdfeditor
+        mkdir -p $out/bin
+
+        substituteInPlace masterpdfeditor5.desktop \
+          --replace 'Exec=/opt/master-pdf-editor-5' "Exec=$out/bin" \
+          --replace 'Path=/opt/master-pdf-editor-5' "Path=$out/bin" \
+          --replace 'Icon=/opt/master-pdf-editor-5' "Icon=$out/share/pixmaps"
+
+        install -Dm644 -t $out/share/pixmaps      masterpdfeditor5.png
+        echo -e '\nStartupWMClass=net.code-industry.masterpdfeditor5' >> masterpdfeditor5.desktop
+        install -Dm644 -t $out/share/applications masterpdfeditor5.desktop
+        install -Dm755 -t $p                      masterpdfeditor5
+        install -Dm644 license.txt $out/share/$name/LICENSE
+        ln -s $p/masterpdfeditor5 $out/bin/masterpdfeditor5
+        cp -v -r stamps templates lang fonts $p
+
+        runHook postInstall
+      '';
+    }))
 #     (softmaker-office.override {
 #       officeVersion = {
 # #         # 2018
