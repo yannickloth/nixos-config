@@ -28,7 +28,7 @@
         hunspellDicts.de_DE
         inkscape-with-extensions
         jellyfin-media-player
-        joplin-desktop
+        #joplin-desktop
         kate
         keepassxc
         # keybase-gui
