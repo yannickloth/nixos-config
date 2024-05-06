@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 let
   nestor_internal_ip = "192.168.190.100";
 in
@@ -31,8 +31,8 @@ in
     securityType = "user";
     extraConfig = ''
         workgroup = WORKGROUP
-        server string = laptop-xps
-        netbios name = laptop-xps
+        server string = ${config.networking.hostName}
+        netbios name = ${config.networking.hostName}
         security = user
         #use sendfile = yes
         #max protocol = smb2
@@ -97,7 +97,7 @@ in
   samba-wsdd = {
     enable = true; # make shares visible for windows 10 clients
     discovery = true;
-    hostname = "laptop-xps";
+    hostname = "${config.networking.hostName}";
     # openFirewall = true;
     workgroup = "WORKGROUP";
   };
