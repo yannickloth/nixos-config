@@ -23,6 +23,7 @@
       };
     };
     kernelModules = [ "kvm-intel" "iwlwifi"];
+    kernelPackages = pkgs.linuxKernel.packages.linux_lqx;
     kernelParams = [
       "i915.enable_fbc=1"
       "i915.enable_psr=2"

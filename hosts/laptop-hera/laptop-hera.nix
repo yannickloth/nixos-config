@@ -24,7 +24,7 @@ with lib;
       ../../profiles/avahi.nix
       ../../profiles/bluetooth.nix
       ../../profiles/clamav.nix
-      #../../profiles/corsair.nix
+      ../../profiles/corsair.nix
       ../../profiles/firmware.nix
       ../../profiles/flatpak.nix
       #../../profiles/gnome.nix
