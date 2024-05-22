@@ -41,7 +41,7 @@ with lib;
   };
   environment.systemPackages = with pkgs; [
     boxbuddy # An unofficial GUI for managing your Distroboxes, written with GTK4 + Libadwaita
-    displaylink # Synaptics DisplayLink DL-5xxx, DL-41xx and DL-3x00 Driver for Linux. https://www.synaptics.com/products/displaylink-graphics
+    # displaylink # Synaptics DisplayLink DL-5xxx, DL-41xx and DL-3x00 Driver for Linux. https://www.synaptics.com/products/displaylink-graphics
     distrobox # Wrapper around podman or docker to create and start containers
     duperemove # A simple tool for finding duplicated extents and submitting them for deduplication
     endless-sky
