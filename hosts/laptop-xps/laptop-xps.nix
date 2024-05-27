@@ -21,6 +21,7 @@ with lib;
       
       ../../profiles/i18n/fr_BE.nix
       ../../profiles/android.nix
+      ../../profiles/appimage.nix
       ../../profiles/avahi.nix
       ../../profiles/bluetooth.nix
       ../../profiles/clamav.nix
@@ -30,6 +31,7 @@ with lib;
       ../../profiles/flatpak.nix
       ../../profiles/games.nix
       #../../profiles/gnome.nix
+      ../../profiles/go-scripting.nix
       ../../profiles/gstreamer.nix
       ../../profiles/java.nix
       ../../profiles/jitsi-meet.nix

@@ -21,6 +21,7 @@ with lib;
       
       ../../profiles/i18n/fr_BE.nix
       ../../profiles/android.nix
+      ../../profiles/appimage.nix
       ../../profiles/avahi.nix
       ../../profiles/bluetooth.nix
       ../../profiles/clamav.nix
