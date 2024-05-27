@@ -31,7 +31,7 @@ with lib;
       ../../profiles/flatpak.nix
       ../../profiles/games.nix
       #../../profiles/gnome.nix
-      ../../profiles/go-scripting.nix
+      #../../profiles/go-scripting.nix
       ../../profiles/gstreamer.nix
       ../../profiles/java.nix
       ../../profiles/jitsi-meet.nix
