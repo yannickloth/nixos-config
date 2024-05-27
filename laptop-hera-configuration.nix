@@ -94,6 +94,7 @@
     lightly-boehs # QT application theme
     ocrmypdf
     qpwgraph # PipeWire graph manager
+    shellcheck # Shell script analysis tool
     usbutils
     virt-manager
     virtiofsd

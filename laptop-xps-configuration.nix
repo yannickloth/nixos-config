@@ -100,7 +100,8 @@
     #peazip # Cross-platform file and archive manager
     ocrmypdf
     qpwgraph # PipeWire graph manager
-    shutter # Screenshot and annotation tool
+    shellcheck # Shell script analysis tool
+    # shutter # Screenshot and annotation tool
     usbutils
     virt-manager
     virtiofsd
