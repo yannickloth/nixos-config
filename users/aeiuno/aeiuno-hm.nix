@@ -61,18 +61,10 @@
         MOZ_ENABLE_WAYLAND = 1; # for Firefox in Wayland sessions
         NIXOS_OZONE_WL = "1"; # for Electron apps in Wayland sessions (VSCode, Chrome...)
       };
-      shellAliases = {
+      /*shellAliases = {
         ls = "lsd"; # replace ls by lsd
         ll = "ls -lha";
-        l = "ls -l";
-        la = "ls -a";
-        lla = "ls -la";
-        lt = "lsd --tree"; # --tree is not supported by 'ls', so in any case when ls is not aliased to lsd, 'lsd --tree' will continue to work
-        ".." = "cd ..";
-        nrs = "sudo nixos-rebuild switch";
-        nrsu = "sudo nixos-rebuild switch --upgrade";
-        myip = "curl ipinfo.io/ip"; # print public IPv4 address
-      };
+      };*/
       stateVersion = "23.05"; /* The home.stateVersion option does not have a default and must be set */
     };
     

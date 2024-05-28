@@ -201,9 +201,6 @@
     "teams-1.5.00.23861"
   ];
 
-  security = {
-    sudo.wheelNeedsPassword = false;
-  };
   #programs.firefox.enable=true;
   #programs.firefox.package=pkgs.librewolf;
   nixpkgs.config.firefox.enablePlasmaBrowserIntegration = true; # enabled by default with Plasma

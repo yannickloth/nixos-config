@@ -53,6 +53,7 @@ with lib;
       ../../profiles/shell.nix
       ../../profiles/sonos.nix
       ../../profiles/steam.nix
+      ../../profiles/sudo.nix
       #../../profiles/syncthing/syncthing.nix
       ../../profiles/tor.nix
       #../../profiles/virtualbox.nix

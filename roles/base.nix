@@ -44,7 +44,7 @@ with lib;
     # enable fstrim on all systems, running fstrim weekly is a good practice
     services.fstrim.enable = mkDefault true;
 
-    # replace ntpd by chrony
+    # replace ntpd by chrony on all systems
     services.chrony = {
       enable = mkDefault true;
     };
