@@ -86,6 +86,7 @@
         whitesur-gtk-theme
         xmind
         xplorer # A customizable, modern file manager
+        zeal-qt6
         zoom-us
         zotero
       ];
