@@ -96,6 +96,8 @@
     lightly-boehs # QT application theme
     mtpaint
     mypaint
+    nixd # Nix language server
+    nixdoc # Generate documentation for Nix functions
     p7zip # A new p7zip fork with additional codecs and improvements
     #peazip # Cross-platform file and archive manager
     ocrmypdf

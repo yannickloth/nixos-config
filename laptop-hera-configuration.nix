@@ -92,6 +92,8 @@
     libsForQt5.kig
     libsForQt5.kfind
     lightly-boehs # QT application theme
+    nixd # Nix language server
+    nixdoc # Generate documentation for Nix functions
     ocrmypdf
     qpwgraph # PipeWire graph manager
     shellcheck # Shell script analysis tool
