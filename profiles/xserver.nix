@@ -86,6 +86,7 @@ with lib;
         encode-sans
         garamond-libre
         gelasio
+        gnome.adwaita-icon-theme # for apps like simple-scan
         gyre-fonts
         hasklig
         inconsolata-nerdfont
