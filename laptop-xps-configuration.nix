@@ -104,6 +104,7 @@
     qpwgraph # PipeWire graph manager
     shellcheck # Shell script analysis tool
     # shutter # Screenshot and annotation tool
+    smplayer
     usbutils
     virt-manager
     virtiofsd
