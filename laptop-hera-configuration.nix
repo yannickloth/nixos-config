@@ -215,7 +215,7 @@
 
   programs = {
     bash = {
-      enableCompletion=true;
+      completion.enable=true;
 #      interactiveShellInit= ''
 #        eval "$(direnv hook bash)"
 #      '';
