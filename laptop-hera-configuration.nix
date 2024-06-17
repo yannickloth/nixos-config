@@ -97,6 +97,7 @@
     ocrmypdf
     qpwgraph # PipeWire graph manager
     shellcheck # Shell script analysis tool
+    smplayer
     usbutils
     virt-manager
     virtiofsd

@@ -8,7 +8,7 @@
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
   };
 
-  outputs = inputs@{ self, nixpkgs, home-manager, nixos-hardware, ... }: {
+  outputs = inputs@{ self, nixpkgs, home-manager, nixos-hardware,... }: {
     nixosConfigurations = {
       laptop-hera = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
@@ -39,6 +39,7 @@
             # Optionally, use home-manager.extraSpecialArgs to pass
             # arguments to home.nix
           }
+          
           nixos-hardware.nixosModules.dell-xps-13-9360
         ];
       };
