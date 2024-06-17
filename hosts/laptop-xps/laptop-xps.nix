@@ -35,7 +35,7 @@ with lib;
       ../../profiles/gstreamer.nix
       ../../profiles/java.nix
       ../../profiles/jitsi-meet.nix
-      ../../profiles/kubernetes.nix
+      #../../profiles/kubernetes.nix
       ../../profiles/libvirt.nix
       ../../profiles/network-manager.nix
       ../../profiles/nix.nix
