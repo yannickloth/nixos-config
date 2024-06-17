@@ -20,7 +20,7 @@ with lib;
     boot.tmp.cleanOnBoot = mkDefault true;
 
     # enable NTFS support
-    boot.supportedFilesystems = [ "ntfs" ];
+    boot.supportedFilesystems = [ "bcachefs" "ntfs" ];
 
     # i think apple will sue me before oss does
     nixpkgs.config.allowUnfree = true;
