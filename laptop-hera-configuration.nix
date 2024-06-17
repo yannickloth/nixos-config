@@ -95,6 +95,8 @@
     nixd # Nix language server
     nixdoc # Generate documentation for Nix functions
     ocrmypdf
+    p7zip # A new p7zip fork with additional codecs and improvements
+    pandoc
     qpwgraph # PipeWire graph manager
     shellcheck # Shell script analysis tool
     smplayer
