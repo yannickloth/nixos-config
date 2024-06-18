@@ -2,6 +2,9 @@
 
 with lib;
 {
-  programs.java.enable = true;
-  programs.java.package = pkgs.jdk21;
+  programs.java = {
+    enable = true;
+    package = pkgs.jdk22;
+    binfmt = true;
+  };
 }
