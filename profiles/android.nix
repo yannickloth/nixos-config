@@ -3,7 +3,6 @@
 with lib;
 {
   programs.adb.enable = true;
-  users.users.nicky.extraGroups = ["adbusers"];
   environment.systemPackages = with pkgs; [
     android-studio
     android-tools

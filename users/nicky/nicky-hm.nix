@@ -90,6 +90,11 @@
         zoom-us
         zotero
       ];
+      pointerCursor = { # For virt-manager in Wayland, cf. https://wiki.nixos.org/wiki/Virt-manager#Wayland
+        gtk.enable = true;
+        package = pkgs.vanilla-dmz;
+        name = "Vanilla-DMZ";
+      };
       sessionVariables = {
         MOZ_ENABLE_WAYLAND = 1; # for Firefox in Wayland sessions
         NIXOS_OZONE_WL = "1"; # for Electron apps in Wayland sessions (VSCode, Chrome...)
