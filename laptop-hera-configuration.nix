@@ -84,8 +84,7 @@
     #geogebra
     #geogebra6
     #gitFull
-    gnome.gnome-tweaks
-    gnome.simple-scan
+    gnome-tweaks
     gparted
     htop
     killall
@@ -99,6 +98,7 @@
     pandoc
     qpwgraph # PipeWire graph manager
     shellcheck # Shell script analysis tool
+    simple-scan
     smplayer
     usbutils
     virt-manager

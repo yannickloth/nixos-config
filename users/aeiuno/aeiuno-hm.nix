@@ -17,7 +17,7 @@
         drawio
         freac
         freecad
-        gnome.gnome-disk-utility
+        gnome-disk-utility
         flatpak
         fsearch
         gimp
@@ -55,6 +55,7 @@
         #vivaldi
         #vivaldi-ffmpeg-codecs
         vlc
+        zed-editor # High-performance, multiplayer code editor from the creators of Atom and Tree-sitter
         zotero
       ];
       sessionVariables = {

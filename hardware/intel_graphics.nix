@@ -2,17 +2,19 @@
 
 {
   hardware = {
-    opengl = {
-      driSupport = true;
+    graphics = {
       enable = true;
+      enable32Bit = true;
       extraPackages = with pkgs; [
-        intel-compute-runtime
+        intel-compute-runtime # OpenCL filter support (hardware tone²mapping and subtitle burn-in)
         intel-media-driver
         intel-ocl
-        vaapiIntel
-        vaapiVdpau
+        intel-vaapi-driver
+        libva-vdpau-driver
         libvdpau-va-gl
-        intel-compute-runtime # OpenCL filter support (hardware tone²mapping and subtitle burn-in)
+        vaapi-intel-hybrid
+        #vaapiIntel
+        #vaapiVdpau
       ];
     };
   };

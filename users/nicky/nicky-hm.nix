@@ -28,7 +28,7 @@
         #(pkgs.callPackage ./packages/development/ffmpeg/default.nix) # A complete, cross-platform solution to record, convert and stream audio and video
         freac
         freecad
-        gnome.gnome-disk-utility
+        gnome-disk-utility
         #jetbrains-toolbox
         #jetbrains.clion
         jetbrains.datagrip
@@ -87,6 +87,7 @@
         xmind
         xplorer # A customizable, modern file manager
         zeal-qt6
+        zed-editor # High-performance, multiplayer code editor from the creators of Atom and Tree-sitter
         zoom-us
         zotero
       ];

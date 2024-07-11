@@ -85,8 +85,7 @@
     #geogebra
     #geogebra6
     #gitFull
-    gnome.simple-scan
-    gnome.gnome-tweaks
+    gnome-tweaks
     gparted
     htop
     kdePackages.kolourpaint
@@ -105,6 +104,7 @@
     qpwgraph # PipeWire graph manager
     shellcheck # Shell script analysis tool
     # shutter # Screenshot and annotation tool
+    simple-scan
     smplayer
     usbutils
     virt-manager
