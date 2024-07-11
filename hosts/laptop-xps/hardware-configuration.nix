@@ -69,9 +69,7 @@
     VDPAU_DRIVER = lib.mkIf config.hardware.graphics.enable (lib.mkDefault "va_gl");
   };
   hardware.graphics.extraPackages = with pkgs; [
-    (if (lib.versionOlder (lib.versions.majorMinor lib.version) "23.11") then vaapiIntel else intel-vaapi-driver)
-    libvdpau-va-gl
-    intel-media-driver
+    intel-media-sdk # for Kaby Lake Intel Iris® Plus Graphics 640 (XPS 9360)
   ];
   # This will save you money and possibly your life!
   services.thermald.enable = true;
