@@ -84,10 +84,6 @@
         vlc
         whatsapp-for-linux
         whitesur-gtk-theme
-        xmind
-        xplorer # A customizable, modern file manager
-        zeal-qt6
-        zed-editor # High-performance, multiplayer code editor from the creators of Atom and Tree-sitter
         zoom-us
         zotero
       ];
@@ -119,6 +115,11 @@
 #           hunspellDicts.en_GB-large
 #           hunspellDicts.de_DE
 #         ];
+        commandLineArgs = [
+            "--enable-features=VaapiVideoDecodeLinuxGL"
+            "--ignore-gpu-blocklist"
+            "--enable-zero-copy"
+        ];
       };
       command-not-found = {
         enable = true;

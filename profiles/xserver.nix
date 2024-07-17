@@ -90,6 +90,7 @@ with lib;
         gyre-fonts
         hasklig
         inconsolata-nerdfont
+        intel-one-mono # Intel One Mono, an expressive monospaced font family that’s built with clarity, legibility, and the needs of developers in mind.
         iosevka
         iosevka-comfy.comfy
         liberation_ttf

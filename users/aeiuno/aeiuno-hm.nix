@@ -81,6 +81,11 @@
 #           hunspellDicts.en_GB-large
 #           hunspellDicts.de_DE
 #         ];
+        commandLineArgs = [
+            "--enable-features=VaapiVideoDecodeLinuxGL"
+            "--ignore-gpu-blocklist"
+            "--enable-zero-copy"
+        ];
       };
       command-not-found = {
         enable = true;

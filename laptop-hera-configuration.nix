@@ -60,7 +60,7 @@
     fzy # fuzzy finder
     hex # color hexdump
     inotify-tools # inotify-tools is a C library and a set of command-line programs for Linux providing a simple interface to inotify.  
-    lsd # ls
+    iw # Wireless interface config tool using nl80211.
     # ripgrep-all # ripgrep also file contents
     rm-improved
     unzip
@@ -74,7 +74,6 @@
     wayland-utils
     ###
 
-    brave
     direnv # for lorri
     nix-direnv # for direnv
     distrobox
@@ -91,6 +90,7 @@
     libsForQt5.kig
     libsForQt5.kfind
     lightly-boehs # QT application theme
+    mpv
     nixd # Nix language server
     nixdoc # Generate documentation for Nix functions
     ocrmypdf
