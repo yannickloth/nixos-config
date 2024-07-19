@@ -29,12 +29,15 @@
         freac
         freecad
         gnome-disk-utility
-        #jetbrains-toolbox
+        jetbrains-toolbox
         #jetbrains.clion
         jetbrains.datagrip
+        jetbrains.dataspell
         #jetbrains.goland
         jetbrains.idea-ultimate
+        jetbrains.pycharm-professional
         jetbrains.rider
+        jupyter-all
         flatpak
         fsearch
         gimp
