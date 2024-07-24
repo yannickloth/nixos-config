@@ -3,7 +3,7 @@
 
 {
   # Enable sound with pipewire.
-  sound.enable = true;
+  #sound.enable = true; # used only for ALSA
   hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
   services.pipewire = {
@@ -18,7 +18,17 @@
     # no need to redefine it in your config for now)
     #media-session.enable = true;
 
-    wireplumber.enable = true;
+    wireplumber = {
+      enable = true;
+      extraConfig.bluetoothEnhancements = {
+        "monitor.bluez.properties" = {
+          "bluez5.enable-sbc-xq" = true;
+          "bluez5.enable-msbc" = true;
+          "bluez5.enable-hw-volume" = true;
+          "bluez5.roles" = [ "hsp_hs" "hsp_ag" "hfp_hf" "hfp_ag" ];
+        };
+      };
+    };
   };
   environment.etc = let json = pkgs.formats.json {}; in {
 	  #"wireplumber/bluetooth.lua.d/51-bluez-config.lua".text = ''
