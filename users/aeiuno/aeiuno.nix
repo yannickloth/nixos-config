@@ -10,12 +10,11 @@ in
       name = username;
     };
     users.aeiuno = {
-      createHome = true;
+      isNormalUser = true; # isNormalUser = true; # Indicates whether this is an account for a “real” user. This automatically sets group to users, createHome to true, home to /home/«username», useDefaultShell to true, and isSystemUser to false. Exactly one of isNormalUser and isSystemUser must be true.
       hashedPassword = "$2b$05$YGHKsI8io3H9wIbbN8KwAOX5woC8hZItpSAmLLcxG0sPdO6akjht2";
-      isNormalUser = true;
       description = userDescription;
       extraGroups = [
-                      "wheel"
+                      "users" "wheel"
                     ]
                     ++ (if (config.programs.gamemode.enable == true) then [ "gamemode" ] else []) # for gamemode CPU governor setting
                     ++ (if (config.networking.networkmanager.enable == true) then [ "networkmanager" ] else [])

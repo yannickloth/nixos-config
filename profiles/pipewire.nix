@@ -5,7 +5,7 @@
   # Enable sound with pipewire.
   #sound.enable = true; # used only for ALSA
   hardware.pulseaudio.enable = false;
-  security.rtkit.enable = true;
+  security.rtkit.enable = true; # rtkit is optional but recommended for pipewire
   services.pipewire = {
     enable = true;
     alsa.enable = true;
@@ -30,7 +30,7 @@
       };
     };
   };
-  environment.etc = let json = pkgs.formats.json {}; in {
+  #environment.etc = let json = pkgs.formats.json {}; in {
 	  #"wireplumber/bluetooth.lua.d/51-bluez-config.lua".text = ''
 		#  bluez_monitor.properties = {
 		#	  ["bluez5.enable-sbc-xq"] = true,
@@ -66,7 +66,7 @@
     #     resample.quality = 1;
     #   };
     # };
-  };
+  #};
   environment.systemPackages = with pkgs; [
     helvum
     jamesdsp
