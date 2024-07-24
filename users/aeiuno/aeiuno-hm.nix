@@ -39,8 +39,7 @@
         krita
         libsForQt5.elisa
         libsForQt5.filelight
-        libsForQt5.ksudoku # Sudoku for KDE
-        microsoft-edge
+        #microsoft-edge
         obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
         pantheon.sideload
         #podman-desktop
@@ -55,7 +54,6 @@
         #vivaldi
         #vivaldi-ffmpeg-codecs
         vlc
-        zed-editor # High-performance, multiplayer code editor from the creators of Atom and Tree-sitter
         zotero
       ];
       sessionVariables = {

@@ -12,6 +12,7 @@
         audacity
         bottles
         calibre
+        conda # Conda is a package manager for Python
         xfce.catfish
         curlFull
         devbox
@@ -31,13 +32,12 @@
         gnome-disk-utility
         jetbrains-toolbox
         #jetbrains.clion
-        jetbrains.datagrip
-        jetbrains.dataspell
+        #jetbrains.datagrip
+        #jetbrains.dataspell
         #jetbrains.goland
-        jetbrains.idea-ultimate
-        jetbrains.pycharm-professional
-        jetbrains.rider
-        jupyter-all
+        #jetbrains.idea-ultimate
+        #jetbrains.pycharm-professional
+        #jetbrains.rider
         flatpak
         fsearch
         gimp
@@ -49,6 +49,7 @@
         inkscape-with-extensions
         jellyfin-media-player
         #joplin-desktop
+        jupyter-all
         kate
         keepassxc
         # keybase-gui
@@ -59,21 +60,23 @@
         krita
         libsForQt5.elisa
         libsForQt5.filelight
-        libsForQt5.ksudoku # Sudoku for KDE
         lua
         mastodon
         meld # Visual diff and merge tool
-        microsoft-edge
+        # micromamba # Reimplementation of the conda package manager
+        #microsoft-edge
         obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
         pantheon.sideload
         plantuml
         podman-desktop
         powershell # Powerful cross-platform (Windows, Linux, and macOS) shell and scripting language based on .NET
+        python311Packages.ipykernel
         qalculate-qt
         recoll
+        rstudio # Set of integrated tools for the R language
         scrcpy
         scribus
-        setzer # LaTeX editor written in Python with Gtk
+        #setzer # LaTeX editor written in Python with Gtk
         signal-desktop
         skypeforlinux
         speechd # speech-dispatcher, useful for Firefox
@@ -81,7 +84,10 @@
         szyszka # A simple but powerful and fast bulk file renamer
         #teams-for-linux
         thunderbird
+        tinymist # Tinymist is an integrated language service for Typst
         tuner
+        typst # New markup-based typesetting system that is powerful and easy to learn
+        #typst-lsp # Brand-new language server for Typst
         vivaldi
         vivaldi-ffmpeg-codecs
         vlc

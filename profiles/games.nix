@@ -62,6 +62,7 @@ with lib;
     libsForQt5.kmines
     libsForQt5.kpat
     libsForQt5.kshisen
+    libsForQt5.ksudoku # Sudoku for KDE
     lutris
     mangohud # A Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load and more
     obs-studio-plugins.obs-vkcapture # OBS Linux Vulkan/OpenGL game capture
