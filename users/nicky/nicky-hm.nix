@@ -65,6 +65,7 @@
         meld # Visual diff and merge tool
         # micromamba # Reimplementation of the conda package manager
         #microsoft-edge
+        musescore
         obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
         pantheon.sideload
         plantuml
@@ -88,6 +89,7 @@
         tuner
         typst # New markup-based typesetting system that is powerful and easy to learn
         #typst-lsp # Brand-new language server for Typst
+        typstyle # Format your typst source code
         vivaldi
         vivaldi-ffmpeg-codecs
         vlc
