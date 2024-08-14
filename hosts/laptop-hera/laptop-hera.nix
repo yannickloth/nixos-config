@@ -37,6 +37,7 @@ with lib;
       ../../profiles/libvirt.nix
       ../../profiles/network-manager.nix
       ../../profiles/nix.nix
+      ../../profiles/nix-serve.nix
       ../../profiles/onedrive.nix
       ../../profiles/openssh.nix
       ../../profiles/pcscd.nix

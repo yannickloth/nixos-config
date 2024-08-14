@@ -15,10 +15,13 @@ with lib;
         sandbox = mkDefault true;
 
 #         # set explicit binary cache and add additional binary caches
-#         substituters = [
-#           "https://cache.nixos.org/"
-#           "https://xtruder-public.cachix.org"
-#         ];
+          substituters = [
+            "https://cache.nixos.org/"
+            #"https://xtruder-public.cachix.org"
+          ]
+          #++ (if (config.networking.hostName != "laptop-xps") then [ "http://laptop-xps.bee-blues.ts.net:5000/" ] else []) # any other hosts should use laptop-xps as a nix store cache
+          #++ (if (config.networking.hostName != "laptop-hera") then [ "http://laptop-hera.bee-blues.ts.net:5000/" ] else []) # any other hosts should use laptop-hera as a nix store cache
+          ;
 #         trusted-substituters = [
 #           "https://cache.nixos.org/"
 #           "https://xtruder-public.cachix.org"
