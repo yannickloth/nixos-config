@@ -33,7 +33,7 @@ with lib;
       #../../profiles/gnome.nix
       ../../profiles/gstreamer.nix
       ../../profiles/java.nix
-      ../../profiles/jitsi-meet.nix
+      #../../profiles/jitsi-meet.nix
       ../../profiles/libvirt.nix
       ../../profiles/network-manager.nix
       ../../profiles/nix.nix
