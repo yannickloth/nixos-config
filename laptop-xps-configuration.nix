@@ -55,7 +55,7 @@
     binutils
     bottom
     cht-sh # command-line cheat sheet
-    fcp
+    #fcp # Significantly faster alternative to the classic Unix cp(1) command
     fd # finder
     fzy # fuzzy finder
     hex # color hexdump
@@ -95,7 +95,7 @@
     lightly-boehs # QT application theme
     mpv
     mtpaint
-    mypaint
+    # mypaint
     nixd # Nix language server
     nixdoc # Generate documentation for Nix functions
     ocrmypdf
