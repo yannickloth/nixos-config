@@ -21,7 +21,7 @@
         flatpak
         fsearch
         gimp
-        gnome.gnome-software
+        gnome-software
         hunspellDicts.fr-any
         hunspellDicts.en_US-large
         hunspellDicts.en_GB-large
