@@ -20,7 +20,10 @@ with lib;
         sddm={
           autoNumlock = true;
           enable = true;
-          wayland.enable = false;
+          wayland = {
+            enable = true;
+            compositor = "kwin";
+          };
         };
       };
       # gnome.gnome-keyring.enable = lib.mkForce false;
@@ -77,8 +80,11 @@ with lib;
         enable = true;
       };
       packages = with pkgs; [
+        adwaita-icon-theme # for apps like simple-scan
         caladea
         carlito
+        charis-sil # Recommended by Matthew Butterick
+        cooper-hewitt # Recommended by Matthew Butterick
         corefonts
         courier-prime
         dejavu_fonts
@@ -86,11 +92,14 @@ with lib;
         encode-sans
         garamond-libre
         gelasio
-        adwaita-icon-theme # for apps like simple-scan
+        gentium #
+        gentium-book-basic #
         gyre-fonts
         hasklig
+        ibm-plex # Recommended by Matthew Butterick
         inconsolata-nerdfont
         intel-one-mono # Intel One Mono, an expressive monospaced font family that’s built with clarity, legibility, and the needs of developers in mind.
+        inter
         iosevka
         iosevka-comfy.comfy
         liberation_ttf
@@ -99,19 +108,22 @@ with lib;
         merriweather
         mplus-outline-fonts.githubRelease
         (nerdfonts.override { fonts = [ "FiraCode" "FiraMono" "DroidSansMono" "JetBrainsMono" "Noto" "ProFont" "RobotoMono" "Ubuntu" "UbuntuMono" "VictorMono" ]; })
-        noto-fonts-emoji
+        #noto-fonts-emoji
+        office-code-pro # Customized version of Source Code Pro. The customizations were made specifically for text editors and coding environments.
         open-sans
-        overpass
+        overpass # the open source typeface used by the Red Hat brand identity. 
         proggyfonts
         raleway
-        roboto
+        redhat-official-fonts
+        # roboto # no need for this, the inter font just looks better. https://mattwestcott.org/blog/an-ode-to-the-inter-typeface
         roboto-slab
+        sn-pro # SN Pro Font Family (https://supernotes.app/open-source/sn-pro/). SN Pro is a friendly sans serif typeface optimized for use with Markdown.
         source-code-pro
         source-sans-pro
         terminus_font
-        twemoji-color-font
-        twitter-color-emoji
-        vistafonts
+        #twemoji-color-font
+        #twitter-color-emoji
+        #vistafonts
         # whatsapp-emoji-font
       ];
     };
