@@ -41,7 +41,7 @@ with lib;
     '';
 
     # keep timezone updated to local time using geoclue
-    time.timeZone = "Europe/Luxembourg";
+    time.timeZone = lib.mkForce "Europe/Luxembourg"; # force because somewhere else this is set to null, and Nix does not know how to resolve the conflict
     services.localtimed.enable = true;
 
     # enable captive-browser, so we can connect to network that are secured
