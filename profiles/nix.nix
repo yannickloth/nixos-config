@@ -9,7 +9,7 @@ with lib;
     ];
 
     nix = {
-      package = mkDefault pkgs.nixFlakes;
+      package = mkDefault pkgs.nixVersions.stable;
       settings = {
         # do builds in sandbox by default
         sandbox = mkDefault true;
