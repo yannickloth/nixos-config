@@ -29,6 +29,7 @@ with lib;
       ../../profiles/corsair.nix
       ../../profiles/firmware.nix
       ../../profiles/flatpak.nix
+      ../../profiles/fonts.nix
       ../../profiles/games.nix
       #../../profiles/gnome.nix
       ../../profiles/gstreamer.nix
