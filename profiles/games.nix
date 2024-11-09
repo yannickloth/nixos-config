@@ -66,6 +66,7 @@ with lib;
     lutris
     mangohud # A Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load and more
     obs-studio-plugins.obs-vkcapture # OBS Linux Vulkan/OpenGL game capture
+    prismlauncher # Free, open source launcher for Minecraft
     protonup-qt # Install and manage Proton-GE and Luxtorpeda for Steam and Wine-GE for Lutris with this graphical user interface.
     ptyxis # A terminal for GNOME with first-class support for containers
     quake3e
