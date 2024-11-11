@@ -18,7 +18,7 @@ with lib;
     enableRenice = true; # Whether to enable CAP_SYS_NICE on gamemoded to support lowering process niceness.
     settings = {
       general = {
-        renice = 10;
+        renice = 1; # Unlike renicing a process with the renice command, GameMode uses a positive value and negates it before applying it to the process.
       };
 
       custom = {
@@ -75,10 +75,7 @@ with lib;
       # Change Java runtimes available to Prism Launcher
       jdks = [
         graalvm-ce
-        jdk17
-        jdk18
         jdk22
-        jdk23
       ];
     }) 
     protonup-qt # Install and manage Proton-GE and Luxtorpeda for Steam and Wine-GE for Lutris with this graphical user interface.
