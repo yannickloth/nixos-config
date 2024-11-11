@@ -13,7 +13,7 @@ with lib;
     #xpadneo.enable = true; # Whether to enable the xpadneo driver for Xbox One wireless controllers.
   };
   
-  programs.gamemode = {
+  programs.gamemode = { # https://wiki.nixos.org/wiki/GameMode
     enable = true; # Whether to enable GameMode to optimise system performance on demand.
     enableRenice = true; # Whether to enable CAP_SYS_NICE on gamemoded to support lowering process niceness.
     settings = {
@@ -45,6 +45,7 @@ with lib;
     distrobox # Wrapper around podman or docker to create and start containers
     duperemove # A simple tool for finding duplicated extents and submitting them for deduplication
     endless-sky
+    gamemode # Optimise Linux system performance on demand. CLI app.
     gcompris
     gogdl # GOG Downloading module for Heroic Games Launcher
     # handheld-daemon # Linux support for handheld gaming devices like the Legion Go, ROG Ally, and GPD Win
