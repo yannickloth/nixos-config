@@ -6,4 +6,6 @@ let typstPackages = with pkgs; [
         typst # New markup-based typesetting system that is powerful and easy to learn
         typstyle # Format your typst source code
       ];
-
+in {
+  config.environment.systemPackages = typstPackages;
+}
