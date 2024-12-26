@@ -27,6 +27,8 @@
     kernelParams = [
       "i915.enable_fbc=1"
       "i915.enable_psr=2"
+      "intel_iommu=on"
+      "iommu=force" # The driver will allocate or set aside some DMA memory, and tell the device to use it. But this is really a suggestion, the device can (either due to bugs or maliciously) actually use DMA to read and write any system memory it wants to (this includes naughty USB3 and Thunderbolt devices being able to potentially read out your system memory, although some newer USB3 and Thunderbolt controllers can block this on their own). iommu dmar (DMA Remapping) blocks these improper DMA accesses, and iommu=force makes sure it's turned on to do so. A prudent precaution for a secured system.
     ];
     kernel.sysctl = { "vm.swappiness" = 10; "fs.inotify.max_user_watches" = 2097152; };
   };
