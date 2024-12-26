@@ -45,6 +45,7 @@ with lib;
       ../../profiles/openssh.nix
       ../../profiles/pcscd.nix
       ../../profiles/pipewire.nix
+      ../../profiles/plasma.nix
       ../../profiles/plantuml.nix
       ../../profiles/podman.nix
       #../../profiles/postgresql.nix # containerized postgresql
