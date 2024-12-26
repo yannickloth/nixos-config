@@ -105,7 +105,7 @@
       # };
       sessionVariables = {
         MOZ_ENABLE_WAYLAND = 1; # for Firefox in Wayland sessions
-        NIXOS_OZONE_WL = "1"; # for Electron apps in Wayland sessions (VSCode, Chrome...)
+        # NIXOS_OZONE_WL = "1"; # for Electron apps in Wayland sessions (VSCode, Chrome...) # disabled because VSCode/Electron/Chromium does nothing with it (unknown option), except issue a warning about it being unknown.
       };
 #       shellAliases = {
 #         ls = "lsd"; # replace ls by lsd
