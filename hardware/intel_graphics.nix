@@ -13,7 +13,7 @@
       enable32Bit = true;
       extraPackages = with pkgs; [
         intel-compute-runtime # OpenCL filter support (hardware tone mapping and subtitle burn-in)
-        intel-media-driver
+        intel-media-driver # LIBVA_DRIVER_NAME=iHD
         intel-ocl
         (if (lib.versionOlder (lib.versions.majorMinor lib.version) "23.11") then vaapiIntel else intel-vaapi-driver)
         libdrm # Direct Rendering Manager library and headers
@@ -21,7 +21,7 @@
         libvdpau-va-gl # VDPAU implementation using VAAPI backend
       ];
       extraPackages32 = with pkgs.pkgsi686Linux; [ 
-        intel-media-driver
+        intel-media-driver # LIBVA_DRIVER_NAME=iHD
         (if (lib.versionOlder (lib.versions.majorMinor lib.version) "23.11") then vaapiIntel else intel-vaapi-driver)
         libdrm # Direct Rendering Manager library and headers
         libva # Implementation for VA-API (Video Acceleration API)
@@ -29,7 +29,7 @@
       ];
     };
   };
-  services.xserver.videoDrivers = [ "modesetting" ];
+  services.xserver.videoDrivers = [ "modesetting" "fbdev" ];
   security.wrappers = {
     intel-gpu-top = {
       owner = "root";
