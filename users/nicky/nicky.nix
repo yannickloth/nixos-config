@@ -19,7 +19,9 @@ in
                     ++ (if (config.programs.adb.enable == true) then [ "adbusers" ] else []) # for Android debugging
                     ++ (if (config.programs.gamemode.enable == true) then [ "gamemode" ] else []) # for gamemode CPU governor setting
                     ++ (if (config.networking.networkmanager.enable == true) then [ "networkmanager" ] else [])
-                    ++ (if (config.virtualisation.libvirtd.enable == true) then [ "kvm" "libvirtd" ] else [])
+                    ++ (if (config.virtualisation.libvirtd.enable == true) then [ 
+                      "kvm" # This allows users to access virtual sliced GPUs (Intel GVT-g) without root.
+                      "libvirtd" ] else [])
                     ++ (if (config.virtualisation.podman.enable == true) then [ "podman" ] else [])
                     ++ (if (config.hardware.sane.enable == true) then [ "lp" "scanner" ] else []) # for scanning
                     ++ (if (config.virtualisation.virtualbox.host.enable == true) then [ "vboxusers" ] else [])
