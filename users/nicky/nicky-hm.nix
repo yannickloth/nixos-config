@@ -1,9 +1,16 @@
 { config, pkgs, ... }:
 
 {
-  home-manager.users.nicky = { pkgs, ... }: {
+  home-manager.users.nicky = { pkgs, ... }: let typstPackages = with pkgs; [
+        tinymist # Tinymist is an integrated language service for Typst
+        typst # New markup-based typesetting system that is powerful and easy to learn
+        typstyle # Format your typst source code
+      ];
+      in  {
+    
     home = {
-      packages = with pkgs; [
+      
+      packages = with pkgs; typstPackages ++ [
         amarok
         anki-bin
         (aspellWithDicts (dicts: with dicts; [ en en-computers en-science de fr nl wa])) # for emacs
@@ -85,16 +92,13 @@
         szyszka # A simple but powerful and fast bulk file renamer
         #teams-for-linux
         thunderbird
-        tinymist # Tinymist is an integrated language service for Typst
         tuner
-        typst # New markup-based typesetting system that is powerful and easy to learn
-        #typst-lsp # Brand-new language server for Typst
-        typstyle # Format your typst source code
-        vivaldi
-        vivaldi-ffmpeg-codecs
+        # vivaldi
+        # vivaldi-ffmpeg-codecs
         vlc
         whatsapp-for-linux
         whitesur-gtk-theme
+        zeal-qt6 # Simple offline API documentation browser.
         zoom-us
         zotero
       ];
@@ -119,18 +123,19 @@
         enable = true;
       };
       chromium = {
-        enable = true;
+        commandLineArgs = [
+            "--enable-features=VaapiVideoDecodeLinuxGL"
+            "--ignore-gpu-blocklist"
+            "--enable-zero-copy"
+        ];
 #         dictionaries = with pkgs; [
 #           hunspellDicts.fr-any
 #           hunspellDicts.en_US-large
 #           hunspellDicts.en_GB-large
 #           hunspellDicts.de_DE
 #         ];
-        commandLineArgs = [
-            "--enable-features=VaapiVideoDecodeLinuxGL"
-            "--ignore-gpu-blocklist"
-            "--enable-zero-copy"
-        ];
+        enable = true;
+        #enablePlasmaBrowserIntegration = true;
       };
       command-not-found = {
         enable = true;
@@ -157,6 +162,7 @@
       #};
       firefox = {
         enable = true;
+        #nativeMessagingHosts.euwebid = true;
         package = pkgs.firefox-bin;
       };
       git = {
@@ -212,6 +218,9 @@
         enable = true;
         enableExtensionUpdateCheck = true;
         enableUpdateCheck = true;
+        #extensions = with pkgs; [
+        #  vscode-extensions.myriad-dreamin.tinymist
+        #];
         mutableExtensionsDir = true;
         userSettings = {
         };
