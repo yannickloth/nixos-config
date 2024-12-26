@@ -37,7 +37,6 @@ with lib;
         gyre-fonts
         hasklig
         ibm-plex # Recommended by Matthew Butterick
-        inconsolata-nerdfont
         intel-one-mono # Intel One Mono, an expressive monospaced font family that’s built with clarity, legibility, and the needs of developers in mind.
         inter
         iosevka
@@ -47,8 +46,17 @@ with lib;
         material-icons
         merriweather
         mplus-outline-fonts.githubRelease
-        (nerdfonts.override { fonts = [ "FiraCode" "FiraMono" "DroidSansMono" "JetBrainsMono" "Noto" "ProFont" "RobotoMono" "Ubuntu" "UbuntuMono" "VictorMono" ]; })
-        #noto-fonts-emoji
+        nerd-fonts.fira-code
+        nerd-fonts.fira-mono
+        nerd-fonts.droid-sans-mono
+        nerd-fonts.inconsolata
+        nerd-fonts.jetbrains-mono
+        nerd-fonts.noto
+        nerd-fonts.profont
+        nerd-fonts.roboto-mono
+        nerd-fonts.ubuntu
+        nerd-fonts.ubuntu-mono
+        nerd-fonts.victor-mono
         office-code-pro # Customized version of Source Code Pro. The customizations were made specifically for text editors and coding environments.
         open-sans
         overpass # the open source typeface used by the Red Hat brand identity. 
@@ -64,7 +72,7 @@ with lib;
         #twemoji-color-font
         #twitter-color-emoji
         #vistafonts
-        # whatsapp-emoji-font
+        #whatsapp-emoji-font
       ];
     };
   };
