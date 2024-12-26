@@ -26,7 +26,7 @@ in
 #           deviceUri = "ipp://${mfcl2700dw_ip}/ipp";
 #           model = "everywhere";
 #           description = pkgs.lib.replaceStrings [ "_" ] [ " " ] mfcl2700dw;
-#           location = "W31 1 Bureau";
+#           location = "B31 1 Bureau";
 #         }
 #         {
 #           name = xp15000;
@@ -34,7 +34,7 @@ in
 # #           model = "escpr2";
 #           model = "everywhere";
 #           description = pkgs.lib.replaceStrings [ "_" ] [ " " ] xp15000;
-#           location = "N5 1 Bureau";
+#           location = "B31 0 SàM";
 #         }
 #       ];
     };
