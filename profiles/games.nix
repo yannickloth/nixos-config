@@ -69,13 +69,17 @@ with lib;
     obs-studio-plugins.obs-vkcapture # OBS Linux Vulkan/OpenGL game capture
     (prismlauncher.override { # Free, open source launcher for Minecraft
       # Add binary required by some mod
-      additionalPrograms = [ ffmpeg ];
+      additionalPrograms = [ 
+        ffmpeg
+        optifine # Minecraft 1.21.1 optimization mod
+      ];
       controllerSupport = true; # default: stdenv.hostPlatform.isLinux. Turn on/off support for controllers on Linux.
       gamemodeSupport = true; # default: stdenv.hostPlatform.isLinux. Turn on/off support for GameMode on Linux.
       # Change Java runtimes available to Prism Launcher
       jdks = [
         graalvm-ce
-        jdk22
+        jdk
+        jdk23
       ];
     }) 
     protonup-qt # Install and manage Proton-GE and Luxtorpeda for Steam and Wine-GE for Lutris with this graphical user interface.
