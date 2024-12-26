@@ -33,7 +33,6 @@
   home-manager.useGlobalPkgs = true; # with this, HomeManager will use the same pkgs config as nixos, amongst others the same value for config.allowUnfree
 
 
-  environment.sessionVariables.NIXOS_OZONE_WL = "1";
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
 
   # Configure network proxy if necessary
@@ -50,6 +49,7 @@
     wget
     bash
     kmod
+    nixpkgs-fmt
 
     ### general purpose command-line tools
     binutils
@@ -208,7 +208,7 @@
 
   #programs.firefox.enable=true;
   #programs.firefox.package=pkgs.librewolf;
-  nixpkgs.config.firefox.enablePlasmaBrowserIntegration = true; # enabled by default with Plasma
+  #nixpkgs.config.firefox.enablePlasmaBrowserIntegration = true; # enabled by default with Plasma
   environment.sessionVariables = {
     MOZ_USE_XINPUT2 = "1"; # Makes Firefox use xinput2. This improves touchscreen support, enables additional touchpad gestures and enables smooth scrolling as opposed to the stepped scrolling that Firefox has by default.
   };
