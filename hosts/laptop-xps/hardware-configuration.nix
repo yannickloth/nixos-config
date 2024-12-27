@@ -73,7 +73,6 @@
   hardware.graphics.extraPackages = with pkgs; [
     intel-media-sdk # for Kaby Lake Intel Iris® Plus Graphics 640 (XPS 9360)
   ];
-  # This will save you money and possibly your life!
-  services.thermald.enable = true;
+  services.thermald.enable = true; # This will save you money and possibly your life! Prevents overheating on Intel CPUs and works well with other tools.
 
 }

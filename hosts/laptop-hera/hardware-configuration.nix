@@ -104,10 +104,8 @@
         fileSystems = [ "/" ];
       };
     };
-    # Load nvidia driver for Xorg and Wayland
-    xserver.videoDrivers = ["nvidia"];
-    # This will save you money and possibly your life!
-    thermald.enable = true;
+    xserver.videoDrivers = ["nvidia"]; # Load nvidia driver for Xorg and Wayland
+    thermald.enable = true; # This will save you money and possibly your life! Prevents overheating on Intel CPUs and works well with other tools.
   };
   
   # Enable graphics
