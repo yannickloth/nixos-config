@@ -5,8 +5,6 @@ with lib;
   imports =
   [
     # Include the results of the hardware scan.
-      #<nixpkgs/nixos/modules/services/hardware/sane_extra_backends/brscan4.nix>
-      #<home-manager/nixos>
       ./hardware-configuration.nix
 
       ../../nix-automatic-gc-7d.nix
@@ -16,6 +14,8 @@ with lib;
       ../../hardware/intel_cpu.nix
       ../../hardware/intel_graphics.nix
       ../../hardware/thunderbolt.nix
+      ../../hardware/printers/brother-mfcl2700dw.nix
+      ../../hardware/printers/epson-xp15000.nix
       
       ../../modules/xpad.nix
       
