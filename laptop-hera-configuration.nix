@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, lib,... }:
+{ config, pkgs, lib, ... }:
 
 {
   # This value determines the NixOS release from which the default
@@ -12,16 +12,17 @@
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "23.05"; # Did you read the comment?
-  
+
   imports =
-    [ # Include the results of the hardware scan.
+    [
+      # Include the results of the hardware scan.
       #<nixpkgs/nixos/modules/services/hardware/sane_extra_backends/brscan4.nix>
       #<home-manager/nixos>
 
       ./hosts/laptop-hera/laptop-hera.nix
-      
+
       ./modules/systemPackages.nix # commonalities: system packages
-      
+
       ./users/users.nix # commonalities
       ./users/cfo.nix # chief family officer group
       ./users/aeiuno/aeiuno.nix
@@ -41,7 +42,7 @@
 
   # Set your time zone.
   #time.timeZone = "Europe/Brussels";
-  
+
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
@@ -98,7 +99,6 @@
     pandoc
     qpwgraph # PipeWire graph manager
     shellcheck # Shell script analysis tool
-    simple-scan
     smplayer
     usbutils
     virt-manager
@@ -133,23 +133,25 @@
         runHook postInstall
       '';
     }))
-#     (softmaker-office.override {
-#       officeVersion = {
-# #         # 2018
-# #         edition = "2018";
-# #         version = "982";
-# #         hash = "sha256-A45q/irWxKTLszyd7Rv56WeqkwHtWg4zY9YVxqA/KmQ=";
-#         # 2021
-#         edition = "2021";
-#         version = "1064";
-#         hash = "sha256-UyA/Bl4K9lsvZsDsPPiy31unBnxOG8PVFH/qisQ85NM=";
-#       };
-#     })
-    (pkgs.callPackage ./packages/applications/office/softmaker/softmaker_office.nix { officeVersion = {
+    #     (softmaker-office.override {
+    #       officeVersion = {
+    # #         # 2018
+    # #         edition = "2018";
+    # #         version = "982";
+    # #         hash = "sha256-A45q/irWxKTLszyd7Rv56WeqkwHtWg4zY9YVxqA/KmQ=";
+    #         # 2021
+    #         edition = "2021";
+    #         version = "1064";
+    #         hash = "sha256-UyA/Bl4K9lsvZsDsPPiy31unBnxOG8PVFH/qisQ85NM=";
+    #       };
+    #     })
+    (pkgs.callPackage ./packages/applications/office/softmaker/softmaker_office.nix {
+      officeVersion = {
         edition = "2024";
         version = "1204";
         hash = "sha256-E58yjlrFe9uFiWY0nXoncIxDgvwXD+REfmmdSZvgTTU=";
-        }; })
+      };
+    })
     vlc
     xdg-utils
     libmicrodns # for playing from VLC onto ChromeCast
@@ -215,10 +217,10 @@
 
   programs = {
     bash = {
-      completion.enable=true;
-#      interactiveShellInit= ''
-#        eval "$(direnv hook bash)"
-#      '';
+      completion.enable = true;
+      #      interactiveShellInit= ''
+      #        eval "$(direnv hook bash)"
+      #      '';
     };
     command-not-found.enable = true; # Whether interactive shells should show which Nix package (if any) provides a missing command.
     nano = {
@@ -235,26 +237,25 @@
     };
     partition-manager.enable = true; # Whether to enable KDE Partition Manager.
   };
-  
+
   services = {
-    ananicy = { # Rewrite of ananicy (Another auto nice daemon, with community rules support) in C++ for lower cpu and memory usage.
+    ananicy = {
+      # Rewrite of ananicy (Another auto nice daemon, with community rules support) in C++ for lower cpu and memory usage.
       enable = true;
-	    package = pkgs.ananicy-cpp;
+      package = pkgs.ananicy-cpp;
     };
-    
-    # Enable the OpenSSH daemon.
-    openssh.enable = true;
-    syncthing.openDefaultPorts=true;
+
+    openssh.enable = true; # Enable the OpenSSH daemon.
+    syncthing.openDefaultPorts = true;
     tailscale.enable = true;
   };
 
   xdg.portal = {
     enable = true;
-    
-#     extraPortals = [
-#       pkgs.xdg-desktop-portal-gtk
-#       pkgs.xdg-desktop-portal-wlr
-#     ];
+    #     extraPortals = [
+    #       pkgs.xdg-desktop-portal-gtk
+    #       pkgs.xdg-desktop-portal-wlr
+    #     ];
     xdgOpenUsePortal = true;
   };
 }
