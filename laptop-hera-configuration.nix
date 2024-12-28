@@ -204,10 +204,6 @@
   #   enableSSHSupport = true;
   # };
 
-  nixpkgs.config.permittedInsecurePackages = [
-    "teams-1.5.00.23861"
-  ];
-
   #programs.firefox.enable=true;
   #programs.firefox.package=pkgs.librewolf;
   #nixpkgs.config.firefox.enablePlasmaBrowserIntegration = true; # enabled by default with Plasma
