@@ -90,7 +90,6 @@
         speechd # speech-dispatcher, useful for Firefox
         stellarium # Desktop planetarium
         szyszka # A simple but powerful and fast bulk file renamer
-        #teams-for-linux
         thunderbird
         tuner
         # vivaldi
@@ -160,11 +159,11 @@
       #    epkgs.typescript-mode
       #  ];
       #};
-      firefox = {
-        enable = true;
-        #nativeMessagingHosts.euwebid = true;
-        package = pkgs.firefox-bin;
-      };
+      # firefox = {
+      #   enable = true;
+      #   #nativeMessagingHosts.euwebid = true;
+      #   package = pkgs.firefox-bin;
+      # };
       git = {
         delta = {
           enable = true;

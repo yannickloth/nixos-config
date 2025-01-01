@@ -109,11 +109,11 @@
 #           epkgs.typescript-mode
 #         ];
 #       };
-      firefox = {
-        enable = true;
-        #nativeMessagingHosts=[euwebid ];
-        package = pkgs.firefox-bin;
-      };
+      # firefox = {
+      #   enable = true;
+      #   #nativeMessagingHosts=[euwebid ];
+      #   package = pkgs.firefox-bin;
+      # };
       git = {
         delta = {
           enable = true;

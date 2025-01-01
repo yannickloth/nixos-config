@@ -211,9 +211,6 @@
   #   enableSSHSupport = true;
   # };
 
-  #programs.firefox.enable=true;
-  #programs.firefox.package=pkgs.librewolf;
-  programs.firefox.nativeMessagingHosts.euwebid = true;
   #nixpkgs.config.firefox.enablePlasmaBrowserIntegration = true; # enabled by default with Plasma
   environment.sessionVariables = {
     MOZ_USE_XINPUT2 = "1"; # Makes Firefox use xinput2. This improves touchscreen support, enables additional touchpad gestures and enables smooth scrolling as opposed to the stepped scrolling that Firefox has by default.
@@ -227,6 +224,18 @@
       #      '';
     };
     command-not-found.enable = true; # Whether interactive shells should show which Nix package (if any) provides a missing command.
+    firefox = {
+      enable = true;
+      languagePacks = [
+        "de"
+        "en-GB"
+        "fr"
+      ];
+      nativeMessagingHosts.packages = [
+        pkgs.web-eid-app
+      ];
+      # package=pkgs.librewolf;
+    };
     nano = {
       nanorc = ''
         set autoindent
