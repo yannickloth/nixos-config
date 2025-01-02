@@ -55,6 +55,7 @@ with lib;
       ../../profiles/steam.nix
       ../../profiles/sudo.nix
       ../../profiles/tor.nix
+      ../../profiles/typst.nix
       #../../profiles/virtualbox.nix
       ../../profiles/waydroid.nix
       ../../profiles/xserver.nix
