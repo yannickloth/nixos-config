@@ -51,7 +51,7 @@
     bash
     kmod
     nixpkgs-fmt
-
+    
     ### general purpose command-line tools
     binutils
     bottom
@@ -69,6 +69,7 @@
 
     ### for hardware info
     clinfo
+    dmidecode
     glxinfo
     pciutils
     vulkan-tools

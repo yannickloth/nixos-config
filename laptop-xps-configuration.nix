@@ -69,6 +69,7 @@
 
     ### for hardware info
     clinfo
+    dmidecode
     glxinfo
     pciutils
     vulkan-tools
