@@ -121,7 +121,8 @@
     enable32Bit = true;
   };
 
-  hardware.nvidia = { # NVIDIA GeForce GTX 1050 Ti
+  hardware.nvidia = {
+    # NVIDIA GeForce GTX 1050 Ti
 
     dynamicBoost.enable = false; # The NVIDIA GeForce GTX 1050 Ti does not have the Ampere (2020) architecture. # Whether to enable dynamic Boost balances power between the CPU and the GPU for improved performance on supported laptops using the nvidia-powerd daemon. For more information, see the NVIDIA docs, on Chapter 23. Dynamic Boost on Linux. https://download.nvidia.com/XFree86/Linux-x86_64/510.73.05/README/dynamicboost.html
 
@@ -145,29 +146,29 @@
     package = config.boot.kernelPackages.nvidiaPackages.stable;
 
     powerManagement.enable = false; # Nvidia power management. Experimental, and can cause sleep/suspend to fail.
-    
+
     powerManagement.finegrained = false; # Fine-grained power management. Turns off GPU when not in use. Experimental and only works on modern Nvidia GPUs (Turing or newer).
 
     prime = {
-      
       intelBusId = "PCI:0:2:0"; # Make sure to use the correct Bus ID values for your system!
       nvidiaBusId = "PCI:1:0:0"; # Make sure to use the correct Bus ID values for your system!
-      
-      offload.enable = lib.mkForce true; # Whether to enable render offload support using the NVIDIA proprietary driver via PRIME.
-      offload.enableOffloadCmd = lib.mkForce true; # Whether to enable adding a nvidia-offload convenience script to environment.systemPackages for offloading programs to an nvidia device. To work, should have also enabled hardware.nvidia.prime.offload.enable or hardware.nvidia.prime.reverseSync.enable.
-      sync.enable = lib.mkForce false; # Whether to enable NVIDIA Optimus support using the NVIDIA proprietary driver via PRIME. If enabled, the NVIDIA GPU will be always on and used for all rendering, while enabling output to displays attached only to the integrated Intel/AMD GPU without a multiplexer.
+
+      offload = {
+        enable = false; # Whether to enable render offload support using the NVIDIA proprietary driver via PRIME.
+        enableOffloadCmd = false; # Whether to enable adding a nvidia-offload convenience script to environment.systemPackages for offloading programs to an nvidia device. To work, should have also enabled hardware.nvidia.prime.offload.enable or hardware.nvidia.prime.reverseSync.enable.
+      };
+      sync.enable = true; # Whether to enable NVIDIA Optimus support using the NVIDIA proprietary driver via PRIME. If enabled, the NVIDIA GPU will be always on and used for all rendering, while enabling output to displays attached only to the integrated Intel/AMD GPU without a multiplexer.
     };
     videoAcceleration = true; # Whether to enable Whether video acceleration (VA-API) should be enabled.
   };
-
-  #   specialisation = {
-  #     on-the-go.configuration = {
-  #       system.nixos.tags = [ "on-the-go" ];
-  #       hardware.nvidia = {
-  #         prime.offload.enable = lib.mkForce true;
-  #         prime.offload.enableOffloadCmd = lib.mkForce true;
-  #         prime.sync.enable = lib.mkForce false;
-  #       };
+  # specialisation = {
+  #   on-the-go.configuration = {
+  #     system.nixos.tags = [ "on-the-go" ];
+  #     hardware.nvidia = {
+  #       prime.offload.enable = lib.mkForce true;
+  #       prime.offload.enableOffloadCmd = lib.mkForce true;
+  #       prime.sync.enable = lib.mkForce false;
   #     };
   #   };
+  # };
 }
