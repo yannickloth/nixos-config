@@ -26,7 +26,9 @@ in
       ++ (if (config.virtualisation.podman.enable == true) then [ "podman" ] else [ ])
       ++ (if (config.hardware.sane.enable == true) then [ "lp" "scanner" ] else [ ]) # for scanning
       ++ (if (config.virtualisation.virtualbox.host.enable == true) then [ "vboxusers" ] else [ ])
-      ++ (if (config.users.extraGroups.yubikey != null) then [ "yubikey" ] else [ ]);
+      ++ (if (config.users.extraGroups.yubikey != null) then [ "yubikey" ] else [ ])
+      ++ (if (config.security.tpm2.enable == true) then [ "tss" ] else [ ]) # tss group has access to TPM devices
+      ;
       group = username;
     };
   };

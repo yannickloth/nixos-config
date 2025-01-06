@@ -3,8 +3,8 @@
 with lib;
 {
   imports =
-  [
-    # Include the results of the hardware scan.
+    [
+      # Include the results of the hardware scan.
       ./hardware-configuration.nix
 
       ../../nix-automatic-gc-7d.nix
@@ -18,7 +18,7 @@ with lib;
       ../../hardware/printers/epson-xp15000.nix
 
       ../../modules/xpad.nix
-      
+
       ../../profiles/i18n/fr_BE.nix
       ../../profiles/android.nix
       ../../profiles/appimage.nix
@@ -55,6 +55,7 @@ with lib;
       ../../profiles/steam.nix
       ../../profiles/sudo.nix
       ../../profiles/tor.nix
+      ../../profiles/tpm.nix
       ../../profiles/typst.nix
       #../../profiles/virtualbox.nix
       ../../profiles/waydroid.nix
@@ -66,7 +67,7 @@ with lib;
 
       ../../users/aeiuno/aeiuno-hm.nix
       ../../users/nicky/nicky-hm.nix
-  ];
+    ];
   # In this file comes everything that is specific to this host.
   networking.hostName = "laptop-hera"; # Define your hostname.
 
