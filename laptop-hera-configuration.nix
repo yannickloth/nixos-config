@@ -145,10 +145,17 @@
     #         hash = "sha256-UyA/Bl4K9lsvZsDsPPiy31unBnxOG8PVFH/qisQ85NM=";
     #       };
     #     })
+    # (pkgs.callPackage ./packages/applications/office/softmaker/softmaker_office.nix {
+    #   officeVersion = {
+    #     edition = "2024";
+    #     version = "1204";
+    #     hash = "sha256-E58yjlrFe9uFiWY0nXoncIxDgvwXD+REfmmdSZvgTTU=";
+    #   };
+    # })
     (pkgs.callPackage ./packages/applications/office/softmaker/softmaker_office.nix {
       officeVersion = {
         edition = "2024";
-        version = "1204";
+        version = "1222";
         hash = "sha256-E58yjlrFe9uFiWY0nXoncIxDgvwXD+REfmmdSZvgTTU=";
       };
     })
