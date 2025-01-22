@@ -5,15 +5,16 @@
 
 {
   imports =
-    [ (modulesPath + "/installer/scan/not-detected.nix")
+    [
+      (modulesPath + "/installer/scan/not-detected.nix")
     ];
 
   boot = {
-    blacklistedKernelModules = [ 
+    blacklistedKernelModules = [
       "psmouse" # the touchpad does not use psmouse
     ] ++ lib.optionals (!config.hardware.enableRedistributableFirmware) [ "ath3k" ];
     initrd = {
-      availableKernelModules = [ 
+      availableKernelModules = [
         "xhci_pci"
         "ahci"
         "nvme" # Enables NVMe support.
@@ -24,8 +25,12 @@
         "aesni_intel" # Speeds up decryption, early during boot process.
         "cryptd" # Speeds up decryption, early during boot process.
       ];
-      kernelModules = [ 
-        "i915" "nvidia" "nvidia_modeset" "nvidia_drm" "nvidia_uvm" 
+      kernelModules = [
+        "i915"
+        "nvidia"
+        "nvidia_modeset"
+        "nvidia_drm"
+        "nvidia_uvm"
         "aesni_intel" # Speeds up decryption, early during boot process.
         "cryptd" # Speeds up decryption, early during boot process.
       ];
@@ -46,40 +51,42 @@
       "i915.enable_guc=2"
     ];
     #extraModulePackages = [ ];
-    kernel.sysctl = { 
+    kernel.sysctl = {
       "vm.swappiness" = 10;
-      "fs.inotify.max_user_watches" = 2097152; 
+      "fs.inotify.max_user_watches" = 2097152;
     };
-#     plymouth = {
-#       enable = false;
-#     };
+    #     plymouth = {
+    #       enable = false;
+    #     };
   };
-  
+
   fileSystems = {
     "/" =
-    { device = "/dev/disk/by-uuid/6ad2a6b4-166d-4171-b047-49f17ab18181";
-      fsType = "btrfs";
-      options = [ "subvol=@" ];
-    };
+      {
+        device = "/dev/disk/by-uuid/6ad2a6b4-166d-4171-b047-49f17ab18181";
+        fsType = "btrfs";
+        options = [ "subvol=@" ];
+      };
     "/boot" =
-    { 
-      # device = "/dev/disk/by-partuuid/D52884F4-8461-3B48-B533-8592E0E188BA";
-      device = "/dev/nvme0n1p1";
-      fsType = "vfat";
-    };
+      {
+        # device = "/dev/disk/by-partuuid/D52884F4-8461-3B48-B533-8592E0E188BA";
+        device = "/dev/nvme0n1p1";
+        fsType = "vfat";
+      };
     "/data" =
-    { device = "/dev/mapper/luks-9775b4f8-1168-4eec-b9e2-f6b187a0ed47";
-      fsType = "btrfs";
-    };
+      {
+        device = "/dev/mapper/luks-9775b4f8-1168-4eec-b9e2-f6b187a0ed47";
+        fsType = "btrfs";
+      };
   };
   swapDevices =
-  [ 
-    { device = "/dev/disk/by-uuid/0fa21d3a-4532-49ea-89be-48e87adadb94"; }
-    {
-      device = "/swapfile"; 
-      size = 32768;
-    }
-  ];
+    [
+      { device = "/dev/disk/by-uuid/0fa21d3a-4532-49ea-89be-48e87adadb94"; }
+      {
+        device = "/swapfile";
+        size = 32768;
+      }
+    ];
 
   # Enables DHCP on each ethernet and wireless interface. In case of scripted networking
   # (the default) this is the recommended approach. When using systemd-networkd it's
@@ -104,26 +111,27 @@
         fileSystems = [ "/" ];
       };
     };
-    xserver.videoDrivers = ["nvidia"]; # Load nvidia driver for Xorg and Wayland
+    xserver.videoDrivers = [ "nvidia" ]; # Load nvidia driver for Xorg and Wayland
     thermald.enable = true; # This will save you money and possibly your life! Prevents overheating on Intel CPUs and works well with other tools.
   };
-  
+
   # Enable graphics
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
   };
-  
+
   hardware.nvidia = {
+    # NVIDIA GeForce GTX 1050 Ti
 
-    # Modesetting is required.
-    modesetting.enable = true;
+    dynamicBoost.enable = false; # The NVIDIA GeForce GTX 1050 Ti does not have the Ampere (2020) architecture. # Whether to enable dynamic Boost balances power between the CPU and the GPU for improved performance on supported laptops using the nvidia-powerd daemon. For more information, see the NVIDIA docs, on Chapter 23. Dynamic Boost on Linux. https://download.nvidia.com/XFree86/Linux-x86_64/510.73.05/README/dynamicboost.html
 
-    # Nvidia power management. Experimental, and can cause sleep/suspend to fail.
-    powerManagement.enable = false;
-    # Fine-grained power management. Turns off GPU when not in use.
-    # Experimental and only works on modern Nvidia GPUs (Turing or newer).
-    powerManagement.finegrained = false;
+    gsp.enable = true; # Whether to enable the GPU System Processor (GSP) on the video card. The NVIDIA GPU System Processor (GSP) is a specialized co-processor embedded within certain NVIDIA GPUs. Its primary function is to offload tasks traditionally handled by the CPU, such as GPU initialization and management, directly onto the GPU. By handling low-level tasks, the GSP allows for more efficient communication between the CPU and GPU, which can be particularly beneficial in data-centric applications and gaming.
+
+    modesetting.enable = true; # Modesetting is required. # Whether to enable kernel modesetting when using the NVIDIA proprietary driver. Enabling this and using version 545 or newer of the proprietary NVIDIA driver causes it to provide its own framebuffer device, which can cause Wayland compositors to work when they otherwise wouldn’t.
+
+    # Enable the Nvidia settings menu, accessible via `nvidia-settings`.
+    nvidiaSettings = true;
 
     # Use the NVidia open source kernel module (not to be confused with the
     # independent third-party "nouveau" open source driver).
@@ -132,35 +140,35 @@
     # https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus 
     # Only available from driver 515.43.04+
     # Currently alpha-quality/buggy, so false is currently the recommended setting.
-    open = false;
-
-    # Enable the Nvidia settings menu, accessible via `nvidia-settings`.
-    nvidiaSettings = true;
+    open = false; # The NVIDIA GeForce GTX 1050 Ti does not have the Turing architecture (2018) or later. It has the Pascal architecture, from 2016.
 
     # Optionally, you may need to select the appropriate driver version for your specific GPU.
     package = config.boot.kernelPackages.nvidiaPackages.stable;
+
+    powerManagement.enable = false; # Nvidia power management. Experimental, and can cause sleep/suspend to fail.
+
+    powerManagement.finegrained = false; # Fine-grained power management. Turns off GPU when not in use. Experimental and only works on modern Nvidia GPUs (Turing or newer).
+
+    prime = {
+      intelBusId = "PCI:0:2:0"; # Make sure to use the correct Bus ID values for your system!
+      nvidiaBusId = "PCI:1:0:0"; # Make sure to use the correct Bus ID values for your system!
+
+      offload = {
+        enable = false; # Whether to enable render offload support using the NVIDIA proprietary driver via PRIME.
+        enableOffloadCmd = false; # Whether to enable adding a nvidia-offload convenience script to environment.systemPackages for offloading programs to an nvidia device. To work, should have also enabled hardware.nvidia.prime.offload.enable or hardware.nvidia.prime.reverseSync.enable.
+      };
+      sync.enable = true; # Whether to enable NVIDIA Optimus support using the NVIDIA proprietary driver via PRIME. If enabled, the NVIDIA GPU will be always on and used for all rendering, while enabling output to displays attached only to the integrated Intel/AMD GPU without a multiplexer.
+    };
+    videoAcceleration = true; # Whether to enable Whether video acceleration (VA-API) should be enabled.
   };
-  hardware.nvidia.prime = {
-#    sync = {
-#       enable = true;
-#     };
-    
-    offload.enable = lib.mkForce true;
-    offload.enableOffloadCmd = lib.mkForce true;
-    sync.enable = lib.mkForce false;
-    
-    # Make sure to use the correct Bus ID values for your system!
-    intelBusId = "PCI:0:2:0";
-    nvidiaBusId = "PCI:1:0:0";
-  };
-#   specialisation = {
-#     on-the-go.configuration = {
-#       system.nixos.tags = [ "on-the-go" ];
-#       hardware.nvidia = {
-#         prime.offload.enable = lib.mkForce true;
-#         prime.offload.enableOffloadCmd = lib.mkForce true;
-#         prime.sync.enable = lib.mkForce false;
-#       };
-#     };
-#   };
+  # specialisation = {
+  #   on-the-go.configuration = {
+  #     system.nixos.tags = [ "on-the-go" ];
+  #     hardware.nvidia = {
+  #       prime.offload.enable = lib.mkForce true;
+  #       prime.offload.enableOffloadCmd = lib.mkForce true;
+  #       prime.sync.enable = lib.mkForce false;
+  #     };
+  #   };
+  # };
 }

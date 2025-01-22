@@ -59,6 +59,7 @@ with lib;
       ../../profiles/sudo.nix
       #../../profiles/syncthing/syncthing.nix
       ../../profiles/tor.nix
+      ../../profiles/tpm.nix
       ../../profiles/typst.nix
       ../../profiles/virtualbox.nix
       ../../profiles/waydroid.nix
