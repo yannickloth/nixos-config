@@ -6,7 +6,7 @@
       packages = with pkgs; [
         amarok
         anki-bin
-        (aspellWithDicts (dicts: with dicts; [ en en-computers en-science de fr nl wa])) # for emacs
+        (aspellWithDicts (dicts: with dicts; [ en en-computers en-science de fr nl wa ])) # for emacs
         audacious
         audacious-plugins
         audacity
@@ -66,7 +66,7 @@
       };*/
       stateVersion = "23.05"; /* The home.stateVersion option does not have a default and must be set */
     };
-    
+
     programs = {
       bash = {
         enable = true;
@@ -74,16 +74,16 @@
       chromium = {
         enable = true;
         #enablePlasmaBrowserIntegration = true;
-#         dictionaries = with pkgs; [
-#           hunspellDicts.fr-any
-#           hunspellDicts.en_US-large
-#           hunspellDicts.en_GB-large
-#           hunspellDicts.de_DE
-#         ];
+        #         dictionaries = with pkgs; [
+        #           hunspellDicts.fr-any
+        #           hunspellDicts.en_US-large
+        #           hunspellDicts.en_GB-large
+        #           hunspellDicts.de_DE
+        #         ];
         commandLineArgs = [
-            "--enable-features=VaapiVideoDecodeLinuxGL"
-            "--ignore-gpu-blocklist"
-            "--enable-zero-copy"
+          "--enable-features=VaapiVideoDecodeLinuxGL"
+          "--ignore-gpu-blocklist"
+          "--enable-zero-copy"
         ];
       };
       command-not-found = {
@@ -94,21 +94,21 @@
         enableBashIntegration = true; # see note on other shells below
         nix-direnv.enable = true;
       };
-#       emacs =  with pkgs;{
-#         enable = true;
-#         package = emacs29-gtk3;
-#         extraConfig = (builtins.readFile ../nicky/emacs-config.el);
-#         extraPackages = epkgs: [
-#           epkgs.magit
-#           epkgs.markdown-mode
-#           epkgs.org-modern
-#           epkgs.org-roam
-#           epkgs.org-roam-bibtex
-#           epkgs.org-roam-timestamps
-#           epkgs.org-roam-ui
-#           epkgs.typescript-mode
-#         ];
-#       };
+      #       emacs =  with pkgs;{
+      #         enable = true;
+      #         package = emacs29-gtk3;
+      #         extraConfig = (builtins.readFile ../nicky/emacs-config.el);
+      #         extraPackages = epkgs: [
+      #           epkgs.magit
+      #           epkgs.markdown-mode
+      #           epkgs.org-modern
+      #           epkgs.org-roam
+      #           epkgs.org-roam-bibtex
+      #           epkgs.org-roam-timestamps
+      #           epkgs.org-roam-ui
+      #           epkgs.typescript-mode
+      #         ];
+      #       };
       # firefox = {
       #   enable = true;
       #   #nativeMessagingHosts=[euwebid ];
@@ -126,7 +126,7 @@
           enable = true;
         };
         package = pkgs.gitFull;
-        userName  = "aeiuno";
+        userName = "aeiuno";
         userEmail = "727881+yannickloth@users.noreply.github.com";
       };
       gitui = {
@@ -134,7 +134,8 @@
       };
       man.enable = true;
       neovim = {
-        coc = { # code completion
+        coc = {
+          # code completion
           enable = true;
         };
         enable = true;
@@ -166,8 +167,7 @@
         enableExtensionUpdateCheck = true;
         enableUpdateCheck = true;
         mutableExtensionsDir = true;
-        userSettings = {
-        };
+        userSettings = { };
       };
     };
 
@@ -198,11 +198,11 @@
       videos = "/home/aeiuno/syncthing/christine/LaptopSync/Videos/";
     };
   };
-  networking.firewall= {
-    allowedTCPPorts = [ 
+  networking.firewall = {
+    allowedTCPPorts = [
       22000 # syncthing transfers
     ];
-    allowedUDPPorts = [ 
+    allowedUDPPorts = [
       21027 # syncthing discovery
       22000 # syncthing transfers
     ];
