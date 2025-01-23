@@ -84,7 +84,7 @@ with lib;
     max-jobs = 4; # This option defines the maximum number of jobs that Nix will try to build in parallel. The default is auto, which means it will use all available logical cores. It is recommend to set it to the total number of logical cores in your system (e.g., 16 for two CPUs with 4 cores each and hyper-threading).
     system-features = [
       "benchmark" # May apply to packages or tests that depend on benchmarking features.
-      # "big-parallel" # Enables tasks designed for builds that heavily leverage parallelism (> 16 cores), but enabling it on a system with a low core count (e.g., 4 logical cores) can lead to inefficiencies and potential issues:
+      "big-parallel" # Enables tasks designed for builds that heavily leverage parallelism (> 16 cores), but enabling it on a system with a low core count (e.g., 4 logical cores) can lead to inefficiencies and potential issues:
       "cgroups" # Specifies that the system supports Linux cgroups (Control Groups), which are often used for resource isolation.
       "kvm" # Indicates that the system can perform builds inside a KVM virtual machine.
       "nixos" # Indicates that the system is running NixOS. This is automatically set on NixOS.
