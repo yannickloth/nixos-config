@@ -81,7 +81,7 @@
         python311Packages.ipykernel
         qalculate-qt
         recoll
-        rstudio # Set of integrated tools for the R language
+        #rstudio # Set of integrated tools for the R language
         scrcpy
         scribus
         #setzer # LaTeX editor written in Python with Gtk
