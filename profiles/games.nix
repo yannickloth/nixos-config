@@ -4,7 +4,7 @@ with lib;
 {
   hardware = {
     openrazer = {
-      enable = true; # Whether to enable OpenRazer drivers and userspace daemon .
+      enable = false; # Whether to enable OpenRazer drivers and userspace daemon .
       users = [ "aeiuno" "nicky" ]; # Usernames to be added to the “openrazer” group, so that they can start and interact with the OpenRazer userspace daemon.
     };
     # opentabletdriver.enable = true;
