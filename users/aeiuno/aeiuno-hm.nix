@@ -16,7 +16,7 @@
         curlFull
         drawio
         freac
-        freecad
+        #freecad # commented out because compilation takes too much time, just install it with flatpak
         gnome-disk-utility
         flatpak
         fsearch

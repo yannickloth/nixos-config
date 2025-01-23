@@ -35,7 +35,7 @@
         # })
         #(pkgs.callPackage ./packages/development/ffmpeg/default.nix) # A complete, cross-platform solution to record, convert and stream audio and video
         freac
-        freecad
+        #freecad # commented out because compilation takes too much time, just install it with flatpak
         gnome-disk-utility
         jetbrains-toolbox
         #jetbrains.clion
