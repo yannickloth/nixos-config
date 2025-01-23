@@ -157,7 +157,7 @@
       officeVersion = {
         edition = "2024";
         version = "1222";
-        hash = "sha256-E58yjlrFe9uFiWY0nXoncIxDgvwXD+REfmmdSZvgTTU=";
+        hash = "sha256-eyYBK5ZxPcBakOvXUQZIU2aftyH6PXh/rtqC/1BJhg4=";
       };
     })
     vlc
