@@ -17,7 +17,7 @@ with lib;
       ../../hardware/printers/brother-mfcl2700dw.nix
       ../../hardware/printers/epson-xp15000.nix
 
-      ../../modules/xpad.nix
+      #../../modules/xpad.nix
 
       ../../profiles/i18n/fr_BE.nix
       ../../profiles/android.nix
