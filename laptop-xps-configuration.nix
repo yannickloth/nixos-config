@@ -96,7 +96,7 @@
     libsForQt5.kfind
     lightly-boehs # QT application theme
     mpv
-    mtpaint
+    # mtpaint
     # mypaint
     nixd # Nix language server
     nixdoc # Generate documentation for Nix functions
