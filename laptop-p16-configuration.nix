@@ -62,6 +62,7 @@
     hex # color hexdump
     inotify-tools # inotify-tools is a C library and a set of command-line programs for Linux providing a simple interface to inotify.  
     iw # Wireless interface config tool using nl80211.
+    lshw
     # ripgrep-all # ripgrep also file contents
     rm-improved
     unzip
