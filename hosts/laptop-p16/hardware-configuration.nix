@@ -38,8 +38,8 @@
       luks = {
         reusePassphrases = true; # When opening a new LUKS device try reusing last successful passphrase. Useful for mounting a number of devices that use the same passphrase without retyping it several times.
         devices = {
-          "luks-ca056796-680e-4a31-9011-51a550cebdf2".device = "/dev/disk/by-uuid/ca056796-680e-4a31-9011-51a550cebdf2";
-
+          "luks-ca056796-680e-4a31-9011-51a550cebdf2".device = "/dev/disk/by-uuid/ca056796-680e-4a31-9011-51a550cebdf2"; #cryptroot
+          "luks-afb7b132-f3c6-4c8a-93fc-90e60d1686ad".device = "/dev/disk/by-uuid/afb7b132-f3c6-4c8a-93fc-90e60d1686ad"; #cryptswap
         };
       };
     };
@@ -55,9 +55,9 @@
       "vm.swappiness" = 10;
       "fs.inotify.max_user_watches" = 2097152;
     };
-    #     plymouth = {
-    #       enable = false;
-    #     };
+         plymouth = {
+           enable = false;
+         };
   };
 
   fileSystems = {
@@ -88,10 +88,8 @@
   networking.useDHCP = lib.mkDefault true;
   # networking.interfaces.enp60s0.useDHCP = lib.mkDefault true;
   # networking.interfaces.wlp0s20f3.useDHCP = lib.mkDefault true;
-
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
   powerManagement.cpuFreqGovernor = lib.mkDefault "powersave";
-  hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
   environment.variables = {
     VDPAU_DRIVER = lib.mkIf config.hardware.graphics.enable (lib.mkDefault "va_gl");
   };
@@ -108,14 +106,14 @@
     thermald.enable = true; # This will save you money and possibly your life! Prevents overheating on Intel CPUs and works well with other tools.
   };
 
-  # Enable graphics
-  hardware.graphics = {
-    enable = true;
-    enable32Bit = true;
-  };
-
-  hardware.nvidia = {
-    # NVIDIA GeForce GTX 1050 Ti
+  hardware= {
+    cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+    graphics = {
+      enable = true; # Enable graphics
+      enable32Bit = true;
+    };
+    nvidia = {
+    # NVIDIA RTX A3000
 
     dynamicBoost.enable = false; # The NVIDIA GeForce GTX 1050 Ti does not have the Ampere (2020) architecture. # Whether to enable dynamic Boost balances power between the CPU and the GPU for improved performance on supported laptops using the nvidia-powerd daemon. For more information, see the NVIDIA docs, on Chapter 23. Dynamic Boost on Linux. https://download.nvidia.com/XFree86/Linux-x86_64/510.73.05/README/dynamicboost.html
 
@@ -133,15 +131,15 @@
     # https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus 
     # Only available from driver 515.43.04+
     # Currently alpha-quality/buggy, so false is currently the recommended setting.
-    open = false; # The NVIDIA GeForce GTX 1050 Ti does not have the Turing architecture (2018) or later. It has the Pascal architecture, from 2016.
+    open = false;
 
     # Optionally, you may need to select the appropriate driver version for your specific GPU.
     package = config.boot.kernelPackages.nvidiaPackages.stable;
 
-    powerManagement.enable = false; # Nvidia power management. Experimental, and can cause sleep/suspend to fail.
-
-    powerManagement.finegrained = false; # Fine-grained power management. Turns off GPU when not in use. Experimental and only works on modern Nvidia GPUs (Turing or newer).
-
+    powerManagement = {
+      enable = false; # Nvidia power management. Experimental, and can cause sleep/suspend to fail.
+      finegrained = false; # Fine-grained power management. Turns off GPU when not in use. Experimental and only works on modern Nvidia GPUs (Turing or newer).
+    };
     prime = {
       intelBusId = "PCI:0:2:0"; # Make sure to use the correct Bus ID values for your system!
       nvidiaBusId = "PCI:1:0:0"; # Make sure to use the correct Bus ID values for your system!
@@ -153,6 +151,11 @@
       sync.enable = true; # Whether to enable NVIDIA Optimus support using the NVIDIA proprietary driver via PRIME. If enabled, the NVIDIA GPU will be always on and used for all rendering, while enabling output to displays attached only to the integrated Intel/AMD GPU without a multiplexer.
     };
     videoAcceleration = true; # Whether to enable Whether video acceleration (VA-API) should be enabled.
+  };
+    trackpoint = {
+      enable = lib.mkDefault true;
+      emulateWheel = lib.mkDefault config.hardware.trackpoint.enable;
+    };
   };
   # specialisation = {
   #   on-the-go.configuration = {
