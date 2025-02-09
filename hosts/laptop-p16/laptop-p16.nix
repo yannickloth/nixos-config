@@ -69,7 +69,7 @@ with lib;
       ../../users/nicky/nicky-hm.nix
     ];
   # In this file comes everything that is specific to this host.
-  networking.hostName = "laptop-hera"; # Define your hostname.
+  networking.hostName = "laptop-p16"; # Define your hostname.
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
