@@ -39,7 +39,7 @@
             # Optionally, use home-manager.extraSpecialArgs to pass
             # arguments to home.nix
           }
-#           nixos-hardware.nixosModules.dell-xps-13-9360 # TODO check which module may be imported for this laptop
+           nixos-hardware.nixosModules.lenovo-thinkpad # TODO check which module may be imported for this laptop
         ];
       };
       laptop-xps = nixpkgs.lib.nixosSystem {
