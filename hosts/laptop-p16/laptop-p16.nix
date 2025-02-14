@@ -39,6 +39,7 @@ with lib;
       ../../profiles/network-manager.nix
       ../../profiles/nix.nix
       ../../profiles/nix-serve.nix
+      ../../profiles/obs-studio.nix
       ../../profiles/onedrive.nix
       ../../profiles/openssh.nix
       ../../profiles/pcscd.nix
