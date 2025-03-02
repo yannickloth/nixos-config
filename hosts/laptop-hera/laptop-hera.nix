@@ -23,6 +23,7 @@ with lib;
       ../../profiles/android.nix
       ../../profiles/appimage.nix
       ../../profiles/avahi.nix
+      ../../profiles/bittorrent.nix
       ../../profiles/bluetooth.nix
       ../../profiles/clamav.nix
       ../../profiles/console.nix
@@ -56,7 +57,6 @@ with lib;
       ../../profiles/sudo.nix
       ../../profiles/tor.nix
       ../../profiles/tpm.nix
-      ../../profiles/transmission.nix
       ../../profiles/typst.nix
       #../../profiles/virtualbox.nix
       ../../profiles/waydroid.nix

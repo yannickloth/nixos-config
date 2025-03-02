@@ -7,6 +7,13 @@
 
 with lib;
 {
+  networking.firewall = {
+    allowedTCPPorts = [
+      51413 # transmission peer-port
+    ];
+    allowedUDPPorts = [
+    ];
+  };
   services = {
     transmission = {
       enable = true;
@@ -18,4 +25,5 @@ with lib;
       user="aeiuno";
     };
   };
+  
 }
