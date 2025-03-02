@@ -65,6 +65,7 @@
     # ripgrep-all # ripgrep also file contents
     rm-improved
     unzip
+    nixfmt-rfc-style
     ###
 
     ### for hardware info

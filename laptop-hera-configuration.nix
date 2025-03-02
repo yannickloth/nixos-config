@@ -51,6 +51,7 @@
     bash
     kmod
     nixpkgs-fmt
+    nixfmt-rfc-style
     
     ### general purpose command-line tools
     binutils
