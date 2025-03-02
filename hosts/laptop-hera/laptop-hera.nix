@@ -56,6 +56,7 @@ with lib;
       ../../profiles/sudo.nix
       ../../profiles/tor.nix
       ../../profiles/tpm.nix
+      ../../profiles/transmission.nix
       ../../profiles/typst.nix
       #../../profiles/virtualbox.nix
       ../../profiles/waydroid.nix
