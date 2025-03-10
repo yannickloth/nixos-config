@@ -14,7 +14,7 @@ with lib;
     allowedUDPPorts = [
     ];
   };
-  services = {
+  /* services = {
     transmission = {
       enable = true;
       group="cfo";
@@ -24,6 +24,6 @@ with lib;
       package = pkgs.transmission_4-qt6;
       user="aeiuno";
     };
-  };
+  }; */
   
 }
