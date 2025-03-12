@@ -1,7 +1,7 @@
 { pkgs, ... }:
 {
   environment.systemPackages = with pkgs; [
-    naps2 # Scan documents to PDF and more, as simply as possible.
+    # naps2 # Scan documents to PDF and more, as simply as possible. # Comment out because saving to PDF fails as well as OCR with tesseract.
     simple-scan
   ];
   nixpkgs.config.permittedInsecurePackages = [
