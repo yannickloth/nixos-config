@@ -14,7 +14,7 @@
         calibre
         xfce.catfish
         curlFull
-        drawio
+        # drawio
         freac
         #freecad # commented out because compilation takes too much time, just install it with flatpak
         gnome-disk-utility
@@ -29,7 +29,7 @@
         inkscape-with-extensions
         jellyfin-media-player
         #joplin-desktop
-        kate
+        kdePackages.kate
         keepassxc
         # keybase-gui
         kgraphviewer

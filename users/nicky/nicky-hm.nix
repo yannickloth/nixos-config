@@ -26,7 +26,7 @@
           xfce.catfish
           curlFull
           devbox
-          drawio
+          # drawio
           fdk_aac # A high-quality implementation of the AAC codec from Android
           fdk-aac-encoder # Command line encoder frontend for libfdk-aac encoder
           # (ffmpeg_5-full.overrideAttrs (old: rec {
@@ -60,7 +60,7 @@
           jellyfin-media-player
           #joplin-desktop
           jupyter-all
-          kate
+          kdePackages.kate
           keepassxc
           # keybase-gui
           kgraphviewer
