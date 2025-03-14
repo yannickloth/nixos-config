@@ -60,6 +60,7 @@ with lib;
       ../../profiles/typst.nix
       #../../profiles/virtualbox.nix
       ../../profiles/waydroid.nix
+      ../../profiles/wine.nix
       ../../profiles/xserver.nix
       ../../profiles/xwayland.nix
       ../../profiles/yubikey.nix
