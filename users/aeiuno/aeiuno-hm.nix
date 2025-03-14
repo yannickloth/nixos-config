@@ -30,7 +30,7 @@
         inkscape-with-extensions
         jellyfin-media-player
         #joplin-desktop
-        kate
+        kdePackages.kate
         keepassxc
         # keybase-gui
         kgraphviewer
@@ -118,16 +118,16 @@
       # };
       git = {
         delta = {
-          enable = true;
+          enable = true; # Whether to enable the delta syntax highlighter.
         };
         enable = true;
         extraConfig = {
           credential.helper = "${pkgs.git.override { withLibsecret = true; }}/bin/git-credential-libsecret";
         };
         lfs = {
-          enable = true;
+          enable = true; # Whether to enable Git Large File Storage.
         };
-        package = pkgs.gitFull;
+        #package = pkgs.gitFull;
         userName = "aeiuno";
         userEmail = "727881+yannickloth@users.noreply.github.com";
       };
@@ -166,10 +166,14 @@
       };
       vscode = {
         enable = true;
-        enableExtensionUpdateCheck = true;
-        enableUpdateCheck = true;
         mutableExtensionsDir = true;
-        userSettings = { };
+        profiles = {
+          default = {
+            enableExtensionUpdateCheck = true;
+            enableUpdateCheck = true;
+            userSettings = { };
+          };
+        };
       };
     };
 

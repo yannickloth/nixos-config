@@ -9,7 +9,7 @@ with lib;
     programs = {
       dconf.enable = mkDefault true; # enable dconf support on all workstations for storage of configration
       # seahorse.enable = false;
-      ssh.askPassword = lib.mkForce "${pkgs.ksshaskpass}/bin/ksshaskpass"; # resolves the conflict between seahorse (gnome) and ksshaskpass (plasma). Is just useful if both KDE and Gnome are installed.
+      ssh.askPassword = lib.mkForce "${pkgs.kdePackages.ksshaskpass}/bin/ksshaskpass"; # resolves the conflict between seahorse (gnome) and ksshaskpass (plasma). Is just useful if both KDE and Gnome are installed.
     };
     services = {
       desktopManager={
