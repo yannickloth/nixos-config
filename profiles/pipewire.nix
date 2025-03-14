@@ -19,7 +19,7 @@
       #media-session.enable = true;
 
       wireplumber = {
-        enable = true;
+        enable = true; # Modular session / policy manager for PipeWire.
         # extraConfig.bluetoothEnhancements = {
         #   "monitor.bluez.properties" = {
         #     "bluez5.enable-sbc-xq" = true;
@@ -72,7 +72,7 @@
   # };
   #};
   environment.systemPackages = with pkgs; [
-    helvum
-    jamesdsp
+    helvum # GTK patchbay for pipewire
+    # jamesdsp # Audio effect processor for PipeWire clients
   ];
 }

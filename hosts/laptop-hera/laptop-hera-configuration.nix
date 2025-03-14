@@ -19,14 +19,14 @@
       #<nixpkgs/nixos/modules/services/hardware/sane_extra_backends/brscan4.nix>
       #<home-manager/nixos>
 
-      ./hosts/laptop-xps/laptop-xps.nix
+      ./laptop-hera.nix
 
-      ./modules/systemPackages.nix # commonalities: system packages
+      ../../modules/systemPackages.nix # commonalities: system packages
 
-      ./users/users.nix # commonalities
-      ./users/cfo.nix # chief family officer group
-      ./users/aeiuno/aeiuno.nix
-      ./users/nicky/nicky.nix
+      ../../users/users.nix # commonalities
+      ../../users/cfo.nix # chief family officer group
+      ../../users/aeiuno/aeiuno.nix
+      ../../users/nicky/nicky.nix
     ];
 
   # Allow unfree packages
@@ -51,7 +51,8 @@
     bash
     kmod
     nixpkgs-fmt
-
+    nixfmt-rfc-style
+    
     ### general purpose command-line tools
     binutils
     bottom
@@ -65,7 +66,6 @@
     # ripgrep-all # ripgrep also file contents
     rm-improved
     unzip
-    nixfmt-rfc-style
     ###
 
     ### for hardware info
@@ -77,8 +77,6 @@
     wayland-utils
     ###
 
-    clamtk
-    cryptomator # Free client-side encryption for your cloud files
     direnv # for lorri
     nix-direnv # for direnv
     distrobox
@@ -91,23 +89,18 @@
     gnome-tweaks
     gparted
     htop
-    kdePackages.kolourpaint
     killall
     libsForQt5.kig
     libsForQt5.kfind
     lightly-boehs # QT application theme
     mpv
-    # mtpaint
-    # mypaint
     nixd # Nix language server
     nixdoc # Generate documentation for Nix functions
     ocrmypdf
     p7zip # A new p7zip fork with additional codecs and improvements
     pandoc
-    #peazip # Cross-platform file and archive manager
     qpwgraph # PipeWire graph manager
     shellcheck # Shell script analysis tool
-    # shutter # Screenshot and annotation tool
     smplayer
     usbutils
     virt-manager
@@ -142,7 +135,6 @@
         runHook postInstall
       '';
     }))
-    #masterpdfeditor
     #     (softmaker-office.override {
     #       officeVersion = {
     # #         # 2018
@@ -162,14 +154,7 @@
     #     hash = "sha256-E58yjlrFe9uFiWY0nXoncIxDgvwXD+REfmmdSZvgTTU=";
     #   };
     # })
-    # (pkgs.callPackage ./packages/applications/office/softmaker/softmaker_office.nix {
-    #   officeVersion = {
-    #     edition = "2024";
-    #     version = "1208";
-    #     hash = "sha256-qe5I2fGjpANVqd5KIDIUGzqFVgv+3gBoY7ndp0ByvPs=";
-    #   };
-    # })
-    (pkgs.callPackage ./packages/applications/office/softmaker/softmaker_office.nix {
+    (pkgs.callPackage ../../packages/applications/office/softmaker/softmaker_office.nix {
       officeVersion = {
         edition = "2024";
         version = "1222";
@@ -190,6 +175,7 @@
 
     ### LibreOffice
     libreoffice-qt
+    #libreoffice-fresh
     hunspell
     hunspellDicts.nl_nl
     hunspellDicts.fr-moderne
@@ -274,18 +260,17 @@
       package = pkgs.ananicy-cpp;
     };
 
-    # Enable the OpenSSH daemon.
-    openssh.enable = true;
+    openssh.enable = true; # Enable the OpenSSH daemon.
     syncthing.openDefaultPorts = true;
     tailscale.enable = true;
   };
 
   xdg.portal = {
-    enable = true; # Whether to enable xdg desktop integration.
+    enable = true;
     #     extraPortals = [
     #       pkgs.xdg-desktop-portal-gtk
-    #        pkgs.xdg-desktop-portal-wlr
+    #       pkgs.xdg-desktop-portal-wlr
     #     ];
-    xdgOpenUsePortal = true; # Sets environment variable NIXOS_XDG_OPEN_USE_PORTAL to 1 This will make xdg-open use the portal to open programs, which resolves bugs involving programs opening inside FHS envs or with unexpected env vars set from wrappers. See #160923 for more info.
+    xdgOpenUsePortal = true;
   };
 }

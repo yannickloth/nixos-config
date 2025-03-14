@@ -23,7 +23,6 @@ with lib;
       ../../profiles/android.nix
       ../../profiles/appimage.nix
       ../../profiles/avahi.nix
-      ../../profiles/bittorrent.nix
       ../../profiles/benchmark.nix
       ../../profiles/bluetooth.nix
       ../../profiles/clamav.nix
@@ -41,6 +40,7 @@ with lib;
       ../../profiles/network-manager.nix
       ../../profiles/nix.nix
       ../../profiles/nix-serve.nix
+      ../../profiles/obs-studio.nix
       ../../profiles/onedrive.nix
       ../../profiles/openssh.nix
       ../../profiles/pcscd.nix
@@ -61,6 +61,7 @@ with lib;
       ../../profiles/typst.nix
       #../../profiles/virtualbox.nix
       ../../profiles/waydroid.nix
+      ../../profiles/wine.nix
       ../../profiles/xserver.nix
       ../../profiles/xwayland.nix
       ../../profiles/yubikey.nix
@@ -71,7 +72,7 @@ with lib;
       ../../users/nicky/nicky-hm.nix
     ];
   # In this file comes everything that is specific to this host.
-  networking.hostName = "laptop-hera"; # Define your hostname.
+  networking.hostName = "laptop-p16"; # Define your hostname.
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;

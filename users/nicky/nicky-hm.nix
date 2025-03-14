@@ -22,11 +22,13 @@
           audacity
           bottles
           calibre
+          cobang # QR code scanner desktop app for Linux
           conda # Conda is a package manager for Python
           xfce.catfish
           curlFull
           devbox
           # drawio
+          digikam
           fdk_aac # A high-quality implementation of the AAC codec from Android
           fdk-aac-encoder # Command line encoder frontend for libfdk-aac encoder
           # (ffmpeg_5-full.overrideAttrs (old: rec {
@@ -75,9 +77,11 @@
           meld # Visual diff and merge tool
           # micromamba # Reimplementation of the conda package manager
           #microsoft-edge
+          mousai # Identify any songs in seconds
           musescore
           obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
           pantheon.sideload
+          pdfstudioviewer # Easy to use, full-featured PDF viewing software.
           plantuml
           podman-desktop
           powershell # Powerful cross-platform (Windows, Linux, and macOS) shell and scripting language based on .NET
@@ -169,16 +173,16 @@
         # };
         git = {
           delta = {
-            enable = true;
+            enable = true; # Whether to enable the delta syntax highlighter.
           };
           enable = true;
           extraConfig = {
             credential.helper = "${pkgs.git.override { withLibsecret = true; }}/bin/git-credential-libsecret";
           };
           lfs = {
-            enable = true;
+            enable = true; # Whether to enable Git Large File Storage.
           };
-          package = pkgs.gitFull;
+          # package = pkgs.gitFull;
           userName = "Yannick Loth";
           userEmail = "727881+yannickloth@users.noreply.github.com";
         };
@@ -217,13 +221,18 @@
         };
         vscode = {
           enable = true;
-          enableExtensionUpdateCheck = true;
-          enableUpdateCheck = true;
-          #extensions = with pkgs; [
-          #  vscode-extensions.myriad-dreamin.tinymist
-          #];
           mutableExtensionsDir = true;
-          userSettings = { };
+          profiles = {
+            default = {
+              enableExtensionUpdateCheck = true;
+              enableUpdateCheck = true;
+              #extensions = with pkgs; [
+              #  vscode-extensions.myriad-dreamin.tinymist
+              #];
+              userSettings = { };
+            };
+          };
+          
         };
       };
 

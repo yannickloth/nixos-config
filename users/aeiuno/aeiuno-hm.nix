@@ -13,7 +13,9 @@
         bottles
         calibre
         xfce.catfish
+        cobang # QR code scanner desktop app for Linux
         curlFull
+        digikam
         # drawio
         freac
         #freecad # commented out because compilation takes too much time, just install it with flatpak
@@ -40,6 +42,7 @@
         libsForQt5.elisa
         libsForQt5.filelight
         #microsoft-edge
+        mousai # Identify any songs in seconds
         obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
         pantheon.sideload
         #podman-desktop
@@ -116,16 +119,16 @@
       # };
       git = {
         delta = {
-          enable = true;
+          enable = true; # Whether to enable the delta syntax highlighter.
         };
         enable = true;
         extraConfig = {
           credential.helper = "${pkgs.git.override { withLibsecret = true; }}/bin/git-credential-libsecret";
         };
         lfs = {
-          enable = true;
+          enable = true; # Whether to enable Git Large File Storage.
         };
-        package = pkgs.gitFull;
+        #package = pkgs.gitFull;
         userName = "aeiuno";
         userEmail = "727881+yannickloth@users.noreply.github.com";
       };
@@ -164,10 +167,14 @@
       };
       vscode = {
         enable = true;
-        enableExtensionUpdateCheck = true;
-        enableUpdateCheck = true;
         mutableExtensionsDir = true;
-        userSettings = { };
+        profiles = {
+          default = {
+            enableExtensionUpdateCheck = true;
+            enableUpdateCheck = true;
+            userSettings = { };
+          };
+        };
       };
     };
 
