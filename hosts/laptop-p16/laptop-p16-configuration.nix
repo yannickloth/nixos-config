@@ -19,14 +19,14 @@
       #<nixpkgs/nixos/modules/services/hardware/sane_extra_backends/brscan4.nix>
       #<home-manager/nixos>
 
-      ./hosts/laptop-hera/laptop-hera.nix
+      ./laptop-p16.nix
 
-      ./modules/systemPackages.nix # commonalities: system packages
+      ../../modules/systemPackages.nix # commonalities: system packages
 
-      ./users/users.nix # commonalities
-      ./users/cfo.nix # chief family officer group
-      ./users/aeiuno/aeiuno.nix
-      ./users/nicky/nicky.nix
+      ../../users/users.nix # commonalities
+      ../../users/cfo.nix # chief family officer group
+      ../../users/aeiuno/aeiuno.nix
+      ../../users/nicky/nicky.nix
     ];
 
   # Allow unfree packages
@@ -62,6 +62,7 @@
     hex # color hexdump
     inotify-tools # inotify-tools is a C library and a set of command-line programs for Linux providing a simple interface to inotify.  
     iw # Wireless interface config tool using nl80211.
+    lshw
     # ripgrep-all # ripgrep also file contents
     rm-improved
     unzip
@@ -76,6 +77,8 @@
     wayland-utils
     ###
 
+    clamtk
+    cryptomator # Free client-side encryption for your cloud files
     direnv # for lorri
     nix-direnv # for direnv
     distrobox
@@ -88,6 +91,7 @@
     gnome-tweaks
     gparted
     htop
+    kdePackages.kolourpaint
     killall
     libsForQt5.kig
     libsForQt5.kfind
@@ -153,7 +157,7 @@
     #     hash = "sha256-E58yjlrFe9uFiWY0nXoncIxDgvwXD+REfmmdSZvgTTU=";
     #   };
     # })
-    (pkgs.callPackage ./packages/applications/office/softmaker/softmaker_office.nix {
+    (pkgs.callPackage ../../packages/applications/office/softmaker/softmaker_office.nix {
       officeVersion = {
         edition = "2024";
         version = "1222";
@@ -265,11 +269,11 @@
   };
 
   xdg.portal = {
-    enable = true;
+    enable = true; # Whether to enable xdg desktop integration.
     #     extraPortals = [
     #       pkgs.xdg-desktop-portal-gtk
     #       pkgs.xdg-desktop-portal-wlr
     #     ];
-    xdgOpenUsePortal = true;
+    xdgOpenUsePortal = true; # Sets environment variable NIXOS_XDG_OPEN_USE_PORTAL to 1 This will make xdg-open use the portal to open programs, which resolves bugs involving programs opening inside FHS envs or with unexpected env vars set from wrappers. See #160923 for more info.
   };
 }

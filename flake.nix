@@ -13,7 +13,7 @@
       laptop-hera = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         modules = [
-          ./laptop-hera-configuration.nix
+          ./hosts/laptop-hera/laptop-hera-configuration.nix
           home-manager.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
@@ -29,7 +29,7 @@
       laptop-p16 = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         modules = [
-          ./laptop-p16-configuration.nix
+          ./hosts/laptop-p16/laptop-p16-configuration.nix
           home-manager.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
@@ -45,7 +45,7 @@
       laptop-xps = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         modules = [
-          ./laptop-xps-configuration.nix
+          ./hosts/laptop-xps/laptop-xps-configuration.nix
           home-manager.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;

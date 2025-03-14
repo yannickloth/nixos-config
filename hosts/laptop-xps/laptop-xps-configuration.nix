@@ -19,14 +19,14 @@
       #<nixpkgs/nixos/modules/services/hardware/sane_extra_backends/brscan4.nix>
       #<home-manager/nixos>
 
-      ./hosts/laptop-xps/laptop-xps.nix
+      ./laptop-xps.nix
 
-      ./modules/systemPackages.nix # commonalities: system packages
+      ../../modules/systemPackages.nix # commonalities: system packages
 
-      ./users/users.nix # commonalities
-      ./users/cfo.nix # chief family officer group
-      ./users/aeiuno/aeiuno.nix
-      ./users/nicky/nicky.nix
+      ../../users/users.nix # commonalities
+      ../../users/cfo.nix # chief family officer group
+      ../../users/aeiuno/aeiuno.nix
+      ../../users/nicky/nicky.nix
     ];
 
   # Allow unfree packages
@@ -168,7 +168,7 @@
     #     hash = "sha256-qe5I2fGjpANVqd5KIDIUGzqFVgv+3gBoY7ndp0ByvPs=";
     #   };
     # })
-    (pkgs.callPackage ./packages/applications/office/softmaker/softmaker_office.nix {
+    (pkgs.callPackage ../../packages/applications/office/softmaker/softmaker_office.nix {
       officeVersion = {
         edition = "2024";
         version = "1222";

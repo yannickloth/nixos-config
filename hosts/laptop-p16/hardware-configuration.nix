@@ -112,7 +112,9 @@
       enable = true; # Enable graphics
       enable32Bit = true;
     };
-    nvidia = {
+    nvidia = let
+  nvidiaPackage = config.hardware.nvidia.package;
+in{
     # NVIDIA RTX A3000
 
     dynamicBoost.enable = false; # The NVIDIA GeForce GTX 1050 Ti does not have the Ampere (2020) architecture. # Whether to enable dynamic Boost balances power between the CPU and the GPU for improved performance on supported laptops using the nvidia-powerd daemon. For more information, see the NVIDIA docs, on Chapter 23. Dynamic Boost on Linux. https://download.nvidia.com/XFree86/Linux-x86_64/510.73.05/README/dynamicboost.html
@@ -131,7 +133,7 @@
     # https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus 
     # Only available from driver 515.43.04+
     # Currently alpha-quality/buggy, so false is currently the recommended setting.
-    open = false;
+    open = lib.mkOverride 990 (nvidiaPackage ? open && nvidiaPackage ? firmware);
 
     # Optionally, you may need to select the appropriate driver version for your specific GPU.
     package = config.boot.kernelPackages.nvidiaPackages.stable;

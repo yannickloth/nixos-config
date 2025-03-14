@@ -15,6 +15,7 @@
         xfce.catfish
         cobang # QR code scanner desktop app for Linux
         curlFull
+        digikam
         drawio
         freac
         #freecad # commented out because compilation takes too much time, just install it with flatpak
