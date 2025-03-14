@@ -23,6 +23,7 @@ with lib;
       ../../profiles/android.nix
       ../../profiles/appimage.nix
       ../../profiles/avahi.nix
+      ../../profiles/benchmark.nix
       ../../profiles/bluetooth.nix
       ../../profiles/clamav.nix
       ../../profiles/console.nix

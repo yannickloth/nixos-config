@@ -22,6 +22,7 @@
           audacity
           bottles
           calibre
+          cobang # QR code scanner desktop app for Linux
           conda # Conda is a package manager for Python
           xfce.catfish
           curlFull
@@ -75,6 +76,7 @@
           meld # Visual diff and merge tool
           # micromamba # Reimplementation of the conda package manager
           #microsoft-edge
+          mousai # Identify any songs in seconds
           musescore
           obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
           pantheon.sideload

@@ -13,6 +13,7 @@
         bottles
         calibre
         xfce.catfish
+        cobang # QR code scanner desktop app for Linux
         curlFull
         drawio
         freac
@@ -40,6 +41,7 @@
         libsForQt5.elisa
         libsForQt5.filelight
         #microsoft-edge
+        mousai # Identify any songs in seconds
         obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
         pantheon.sideload
         #podman-desktop
