@@ -80,6 +80,7 @@
           musescore
           obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
           pantheon.sideload
+          pdfstudioviewer # Easy to use, full-featured PDF viewing software.
           plantuml
           podman-desktop
           powershell # Powerful cross-platform (Windows, Linux, and macOS) shell and scripting language based on .NET
