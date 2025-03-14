@@ -2,6 +2,7 @@
 
 with lib;
 {
+  environment.systemPackages = with pkgs; [
     geekbench
   ];
 }
