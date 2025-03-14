@@ -11,7 +11,7 @@ with lib;
       obs-studio-plugins.advanced-scene-switcher
       obs-studio-plugins.obs-vertical-canvas
       obs-studio-plugins.obs-scale-to-sound
-      obs-studio-plugins.obs-replay-source
+      #obs-studio-plugins.obs-replay-source
       obs-studio-plugins.input-overlay
       obs-studio-plugins.obs-vkcapture
       obs-studio-plugins.obs-vaapi
