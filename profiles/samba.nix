@@ -23,7 +23,7 @@ in
       nmbd.enable = true; # Whether to enable Samba’s nmbd, which replies to NetBIOS over IP name service requests. It also participates in the browsing protocols which make up the Windows “Network Neighborhood” view.
       winbindd.enable = true; # Whether to enable Samba’s winbindd, which provides a number of services to the Name Service Switch capability found in most modern C libraries, to arbitrary applications via PAM and ntlm_auth and to Samba itself.
       nsswins = true; # Whether to enable the WINS NSS (Name Service Switch) plug-in. Enabling it allows applications to resolve WINS/NetBIOS names (a.k.a. Windows machine names) by transparently querying the winbindd daemon.
-      openFirewall = true;
+      openFirewall = true; # Whether to enable opening the default ports in the firewall for Samba.
       package = pkgs.samba;
       settings = {
         global = {
