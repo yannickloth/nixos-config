@@ -50,6 +50,7 @@ with lib;
       #../../profiles/postgresql.nix # containerized postgresql
       ../../profiles/printing.nix
       ../../profiles/purescript.nix
+      ../../profiles/python.nix
       ../../profiles/samba.nix
       ../../profiles/scanning.nix
       ../../profiles/shell.nix
