@@ -80,6 +80,7 @@
           mousai # Identify any songs in seconds
           musescore
           obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
+          onlyoffice-desktopeditors # Office suite that combines text, spreadsheet and presentation editors allowing to create, view and edit local documents
           pantheon.sideload
           pdfstudioviewer # Easy to use, full-featured PDF viewing software.
           plantuml
@@ -182,7 +183,7 @@
           lfs = {
             enable = true; # Whether to enable Git Large File Storage.
           };
-          # package = pkgs.gitFull;
+          package = pkgs.gitFull;
           userName = "Yannick Loth";
           userEmail = "727881+yannickloth@users.noreply.github.com";
         };
