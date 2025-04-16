@@ -76,7 +76,7 @@
     wayland-utils
     ###
 
-    direnv # for lorri
+    direnv
     nix-direnv # for direnv
     distrobox
     eid-mw

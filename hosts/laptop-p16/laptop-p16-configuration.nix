@@ -79,7 +79,7 @@
 
     clamtk
     cryptomator # Free client-side encryption for your cloud files
-    direnv # for lorri
+    direnv
     nix-direnv # for direnv
     distrobox
     eid-mw
