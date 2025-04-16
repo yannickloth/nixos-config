@@ -1,12 +1,13 @@
 { pkgs, ... }:
 {
   environment.systemPackages = with pkgs; [
-    naps2 # Scan documents to PDF and more, as simply as possible.
+    kdePackages.skanpage
+    # naps2 # Scan documents to PDF and more, as simply as possible.
     simple-scan
   ];
-  nixpkgs.config.permittedInsecurePackages = [
+  /* nixpkgs.config.permittedInsecurePackages = [
     "dotnet-sdk-6.0.428" # marked as insecure, refusing to evaluate, needed for naps2
-  ];
+  ]; */
 
   hardware = {
     sane = {
