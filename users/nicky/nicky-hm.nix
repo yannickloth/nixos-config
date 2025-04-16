@@ -23,7 +23,6 @@
           bottles
           calibre
           cobang # QR code scanner desktop app for Linux
-          conda # Conda is a package manager for Python
           xfce.catfish
           curlFull
           devbox
@@ -86,7 +85,6 @@
           plantuml
           podman-desktop
           powershell # Powerful cross-platform (Windows, Linux, and macOS) shell and scripting language based on .NET
-          python311Packages.ipykernel
           qalculate-qt
           recoll
           #rstudio # Set of integrated tools for the R language
