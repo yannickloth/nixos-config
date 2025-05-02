@@ -3,6 +3,7 @@
   environment.systemPackages = with pkgs; [
     kdePackages.skanpage
     # naps2 # Scan documents to PDF and more, as simply as possible.
+    scantailor-advanced
     simple-scan
   ];
   /* nixpkgs.config.permittedInsecurePackages = [
