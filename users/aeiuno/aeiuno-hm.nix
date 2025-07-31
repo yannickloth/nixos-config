@@ -49,7 +49,6 @@
         qalculate-qt
         recoll
         signal-desktop
-        skypeforlinux
         speechd # speech-dispatcher, useful for Firefox
         stellarium # Desktop planetariums
         thunderbird
