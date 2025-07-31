@@ -93,7 +93,6 @@
           scribus
           #setzer # LaTeX editor written in Python with Gtk
           signal-desktop
-          skypeforlinux
           speechd # speech-dispatcher, useful for Firefox
           stellarium # Desktop planetarium
           szyszka # A simple but powerful and fast bulk file renamer
