@@ -31,7 +31,7 @@ with lib;
     };
 
     # Do not turn off when closing laptop lid
-    services.logind.extraConfig = ''
+    services.logind.settings.Login = ''
       HandleLidSwitch=ignore
     '';
 
