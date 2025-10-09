@@ -70,8 +70,8 @@
           kid3-qt # A simple and powerful audio tag editor
           kodi
           krita
-          libsForQt5.elisa
-          libsForQt5.filelight
+          kdePackages.elisa
+          kdePackages.filelight
           lua
           mastodon
           meld # Visual diff and merge tool

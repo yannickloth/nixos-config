@@ -39,8 +39,8 @@
         kid3-qt # A simple and powerful audio tag editor
         kodi
         krita
-        libsForQt5.elisa
-        libsForQt5.filelight
+        kdePackages.elisa
+        kdePackages.filelight
         #microsoft-edge
         mousai # Identify any songs in seconds
         obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files

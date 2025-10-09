@@ -90,8 +90,8 @@
     gparted
     htop
     killall
-    libsForQt5.kig
-    libsForQt5.kfind
+    kdePackages.kig
+    kdePackages.kfind
     lightly-boehs # QT application theme
     mpv
     nixd # Nix language server
