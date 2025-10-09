@@ -95,7 +95,6 @@
     killall
     kdePackages.kig
     kdePackages.kfind
-    lightly-boehs # QT application theme
     mpv
     # mtpaint
     # mypaint

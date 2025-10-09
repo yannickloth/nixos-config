@@ -92,7 +92,6 @@
     killall
     kdePackages.kig
     kdePackages.kfind
-    lightly-boehs # QT application theme
     mpv
     nixd # Nix language server
     nixdoc # Generate documentation for Nix functions
