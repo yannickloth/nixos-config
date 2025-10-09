@@ -28,7 +28,7 @@
           curlFull
           devbox
           # drawio
-          digikam
+          #digikam
           fdk_aac # A high-quality implementation of the AAC codec from Android
           fdk-aac-encoder # Command line encoder frontend for libfdk-aac encoder
           # (ffmpeg_5-full.overrideAttrs (old: rec {
