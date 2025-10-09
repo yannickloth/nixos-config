@@ -79,6 +79,7 @@ with lib;
 
   nix.settings = {
     cores = 0; # This option defines the maximum number of concurrent tasks during one build. It affects, e.g., -j option for make. The special value 0 means that the builder should use all available CPU cores in the system. Some builds may become non-deterministic with this option; use with care! Packages will only be affected if enableParallelBuilding is set for them.
+    download-buffer-size = 524288000;
     max-jobs = 12; # This option defines the maximum number of jobs that Nix will try to build in parallel. The default is auto, which means it will use all available logical cores. It is recommend to set it to the total number of logical cores in your system (e.g., 16 for two CPUs with 4 cores each and hyper-threading).
     system-features = [
       "benchmark" # May apply to packages or tests that depend on benchmarking features.
