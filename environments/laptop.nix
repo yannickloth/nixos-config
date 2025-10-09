@@ -31,9 +31,9 @@ with lib;
     };
 
     # Do not turn off when closing laptop lid
-    services.logind.settings.Login = ''
+    services.logind.settings.Login = {
       HandleLidSwitch=ignore
-    '';
+    };
 
     # keep timezone updated to local time using geoclue
     time.timeZone = lib.mkForce "Europe/Luxembourg"; # force because somewhere else this is set to null, and Nix does not know how to resolve the conflict
