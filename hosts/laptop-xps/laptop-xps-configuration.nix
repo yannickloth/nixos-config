@@ -93,8 +93,8 @@
     htop
     kdePackages.kolourpaint
     killall
-    libsForQt5.kig
-    libsForQt5.kfind
+    kdePackages.kig
+    kdePackages.kfind
     lightly-boehs # QT application theme
     mpv
     # mtpaint

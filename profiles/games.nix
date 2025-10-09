@@ -54,16 +54,16 @@ with lib;
     #ioquake3
     libcec # Allows you (with the right hardware) to control your device with your TV remote control using existing HDMI cabling
     libcec_platform # Platform library for libcec and Kodi addons
-    libsForQt5.granatier
-    libsForQt5.katomic
-    libsForQt5.kblocks
-    libsForQt5.kbreakout
-    libsForQt5.kdiamond
-    libsForQt5.kmahjongg
-    libsForQt5.kmines
-    libsForQt5.kpat
-    libsForQt5.kshisen
-    libsForQt5.ksudoku # Sudoku for KDE
+    kdePackages.granatier
+    kdePackages.katomic
+    kdePackages.kblocks
+    kdePackages.kbreakout
+    kdePackages.kdiamond
+    kdePackages.kmahjongg
+    kdePackages.kmines
+    kdePackages.kpat
+    kdePackages.kshisen
+    kdePackages.ksudoku # Sudoku for KDE
     lutris
     mangohud # A Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load and more
     obs-studio-plugins.obs-vkcapture # OBS Linux Vulkan/OpenGL game capture

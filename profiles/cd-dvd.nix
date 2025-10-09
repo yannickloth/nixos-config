@@ -7,6 +7,6 @@ with lib;
     cdrdao
     cdrkit
     libdvdcss
-    #libsForQt5.k3b
+    #kdePackages.k3b
   ];
 }
