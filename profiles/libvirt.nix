@@ -3,7 +3,7 @@
 with lib;
 {
   environment.systemPackages = with pkgs; [
-    virt-manager-qt # Desktop user interface for managing virtual machines (QT)
+    virt-manager # Desktop user interface for managing virtual machines (QT)
   ];
   programs = {
     virt-manager = {

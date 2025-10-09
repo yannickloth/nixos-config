@@ -103,7 +103,7 @@
           vlc
           whatsapp-for-linux
           whitesur-gtk-theme
-          zeal-qt6 # Simple offline API documentation browser.
+          zeal # Simple offline API documentation browser.
           zoom-us
           zotero
         ];
