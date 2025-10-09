@@ -93,6 +93,6 @@ with lib;
     # linux-wallpaperengine # Wallpaper Engine backgrounds for Linux # depends on freeimage, which is insecure according to nix/nixpkgs
     xmoto
     kdePackages.xwaylandvideobridge # Utility to allow streaming Wayland windows to X applications
-    zeroad
+    #zeroad
   ];
 }
