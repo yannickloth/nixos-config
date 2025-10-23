@@ -8,6 +8,6 @@ with lib;
     android-tools
     cargo-ndk # Cargo extension for building Android NDK projects.
     gradle
-    gradle-completion # Gradle tab completion for bash and zsh.
+    # gradle-completion # Gradle tab completion for bash and zsh.
   ];
 }
