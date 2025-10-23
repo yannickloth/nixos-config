@@ -45,6 +45,7 @@ with lib;
         material-design-icons
         material-icons
         merriweather
+        montserrat
         mplus-outline-fonts.githubRelease
         nerd-fonts.fira-code
         nerd-fonts.fira-mono
