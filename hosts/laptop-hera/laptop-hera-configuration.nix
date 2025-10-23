@@ -90,7 +90,7 @@
     gparted
     htop
     killall
-    kdePackages.kig
+    # kdePackages.kig
     kdePackages.kfind
     mpv
     nixd # Nix language server

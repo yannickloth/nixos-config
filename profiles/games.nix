@@ -64,7 +64,7 @@ with lib;
     kdePackages.kpat
     kdePackages.kshisen
     kdePackages.ksudoku # Sudoku for KDE
-    lutris
+    # lutris
     mangohud # A Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load and more
     obs-studio-plugins.obs-vkcapture # OBS Linux Vulkan/OpenGL game capture
     (prismlauncher.override { # Free, open source launcher for Minecraft
