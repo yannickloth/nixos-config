@@ -34,7 +34,7 @@
         kdePackages.kate
         keepassxc
         # keybase-gui
-        kgraphviewer
+        # kgraphviewer
         #kicad
         kid3-qt # A simple and powerful audio tag editor
         kodi
