@@ -3,7 +3,7 @@
 with lib;
 {
   hardware.ckb-next = {
-    enable = true;
+    enable = false;
   };
 
 #   environment.systemPackages = with pkgs; [
