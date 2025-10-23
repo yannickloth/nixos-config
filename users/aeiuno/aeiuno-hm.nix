@@ -66,7 +66,7 @@
         ls = "lsd"; # replace ls by lsd
         ll = "ls -lha";
       };*/
-      stateVersion = "23.05"; /* The home.stateVersion option does not have a default and must be set */
+      stateVersion = "25.05"; /* The home.stateVersion option does not have a default and must be set */
     };
 
     programs = {
