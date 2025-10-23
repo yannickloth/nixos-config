@@ -187,6 +187,9 @@
         enable = true;
         indicator = true;
       };
+      psd = { # Settings of the profle-sync-daemon service. Puts browser profiles into tmpfs or overlayfs/overlay for improved performance.
+        enable = true;
+      };
       # keybase.enable = true;
       syncthing = {
         enable = true;
