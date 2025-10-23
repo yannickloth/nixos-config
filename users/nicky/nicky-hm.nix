@@ -94,7 +94,7 @@
           #setzer # LaTeX editor written in Python with Gtk
           signal-desktop
           speechd # speech-dispatcher, useful for Firefox
-          stellarium # Desktop planetarium
+          # stellarium # Desktop planetarium
           szyszka # A simple but powerful and fast bulk file renamer
           thunderbird
           tuner

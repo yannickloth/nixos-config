@@ -50,7 +50,7 @@
         recoll
         signal-desktop
         speechd # speech-dispatcher, useful for Firefox
-        stellarium # Desktop planetariums
+        # stellarium # Desktop planetariums
         thunderbird
         tuner
         #vivaldi
