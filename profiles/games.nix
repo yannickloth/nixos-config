@@ -29,7 +29,7 @@ with lib;
   };
   services = {
     hardware.openrgb = {
-      enable = true; # Whether to enable OpenRGB server, for RGB lighting control.
+      enable = false; # Whether to enable OpenRGB server, for RGB lighting control.
     };
     input-remapper = {
       enable = true; # Whether to enable input-remapper, an easy to use tool to change the mapping of your input device buttons.
