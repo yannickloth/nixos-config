@@ -145,6 +145,10 @@
         command-not-found = {
           enable = true;
         };
+        delta = {
+          enable = true; # Whether to enable the delta syntax highlighter.
+          enableGitIntegration = true;
+        };
         direnv = {
           enable = true;
           enableBashIntegration = true; # see note on other shells below
@@ -171,19 +175,19 @@
         #   package = pkgs.firefox-bin;
         # };
         git = {
-          delta = {
-            enable = true; # Whether to enable the delta syntax highlighter.
-          };
           enable = true;
-          extraConfig = {
+          settings = {
             credential.helper = "${pkgs.git.override { withLibsecret = true; }}/bin/git-credential-libsecret";
+            user = {
+              name = "Yannick Loth";
+              email = "727881+yannickloth@users.noreply.github.com";
+            };
           };
           lfs = {
             enable = true; # Whether to enable Git Large File Storage.
           };
           # package = pkgs.gitFull;
-          userName = "Yannick Loth";
-          userEmail = "727881+yannickloth@users.noreply.github.com";
+          
         };
         gitui = {
           enable = true;
