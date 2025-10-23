@@ -16,7 +16,6 @@ with lib;
       powertop.enable = true; # Whether to enable powertop auto tuning on startup. Analyze power consumption on Intel-based laptops.
     };
 
-    # As we always use laptops with Plasma or Gnome, just rely on their standard power management features. It's not as if we extensively used laptops without graphical interface.
     #services.tlp = {
       # Gnome 40 introduced a new way of managing power, without tlp.
       # However, these 2 services clash when enabled simultaneously.
@@ -31,9 +30,9 @@ with lib;
     };
 
     # Do not turn off when closing laptop lid
-    services.logind.settings.Login = {
-      HandleLidSwitch="ignore";
-    };
+    services.logind.extraConfig = ''
+      HandleLidSwitch=ignore
+    '';
 
     # keep timezone updated to local time using geoclue
     time.timeZone = lib.mkForce "Europe/Luxembourg"; # force because somewhere else this is set to null, and Nix does not know how to resolve the conflict
