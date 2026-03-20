@@ -1,5 +1,8 @@
 # Symlink this file into ~/.config/home-manager/ : 
 # ln -sf ~/code/nixos-config/users/nicky/home.nix ~/.config/home-manager/home.nix
+#
+# OR skip the symlink: home-manager switch -f ~/code/nixos-config/users/nicky/home.nix
+#
 {
   config,
   pkgs,
@@ -100,8 +103,8 @@
           --set QT_XCB_GL_INTEGRATION none \
           --prefix LD_LIBRARY_PATH : ${
             pkgs.lib.makeLibraryPath [
-              pkgs.xorg.libX11
-              pkgs.xorg.libXrandr
+              pkgs.libX11
+              pkgs.libxrandr
               pkgs.libGL
             ]
           }
@@ -126,6 +129,11 @@
     # Ollama and OpenWebUI
     ollama-cuda
     open-webui
+
+    quarto
+    # panache
+
+    jbang
   ];
   # Configure npm to use a writable directory for global packages
   home.file.".npmrc".text = ''
