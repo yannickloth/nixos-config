@@ -156,6 +156,9 @@
     # Install claude-trace via npm
     export NPM_CONFIG_PREFIX="$HOME/.npm-global"
     $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g @mariozechner/claude-trace@latest
+
+    # Install MCP Ollama server via npm
+    $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g ollama-mcp@latest
   '';
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
