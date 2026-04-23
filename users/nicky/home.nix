@@ -10,6 +10,44 @@
   ...
 }:
 
+let
+  # Tresorit FHS environment definition
+  tresoritFHS = pkgs.buildFHSEnv {
+    name = "tresorit-fhs";
+    targetPkgs = pkgs: with pkgs; [
+      qt5.qtbase
+      libsForQt5.qtscript
+      libsForQt5.qtx11extras
+      libsForQt5.qtdeclarative
+      libsForQt5.qtsvg
+      libsForQt5.qtgraphicaleffects
+      libsForQt5.qtquickcontrols2
+      libsForQt5.qtwayland
+      fuse
+      xorg.libxcb
+      xorg.libX11
+      glibc
+      libgcc
+      pcre2
+      libcap
+      xorg.xcbutilwm
+      xorg.xcbutilimage
+      xorg.xcbutilkeysyms
+      xorg.xcbutilrenderutil
+      libxkbcommon
+      xorg.libXext
+      xcb-util-cursor
+      xcbutilxrm
+      libGLU
+      libGL
+      krb5
+    ];
+    runScript = "bash";
+    meta = with pkgs.lib; {
+      description = "FHS environment for Tresorit";
+    };
+  };
+in
 {
   nixpkgs.config.allowUnfree = true; # This allows you to install unfree software, such as Google Chrome, Steam or MasterPDFEditor.
 
@@ -129,11 +167,16 @@
     # Ollama and OpenWebUI
     ollama-cuda
     open-webui
+    qwen-code
+
+    llama-cpp # llama.cpp inference server (OpenAI-compatible API via llama-server)
 
     quarto
     # panache
 
     jbang
+
+    tresoritFHS
   ];
   # Configure npm to use a writable directory for global packages
   home.file.".npmrc".text = ''
@@ -159,21 +202,58 @@
 
     # Install MCP Ollama server via npm
     $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g ollama-mcp@latest
+
+    # Install Cline to use Cline Kanban
+    $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g cline
+  '';
+
+  home.activation.setupTresorit = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    # Install Tresorit if not already installed
+    if [ ! -f "$HOME/.local/share/tresorit/tresorit" ]; then
+      echo "Installing Tresorit..."
+      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fL -o /tmp/tresorit_installer.run https://installer.tresorit.com/tresorit_installer.run
+      $DRY_RUN_CMD chmod +x /tmp/tresorit_installer.run
+      $DRY_RUN_CMD /tmp/tresorit_installer.run --target "$HOME/.local/share/tresorit" --noexec
+      $DRY_RUN_CMD rm /tmp/tresorit_installer.run
+    fi
+
+    # Install desktop file
+    $DRY_RUN_CMD mkdir -p "$HOME/.local/share/applications"
+    $DRY_RUN_CMD cp "$HOME/Tresorit FHS.desktop" "$HOME/.local/share/applications/tresorit-fhs.desktop"
+
+    # Disable Tresorit's broken autostart config
+    if [ -f "$HOME/.config/autostart/tresorit.desktop" ]; then
+      $DRY_RUN_CMD mv "$HOME/.config/autostart/tresorit.desktop" "$HOME/.config/autostart/tresorit.desktop.bk"
+      $DRY_RUN_CMD sed -i 's/^/# /' "$HOME/.config/autostart/tresorit.desktop.bk"
+    fi
+
+    # Set up autostart for FHS version
+    $DRY_RUN_CMD mkdir -p "$HOME/.config/autostart"
+    $DRY_RUN_CMD cp "$HOME/.local/share/applications/tresorit-fhs.desktop" "$HOME/.config/autostart/tresorit-fhs.desktop"
   '';
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
   # plain files is through 'home.file'.
   home.file = {
-    # # Building this configuration will create a copy of 'dotfiles/screenrc' in
-    # # the Nix store. Activating the configuration will then make '~/.screenrc' a
-    # # symlink to the Nix store copy.
-    # ".screenrc".source = dotfiles/screenrc;
-
-    # # You can also set the file content immediately.
-    # ".gradle/gradle.properties".text = ''
-    #   org.gradle.console=verbose
-    #   org.gradle.daemon.idletimeout=3600000
-    # '';
+    # Tresorit FHS launcher script
+    ".local/share/tresorit/tresorit_fhs_launcher.sh" = {
+      executable = true;
+      text = ''
+        #!/usr/bin/env bash
+        ${tresoritFHS}/bin/tresorit-fhs -c "${config.home.homeDirectory}/.local/share/tresorit/tresorit --hidden" > ${config.home.homeDirectory}/.local/share/tresorit/fhs.log 2>&1 &
+      '';
+    };
+    "Tresorit FHS.desktop".text = ''
+      [Desktop Entry]
+      Version=1.0
+      Type=Application
+      Name=Tresorit FHS
+      Comment=Secure cloud storage
+      Exec=${config.home.homeDirectory}/.local/share/tresorit/tresorit_fhs_launcher.sh
+      Icon=tresorit
+      Terminal=false
+      Categories=Network;
+    '';
   };
 
   # Home Manager can also manage your environment variables through
