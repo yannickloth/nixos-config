@@ -24,18 +24,18 @@ let
       libsForQt5.qtquickcontrols2
       libsForQt5.qtwayland
       fuse
-      xorg.libxcb
-      xorg.libX11
+      libxcb
+      libx11
       glibc
       libgcc
       pcre2
       libcap
-      xorg.xcbutilwm
-      xorg.xcbutilimage
-      xorg.xcbutilkeysyms
-      xorg.xcbutilrenderutil
+      libxcb-wm
+      libxcb-image
+      libxcb-keysyms
+      libxcb-render-util
       libxkbcommon
-      xorg.libXext
+      libxext
       xcb-util-cursor
       xcbutilxrm
       libGLU
@@ -141,7 +141,7 @@ in
           --set QT_XCB_GL_INTEGRATION none \
           --prefix LD_LIBRARY_PATH : ${
             pkgs.lib.makeLibraryPath [
-              pkgs.libX11
+              pkgs.libx11
               pkgs.libxrandr
               pkgs.libGL
             ]
@@ -164,12 +164,9 @@ in
     rclone # Used to mount nestor shares
     # fuse3 # Already installed as a CachyOS package.
 
-    # Ollama and OpenWebUI
-    ollama-cuda
+    # LLM inference — llama.cpp replaces Ollama (1.8x faster for local models)
+    (llama-cpp.override { cudaSupport = true; }) # llama.cpp inference server with CUDA (OpenAI-compatible API via llama-server)
     open-webui
-    qwen-code
-
-    llama-cpp # llama.cpp inference server (OpenAI-compatible API via llama-server)
 
     quarto
     # panache
@@ -183,11 +180,12 @@ in
     prefix=${config.home.homeDirectory}/.npm-global
   '';
 
-  # Add local bin (Claude Code native), npm global bin, and elan to PATH
+  # Add local bin (Claude Code native), npm global bin, elan, and opencode to PATH
   home.sessionPath = [
     "$HOME/.local/bin"
     "$HOME/.elan/bin"
     "$HOME/.npm-global/bin"
+    "$HOME/.opencode/bin"
   ];
 
   home.activation.installClaudeTools = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
@@ -196,15 +194,28 @@ in
       $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fsSL https://claude.ai/install.sh | $DRY_RUN_CMD bash
     fi
 
+    # Install OpenCode (auto-updates itself)
+    if [ ! -f "$HOME/.opencode/bin/opencode" ]; then
+      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fsSL https://opencode.ai/install | $DRY_RUN_CMD bash
+    fi
+
     # Install claude-trace via npm
     export NPM_CONFIG_PREFIX="$HOME/.npm-global"
     $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g @mariozechner/claude-trace@latest
 
-    # Install MCP Ollama server via npm
-    $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g ollama-mcp@latest
+    # Install MCP llama.cpp server via npm (replaces ollama-mcp)
+    # $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g mcp-llama-cpp@latest -> DOES NOT EXIST
 
     # Install Cline to use Cline Kanban
     $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g cline
+  '';
+
+  home.activation.cleanupOllama = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    # Clean up old Ollama model blobs (now replaced by llama.cpp GGUF models)
+    if [ -d "$HOME/.ollama" ]; then
+      echo "Removing old Ollama data (~88GB)..."
+      $DRY_RUN_CMD rm -rf "$HOME/.ollama"
+    fi
   '';
 
   home.activation.setupTresorit = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
@@ -217,9 +228,23 @@ in
       $DRY_RUN_CMD rm /tmp/tresorit_installer.run
     fi
 
-    # Install desktop file
-    $DRY_RUN_CMD mkdir -p "$HOME/.local/share/applications"
-    $DRY_RUN_CMD cp "$HOME/Tresorit FHS.desktop" "$HOME/.local/share/applications/tresorit-fhs.desktop"
+    # Create desktop file in applications directory
+    DESKTOP_FILE="$HOME/.local/share/applications/tresorit-fhs.desktop"
+    $DRY_RUN_CMD mkdir -p "$(dirname "$DESKTOP_FILE")"
+    if [ -f "$DESKTOP_FILE" ]; then
+      $DRY_RUN_CMD rm -f "$DESKTOP_FILE"
+    fi
+    $DRY_RUN_CMD cat > "$DESKTOP_FILE" <<EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Tresorit FHS
+Comment=Secure cloud storage
+Exec=${config.home.homeDirectory}/.local/share/tresorit/tresorit_fhs_launcher.sh
+Icon=tresorit
+Terminal=false
+Categories=Network;
+EOF
 
     # Disable Tresorit's broken autostart config
     if [ -f "$HOME/.config/autostart/tresorit.desktop" ]; then
@@ -228,8 +253,22 @@ in
     fi
 
     # Set up autostart for FHS version
-    $DRY_RUN_CMD mkdir -p "$HOME/.config/autostart"
-    $DRY_RUN_CMD cp "$HOME/.local/share/applications/tresorit-fhs.desktop" "$HOME/.config/autostart/tresorit-fhs.desktop"
+    AUTOSTART_FILE="$HOME/.config/autostart/tresorit-fhs.desktop"
+    $DRY_RUN_CMD mkdir -p "$(dirname "$AUTOSTART_FILE")"
+    if [ -f "$AUTOSTART_FILE" ]; then
+      $DRY_RUN_CMD rm -f "$AUTOSTART_FILE"
+    fi
+    $DRY_RUN_CMD cat > "$AUTOSTART_FILE" <<EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Tresorit FHS
+Comment=Secure cloud storage
+Exec=${config.home.homeDirectory}/.local/share/tresorit/tresorit_fhs_launcher.sh
+Icon=tresorit
+Terminal=false
+Categories=Network;
+EOF
   '';
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
@@ -243,17 +282,6 @@ in
         ${tresoritFHS}/bin/tresorit-fhs -c "${config.home.homeDirectory}/.local/share/tresorit/tresorit --hidden" > ${config.home.homeDirectory}/.local/share/tresorit/fhs.log 2>&1 &
       '';
     };
-    "Tresorit FHS.desktop".text = ''
-      [Desktop Entry]
-      Version=1.0
-      Type=Application
-      Name=Tresorit FHS
-      Comment=Secure cloud storage
-      Exec=${config.home.homeDirectory}/.local/share/tresorit/tresorit_fhs_launcher.sh
-      Icon=tresorit
-      Terminal=false
-      Categories=Network;
-    '';
   };
 
   # Home Manager can also manage your environment variables through
@@ -274,6 +302,7 @@ in
   #
   home.sessionVariables = {
     #CLAUDE_INSTANCE = "A";
+    ANTHROPIC_BASE_URL = "http://127.0.0.1:8787";
   };
   home.shellAliases = {
   };
@@ -307,9 +336,6 @@ in
     };
     # Let Home Manager install and manage itself.
     home-manager.enable = true;
-    opencode = {
-      enable = true;
-    };
     uv = {
       enable = true;
     };
@@ -340,32 +366,53 @@ in
       };
     };
 
-    # Ollama service
-    ollama = {
+    # llama.cpp inference server (replaces Ollama — 1.8x faster)
+    llama-server = {
       Unit = {
-        Description = "Ollama LLM service";
+        Description = "llama.cpp inference server (CUDA, OpenAI-compatible API)";
         After = [ "network-online.target" ];
       };
       Install = {
         WantedBy = [ "default.target" ];
       };
-      Service = {
-        ExecStart = "${pkgs.ollama-cuda}/bin/ollama serve";
+      Service = let
+        llama-cpp-cuda = pkgs.llama-cpp.override { cudaSupport = true; };
+        modelDir = "${config.home.homeDirectory}/.local/share/llama.cpp/models";
+      in {
+        # This replaces taskset and pins the service to the P-cores (0-15)
+        CPUAffinity = "0-15";
+        ExecStart = ''
+          ${llama-cpp-cuda}/bin/llama-server \
+            --model ${modelDir}/qwen3-coder-30b-a3b-q4_k_m.gguf \
+            --alias qwen3-coder-30b-a3b-q4_k_m \
+            --host 0.0.0.0 \
+            --port 8090 \
+            --n-gpu-layers 10 \
+            --ctx-size 32768 \
+            --flash-attn on \
+            --cache-type-k q4_0 \
+            --cache-type-v q4_0 \
+            --threads 8 \
+            --metrics
+        '';
         Restart = "on-failure";
-        RestartSec = "30s";
-        Environment = "OLLAMA_HOST=0.0.0.0";
+        RestartSec = "10s";
+        Environment = [
+          "CUDA_VISIBLE_DEVICES=0"
+          "LD_LIBRARY_PATH=/usr/lib:/usr/lib64:/usr/lib/nvidia"
+        ];    
       };
     };
 
-    # OpenWebUI service
+    # OpenWebUI service (now points to llama-server instead of Ollama)
     open-webui = {
       Unit = {
         Description = "OpenWebUI web interface";
         After = [
           "network-online.target"
-          "ollama.service"
+          "llama-server.service"
         ];
-        Wants = [ "ollama.service" ];
+        Wants = [ "llama-server.service" ];
       };
       Install = {
         WantedBy = [ "default.target" ];
@@ -375,10 +422,40 @@ in
         Restart = "on-failure";
         RestartSec = "30s";
         Environment = [
-          "OLLAMA_BASE_URL=http://localhost:11434"
+          "OPENAI_API_BASE_URL=http://localhost:8080/v1"
           "WEBUI_SECRET_KEY=nicky-secret-key"
           "DATA_DIR=${config.home.homeDirectory}/.local/share/open-webui/data"
         ];
+      };
+    };
+
+    # Pino proxy - Anthropic API cache optimizer for Claude Code
+    pino-proxy = {
+      Unit = {
+        Description = "Pino proxy - Anthropic API cache optimizer";
+        After = [ "network-online.target" ];
+      };
+      Install = {
+        WantedBy = [ "default.target" ];
+      };
+      Service = let
+        pino-src = pkgs.fetchFromGitHub {
+          owner = "alxsuv";
+          repo = "pino";
+          rev = "e2bebcf5241fb91facec18a8dcd2970864e6b18e";
+          sha256 = "sha256-a2QtaqRgoRuNQ3CP7vjgNPaQJIvymrybcJeTtUjmma8=";
+        };
+      in {
+        WorkingDirectory = pino-src;
+        ExecStart = "${pkgs.nodejs}/bin/node ${pino-src}/bin/pino-proxy.js";
+        Environment = [
+          "AUTO_CACHE=1"
+          "TRANSFORM_FILE=${pino-src}/src/transforms/default.js"
+          "DROP_TOOLS=NotebookEdit,CronCreate,CronDelete,CronList,RemoteTrigger,PushNotification,Monitor"
+          "LOG_BODIES=1"
+        ];
+        Restart = "on-failure";
+        RestartSec = "10s";
       };
     };
   };
