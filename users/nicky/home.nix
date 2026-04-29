@@ -302,7 +302,8 @@ EOF
   #
   home.sessionVariables = {
     #CLAUDE_INSTANCE = "A";
-    ANTHROPIC_BASE_URL = "http://127.0.0.1:8787";
+    # Sonnet default; using Opus must be a deliberate choice via --model
+    ANTHROPIC_MODEL = "claude-sonnet-4-6";
   };
   home.shellAliases = {
   };
@@ -315,6 +316,7 @@ EOF
         # hm-session-vars.sh was already sourced (e.g., by .profile)
         unset __HM_SESS_VARS_SOURCED
         . "${config.home.profileDirectory}/etc/profile.d/hm-session-vars.sh"
+
       '';
     };
     direnv = {
@@ -426,36 +428,6 @@ EOF
           "WEBUI_SECRET_KEY=nicky-secret-key"
           "DATA_DIR=${config.home.homeDirectory}/.local/share/open-webui/data"
         ];
-      };
-    };
-
-    # Pino proxy - Anthropic API cache optimizer for Claude Code
-    pino-proxy = {
-      Unit = {
-        Description = "Pino proxy - Anthropic API cache optimizer";
-        After = [ "network-online.target" ];
-      };
-      Install = {
-        WantedBy = [ "default.target" ];
-      };
-      Service = let
-        pino-src = pkgs.fetchFromGitHub {
-          owner = "alxsuv";
-          repo = "pino";
-          rev = "e2bebcf5241fb91facec18a8dcd2970864e6b18e";
-          sha256 = "sha256-a2QtaqRgoRuNQ3CP7vjgNPaQJIvymrybcJeTtUjmma8=";
-        };
-      in {
-        WorkingDirectory = pino-src;
-        ExecStart = "${pkgs.nodejs}/bin/node ${pino-src}/bin/pino-proxy.js";
-        Environment = [
-          "AUTO_CACHE=1"
-          "TRANSFORM_FILE=${pino-src}/src/transforms/default.js"
-          "DROP_TOOLS=NotebookEdit,CronCreate,CronDelete,CronList,RemoteTrigger,PushNotification,Monitor"
-          "LOG_BODIES=1"
-        ];
-        Restart = "on-failure";
-        RestartSec = "10s";
       };
     };
   };
