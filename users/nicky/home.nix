@@ -457,7 +457,7 @@ EOF
         WantedBy = [ "default.target" ];
       };
       Service = {
-        ExecStart = "%h/.local/bin/local-ai run --models-path %h/.local/share/localai/models --data-path %h/.local/share/localai/data --address=127.0.0.1:8082 --f16 --max-active-backends=1 --enable-memory-reclaimer --memory-reclaimer-threshold=0.8";
+        ExecStart = "%h/.local/bin/local-ai run --models-path %h/.local/share/localai/models --data-path %h/.local/share/localai/data --address=127.0.0.1:8082 --f16 --max-active-backends=1 --enable-memory-reclaimer --memory-reclaimer-threshold=0.8 --context-size 32768";
         WorkingDirectory = "%h/.local/share/localai";
         Restart = "on-failure";
         RestartSec = "10s";
@@ -470,6 +470,7 @@ EOF
           "LOCALAI_MAX_ACTIVE_BACKENDS=1"
           "LOCALAI_MEMORY_RECLAIMER=true"
           "LOCALAI_MEMORY_RECLAIMER_THRESHOLD=0.8"
+          "CONTEXT_SIZE=32768"
         ];
       };
     };
