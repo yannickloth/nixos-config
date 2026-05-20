@@ -175,7 +175,6 @@ in
 
     tresoritFHS
   ];
-  # Configure npm to use a writable directory for global packages
   home.file.".npmrc".text = ''
     prefix=${config.home.homeDirectory}/.npm-global
   '';
@@ -215,6 +214,20 @@ in
     if [ -d "$HOME/.ollama" ]; then
       echo "Removing old Ollama data (~88GB)..."
       $DRY_RUN_CMD rm -rf "$HOME/.ollama"
+    fi
+  '';
+
+  home.activation.setupLocalai = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    # Create LocalAI directories
+    $DRY_RUN_CMD mkdir -p "$HOME/.local/share/localai/models"
+    $DRY_RUN_CMD mkdir -p "$HOME/.local/share/localai/data"
+
+    # Download LocalAI binary if not exists
+    if [ ! -f "$HOME/.local/bin/local-ai" ]; then
+      echo "Downloading LocalAI binary..."
+      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fsSL https://github.com/mudler/LocalAI/releases/latest/download/local-ai-v4.2.6-linux-amd64 -o "$HOME/.local/bin/local-ai"
+      $DRY_RUN_CMD chmod +x "$HOME/.local/bin/local-ai"
+      echo "LocalAI binary installed to $HOME/.local/bin/local-ai"
     fi
   '';
 
@@ -304,6 +317,9 @@ EOF
     #CLAUDE_INSTANCE = "A";
     # Sonnet default; using Opus must be a deliberate choice via --model
     ANTHROPIC_MODEL = "claude-sonnet-4-6";
+    # LocalAI configuration
+    LOCALAI_MODELS_PATH = "${config.home.homeDirectory}/.local/share/localai/models";
+    LOCALAI_DATA_PATH = "${config.home.homeDirectory}/.local/share/localai/data";
   };
   home.shellAliases = {
   };
@@ -406,15 +422,15 @@ EOF
       };
     };
 
-    # OpenWebUI service (now points to llama-server instead of Ollama)
+    # OpenWebUI service (now points to localai instead of Ollama)
     open-webui = {
       Unit = {
         Description = "OpenWebUI web interface";
         After = [
           "network-online.target"
-          "llama-server.service"
+          "localai.service"
         ];
-        Wants = [ "llama-server.service" ];
+        Wants = [ "localai.service" ];
       };
       Install = {
         WantedBy = [ "default.target" ];
@@ -424,9 +440,36 @@ EOF
         Restart = "on-failure";
         RestartSec = "30s";
         Environment = [
-          "OPENAI_API_BASE_URL=http://localhost:8080/v1"
+          "OPENAI_API_BASE_URL=http://localhost:8082/v1"
           "WEBUI_SECRET_KEY=nicky-secret-key"
           "DATA_DIR=${config.home.homeDirectory}/.local/share/open-webui/data"
+        ];
+      };
+    };
+
+    # LocalAI service (OpenAI-compatible API server with CUDA support - local binary)
+    localai = {
+      Unit = {
+        Description = "LocalAI OpenAI-compatible API server (local binary)";
+        After = [ "network-online.target" ];
+      };
+      Install = {
+        WantedBy = [ "default.target" ];
+      };
+      Service = {
+        ExecStart = "%h/.local/bin/local-ai run --models-path %h/.local/share/localai/models --data-path %h/.local/share/localai/data --address=127.0.0.1:8082 --f16 --max-active-backends=1 --enable-memory-reclaimer --memory-reclaimer-threshold=0.8";
+        WorkingDirectory = "%h/.local/share/localai";
+        Restart = "on-failure";
+        RestartSec = "10s";
+        Environment = [
+          "CUDA_VISIBLE_DEVICES=0"
+          "LD_LIBRARY_PATH=/opt/cuda/lib64:/usr/lib:/usr/lib64:/usr/lib/nvidia"
+          "LOCALAI_ADDRESS=127.0.0.1:8082"
+          "LOCALAI_MODELS_PATH=%h/.local/share/localai/models"
+          "LOCALAI_DATA_PATH=%h/.local/share/localai/data"
+          "LOCALAI_MAX_ACTIVE_BACKENDS=1"
+          "LOCALAI_MEMORY_RECLAIMER=true"
+          "LOCALAI_MEMORY_RECLAIMER_THRESHOLD=0.8"
         ];
       };
     };
