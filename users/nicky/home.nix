@@ -384,43 +384,43 @@ EOF
       };
     };
 
-    # llama.cpp inference server (replaces Ollama — 1.8x faster)
-    llama-server = {
-      Unit = {
-        Description = "llama.cpp inference server (CUDA, OpenAI-compatible API)";
-        After = [ "network-online.target" ];
-      };
-      Install = {
-        WantedBy = [ "default.target" ];
-      };
-      Service = let
-        llama-cpp-cuda = pkgs.llama-cpp.override { cudaSupport = true; };
-        modelDir = "${config.home.homeDirectory}/.local/share/llama.cpp/models";
-      in {
-        # This replaces taskset and pins the service to the P-cores (0-15)
-        CPUAffinity = "0-15";
-        ExecStart = ''
-          ${llama-cpp-cuda}/bin/llama-server \
-            --model ${modelDir}/qwen3-coder-30b-a3b-q4_k_m.gguf \
-            --alias qwen3-coder-30b-a3b-q4_k_m \
-            --host 0.0.0.0 \
-            --port 8090 \
-            --n-gpu-layers 10 \
-            --ctx-size 32768 \
-            --flash-attn on \
-            --cache-type-k q4_0 \
-            --cache-type-v q4_0 \
-            --threads 8 \
-            --metrics
-        '';
-        Restart = "on-failure";
-        RestartSec = "10s";
-        Environment = [
-          "CUDA_VISIBLE_DEVICES=0"
-          "LD_LIBRARY_PATH=/usr/lib:/usr/lib64:/usr/lib/nvidia"
-        ];    
-      };
-    };
+    # llama.cpp inference server (replaces Ollama — 1.8x faster) - DISABLED
+    # llama-server = {
+    #   Unit = {
+    #     Description = "llama.cpp inference server (CUDA, OpenAI-compatible API)";
+    #     After = [ "network-online.target" ];
+    #   };
+    #   Install = {
+    #     WantedBy = [ "default.target" ];
+    #   };
+    #   Service = let
+    #     llama-cpp-cuda = pkgs.llama-cpp.override { cudaSupport = true; };
+    #     modelDir = "${config.home.homeDirectory}/.local/share/llama.cpp/models";
+    #   in {
+    #     # This replaces taskset and pins the service to the P-cores (0-15)
+    #     CPUAffinity = "0-15";
+    #     ExecStart = ''
+    #       ${llama-cpp-cuda}/bin/llama-server \
+    #         --model ${modelDir}/qwen3-coder-30b-a3b-q4_k_m.gguf \
+    #         --alias qwen3-coder-30b-a3b-q4_k_m \
+    #         --host 0.0.0.0 \
+    #         --port 8090 \
+    #         --n-gpu-layers 10 \
+    #         --ctx-size 32768 \
+    #         --flash-attn on \
+    #         --cache-type-k q4_0 \
+    #         --cache-type-v q4_0 \
+    #         --threads 8 \
+    #         --metrics
+    #     '';
+    #     Restart = "on-failure";
+    #     RestartSec = "10s";
+    #     Environment = [
+    #       "CUDA_VISIBLE_DEVICES=0"
+    #       "LD_LIBRARY_PATH=/usr/lib:/usr/lib64:/usr/lib/nvidia"
+    #     ];
+    #   };
+    # };
 
     # OpenWebUI service (now points to localai instead of Ollama)
     open-webui = {
