@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(home-manager switch *)",
+      "mcp__web-reader__webReader",
+      "Bash(systemctl status *)",
+      "Bash(systemctl --user restart localai)",
+      "Read(//home/nicky/.local/share/localai/models/**)",
+      "Bash(systemctl --user status localai --no-pager)",
+      "Bash(ls -la ~/.local/share/localai/data/skills/)",
+      "Read(//home/nicky/.local/share/localai/data/skills/**)",
+      "Bash(systemctl --user status localai)",
+      "Read(//home/nicky/.config/opencode/**)",
+      "Bash(npx -y @modelcontextprotocol/server-openai --help)",
+      "Bash(journalctl --user -u localai --since \"5 minutes ago\")",
+      "Bash(~/.local/bin/local-ai backends *)",
+      "Bash(/home/nicky/.local/bin/local-ai mcp-server *)",
+      "Bash(nix search *)",
+      "Bash(cat /home/nicky/.config/systemd/user/localai.service)",
+      "Read(//nix/store/vid3wzz8cb7d20zz32vj1yqxkq1w10hm-localai.service/**)",
+      "Bash(journalctl --user -u localai --since \"2 minutes ago\")",
+      "Bash(journalctl --user -u localai -n 30 --no-pager)",
+      "Bash(local-ai run *)",
+      "Bash(local-ai backend *)",
+      "Bash(journalctl --user -u localai --since \"3 minutes ago\")",
+      "Bash(systemctl --user stop localai)",
+      "Bash(pkill -f \"local-ai\")",
+      "Bash(systemctl --user start localai)",
+      "Bash(systemctl --user status localai.service)",
+      "Bash(systemctl --user status comfyui.service)",
+      "Bash(systemctl --user stop comfyui.service)",
+      "Bash(systemctl --user disable comfyui.service)",
+      "Bash(systemctl --user stop llama-server.service)",
+      "Bash(systemctl --user disable llama-server.service)"
+    ],
+    "additionalDirectories": [
+      "/home/nicky/.local/share/localai/models",
+      "/home/nicky/.local/bin",
+      "/home/nicky/.local/share/localai",
+      "/home/nicky/.config/opencode",
+      "/home/nicky/.config/Code/User"
+    ]
+  }
+}
