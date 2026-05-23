@@ -8,7 +8,31 @@
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
   };
 
-  outputs = inputs@{ self, nixpkgs, home-manager, nixos-hardware,... }: {
+  outputs = inputs@{ self, nixpkgs, home-manager, nixos-hardware,... }: let
+    system = "x86_64-linux";
+    pkgs = import nixpkgs {
+      inherit system;
+      config.allowUnfree = true;
+    };
+  in {
+    devShells.${system}.default = pkgs.mkShell {
+      packages = with pkgs; [
+        nixpkgs-fmt
+        nil
+        nix-output-monitor
+        nvd
+        rage
+        git
+        jq
+        ripgrep
+        fd
+        bat
+        eza
+        direnv
+        shellcheck
+      ];
+    };
+
     nixosConfigurations = {
       laptop-hera = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";

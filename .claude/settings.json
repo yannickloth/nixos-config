@@ -31,7 +31,12 @@
       "Bash(systemctl --user stop comfyui.service)",
       "Bash(systemctl --user disable comfyui.service)",
       "Bash(systemctl --user stop llama-server.service)",
-      "Bash(systemctl --user disable llama-server.service)"
+      "Bash(systemctl --user disable llama-server.service)",
+      "Bash(systemctl --user restart localai.service)",
+      "Bash(journalctl --user -u localai.service -n 20 --no-pager)",
+      "Bash(journalctl --user -u localai.service -n 50 --no-pager)",
+      "mcp__web-search-prime__web_search_prime",
+      "Bash(journalctl --user -u localai.service -n 30 --no-pager)"
     ],
     "additionalDirectories": [
       "/home/nicky/.local/share/localai/models",
