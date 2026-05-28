@@ -1,3 +1,4 @@
 smb-secrets
 .history/
 tmp/
+secrets.nix

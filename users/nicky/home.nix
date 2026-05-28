@@ -47,6 +47,9 @@ let
       description = "FHS environment for Tresorit";
     };
   };
+  secrets = if builtins.pathExists ./secrets.nix
+            then import ./secrets.nix
+            else {};
 in
 {
   nixpkgs.config.allowUnfree = true; # This allows you to install unfree software, such as Google Chrome, Steam or MasterPDFEditor.
@@ -358,6 +361,7 @@ EOF
     #CLAUDE_INSTANCE = "A";
     # Sonnet default; using Opus must be a deliberate choice via --model
     ANTHROPIC_MODEL = "claude-sonnet-4-6";
+    Z_AI_API_KEY = secrets.Z_AI_API_KEY or "";
   };
   home.shellAliases = {
   };
