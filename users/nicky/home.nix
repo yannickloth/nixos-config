@@ -179,6 +179,11 @@ in
     prefix=${config.home.homeDirectory}/.npm-global
   '';
 
+  # OpenWebUI configuration (LM Studio backend)
+  imports = [
+    ../../modules/openwebui.nix
+  ];
+
   # Add local bin (Claude Code native), npm global bin, elan, and opencode to PATH
   home.sessionPath = [
     "$HOME/.local/bin"
@@ -209,25 +214,61 @@ in
     $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g cline
   '';
 
+  home.activation.setupLMStudio = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    LLMSTER_INSTALL_SCRIPT="https://lmstudio.ai/install.sh"
+    LMS_BIN="$HOME/.lmstudio/bin/lms"
+    LLMSTER_BIN="$HOME/.lmstudio/bin/llmster"
+
+    # Install llmster (standalone headless daemon) via official script
+    if [ ! -f "$LMS_BIN" ]; then
+      echo "Installing LM Studio daemon (llmster)..."
+      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fsSL "$LLMSTER_INSTALL_SCRIPT" | $DRY_RUN_CMD LMS_NO_MODIFY_PATH=1 bash -s -- --no-modify-path
+    fi
+
+    # Create stable symlink to versioned llmster binary (llmster/<version>/llmster)
+    LLMSTER_VERSIONED=$(ls -d "$HOME"/.lmstudio/llmster/*/llmster 2>/dev/null | sort -V | tail -1)
+    if [ -n "$LLMSTER_VERSIONED" ]; then
+      $DRY_RUN_CMD ln -sf "$LLMSTER_VERSIONED" "$LLMSTER_BIN"
+    fi
+
+    # Symlink lms to ~/.local/bin for CLI convenience
+    if [ -f "$LMS_BIN" ] && [ ! -L "$HOME/.local/bin/lms" ]; then
+      $DRY_RUN_CMD ln -sf "$LMS_BIN" "$HOME/.local/bin/lms"
+    fi
+
+    # Download AppImage for GUI
+    APPIMAGE_VERSION="0.4.14-4"
+    APPIMAGE_FILE="LM-Studio-$APPIMAGE_VERSION-x64.AppImage"
+    APPIMAGE_PATH="$HOME/.lmstudio/$APPIMAGE_FILE"
+    APPIMAGE_URL="https://installers.lmstudio.ai/linux/x64/$APPIMAGE_VERSION/$APPIMAGE_FILE"
+
+    if [ ! -f "$APPIMAGE_PATH" ]; then
+      echo "Downloading LM Studio $APPIMAGE_VERSION AppImage..."
+      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fsSL "$APPIMAGE_URL" -o "$APPIMAGE_PATH"
+      $DRY_RUN_CMD chmod +x "$APPIMAGE_PATH"
+    fi
+
+    # Desktop entry for LM Studio GUI
+    DESKTOP_FILE="$HOME/.local/share/applications/lm-studio.desktop"
+    $DRY_RUN_CMD mkdir -p "$(dirname "$DESKTOP_FILE")"
+    $DRY_RUN_CMD cat > "$DESKTOP_FILE" <<'DESKTOPEOF'
+[Desktop Entry]
+Type=Application
+Name=LM Studio
+Comment=Local LLM inference
+Exec=ENVSUBST_APPIMAGE_PATH
+Icon=lm-studio
+Terminal=false
+Categories=Development;
+DESKTOPEOF
+    $DRY_RUN_CMD sed -i "s|ENVSUBST_APPIMAGE_PATH|$APPIMAGE_PATH|" "$DESKTOP_FILE"
+  '';
+
   home.activation.cleanupOllama = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     # Clean up old Ollama model blobs (now replaced by llama.cpp GGUF models)
     if [ -d "$HOME/.ollama" ]; then
       echo "Removing old Ollama data (~88GB)..."
       $DRY_RUN_CMD rm -rf "$HOME/.ollama"
-    fi
-  '';
-
-  home.activation.setupLocalai = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    # Create LocalAI directories
-    $DRY_RUN_CMD mkdir -p "$HOME/.local/share/localai/models"
-    $DRY_RUN_CMD mkdir -p "$HOME/.local/share/localai/data"
-
-    # Download LocalAI binary if not exists
-    if [ ! -f "$HOME/.local/bin/local-ai" ]; then
-      echo "Downloading LocalAI binary..."
-      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fsSL https://github.com/mudler/LocalAI/releases/latest/download/local-ai-v4.2.6-linux-amd64 -o "$HOME/.local/bin/local-ai"
-      $DRY_RUN_CMD chmod +x "$HOME/.local/bin/local-ai"
-      echo "LocalAI binary installed to $HOME/.local/bin/local-ai"
     fi
   '';
 
@@ -317,9 +358,6 @@ EOF
     #CLAUDE_INSTANCE = "A";
     # Sonnet default; using Opus must be a deliberate choice via --model
     ANTHROPIC_MODEL = "claude-sonnet-4-6";
-    # LocalAI configuration
-    LOCALAI_MODELS_PATH = "${config.home.homeDirectory}/.local/share/localai/models";
-    LOCALAI_DATA_PATH = "${config.home.homeDirectory}/.local/share/localai/data";
   };
   home.shellAliases = {
   };
@@ -384,94 +422,27 @@ EOF
       };
     };
 
-    # llama.cpp inference server (replaces Ollama — 1.8x faster) - DISABLED
-    # llama-server = {
-    #   Unit = {
-    #     Description = "llama.cpp inference server (CUDA, OpenAI-compatible API)";
-    #     After = [ "network-online.target" ];
-    #   };
-    #   Install = {
-    #     WantedBy = [ "default.target" ];
-    #   };
-    #   Service = let
-    #     llama-cpp-cuda = pkgs.llama-cpp.override { cudaSupport = true; };
-    #     modelDir = "${config.home.homeDirectory}/.local/share/llama.cpp/models";
-    #   in {
-    #     # This replaces taskset and pins the service to the P-cores (0-15)
-    #     CPUAffinity = "0-15";
-    #     ExecStart = ''
-    #       ${llama-cpp-cuda}/bin/llama-server \
-    #         --model ${modelDir}/qwen3-coder-30b-a3b-q4_k_m.gguf \
-    #         --alias qwen3-coder-30b-a3b-q4_k_m \
-    #         --host 0.0.0.0 \
-    #         --port 8090 \
-    #         --n-gpu-layers 10 \
-    #         --ctx-size 32768 \
-    #         --flash-attn on \
-    #         --cache-type-k q4_0 \
-    #         --cache-type-v q4_0 \
-    #         --threads 8 \
-    #         --metrics
-    #     '';
-    #     Restart = "on-failure";
-    #     RestartSec = "10s";
-    #     Environment = [
-    #       "CUDA_VISIBLE_DEVICES=0"
-    #       "LD_LIBRARY_PATH=/usr/lib:/usr/lib64:/usr/lib/nvidia"
-    #     ];
-    #   };
-    # };
-
-    # OpenWebUI service (now points to localai instead of Ollama)
-    open-webui = {
+    # LM Studio headless daemon (llmster — OpenAI-compatible API, CUDA)
+    lm-studio = {
       Unit = {
-        Description = "OpenWebUI web interface";
-        After = [
-          "network-online.target"
-          "localai.service"
-        ];
-        Wants = [ "localai.service" ];
-      };
-      Install = {
-        WantedBy = [ "default.target" ];
-      };
-      Service = {
-        ExecStart = "${pkgs.open-webui}/bin/open-webui serve";
-        Restart = "on-failure";
-        RestartSec = "30s";
-        Environment = [
-          "OPENAI_API_BASE_URL=http://localhost:8082/v1"
-          "WEBUI_SECRET_KEY=nicky-secret-key"
-          "DATA_DIR=${config.home.homeDirectory}/.local/share/open-webui/data"
-        ];
-      };
-    };
-
-    # LocalAI service (OpenAI-compatible API server with CUDA support - local binary)
-    localai = {
-      Unit = {
-        Description = "LocalAI OpenAI-compatible API server (local binary)";
+        Description = "LM Studio headless daemon (llmster)";
         After = [ "network-online.target" ];
       };
       Install = {
         WantedBy = [ "default.target" ];
       };
       Service = {
-        ExecStart = "%h/.local/bin/local-ai run --models-path %h/.local/share/localai/models --data-path %h/.local/share/localai/data --address=127.0.0.1:8082 --f16 --max-active-backends=1 --enable-memory-reclaimer --memory-reclaimer-threshold=0.8";
-        WorkingDirectory = "%h/.local/share/localai";
-        Restart = "on-failure";
-        RestartSec = "10s";
+        ExecStart = "%h/.lmstudio/bin/llmster";
+        WorkingDirectory = "%h/.lmstudio";
         Environment = [
           "CUDA_VISIBLE_DEVICES=0"
           "LD_LIBRARY_PATH=/opt/cuda/lib64:/usr/lib:/usr/lib64:/usr/lib/nvidia"
-          "LOCALAI_ADDRESS=127.0.0.1:8082"
-          "LOCALAI_MODELS_PATH=%h/.local/share/localai/models"
-          "LOCALAI_DATA_PATH=%h/.local/share/localai/data"
-          "LOCALAI_MAX_ACTIVE_BACKENDS=1"
-          "LOCALAI_MEMORY_RECLAIMER=true"
-          "LOCALAI_MEMORY_RECLAIMER_THRESHOLD=0.8"
         ];
+        Restart = "on-failure";
+        RestartSec = "10s";
+        TimeoutStopSec = "30s";
       };
     };
+
   };
 }
