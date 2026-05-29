@@ -362,6 +362,7 @@ EOF
     # Sonnet default; using Opus must be a deliberate choice via --model
     ANTHROPIC_MODEL = "claude-sonnet-4-6";
     Z_AI_API_KEY = secrets.Z_AI_API_KEY or "";
+    DEEPSEEK_API_KEY = secrets.DEEPSEEK_API_KEY or "";
   };
   home.shellAliases = {
   };
