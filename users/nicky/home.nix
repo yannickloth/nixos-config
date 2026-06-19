@@ -88,6 +88,7 @@ in
     #   echo "Hello, ${config.home.username}!"
     # '')
 
+    bun
     bat
     fd
     jq
@@ -102,6 +103,7 @@ in
     yed
 
     git-lfs
+    gh
 
     (masterpdfeditor.overrideAttrs (old: rec {
       pname = "masterpdfeditor";
@@ -215,6 +217,24 @@ in
 
     # Install Cline to use Cline Kanban
     $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g cline
+
+    # Install pi (original AI coding agent) via npm
+    export NPM_CONFIG_PREFIX="$HOME/.npm-global"
+    if ! command -v pi &>/dev/null; then
+      $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g --ignore-scripts @earendil-works/pi-coding-agent@latest
+    fi
+
+    # Install oh-my-pi (omp — fork/successor) via npm
+    export NPM_CONFIG_PREFIX="$HOME/.npm-global"
+    if ! command -v omp &>/dev/null; then
+      $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g --ignore-scripts @oh-my-pi/pi-coding-agent@latest
+    fi
+
+    # Install omp-deck (web cockpit for omp) via npm
+    export NPM_CONFIG_PREFIX="$HOME/.npm-global"
+    if ! command -v omp-deck &>/dev/null; then
+      $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g omp-deck@latest
+    fi
   '';
 
   home.activation.setupLMStudio = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
@@ -361,7 +381,7 @@ EOF
     #CLAUDE_INSTANCE = "A";
     # Sonnet default; using Opus must be a deliberate choice via --model
     ANTHROPIC_MODEL = "claude-sonnet-4-6";
-    Z_AI_API_KEY = secrets.Z_AI_API_KEY or "";
+    ZAI_CODING_PLAN_API_KEY = secrets.ZAI_CODING_PLAN_API_KEY or "";
     DEEPSEEK_API_KEY = secrets.DEEPSEEK_API_KEY or "";
   };
   home.shellAliases = {
@@ -376,6 +396,10 @@ EOF
         unset __HM_SESS_VARS_SOURCED
         . "${config.home.profileDirectory}/etc/profile.d/hm-session-vars.sh"
 
+        # Bracketed paste — treat pasted text as single buffer, not executed line-by-line
+        if [[ $TERM_PROGRAM == vscode ]]; then
+          bind 'set enable-bracketed-paste on'
+        fi
       '';
     };
     direnv = {
