@@ -426,6 +426,12 @@ EOF
     };
   };
 
+  nix.gc = {
+    automatic = true;
+    frequency = "weekly";
+    options = "--delete-older-than 14d";
+  };
+
   systemd.user.services = {
     nestor-mount = {
       Unit = {
