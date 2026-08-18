@@ -7,7 +7,7 @@ with lib;
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
 
-      ../../nix-automatic-gc-7d.nix
+      ../../roles/nix-gc.nix
 
       ../../environments/laptop.nix
 
@@ -17,54 +17,53 @@ with lib;
       ../../hardware/printers/brother-mfcl2700dw.nix
       ../../hardware/printers/epson-xp15000.nix
 
-      #../../modules/xpad.nix
 
-      ../../profiles/i18n/fr_BE.nix
-      ../../profiles/android.nix
-      ../../profiles/appimage.nix
-      ../../profiles/avahi.nix
-      ../../profiles/benchmark.nix
-      ../../profiles/bluetooth.nix
-      ../../profiles/clamav.nix
-      ../../profiles/console.nix
-      ../../profiles/corsair.nix
-      ../../profiles/firmware.nix
-      ../../profiles/flatpak.nix
-      ../../profiles/fonts.nix
-      ../../profiles/games.nix
-      #../../profiles/gnome.nix
-      ../../profiles/gstreamer.nix
-      ../../profiles/java.nix
-      #../../profiles/jitsi-meet.nix
-      ../../profiles/libvirt.nix
-      ../../profiles/network-manager.nix
-      ../../profiles/nix.nix
-      ../../profiles/nix-serve.nix
-      ../../profiles/obs-studio.nix
-      ../../profiles/onedrive.nix
-      ../../profiles/openssh.nix
-      ../../profiles/pcscd.nix
-      ../../profiles/pipewire.nix
-      ../../profiles/plantuml.nix
-      ../../profiles/podman.nix
-      #../../profiles/postgresql.nix # containerized postgresql
-      ../../profiles/printing.nix
-      ../../profiles/purescript.nix
-      ../../profiles/samba.nix
-      ../../profiles/scanning.nix
-      ../../profiles/shell.nix
-      ../../profiles/sonos.nix
-      ../../profiles/steam.nix
-      ../../profiles/sudo.nix
-      ../../profiles/tor.nix
-      ../../profiles/tpm.nix
-      ../../profiles/typst.nix
-      #../../profiles/virtualbox.nix
-      ../../profiles/waydroid.nix
-      ../../profiles/wine.nix
-      ../../profiles/xserver.nix
-      ../../profiles/xwayland.nix
-      ../../profiles/yubikey.nix
+      ../../roles/i18n/fr_BE.nix
+      ../../apps/android.nix
+      ../../apps/appimage.nix
+      ../../services/avahi.nix
+      ../../apps/benchmark.nix
+      ../../hardware/bluetooth.nix
+      ../../services/clamav.nix
+      ../../desktop/console.nix
+      ../../hardware/corsair.nix
+      ../../hardware/firmware.nix
+      ../../apps/flatpak.nix
+      ../../roles/fonts.nix
+      ../../games/games.nix
+      #../../desktop/gnome.nix
+      ../../apps/gstreamer.nix
+      ../../apps/java.nix
+      #../../apps/jitsi-meet.nix
+      ../../services/libvirt.nix
+      ../../services/network-manager.nix
+      ../../roles/nix.nix
+      ../../services/nix-serve.nix
+      ../../apps/obs-studio.nix
+      ../../services/onedrive.nix
+      ../../services/openssh.nix
+      ../../hardware/pcscd.nix
+      ../../desktop/pipewire.nix
+      ../../services/plantuml.nix
+      ../../services/podman.nix
+      #../../services/postgresql.nix # containerized postgresql
+      ../../services/printing.nix
+      ../../apps/purescript.nix
+      ../../services/samba.nix
+      ../../services/scanning.nix
+      ../../roles/shell.nix
+      ../../services/sonos.nix
+      ../../games/steam.nix
+      ../../security/sudo.nix
+      ../../services/tor.nix
+      ../../security/tpm.nix
+      ../../apps/typst.nix
+      #../../services/virtualbox.nix
+      ../../apps/waydroid.nix
+      ../../apps/wine.nix
+      ../../desktop/xserver.nix
+      ../../desktop/xwayland.nix
+      ../../security/yubikey.nix
 
       ../../roles/base.nix
 

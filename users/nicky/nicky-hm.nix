@@ -14,6 +14,8 @@
       home = {
 
         packages = with pkgs; typstPackages ++ [
+          charis-sil # SIL Charis, a serif font recommended for readability
+          stix-two # STIX Two, a Unicode font covering scientific and mathematical notation
           amarok
           anki-bin
           (aspellWithDicts (dicts: with dicts; [ en en-computers en-science de fr nl wa ])) # for emacs

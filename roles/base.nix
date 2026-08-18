@@ -6,7 +6,7 @@ with lib;
 
 {
   imports = [
-    ../profiles/nix.nix
+    ./nix.nix
   ];
 
   config = {

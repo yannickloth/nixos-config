@@ -26,16 +26,20 @@ This is a modular NixOS configuration using Nix flakes with the following struct
 
 ### Directory Structure
 - `hosts/`: Host-specific configurations and hardware configurations
-- `profiles/`: Feature-specific modules (bluetooth, games, gnome, plasma, etc.)
 - `users/`: User account definitions and home-manager configurations
-- `roles/`: Common base configuration applied to all systems
-- `hardware/`: Hardware-specific modules (Intel CPU/graphics, printers, etc.)
-- `modules/`: Custom modules (systemPackages, timers, etc.)
+- `roles/`: Common base configuration applied to all systems (nix, fonts, shell, i18n, system, nix-gc)
+- `apps/`: Application/tooling installs (android, java, typst, wine, etc.)
+- `services/`: Daemon/network service configs (avahi, samba, tor, podman, etc.)
+- `desktop/`: Desktop environments, window managers, display & audio (gnome, plasma, xserver, pipewire)
+- `games/`: Gaming support (games, steam)
+- `security/`: Security hardening (sudo, tpm, yubikey)
+- `hardware/`: Hardware-specific modules (Intel CPU/graphics, printers, bluetooth, pcscd, etc.)
+- `modules/`: Custom NixOS modules (timer, llama-server, xpad, etc.)
 - `packages/`: Custom package definitions
-- `environments/`: Environment-specific configurations
+- `environments/`: Environment-specific configurations (laptop, laptop-firewall)
 
 ### Key Configuration Patterns
-- **Profile-based features**: Each profile in `profiles/` enables specific functionality
+- **Feature modules**: Each module under `apps/`, `services/`, `desktop/`, `games/`, `security/` enables specific functionality
 - **Conditional groups**: User groups are conditionally added based on enabled services
 - **Hardware abstraction**: Hardware-specific config separated from host logic
 - **Home Manager integration**: User configurations managed via home-manager modules
@@ -43,7 +47,7 @@ This is a modular NixOS configuration using Nix flakes with the following struct
 ### Host Configuration Flow
 1. `flake.nix` defines nixosConfigurations for each host
 2. Host configuration imports base modules, user configs, and hardware configs
-3. Profiles are selectively imported to enable features
+3. Feature modules are selectively imported to enable features
 4. Hardware modules provide device-specific settings
 
 ### Secrets Management

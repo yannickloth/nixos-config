@@ -75,6 +75,9 @@ in
     # # "Hello, world!" when run.
     # pkgs.hello
 
+    charis-sil # SIL Charis, a serif font recommended for readability
+    stix-two # STIX Two, a Unicode font covering scientific and mathematical notation
+
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
