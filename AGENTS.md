@@ -1,6 +1,7 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to LLM Harnesses like Claude Code (claude.ai/code) or opencode (opencode.ai) when working with code in 
+this repository.
 
 ## Commands
 
