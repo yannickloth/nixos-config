@@ -19,8 +19,9 @@ with lib;
     # clean tmp on boot and remove all residuals there
     boot.tmp.cleanOnBoot = mkDefault true;
 
-    # enable NTFS support
-    boot.supportedFilesystems = [ "bcachefs" "ntfs" ];
+    # enable NTFS support (bcachefs removed: no bcachefs filesystems in use,
+    # and it pulled the heavy bcachefs-tools Rust build into every system)
+    boot.supportedFilesystems = [ "ntfs" ];
 
     # i think apple will sue me before oss does
     nixpkgs.config.allowUnfree = true;
