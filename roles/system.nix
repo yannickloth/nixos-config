@@ -194,6 +194,10 @@ in {
       command-not-found.enable = true; # Whether interactive shells should show which Nix package (if any) provides a missing command.
       firefox = {
         enable = true;
+        policies = {
+          # Pre-98 behavior: opened files go to a temp dir; Downloads only on explicit save.
+          StartDownloadsInTempDirectory = true;
+        };
         languagePacks = [
           "de"
           "en-GB"
