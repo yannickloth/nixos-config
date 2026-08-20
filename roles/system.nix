@@ -38,6 +38,10 @@ let
     '';
   });
 in {
+  imports = [
+    ../services/system.nix
+  ];
+
   options.system.masterPdfEditor = {
     enable = lib.mkEnableOption "the Master PDF Editor" // { default = true; };
   };
@@ -213,18 +217,6 @@ in {
         '';
       };
       partition-manager.enable = true; # Whether to enable KDE Partition Manager.
-    };
-
-    services = {
-      ananicy = {
-        # Rewrite of ananicy (Another auto nice daemon, with community rules support) in C++ for lower cpu and memory usage.
-        enable = true;
-        package = pkgs.ananicy-cpp;
-      };
-
-      openssh.enable = true; # Enable the OpenSSH daemon.
-      syncthing.openDefaultPorts = true;
-      tailscale.enable = true;
     };
 
     xdg.portal = {
