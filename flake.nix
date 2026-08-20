@@ -85,7 +85,7 @@
 
           ({ config, pkgs, ... }: {
             nixpkgs.overlays = [ nix-cachyos-kernel.overlays.pinned ];
-            boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-bore;
+            boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-latest-lto-x86_64-v3;
           })
         ];
       };
