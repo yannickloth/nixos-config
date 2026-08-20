@@ -1,6 +1,14 @@
 {
   description = "NixOS configuration";
 
+  # Binary caches to use for this flake's dependencies. Important for the
+  # CachyOS kernel: its own flake's nixConfig is NOT honored when it's an
+  # input, so the Attic cache must be declared here (and in nix.settings).
+  nixConfig = {
+    extra-substituters = [ "https://attic.xuyh0120.win/lantian" ];
+    extra-trusted-public-keys = [ "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=" ];
+  };
+
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
     home-manager.url = "github:nix-community/home-manager/release-26.05";
@@ -85,7 +93,7 @@
 
           ({ config, pkgs, ... }: {
             nixpkgs.overlays = [ nix-cachyos-kernel.overlays.pinned ];
-            boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-latest-lto-x86_64-v3;
+            boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-bore-lto-x86_64-v3;
           })
         ];
       };
