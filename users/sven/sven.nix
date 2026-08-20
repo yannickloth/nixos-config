@@ -10,12 +10,11 @@ in
       name = username;
     };
     users.sven = {
-      isNormalUser = true; # isNormalUser = true; # Indicates whether this is an account for a "real" user. This automatically sets group to users, createHome to true, home to /home/«username», useDefaultShell to true, and isSystemUser to false. Exactly one of isNormalUser and isSystemUser must be true.
-      hashedPassword = "CHANGE_ME"; # generate with: mkpasswd -m sha512crypt
+      isNormalUser = true; # Indicates whether this is an account for a "real" user. This automatically sets group to users, createHome to true, home to /home/«username», useDefaultShell to true, and isSystemUser to false. Exactly one of isNormalUser and isSystemUser must be true.
+      hashedPassword = "$6$VCPjZcI/NmVYK4I7$MytOHmyNfdCjn4LNbT6JZO0Tx2gsJtNpumif9hsV5w3ZmXpHWMyygTq2NetJAEUekG7qfMfWvfvUmvwXn3swG1";
       description = userDescription;
       extraGroups = [
         "users"
-        "wheel"
       ]
       ++ (if (config.programs.gamemode.enable == true) then [ "gamemode" ] else [ ]) # for gamemode CPU governor setting
       ++ (if (config.networking.networkmanager.enable == true) then [ "networkmanager" ] else [ ])

@@ -69,6 +69,7 @@ with lib;
 
       ../../users/aeiuno/aeiuno-hm.nix
       ../../users/nicky/nicky-hm.nix
+      ../../users/sven/sven-hm.nix
   ];
   # In this file comes everything that is specific to this host.
   networking.hostName = "laptop-xps"; # Define your hostname.
@@ -76,6 +77,21 @@ with lib;
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+
+  # Btrfs swapfile on the root filesystem (in addition to zram) as disk-swap overflow.
+  swapDevices = [ { device = "/swapfile"; size = 16384; } ]; # 16 GiB; adjust to match RAM/disk
+
+  # Family-safe DNS (Cloudflare Family 1.1.1.3 / 1.0.0.3, blocks malware + adult content).
+  # Note: DNS applies machine-wide, not per-user.
+  networking.networkmanager.insertNameservers = [ "1.1.1.3" "1.0.0.3" ];
+
+  # Suspend on lid close. suspend-then-hibernate is NOT enabled because NixOS
+  # cannot resume a hibernation image from a btrfs swapfile (no resume_offset
+  # support) on this LUKS setup; it would need a dedicated swap partition.
+  services.logind.settings.Login.HandleLidSwitch = "suspend";
+  systemd.sleep.settings.Sleep = {
+    HibernateDelaySec = "1h"; # ready for when a hibernation-capable swap partition is added
+  };
 
   nix.settings = {
     # cores = 0; # This option defines the maximum number of concurrent tasks during one build. It affects, e.g., -j option for make. The special value 0 means that the builder should use all available CPU cores in the system. Some builds may become non-deterministic with this option; use with care! Packages will only be affected if enableParallelBuilding is set for them.

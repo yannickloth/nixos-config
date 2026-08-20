@@ -16,6 +16,14 @@ with lib;
       powertop.enable = true; # Whether to enable powertop auto tuning on startup. Analyze power consumption on Intel-based laptops.
     };
 
+    # Compressed in-memory swap: gives effectively more usable RAM on machines
+    # with soldered, non-upgradeable memory. Disk swap (if any) acts as overflow.
+    zramSwap = {
+      enable = true;
+      memoryPercent = 50; # 50% of RAM as zram
+      algorithm = "zstd";
+    };
+
     #services.tlp = {
       # Gnome 40 introduced a new way of managing power, without tlp.
       # However, these 2 services clash when enabled simultaneously.
