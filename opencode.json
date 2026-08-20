@@ -1,0 +1,55 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "../llm-harness-plugins/guardrail-chain/opencode/index.ts",
+    "../llm-harness-plugins/session-lifecycle/opencode/index.ts",
+    "../llm-harness-plugins/agentmem/opencode/index.ts",
+    "../llm-harness-plugins/datetime-inject/opencode/index.ts",
+    "../llm-harness-plugins/offpeak-nudge/opencode/index.ts",
+    "../llm-harness-plugins/tier-router/opencode/index.ts",
+    "../llm-harness-plugins/agentinsights/opencode/index.ts",
+    "../llm-harness-plugins/ivp/opencode/index.ts"
+  ],
+  "agent": {
+    "driver-identifier": {
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-pro",
+      "thinking": {
+        "type": "enabled"
+      },
+      "prompt": "{file:../llm-harness-plugins/ivp/agents/driver-identifier.md}"
+    },
+    "driver-assignment-auditor": {
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-pro",
+      "thinking": {
+        "type": "enabled"
+      },
+      "prompt": "{file:../llm-harness-plugins/ivp/agents/driver-assignment-auditor.md}"
+    },
+    "gamma-modularizer": {
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-pro",
+      "thinking": {
+        "type": "enabled"
+      },
+      "prompt": "{file:../llm-harness-plugins/ivp/agents/gamma-modularizer.md}"
+    },
+    "nest-decider": {
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-pro",
+      "thinking": {
+        "type": "enabled"
+      },
+      "prompt": "{file:../llm-harness-plugins/ivp/agents/nest-decider.md}"
+    },
+    "ivp-refactor-auditor": {
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-pro",
+      "thinking": {
+        "type": "enabled"
+      },
+      "prompt": "{file:../llm-harness-plugins/ivp/agents/ivp-refactor-auditor.md}"
+    }
+  }
+}

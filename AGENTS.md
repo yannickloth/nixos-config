@@ -22,7 +22,7 @@ This is a modular NixOS configuration using Nix flakes with the following struct
 ### Core Architecture
 - **Flake-based**: Uses `flake.nix` as entry point with nixpkgs-unstable and home-manager
 - **Multi-host support**: Configurations for multiple laptops (laptop-hera, laptop-p16, laptop-xps)
-- **Modular design**: Separates concerns into roles, profiles, users, and hardware-specific modules
+- **Modular design**: Separates concerns into roles, apps, services, users, and hardware-specific modules
 
 ### Directory Structure
 - `hosts/`: Host-specific configurations and hardware configurations
@@ -34,8 +34,7 @@ This is a modular NixOS configuration using Nix flakes with the following struct
 - `games/`: Gaming support (games, steam)
 - `security/`: Security hardening (sudo, tpm, yubikey)
 - `hardware/`: Hardware-specific modules (Intel CPU/graphics, printers, bluetooth, pcscd, etc.)
-- `modules/`: Custom NixOS modules (timer, llama-server, xpad, etc.)
-- `packages/`: Custom package definitions
+- `packages/`: Custom package definitions (softmaker office)
 - `environments/`: Environment-specific configurations (laptop, laptop-firewall)
 
 ### Key Configuration Patterns
