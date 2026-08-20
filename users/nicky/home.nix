@@ -75,6 +75,9 @@ in
     # # "Hello, world!" when run.
     # pkgs.hello
 
+    charis-sil # SIL Charis, a serif font recommended for readability
+    stix-two # STIX Two, a Unicode font covering scientific and mathematical notation
+
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
@@ -161,17 +164,11 @@ in
     nodejs
     languagetool
 
-    litellm # Use any LLM as a drop in replacement for gpt-3.5-turbo. Use Azure, OpenAI, Cohere, Anthropic, Ollama, VLLM, Sagemaker, HuggingFace, Replicate (100+ LLMs)
-
     jdk25 # Java 25
     elan # Lean theorem prover version manager
 
     rclone # Used to mount nestor shares
     # fuse3 # Already installed as a CachyOS package.
-
-    # LLM inference — llama.cpp replaces Ollama (1.8x faster for local models)
-    (llama-cpp.override { cudaSupport = true; }) # llama.cpp inference server with CUDA (OpenAI-compatible API via llama-server)
-    open-webui
 
     quarto
     # panache
@@ -183,11 +180,6 @@ in
   home.file.".npmrc".text = ''
     prefix=${config.home.homeDirectory}/.npm-global
   '';
-
-  # OpenWebUI configuration (LM Studio backend)
-  imports = [
-    ../../modules/openwebui.nix
-  ];
 
   # Add local bin (Claude Code native), npm global bin, elan, and opencode to PATH
   home.sessionPath = [
@@ -212,9 +204,6 @@ in
     export NPM_CONFIG_PREFIX="$HOME/.npm-global"
     $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g @mariozechner/claude-trace@latest
 
-    # Install MCP llama.cpp server via npm (replaces ollama-mcp)
-    # $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g mcp-llama-cpp@latest -> DOES NOT EXIST
-
     # Install Cline to use Cline Kanban
     $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g cline
 
@@ -234,64 +223,6 @@ in
     export NPM_CONFIG_PREFIX="$HOME/.npm-global"
     if ! command -v omp-deck &>/dev/null; then
       $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g omp-deck@latest
-    fi
-  '';
-
-  home.activation.setupLMStudio = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    LLMSTER_INSTALL_SCRIPT="https://lmstudio.ai/install.sh"
-    LMS_BIN="$HOME/.lmstudio/bin/lms"
-    LLMSTER_BIN="$HOME/.lmstudio/bin/llmster"
-
-    # Install llmster (standalone headless daemon) via official script
-    if [ ! -f "$LMS_BIN" ]; then
-      echo "Installing LM Studio daemon (llmster)..."
-      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fsSL "$LLMSTER_INSTALL_SCRIPT" | $DRY_RUN_CMD LMS_NO_MODIFY_PATH=1 bash -s -- --no-modify-path
-    fi
-
-    # Create stable symlink to versioned llmster binary (llmster/<version>/llmster)
-    LLMSTER_VERSIONED=$(ls -d "$HOME"/.lmstudio/llmster/*/llmster 2>/dev/null | sort -V | tail -1)
-    if [ -n "$LLMSTER_VERSIONED" ]; then
-      $DRY_RUN_CMD ln -sf "$LLMSTER_VERSIONED" "$LLMSTER_BIN"
-    fi
-
-    # Symlink lms to ~/.local/bin for CLI convenience
-    if [ -f "$LMS_BIN" ] && [ ! -L "$HOME/.local/bin/lms" ]; then
-      $DRY_RUN_CMD ln -sf "$LMS_BIN" "$HOME/.local/bin/lms"
-    fi
-
-    # Download AppImage for GUI
-    APPIMAGE_VERSION="0.4.14-4"
-    APPIMAGE_FILE="LM-Studio-$APPIMAGE_VERSION-x64.AppImage"
-    APPIMAGE_PATH="$HOME/.lmstudio/$APPIMAGE_FILE"
-    APPIMAGE_URL="https://installers.lmstudio.ai/linux/x64/$APPIMAGE_VERSION/$APPIMAGE_FILE"
-
-    if [ ! -f "$APPIMAGE_PATH" ]; then
-      echo "Downloading LM Studio $APPIMAGE_VERSION AppImage..."
-      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fsSL "$APPIMAGE_URL" -o "$APPIMAGE_PATH"
-      $DRY_RUN_CMD chmod +x "$APPIMAGE_PATH"
-    fi
-
-    # Desktop entry for LM Studio GUI
-    DESKTOP_FILE="$HOME/.local/share/applications/lm-studio.desktop"
-    $DRY_RUN_CMD mkdir -p "$(dirname "$DESKTOP_FILE")"
-    $DRY_RUN_CMD cat > "$DESKTOP_FILE" <<'DESKTOPEOF'
-[Desktop Entry]
-Type=Application
-Name=LM Studio
-Comment=Local LLM inference
-Exec=ENVSUBST_APPIMAGE_PATH
-Icon=lm-studio
-Terminal=false
-Categories=Development;
-DESKTOPEOF
-    $DRY_RUN_CMD sed -i "s|ENVSUBST_APPIMAGE_PATH|$APPIMAGE_PATH|" "$DESKTOP_FILE"
-  '';
-
-  home.activation.cleanupOllama = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    # Clean up old Ollama model blobs (now replaced by llama.cpp GGUF models)
-    if [ -d "$HOME/.ollama" ]; then
-      echo "Removing old Ollama data (~88GB)..."
-      $DRY_RUN_CMD rm -rf "$HOME/.ollama"
     fi
   '';
 
@@ -426,6 +357,12 @@ EOF
     };
   };
 
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 14d";
+  };
+
   systemd.user.services = {
     nestor-mount = {
       Unit = {
@@ -448,28 +385,6 @@ EOF
         ExecStop = "/usr/bin/fusermount3 -u %h/nestor";
         Restart = "on-failure";
         RestartSec = "15s";
-      };
-    };
-
-    # LM Studio headless daemon (llmster — OpenAI-compatible API, CUDA)
-    lm-studio = {
-      Unit = {
-        Description = "LM Studio headless daemon (llmster)";
-        After = [ "network-online.target" ];
-      };
-      Install = {
-        WantedBy = [ "default.target" ];
-      };
-      Service = {
-        ExecStart = "%h/.lmstudio/bin/llmster";
-        WorkingDirectory = "%h/.lmstudio";
-        Environment = [
-          "CUDA_VISIBLE_DEVICES=0"
-          "LD_LIBRARY_PATH=/opt/cuda/lib64:/usr/lib:/usr/lib64:/usr/lib/nvidia"
-        ];
-        Restart = "on-failure";
-        RestartSec = "10s";
-        TimeoutStopSec = "30s";
       };
     };
 

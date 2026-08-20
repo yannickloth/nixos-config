@@ -7,7 +7,7 @@ with lib;
 {
   imports =
     [
-      ../profiles/laptop-firewall.nix
+      ./laptop-firewall.nix
     ];
   config = {
 

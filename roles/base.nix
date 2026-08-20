@@ -6,7 +6,7 @@ with lib;
 
 {
   imports = [
-    ../profiles/nix.nix
+    ./nix.nix
   ];
 
   config = {
@@ -26,7 +26,7 @@ with lib;
     nixpkgs.config.allowUnfree = true;
 
     # If set to true, Nix automatically detects files in the store that have identical contents, and replaces them with hard links to a single copy. This saves disk space.
-    nix.settings.auto-optimise-store=true;
+    nix.settings.auto-optimise-store = true;
 
     # vim as default editor
     #programs.vim.defaultEditor = true;

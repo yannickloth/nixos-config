@@ -24,6 +24,7 @@ with lib;
         caladea
         carlito
         charis-sil # Recommended by Matthew Butterick
+        stix-two # STIX Two, a Unicode font covering scientific and mathematical notation
         cooper-hewitt # Recommended by Matthew Butterick
         corefonts
         courier-prime
