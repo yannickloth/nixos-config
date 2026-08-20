@@ -68,7 +68,6 @@ with lib;
       ../../roles/base.nix
 
       ../../users/aeiuno/aeiuno-hm.nix
-      ../../users/nicky/nicky-hm.nix
     ];
   # In this file comes everything that is specific to this host.
   networking.hostName = "laptop-p16"; # Define your hostname.
