@@ -168,13 +168,13 @@
     #     hash = "sha256-qe5I2fGjpANVqd5KIDIUGzqFVgv+3gBoY7ndp0ByvPs=";
     #   };
     # })
-    (pkgs.callPackage ../../packages/applications/office/softmaker/softmaker_office.nix {
-      officeVersion = {
-        edition = "2024";
-        version = "1222";
-        hash = "sha256-eyYBK5ZxPcBakOvXUQZIU2aftyH6PXh/rtqC/1BJhg4=";
-      };
-    })
+#     (pkgs.callPackage ../../packages/applications/office/softmaker/softmaker_office.nix {
+#       officeVersion = {
+#         edition = "2024";
+#         version = "1222";
+#         hash = "sha256-eyYBK5ZxPcBakOvXUQZIU2aftyH6PXh/rtqC/1BJhg4=";
+#       };
+#     })
     vlc
     xdg-utils
     libmicrodns # for playing from VLC onto ChromeCast
@@ -251,6 +251,7 @@
       ];
       # package=pkgs.librewolf;
     };
+    kdeconnect.enable = true; # Enable KDE Connect for phone integration.
     nano = {
       nanorc = ''
         set autoindent

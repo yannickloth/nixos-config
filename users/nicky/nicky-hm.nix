@@ -80,6 +80,7 @@
           mousai # Identify any songs in seconds
           musescore
           obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
+          opencode
           pantheon.sideload
           pdfstudioviewer # Easy to use, full-featured PDF viewing software.
           plantuml

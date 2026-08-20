@@ -60,7 +60,7 @@ with lib;
       ../../profiles/tor.nix
       ../../profiles/tpm.nix
       ../../profiles/typst.nix
-      ../../profiles/virtualbox.nix
+      #../../profiles/virtualbox.nix
       ../../profiles/waydroid.nix
       ../../profiles/xserver.nix
       ../../profiles/xwayland.nix
