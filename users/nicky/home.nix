@@ -75,7 +75,7 @@ in
     # # "Hello, world!" when run.
     # pkgs.hello
 
-    charis-sil # SIL Charis, a serif font recommended for readability
+    charis # SIL Charis, a serif font recommended for readability
     stix-two # STIX Two, a Unicode font covering scientific and mathematical notation
 
     # # It is sometimes useful to fine-tune packages, for example, by applying
@@ -346,7 +346,7 @@ EOF
       # maintenance = {
       #   enable = true;
       # };
-      package = pkgs.gitFull; # The git package to use. Use pkgs.gitFull to gain access to git send-email for instance. # Also for some features related to git-maintenance on git remotes used with ssh.
+      #package = pkgs.git; # The git package to use. Use pkgs.gitFull to gain access to git send-email for instance. # Also for some features related to git-maintenance on git remotes used with ssh.
       settings.user.name = "Yannick Loth";
       settings.user.email = "727881+yannickloth@users.noreply.github.com";
     };

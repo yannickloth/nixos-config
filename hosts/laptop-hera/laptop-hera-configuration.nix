@@ -22,6 +22,6 @@
 
   # Host-specific packages on top of the shared set in roles/system.nix.
   environment.systemPackages = with pkgs; [
-    nixfmt-rfc-style
+    nixfmt
   ];
 }

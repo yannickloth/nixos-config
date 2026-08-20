@@ -4,7 +4,7 @@
   home-manager.users.aeiuno = { pkgs, ... }: {
     home = {
       packages = with pkgs; [
-        charis-sil # SIL Charis, a serif font recommended for readability
+        charis # SIL Charis, a serif font recommended for readability
         stix-two # STIX Two, a Unicode font covering scientific and mathematical notation
         amarok
         anki-bin
@@ -14,7 +14,7 @@
         audacity
         bottles
         calibre
-        xfce.catfish
+        catfish
         cobang # QR code scanner desktop app for Linux
         curlFull
         #digikam
@@ -123,9 +123,9 @@
           enable = true; # Whether to enable the delta syntax highlighter.
         };
         enable = true;
-        extraConfig = {
-          credential.helper = "${pkgs.git.override { withLibsecret = true; }}/bin/git-credential-libsecret";
-        };
+        # extraConfig = {
+        #   credential.helper = "${pkgs.git.override { withLibsecret = true; }}/bin/git-credential-libsecret";
+        #};
         lfs = {
           enable = true; # Whether to enable Git Large File Storage.
         };
@@ -150,7 +150,7 @@
             plugin = vim-startify;
             config = "let g:startify_change_to_vcs_root = 0";
           }
-          yankring
+          YankRing-vim
         ];
         extraConfig = ''
           set mouse=a

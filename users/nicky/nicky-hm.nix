@@ -14,7 +14,7 @@
       home = {
 
         packages = with pkgs; typstPackages ++ [
-          charis-sil # SIL Charis, a serif font recommended for readability
+          charis # SIL Charis, a serif font recommended for readability
           stix-two # STIX Two, a Unicode font covering scientific and mathematical notation
           amarok
           anki-bin
@@ -26,7 +26,7 @@
           calibre
           cobang # QR code scanner desktop app for Linux
           conda # Conda is a package manager for Python
-          xfce.catfish
+          catfish
           curlFull
           devbox
           # drawio
@@ -88,7 +88,7 @@
           plantuml
           podman-desktop
           powershell # Powerful cross-platform (Windows, Linux, and macOS) shell and scripting language based on .NET
-          python311Packages.ipykernel
+          #python311Packages.ipykernel
           qalculate-qt
           recoll
           #rstudio # Set of integrated tools for the R language
@@ -104,8 +104,8 @@
           # vivaldi
           # vivaldi-ffmpeg-codecs
           vlc
-          whatsapp-for-linux
           whitesur-gtk-theme
+          zapzap
           zeal # Simple offline API documentation browser.
           zoom-us
           zotero
@@ -148,6 +148,7 @@
         command-not-found = {
           enable = true;
         };
+        delta.enableGitIntegration = true;
         direnv = {
           enable = true;
           enableBashIntegration = true; # see note on other shells below
@@ -182,7 +183,7 @@
             credential.helper = "${pkgs.git.override { withLibsecret = true; }}/bin/git-credential-libsecret";
           };
           lfs = {
-            enable = true; # Whether to enable Git Large File Storage.
+            enable = false; # Whether to enable Git Large File Storage.
           };
           # package = pkgs.gitFull;
           userName = "Yannick Loth";
@@ -205,7 +206,7 @@
               plugin = vim-startify;
               config = "let g:startify_change_to_vcs_root = 0";
             }
-            yankring
+            YankRing-vim
           ];
           extraConfig = ''
             set mouse=a

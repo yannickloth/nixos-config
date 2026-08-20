@@ -72,7 +72,7 @@
   # };
   #};
   environment.systemPackages = with pkgs; [
-    helvum # GTK patchbay for pipewire
+    crosspipe # patchbay for pipewire
     # jamesdsp # Audio effect processor for PipeWire clients
   ];
 }

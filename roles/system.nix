@@ -72,7 +72,7 @@ in {
       ### for hardware info
       clinfo
       dmidecode
-      glxinfo
+      mesa-demos
       pciutils
       vulkan-tools
       wayland-utils
@@ -159,16 +159,16 @@ in {
 
       ### for Tresorit distrobox:
       fusePackages.fuse_2
-      xorg.libxcb
-      xorg.libX11
-      xorg.libXext
-      xorg.libXfixes
-      xorg.libXrandr
-      xorg.xcbutil
-      xorg.xcbutilimage
-      xorg.xcbutilkeysyms
-      xorg.xcbutilrenderutil
-      xorg.xcbutilwm
+      libxcb
+      libX11
+      libXext
+      libXfixes
+      libXrandr
+      xcbutil
+      xcbutilimage
+      xcbutilkeysyms
+      xcbutilrenderutil
+      xcbutilwm
       libGL
       libGLU
       libxkbcommon

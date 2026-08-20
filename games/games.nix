@@ -77,9 +77,9 @@ with lib;
       gamemodeSupport = true; # default: stdenv.hostPlatform.isLinux. Turn on/off support for GameMode on Linux.
       # Change Java runtimes available to Prism Launcher
       jdks = [
-        graalvm-ce
+        graalvmPackages.graalvm-ce
         jdk
-        jdk23
+        jdk25
       ];
     }) 
     protonup-qt # Install and manage Proton-GE and Luxtorpeda for Steam and Wine-GE for Lutris with this graphical user interface.
@@ -92,7 +92,6 @@ with lib;
     #vkquake
     # linux-wallpaperengine # Wallpaper Engine backgrounds for Linux # depends on freeimage, which is insecure according to nix/nixpkgs
     xmoto
-    kdePackages.xwaylandvideobridge # Utility to allow streaming Wayland windows to X applications
     #zeroad
   ];
 }

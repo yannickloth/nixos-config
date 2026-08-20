@@ -7,7 +7,7 @@ with lib;
     networking = {
       # enable networkmanager on all workstations and use local dnsmasq server
       networkmanager = {
-        enable = true;
+        enable = lib.mkForce true;
 
         appendNameservers = ["9.9.9.9" "1.1.1.1"];
       };
@@ -15,7 +15,7 @@ with lib;
       resolvconf.enable = true;
 
       # disable wpasupplicant, as networkmanager manages wireless
-      wireless.enable = false; # Whether to enable wpa_supplicant.
+      wireless.enable = lib.mkForce true; # Whether to enable wpa_supplicant.
     };
 
     # enable dnsmasq for dns caching server

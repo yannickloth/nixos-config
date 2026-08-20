@@ -2,13 +2,14 @@
   description = "NixOS configuration";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
-    home-manager.url = "github:nix-community/home-manager/release-25.05";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
+    home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
+    nix-cachyos-kernel.url = "github:xddxdd/nix-cachyos-kernel/release";
   };
 
-  outputs = inputs@{ self, nixpkgs, home-manager, nixos-hardware,... }: let
+  outputs = inputs@{ self, nixpkgs, home-manager, nixos-hardware, nix-cachyos-kernel, ... }: let
     system = "x86_64-linux";
     pkgs = import nixpkgs {
       inherit system;
@@ -81,6 +82,11 @@
           }
           
           nixos-hardware.nixosModules.dell-xps-13-9360
+
+          ({ config, pkgs, ... }: {
+            nixpkgs.overlays = [ nix-cachyos-kernel.overlays.pinned ];
+            boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-bore;
+          })
         ];
       };
     };

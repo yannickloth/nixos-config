@@ -17,7 +17,6 @@
       availableKernelModules = [ "xhci_pci" "nvme" "usb_storage" "sd_mod" "rtsx_pci_sdmmc" "ahci" "dm_mod" "aesni_intel" "cryptd" ];
       kernelModules = [ "aesni_intel" "cryptd" "i915" ];
       luks = {
-        reusePassphrases = true;
         devices."luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7".device = "/dev/disk/by-uuid/45c077f9-a627-4815-9a19-a1d6e33cb7c7";
         #devices.luks_swap.device = "/dev/disk/by-uuid/0fac828e-7388-4ce7-8d7d-3713c40d1e75"; # encrypted swap partition
       };
