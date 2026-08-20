@@ -75,7 +75,7 @@ in
     # # "Hello, world!" when run.
     # pkgs.hello
 
-    charis-sil # SIL Charis, a serif font recommended for readability
+    charis # SIL Charis, a serif font recommended for readability
     stix-two # STIX Two, a Unicode font covering scientific and mathematical notation
 
     # # It is sometimes useful to fine-tune packages, for example, by applying
@@ -174,6 +174,67 @@ in
     # panache
 
     jbang
+
+    # Merged from the previous nicky-hm.nix config
+    amarok
+    anki-bin
+    (aspellWithDicts (dicts: with dicts; [ en en-computers en-science de fr nl wa ])) # for emacs
+    audacious
+    audacious-plugins
+    audacity
+    bottles
+    calibre
+    cobang # QR code scanner desktop app for Linux
+    conda # Conda is a package manager for Python
+    curlFull
+    devbox
+    fdk_aac # A high-quality implementation of the AAC codec from Android
+    fdk-aac-encoder # Command line encoder frontend for libfdk-aac encoder
+    flatpak
+    freac
+    fsearch
+    gimp
+    gnome-disk-utility
+    gnome-software
+    hunspellDicts.fr-any
+    hunspellDicts.en_US-large
+    hunspellDicts.en_GB-large
+    hunspellDicts.de_DE
+    inkscape-with-extensions
+    jetbrains-toolbox
+    kdePackages.elisa
+    kdePackages.filelight
+    kdePackages.kate
+    keepassxc
+    kid3-qt # A simple and powerful audio tag editor
+    kodi
+    krita
+    lua
+    mastodon
+    meld # Visual diff and merge tool
+    mousai # Identify any songs in seconds
+    musescore
+    pantheon.sideload
+    pdfstudioviewer # Easy to use, full-featured PDF viewing software.
+    plantuml
+    podman-desktop
+    powershell # Powerful cross-platform (Windows, Linux, and macOS) shell and scripting language based on .NET
+    qalculate-qt
+    recoll
+    scrcpy
+    scribus
+    signal-desktop
+    speechd # speech-dispatcher, useful for Firefox
+    szyszka # A simple but powerful and fast bulk file renamer
+    thunderbird
+    tinymist # Integrated language service for Typst
+    tuner
+    vlc
+    whitesur-gtk-theme
+    catfish
+    zeal # Simple offline API documentation browser.
+    zoom-us
+    zotero
 
     tresoritFHS
   ];
@@ -312,6 +373,7 @@ EOF
     #CLAUDE_INSTANCE = "A";
     # Sonnet default; using Opus must be a deliberate choice via --model
     ANTHROPIC_MODEL = "claude-sonnet-4-6";
+    MOZ_ENABLE_WAYLAND = 1; # for Firefox in Wayland sessions
     ZAI_CODING_PLAN_API_KEY = secrets.ZAI_CODING_PLAN_API_KEY or "";
     DEEPSEEK_API_KEY = secrets.DEEPSEEK_API_KEY or "";
   };
@@ -355,6 +417,87 @@ EOF
     uv = {
       enable = true;
     };
+    # Merged from the previous nicky-hm.nix config
+    firefox = {
+      enable = true;
+      policies = {
+        # Pre-98 behavior: opened files go to a temp dir; Downloads only on explicit save.
+        StartDownloadsInTempDirectory = true;
+      };
+    };
+    chromium = {
+      commandLineArgs = [
+        "--enable-features=VaapiVideoDecodeLinuxGL"
+        "--ignore-gpu-blocklist"
+        "--enable-zero-copy"
+      ];
+      enable = true;
+    };
+    command-not-found = {
+      enable = true;
+    };
+    gitui = {
+      enable = true;
+    };
+    man.enable = true;
+    neovim = {
+      coc = {
+        # code completion
+        enable = true;
+      };
+      enable = true;
+      plugins = with pkgs.vimPlugins; [
+        vim-airline
+        vim-nix
+        {
+          plugin = vim-startify;
+          config = "let g:startify_change_to_vcs_root = 0";
+          type = "viml";
+        }
+        YankRing-vim
+      ];
+      extraConfig = ''
+        set mouse=a
+      '';
+      viAlias = true;
+      vimAlias = true;
+    };
+    ssh = {
+      enable = true;
+    };
+    starship = {
+      enable = true;
+      enableBashIntegration = true;
+      enableZshIntegration = true;
+    };
+    vscode = {
+      enable = true;
+      mutableExtensionsDir = true;
+      profiles = {
+        default = {
+          enableExtensionUpdateCheck = true;
+          enableUpdateCheck = true;
+          userSettings = { };
+        };
+      };
+    };
+  };
+
+  services = {
+    # Merged from the previous nicky-hm.nix config
+    kdeconnect = {
+      enable = true;
+      indicator = true;
+    };
+    psd = { # Settings of the profle-sync-daemon service. Puts browser profiles into tmpfs or overlayfs/overlay for improved performance.
+      enable = true;
+    };
+    syncthing = {
+      enable = true;
+      tray = {
+        enable = false;
+      };
+    };
   };
 
   nix.gc = {
@@ -389,4 +532,16 @@ EOF
     };
 
   };
+  xdg.userDirs = {
+          createDirectories = false;
+          enable = true;
+          desktop = "/home/nicky/sync/yannick/LaptopSync/Desktop/";
+          documents = "/home/nicky/sync/yannick/LaptopSync/Documents/";
+          download = "/home/nicky/sync/yannick/LaptopSync/Downloads/";
+          music = "/home/nicky/sync/yannick/LaptopSync/Music/";
+          pictures = "/home/nicky/sync/yannick/LaptopSync/Pictures/";
+          publicShare = "/home/nicky/sync/yannick/LaptopSync/Public/";
+          templates = "/home/nicky/sync/yannick/LaptopSync/Templates/";
+          videos = "/home/nicky/sync/yannick/LaptopSync/Videos/";
+        };
 }
