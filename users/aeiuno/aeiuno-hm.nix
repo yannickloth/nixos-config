@@ -118,10 +118,11 @@
       #   #nativeMessagingHosts=[euwebid ];
       #   package = pkgs.firefox-bin;
       # };
+      delta = {
+        enable = true; # Whether to enable the delta syntax highlighter.
+        enableGitIntegration = true;
+      };
       git = {
-        delta = {
-          enable = true; # Whether to enable the delta syntax highlighter.
-        };
         enable = true;
         # extraConfig = {
         #   credential.helper = "${pkgs.git.override { withLibsecret = true; }}/bin/git-credential-libsecret";
@@ -130,8 +131,10 @@
           enable = true; # Whether to enable Git Large File Storage.
         };
         #package = pkgs.gitFull;
-        userName = "aeiuno";
-        userEmail = "727881+yannickloth@users.noreply.github.com";
+        settings = {
+          user.name = "aeiuno";
+          user.email = "727881+yannickloth@users.noreply.github.com";
+        };
       };
       gitui = {
         enable = true;
@@ -148,6 +151,7 @@
           vim-nix
           {
             plugin = vim-startify;
+            type = "viml";
             config = "let g:startify_change_to_vcs_root = 0";
           }
           YankRing-vim
@@ -155,11 +159,14 @@
         extraConfig = ''
           set mouse=a
         '';
+        withPython3 = true; # keep legacy default; used by some plugins
+        withRuby = true; # keep legacy default
         viAlias = true;
         vimAlias = true;
       };
       ssh = {
         enable = true;
+        enableDefaultConfig = false; # module defaults will be removed in the future
       };
       starship = {
         enable = true;
@@ -199,6 +206,7 @@
     xdg.userDirs = {
       createDirectories = false;
       enable = true;
+      setSessionVariables = true; # keep legacy default
       desktop = "/home/aeiuno/syncthing/christine/LaptopSync/Desktop/";
       documents = "/home/aeiuno/syncthing/christine/LaptopSync/Documents/";
       download = "/home/aeiuno/syncthing/christine/LaptopSync/Downloads/";

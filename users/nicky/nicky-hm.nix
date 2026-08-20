@@ -148,7 +148,10 @@
         command-not-found = {
           enable = true;
         };
-        delta.enableGitIntegration = true;
+        delta = {
+          enable = true; # Whether to enable the delta syntax highlighter.
+          enableGitIntegration = true;
+        };
         direnv = {
           enable = true;
           enableBashIntegration = true; # see note on other shells below
@@ -175,19 +178,16 @@
         #   package = pkgs.firefox-bin;
         # };
         git = {
-          delta = {
-            enable = true; # Whether to enable the delta syntax highlighter.
-          };
           enable = true;
-          extraConfig = {
+          settings = {
+            user.name = "Yannick Loth";
+            user.email = "727881+yannickloth@users.noreply.github.com";
             credential.helper = "${pkgs.git.override { withLibsecret = true; }}/bin/git-credential-libsecret";
           };
           lfs = {
             enable = false; # Whether to enable Git Large File Storage.
           };
           # package = pkgs.gitFull;
-          userName = "Yannick Loth";
-          userEmail = "727881+yannickloth@users.noreply.github.com";
         };
         gitui = {
           enable = true;
@@ -204,6 +204,7 @@
             vim-nix
             {
               plugin = vim-startify;
+              type = "viml";
               config = "let g:startify_change_to_vcs_root = 0";
             }
             YankRing-vim
@@ -211,11 +212,14 @@
           extraConfig = ''
             set mouse=a
           '';
+          withPython3 = true; # keep legacy default; used by some plugins
+          withRuby = true; # keep legacy default
           viAlias = true;
           vimAlias = true;
         };
         ssh = {
           enable = true;
+          enableDefaultConfig = false; # module defaults will be removed in the future
         };
         starship = {
           enable = true;
@@ -259,6 +263,7 @@
       xdg.userDirs = {
         createDirectories = false;
         enable = true;
+        setSessionVariables = true; # keep legacy default
         desktop = "/home/nicky/Tresors/yannick/LaptopSync/Desktop/";
         documents = "/home/nicky/Tresors/yannick/LaptopSync/Documents/";
         download = "/home/nicky/Tresors/yannick/LaptopSync/Downloads/";

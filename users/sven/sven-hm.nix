@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 
 {
-  home-manager.users.sven = { pkgs, ... }: {
+  home-manager.users.sven = { config, pkgs, ... }: {
     home = {
       packages = with pkgs; [
         audacious # light music player
@@ -31,6 +31,7 @@
       };
       firefox = {
         enable = true;
+        configPath = "${config.xdg.configHome}/mozilla/firefox";
       };
     };
   };
