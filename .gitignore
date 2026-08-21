@@ -2,3 +2,5 @@ smb-secrets
 .history/
 tmp/
 secrets.nix
+result
+result-*

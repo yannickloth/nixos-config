@@ -408,7 +408,7 @@ EOF
       # maintenance = {
       #   enable = true;
       # };
-      package = pkgs.gitFull; # The git package to use. Use pkgs.gitFull to gain access to git send-email for instance. # Also for some features related to git-maintenance on git remotes used with ssh.
+      #package = pkgs.git; # The git package to use. Use pkgs.gitFull to gain access to git send-email for instance. # Also for some features related to git-maintenance on git remotes used with ssh.
       settings.user.name = "Yannick Loth";
       settings.user.email = "727881+yannickloth@users.noreply.github.com";
     };

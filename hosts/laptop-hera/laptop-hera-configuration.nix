@@ -18,10 +18,11 @@
     ../../users/cfo.nix # chief family officer group
     ../../users/aeiuno/aeiuno.nix
     ../../users/nicky/nicky.nix
+    ../../users/sven/sven.nix
   ];
 
   # Host-specific packages on top of the shared set in roles/system.nix.
   environment.systemPackages = with pkgs; [
-    nixfmt-rfc-style
+    nixfmt
   ];
 }

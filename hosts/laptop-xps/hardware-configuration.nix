@@ -14,12 +14,11 @@
   boot = {
     blacklistedKernelModules = [ "psmouse" ] ++ lib.optionals (!config.hardware.enableRedistributableFirmware) [ "ath3k" ];
     initrd = {
-      availableKernelModules = [ "xhci_pci" "nvme" "usb_storage" "sd_mod" "rtsx_pci_sdmmc" ];
+      availableKernelModules = [ "xhci_pci" "nvme" "usb_storage" "sd_mod" "rtsx_pci_sdmmc" "ahci" "dm_mod" "aesni_intel" "cryptd" ];
       kernelModules = [ "aesni_intel" "cryptd" "i915" ];
       luks = {
-        reusePassphrases = true;
-        devices."root".device = "/dev/disk/by-uuid/5641cc65-6819-487c-81d7-05b039dfd58d";
-        devices.luks_swap.device = "/dev/disk/by-uuid/0fac828e-7388-4ce7-8d7d-3713c40d1e75"; # encrypted swap partition
+        devices."luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7".device = "/dev/disk/by-uuid/45c077f9-a627-4815-9a19-a1d6e33cb7c7";
+        #devices.luks_swap.device = "/dev/disk/by-uuid/0fac828e-7388-4ce7-8d7d-3713c40d1e75"; # encrypted swap partition
       };
     };
     kernelModules = [ "kvm-intel" "iwlwifi"];
@@ -32,30 +31,46 @@
     ];
     kernel.sysctl = { "vm.swappiness" = 10; "fs.inotify.max_user_watches" = 2097152; };
   };
-  fileSystems."/" =
-    { device = "/dev/disk/by-uuid/9836344f-337f-459c-8c97-e39f7caff437";
+#   fileSystems."/" =
+#     { device = "/dev/disk/by-uuid/fbd3da22-b61f-416b-bab1-248fa3e13515";
+#       fsType = "btrfs";
+#       options = [ "compress=zstd" "subvol=@" ];
+#     };
+    fileSystems."/" =
+    { device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
       fsType = "btrfs";
-      options = [ "compress=zstd" "subvol=@" ];
+      #options = [ "compress=zstd" "subvol=@" ];
+    };
+    fileSystems."/home" =
+    { device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
+      fsType = "btrfs";
+      options = [ "subvol=home" ];
     };
 
+  fileSystems."/nix" =
+    { device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
+      fsType = "btrfs";
+      options = [ "subvol=nix" ];
+    };
 
 
   fileSystems."/boot" =
-    { device = "/dev/disk/by-uuid/D1D6-F3A0";
+    { device = "/dev/disk/by-uuid/08E4-82CA";
       fsType = "vfat";
+      options = [ "fmask=0077" "dmask=0077" ];
     };
 
-  swapDevices =
-    [
-      {
-        device = "/dev/disk/by-uuid/8d6f5055-5eb6-42eb-a93e-b5b481d0aa1c";
-        encrypted = {
-          enable = true;
-          label = "luks_swap";
-          blkDev = "/dev/disk/by-uuid/0fac828e-7388-4ce7-8d7d-3713c40d1e75"; # encrypted swap partition
-        };
-      }
-    ];
+#   swapDevices =
+#     [
+#       {
+#         device = "/dev/disk/by-uuid/8d6f5055-5eb6-42eb-a93e-b5b481d0aa1c";
+#         encrypted = {
+#           enable = true;
+#           label = "luks_swap";
+#           blkDev = "/dev/disk/by-uuid/0fac828e-7388-4ce7-8d7d-3713c40d1e75"; # encrypted swap partition
+#         };
+#       }
+#     ];
 
   # Enables DHCP on each ethernet and wireless interface. In case of scripted networking
   # (the default) this is the recommended approach. When using systemd-networkd it's
