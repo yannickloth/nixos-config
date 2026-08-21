@@ -36,7 +36,6 @@
         "cryptd" # Speeds up decryption, early during boot process.
       ];
       luks = {
-        reusePassphrases = true; # When opening a new LUKS device try reusing last successful passphrase. Useful for mounting a number of devices that use the same passphrase without retyping it several times.
         devices = {
           "luks-ca056796-680e-4a31-9011-51a550cebdf2".device = "/dev/disk/by-uuid/ca056796-680e-4a31-9011-51a550cebdf2"; #cryptroot
           "luks-afb7b132-f3c6-4c8a-93fc-90e60d1686ad".device = "/dev/disk/by-uuid/afb7b132-f3c6-4c8a-93fc-90e60d1686ad"; #cryptswap

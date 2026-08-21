@@ -70,7 +70,7 @@ with lib;
       ../../roles/base.nix
 
       ../../users/aeiuno/aeiuno-hm.nix
-      ../../users/nicky/nicky-hm.nix
+      { home-manager.users.nicky = import ../../users/nicky/nicky-hm.nix; }
       ../../users/sven/sven-hm.nix
     ];
   # In this file comes everything that is specific to this host.
