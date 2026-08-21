@@ -3,8 +3,8 @@
 with lib;
 {
   imports =
-  [
-    # Include the results of the hardware scan.
+    [
+      # Include the results of the hardware scan.
       ./hardware-configuration.nix
 
       ../../roles/nix-gc.nix
@@ -16,8 +16,8 @@ with lib;
       ../../hardware/thunderbolt.nix
       ../../hardware/printers/brother-mfcl2700dw.nix
       ../../hardware/printers/epson-xp15000.nix
-      
-      
+
+
       ../../roles/i18n/fr_BE.nix
       ../../apps/android.nix
       ../../apps/appimage.nix
@@ -37,8 +37,8 @@ with lib;
       #../../apps/jitsi-meet.nix
       #../../services/kubernetes.nix
       ../../services/libvirt.nix
+      ../../services/malcontent.nix
       ../../services/network-manager.nix
-      ../../roles/nix.nix
       ../../services/nix-serve.nix
       ../../services/onedrive.nix
       ../../services/openssh.nix
@@ -55,6 +55,7 @@ with lib;
       ../../roles/shell.nix
       ../../services/sonos.nix
       ../../games/steam.nix
+      ../../security/apparmor.nix
       ../../security/sudo.nix
       ../../services/tor.nix
       ../../security/tpm.nix
@@ -70,7 +71,7 @@ with lib;
       ../../users/aeiuno/aeiuno-hm.nix
       ../../users/nicky/nicky-hm.nix
       ../../users/sven/sven-hm.nix
-  ];
+    ];
   # In this file comes everything that is specific to this host.
   networking.hostName = "laptop-xps"; # Define your hostname.
 
@@ -79,7 +80,7 @@ with lib;
   boot.loader.efi.canTouchEfiVariables = true;
 
   # Btrfs swapfile on the root filesystem (in addition to zram) as disk-swap overflow.
-  swapDevices = [ { device = "/swapfile"; size = 16384; } ]; # 16 GiB; adjust to match RAM/disk
+  swapDevices = [{ device = "/swapfile"; size = 16384; }]; # 16 GiB; adjust to match RAM/disk
 
   # Family-safe DNS (Cloudflare Family 1.1.1.3 / 1.0.0.3, blocks malware + adult content).
   # Note: DNS applies machine-wide, not per-user.

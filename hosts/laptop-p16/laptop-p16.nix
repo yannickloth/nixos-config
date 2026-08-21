@@ -36,8 +36,8 @@ with lib;
       ../../apps/java.nix
       #../../apps/jitsi-meet.nix
       ../../services/libvirt.nix
+      ../../services/malcontent.nix
       ../../services/network-manager.nix
-      ../../roles/nix.nix
       ../../services/nix-serve.nix
       ../../apps/obs-studio.nix
       ../../services/onedrive.nix
@@ -54,6 +54,7 @@ with lib;
       ../../roles/shell.nix
       ../../services/sonos.nix
       ../../games/steam.nix
+      ../../security/apparmor.nix
       ../../security/sudo.nix
       ../../services/tor.nix
       ../../security/tpm.nix
@@ -69,6 +70,7 @@ with lib;
 
       ../../users/aeiuno/aeiuno-hm.nix
       ../../users/nicky/nicky-hm.nix
+      ../../users/sven/sven-hm.nix
     ];
   # In this file comes everything that is specific to this host.
   networking.hostName = "laptop-p16"; # Define your hostname.
