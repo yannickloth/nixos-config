@@ -55,6 +55,7 @@ with lib;
       ../../roles/shell.nix
       ../../services/sonos.nix
       ../../games/steam.nix
+      ../../services/syncthing.nix
       ../../security/apparmor.nix
       ../../security/sudo.nix
       ../../services/tor.nix

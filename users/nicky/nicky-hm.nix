@@ -252,12 +252,6 @@
         psd = { # Settings of the profle-sync-daemon service. Puts browser profiles into tmpfs or overlayfs/overlay for improved performance.
           enable = true;
         };
-        syncthing = {
-          enable = true;
-          tray = {
-            enable = false;
-          };
-        };
         # keybase.enable = true;
       };
       xdg.userDirs = {
@@ -274,16 +268,13 @@
         videos = "/home/nicky/Tresors/yannick/LaptopSync/Videos/";
       };
     };
-  # services.syncthing = {
-  #   openDefaultPorts = true; # Whether to open the default ports in the firewall: TCP/UDP 22000 for transfers and UDP 21027 for discovery.
+  # networking.firewall = {
+  #   allowedTCPPorts = [
+  #     22000 # syncthing transfers
+  #   ];
+  #   allowedUDPPorts = [
+  #     21027 # syncthing discovery
+  #     22000 # syncthing transfers
+  #   ];
   # };
-  networking.firewall = {
-    allowedTCPPorts = [
-      22000 # syncthing transfers
-    ];
-    allowedUDPPorts = [
-      21027 # syncthing discovery
-      22000 # syncthing transfers
-    ];
-  };
 }

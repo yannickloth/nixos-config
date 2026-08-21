@@ -192,18 +192,12 @@
         enable = true;
         indicator = true;
       };
-      psd = { # Settings of the profle-sync-daemon service. Puts browser profiles into tmpfs or overlayfs/overlay for improved performance.
-        enable = true;
-      };
-      # keybase.enable = true;
-      syncthing = {
-        enable = true;
-        tray = {
-          enable = false;
+        psd = { # Settings of the profle-sync-daemon service. Puts browser profiles into tmpfs or overlayfs/overlay for improved performance.
+          enable = true;
         };
+        # keybase.enable = true;
       };
-    };
-    xdg.userDirs = {
+      xdg.userDirs = {
       createDirectories = false;
       enable = true;
       setSessionVariables = true; # keep legacy default
@@ -216,14 +210,14 @@
       templates = "/home/aeiuno/syncthing/christine/LaptopSync/Templates/";
       videos = "/home/aeiuno/syncthing/christine/LaptopSync/Videos/";
     };
-  };
-  networking.firewall = {
-    allowedTCPPorts = [
-      22000 # syncthing transfers
-    ];
-    allowedUDPPorts = [
-      21027 # syncthing discovery
-      22000 # syncthing transfers
-    ];
-  };
+    };
+  # networking.firewall = {
+  #   allowedTCPPorts = [
+  #     22000 # syncthing transfers
+  #   ];
+  #   allowedUDPPorts = [
+  #     21027 # syncthing discovery
+  #     22000 # syncthing transfers
+  #   ];
+  # };
 }
