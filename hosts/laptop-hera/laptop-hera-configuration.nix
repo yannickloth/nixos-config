@@ -19,6 +19,7 @@
     ../../users/aeiuno/aeiuno.nix
     ../../users/nicky/nicky.nix
     ../../users/sven/sven.nix
+    ../../users/aaron/aaron.nix
   ];
 
   # Host-specific packages on top of the shared set in roles/system.nix.

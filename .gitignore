@@ -4,3 +4,4 @@ tmp/
 secrets.nix
 result
 result-*
+.agentmem/

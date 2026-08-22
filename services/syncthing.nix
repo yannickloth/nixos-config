@@ -7,7 +7,7 @@ with lib;
     enable = true;
     user = "syncthing";
     group = "syncthing";
-    dataDir = "/srv/sync";
+    dataDir = "/sync";
     configDir = "/var/lib/syncthing";
     guiAddress = "0.0.0.0:8384";
     openDefaultPorts = true;
@@ -20,14 +20,14 @@ with lib;
     };
   };
 
-  users.groups.syncthing.members = [ "nicky" "aeiuno" "sven" ];
+  users.groups.syncthing.members = [ "nicky" "aeiuno" "sven" "aaron" ];
 
   networking.firewall.allowedTCPPorts = [
     8384 # syncthing web UI
   ];
 
   systemd.tmpfiles.rules = [
-    "d /srv/sync 2775 syncthing syncthing -"
+    "d /sync 2775 syncthing syncthing -"
     "d /var/lib/syncthing 0700 syncthing syncthing -"
   ];
 }

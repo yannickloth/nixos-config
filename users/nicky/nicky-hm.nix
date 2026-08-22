@@ -52,21 +52,17 @@ let
             else {};
 in
 {
-  nixpkgs.config.allowUnfree = true; # This allows you to install unfree software, such as Google Chrome, Steam or MasterPDFEditor.
+  imports = [
+    ../common-hm.nix
+  ];
+
+  # Enable the shared developer tools (neovim, vscode, direnv, etc.)
+  commonHm.enableDeveloperTools = true;
 
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
   home.username = "nicky";
   home.homeDirectory = "/home/nicky";
-
-  # This value determines the Home Manager release that your configuration is
-  # compatible with. This helps avoid breakage when a new Home Manager release
-  # introduces backwards incompatible changes.
-  #
-  # You should not change this value, even if you update Home Manager. If you do
-  # want to update the value, then make sure to first check the Home Manager
-  # release notes.
-  home.stateVersion = "25.05"; # Please read the comment before changing.
 
   # The home.packages option allows you to install Nix packages into your
   # environment.
@@ -163,6 +159,8 @@ in
 
     nodejs
     languagetool
+    opencode
+    pi-coding-agent
 
     jdk25 # Java 25
     elan # Lean theorem prover version manager
@@ -210,6 +208,7 @@ in
     kodi
     krita
     lua
+    lutris
     mastodon
     meld # Visual diff and merge tool
     mousai # Identify any songs in seconds
@@ -242,50 +241,12 @@ in
     prefix=${config.home.homeDirectory}/.npm-global
   '';
 
-  # Add local bin (Claude Code native), npm global bin, elan, and opencode to PATH
+  # Add local bin, npm global bin, and elan to PATH
   home.sessionPath = [
     "$HOME/.local/bin"
     "$HOME/.elan/bin"
     "$HOME/.npm-global/bin"
-    "$HOME/.opencode/bin"
   ];
-
-  home.activation.installClaudeTools = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    # Install Claude Code native binary (auto-updates itself)
-    if [ ! -f "$HOME/.local/bin/claude" ]; then
-      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fsSL https://claude.ai/install.sh | $DRY_RUN_CMD bash
-    fi
-
-    # Install OpenCode (auto-updates itself)
-    if [ ! -f "$HOME/.opencode/bin/opencode" ]; then
-      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fsSL https://opencode.ai/install | $DRY_RUN_CMD bash
-    fi
-
-    # Install claude-trace via npm
-    export NPM_CONFIG_PREFIX="$HOME/.npm-global"
-    $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g @mariozechner/claude-trace@latest
-
-    # Install Cline to use Cline Kanban
-    $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g cline
-
-    # Install pi (original AI coding agent) via npm
-    export NPM_CONFIG_PREFIX="$HOME/.npm-global"
-    if ! command -v pi &>/dev/null; then
-      $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g --ignore-scripts @earendil-works/pi-coding-agent@latest
-    fi
-
-    # Install oh-my-pi (omp — fork/successor) via npm
-    export NPM_CONFIG_PREFIX="$HOME/.npm-global"
-    if ! command -v omp &>/dev/null; then
-      $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g --ignore-scripts @oh-my-pi/pi-coding-agent@latest
-    fi
-
-    # Install omp-deck (web cockpit for omp) via npm
-    export NPM_CONFIG_PREFIX="$HOME/.npm-global"
-    if ! command -v omp-deck &>/dev/null; then
-      $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g omp-deck@latest
-    fi
-  '';
 
   home.activation.setupTresorit = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     # Install Tresorit if not already installed
@@ -370,9 +331,6 @@ EOF
   #  /etc/profiles/per-user/nicky/etc/profile.d/hm-session-vars.sh
   #
   home.sessionVariables = {
-    #CLAUDE_INSTANCE = "A";
-    # Sonnet default; using Opus must be a deliberate choice via --model
-    ANTHROPIC_MODEL = "claude-sonnet-4-6";
     MOZ_ENABLE_WAYLAND = 1; # for Firefox in Wayland sessions
     ZAI_CODING_PLAN_API_KEY = secrets.ZAI_CODING_PLAN_API_KEY or "";
     DEEPSEEK_API_KEY = secrets.DEEPSEEK_API_KEY or "";
@@ -395,11 +353,6 @@ EOF
         fi
       '';
     };
-    direnv = {
-      enable = true;
-      enableBashIntegration = true;
-      nix-direnv.enable = true;
-    };
     git = {
       enable = true;
       lfs = {
@@ -420,82 +373,10 @@ EOF
     # Merged from the previous nicky-hm.nix config
     firefox = {
       enable = true;
+      configPath = "${config.xdg.configHome}/mozilla/firefox";
       policies = {
         # Pre-98 behavior: opened files go to a temp dir; Downloads only on explicit save.
         StartDownloadsInTempDirectory = true;
-      };
-    };
-    chromium = {
-      commandLineArgs = [
-        "--enable-features=VaapiVideoDecodeLinuxGL"
-        "--ignore-gpu-blocklist"
-        "--enable-zero-copy"
-      ];
-      enable = true;
-    };
-    command-not-found = {
-      enable = true;
-    };
-    gitui = {
-      enable = true;
-    };
-    man.enable = true;
-    neovim = {
-      coc = {
-        # code completion
-        enable = true;
-      };
-      enable = true;
-      plugins = with pkgs.vimPlugins; [
-        vim-airline
-        vim-nix
-        {
-          plugin = vim-startify;
-          config = "let g:startify_change_to_vcs_root = 0";
-          type = "viml";
-        }
-        YankRing-vim
-      ];
-      extraConfig = ''
-        set mouse=a
-      '';
-      viAlias = true;
-      vimAlias = true;
-    };
-    ssh = {
-      enable = true;
-    };
-    starship = {
-      enable = true;
-      enableBashIntegration = true;
-      enableZshIntegration = true;
-    };
-    vscode = {
-      enable = true;
-      mutableExtensionsDir = true;
-      profiles = {
-        default = {
-          enableExtensionUpdateCheck = true;
-          enableUpdateCheck = true;
-          userSettings = { };
-        };
-      };
-    };
-  };
-
-  services = {
-    # Merged from the previous nicky-hm.nix config
-    kdeconnect = {
-      enable = true;
-      indicator = true;
-    };
-    psd = { # Settings of the profle-sync-daemon service. Puts browser profiles into tmpfs or overlayfs/overlay for improved performance.
-      enable = true;
-    };
-    syncthing = {
-      enable = true;
-      tray = {
-        enable = false;
       };
     };
   };
@@ -535,6 +416,7 @@ EOF
   xdg.userDirs = {
           createDirectories = false;
           enable = true;
+          setSessionVariables = true; # keep legacy default
           desktop = "/home/nicky/sync/yannick/LaptopSync/Desktop/";
           documents = "/home/nicky/sync/yannick/LaptopSync/Documents/";
           download = "/home/nicky/sync/yannick/LaptopSync/Downloads/";

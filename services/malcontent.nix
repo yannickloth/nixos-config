@@ -3,12 +3,12 @@
 with lib;
 
 let
-  # Daily schedule for sven: allowed 06:00-22:00 (school hours are
-  # unrestricted because sven is at school anyway). Seconds since midnight.
+  # Daily schedule for sven and aaron: allowed 06:00-22:00 (school hours are
+  # unrestricted because they are at school anyway). Seconds since midnight.
   dailyStart = 6 * 60 * 60;
   dailyEnd = 22 * 60 * 60;
 
-  # Kid-safe flatpak app IDs sven may run. Malcontent only enforces app
+  # Kid-safe flatpak app IDs sven and aaron may run. Malcontent only enforces app
   # filtering for flatpak apps (native binaries are covered by AppArmor).
   allowlistApps = [
     "org.gnome.Calculator"
@@ -78,53 +78,58 @@ in
   config = {
     services.malcontent.enable = mkDefault true;
 
-    # Write sven's parental-control restrictions to the accountsservice user
-    # keyfile. The daemon reads this on startup and reloads when it changes.
+    # Write sven's and aaron's parental-control restrictions to the accountsservice
+    # per-user keyfile. The daemon reads this on startup and reloads when it changes.
     # Merge into the existing file so accountsservice's per-user state
     # (e.g. the remembered Session) is preserved across boots.
-    system.activationScripts.malcontent-sven = mkIf (config.users.users ? sven) {
-      text = ''
-        install -d -m 0700 -o root -g root /var/lib/AccountsService/users
-        cat > /var/lib/AccountsService/users/.sven-malcontent <<'EOF'
-        [User]
-        SystemAccount=false
+    system.activationScripts.malcontent-kids = mkIf (config.users.users ? sven || config.users.users ? aaron) {
+      text =
+        let
+          mkUser = user: ''
+            install -d -m 0700 -o root -g root /var/lib/AccountsService/users
+            cat > /var/lib/AccountsService/users/.${user}-malcontent <<'EOF'
+            [User]
+            SystemAccount=false
 
-        ${sessionLimitsSection}
-        ${appFilterSection}
-        EOF
-        ${pkgs.python3}/bin/python3 - <<'EOF'
-        import configparser, os
+            ${sessionLimitsSection}
+            ${appFilterSection}
+            EOF
+            ${pkgs.python3}/bin/python3 - <<'EOF'
+            import configparser, os
 
-        src = "/var/lib/AccountsService/users/.sven-malcontent"
-        dst = "/var/lib/AccountsService/users/sven"
+            src = "/var/lib/AccountsService/users/.${user}-malcontent"
+            dst = "/var/lib/AccountsService/users/${user}"
 
-        cfg = configparser.ConfigParser(interpolation=None)
-        cfg.optionxform = str  # preserve key case
-        if os.path.exists(dst):
-            cfg.read(dst)
+            cfg = configparser.ConfigParser(interpolation=None)
+            cfg.optionxform = str  # preserve key case
+            if os.path.exists(dst):
+                cfg.read(dst)
 
-        extra = configparser.ConfigParser(interpolation=None)
-        extra.optionxform = str
-        extra.read(src)
+            extra = configparser.ConfigParser(interpolation=None)
+            extra.optionxform = str
+            extra.read(src)
 
-        for name in extra.sections():
-            if not cfg.has_section(name):
-                cfg.add_section(name)
-            for key, value in extra.items(name):
-                cfg.set(name, key, value)
+            for name in extra.sections():
+                if not cfg.has_section(name):
+                    cfg.add_section(name)
+                for key, value in extra.items(name):
+                    cfg.set(name, key, value)
 
-        with open(dst, "w") as f:
-            cfg.write(f, space_around_delimiters=False)
+            with open(dst, "w") as f:
+                cfg.write(f, space_around_delimiters=False)
 
-        os.unlink(src)
-        EOF
-        chmod 0600 /var/lib/AccountsService/users/sven
-        chown root:root /var/lib/AccountsService/users/sven
-      '';
+            os.unlink(src)
+            EOF
+            chmod 0600 /var/lib/AccountsService/users/${user}
+            chown root:root /var/lib/AccountsService/users/${user}
+          '';
+          users = [ ] ++ (if config.users.users ? sven then [ "sven" ] else [ ]) ++ (if config.users.users ? aaron then [ "aaron" ] else [ ]);
+        in
+        lib.concatStringsSep "\n" (map mkUser users);
     };
 
-    # Enforce session time limits at login for sven via pam_malcontent.
-    security.pam.services.login.rules.account.malcontent = mkIf (config.users.users ? sven) {
+    # Enforce session time limits at login for sven/aaron via pam_malcontent.
+    security.pam.services.login.rules.account.malcontent = mkIf (config.users.users ? sven || config.users.users ? aaron) {
       control = "required";
       modulePath = "${pkgs.malcontent.pam}/lib/security/pam_malcontent.so";
       # Run before the other account rules.

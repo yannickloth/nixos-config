@@ -6,8 +6,8 @@
   ];
 
   home = {
-    username = "sven";
-    homeDirectory = "/home/sven";
+    username = "aaron";
+    homeDirectory = "/home/aaron";
     packages = with pkgs; [
       audacious # light music player
       gcompris # educational game suite for young children

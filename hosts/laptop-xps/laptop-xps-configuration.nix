@@ -19,6 +19,7 @@
     ../../users/aeiuno/aeiuno.nix
     ../../users/nicky/nicky.nix
     ../../users/sven/sven.nix
+    ../../users/aaron/aaron.nix
   ];
 
   # The Master PDF Editor is not installed on this host.

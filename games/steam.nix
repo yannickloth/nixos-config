@@ -3,7 +3,7 @@
 with lib;
 {
   users.groups.steam = {
-    members = [ "aeiuno" "nicky" "sven" ]; # Shared Steam library access
+    members = [ "aeiuno" "nicky" "sven" "aaron" ]; # Shared Steam library access
   };
 
   systemd.tmpfiles.rules = [

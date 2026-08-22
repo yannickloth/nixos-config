@@ -51,6 +51,7 @@ with lib;
       ../../apps/purescript.nix
       ../../services/samba.nix
       ../../services/scanning.nix
+      ../../services/syncthing.nix
       ../../roles/shell.nix
       ../../services/sonos.nix
       ../../games/steam.nix
@@ -66,10 +67,12 @@ with lib;
       ../../security/yubikey.nix
 
       ../../roles/base.nix
+      ../../roles/psd.nix
 
-      ../../users/aeiuno/aeiuno-hm.nix
+      { home-manager.users.aeiuno = import ../../users/aeiuno/aeiuno-hm.nix; }
       { home-manager.users.nicky = import ../../users/nicky/nicky-hm.nix; }
-      ../../users/sven/sven-hm.nix
+      { home-manager.users.sven = import ../../users/sven/sven-hm.nix; }
+      { home-manager.users.aaron = import ../../users/aaron/aaron-hm.nix; }
     ];
   # In this file comes everything that is specific to this host.
   networking.hostName = "laptop-hera"; # Define your hostname.
