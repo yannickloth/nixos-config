@@ -97,7 +97,7 @@ with lib;
 
   # 16 GiB RAM -> 25% zram (shared default is 50%, sized for >=64 GiB hosts).
   # Keeps page cache RAM free while still giving compressed overflow on top of the swapfile.
-  zramSwap.memoryPercent = lib.mkForce 25;
+  zramSwap.memoryPercent = 25;
 
   # Trim SSD (NVMe) weekly to keep free-space performance and endurance up.
   services.fstrim.enable = true;
@@ -116,9 +116,8 @@ with lib;
 
   nix.settings = {
     # 16 GiB RAM -> cap concurrent builds to avoid OOM during rebuilds.
+    # Default is auto (all logical cores); 4 prevents OOM on this 4-core host.
     max-jobs = 4;
-    # cores = 0; # This option defines the maximum number of concurrent tasks during one build. It affects, e.g., -j option for make. The special value 0 means that the builder should use all available CPU cores in the system. Some builds may become non-deterministic with this option; use with care! Packages will only be affected if enableParallelBuilding is set for them.
-    # max-jobs = 4; # This option defines the maximum number of jobs that Nix will try to build in parallel. The default is auto, which means it will use all available logical cores. It is recommend to set it to the total number of logical cores in your system (e.g., 16 for two CPUs with 4 cores each and hyper-threading).
     system-features = [
       "benchmark" # May apply to packages or tests that depend on benchmarking features.
       "big-parallel" # Enables tasks designed for builds that heavily leverage parallelism (> 16 cores), but enabling it on a system with a low core count (e.g., 4 logical cores) can lead to inefficiencies and potential issues:

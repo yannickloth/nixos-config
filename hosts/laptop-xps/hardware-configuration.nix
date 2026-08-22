@@ -40,17 +40,18 @@
     { device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
       fsType = "btrfs";
       #options = [ "compress=zstd" "subvol=@" ];
+      options = [ "compress=zstd" "noatime" ];
     };
     fileSystems."/home" =
     { device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
       fsType = "btrfs";
-      options = [ "subvol=home" ];
+      options = [ "subvol=home" "compress=zstd" "noatime" ];
     };
 
   fileSystems."/nix" =
     { device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
       fsType = "btrfs";
-      options = [ "subvol=nix" ];
+      options = [ "subvol=nix" "compress=zstd" "noatime" ];
     };
 
 

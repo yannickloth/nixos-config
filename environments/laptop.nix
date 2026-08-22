@@ -20,7 +20,7 @@ with lib;
     # with soldered, non-upgradeable memory. Disk swap (if any) acts as overflow.
     zramSwap = {
       enable = true;
-      memoryPercent = 50; # 50% of RAM as zram
+      memoryPercent = mkDefault 50; # shared default; hosts override per RAM (XPS 16GB -> 25%)
       algorithm = "zstd";
     };
 
