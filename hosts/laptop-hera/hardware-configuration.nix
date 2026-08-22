@@ -64,7 +64,7 @@
       {
         device = "/dev/disk/by-uuid/6ad2a6b4-166d-4171-b047-49f17ab18181";
         fsType = "btrfs";
-        options = [ "subvol=@" ];
+        options = [ "subvol=@" "compress=zstd" "noatime" ];
       };
     "/boot" =
       {
@@ -76,6 +76,7 @@
       {
         device = "/dev/mapper/luks-9775b4f8-1168-4eec-b9e2-f6b187a0ed47";
         fsType = "btrfs";
+        options = [ "compress=zstd" "noatime" ];
       };
   };
   swapDevices =

@@ -43,6 +43,8 @@ The identical `system-features` list is copy-pasted in all three host files. Mov
 ### P2.2 Drop self-contradictory `big-parallel`
 Inline comment warns it's for >16 cores, but all hosts are ≤8-core. Remove from the shared list.
 
+> **NOTE — not applied.** `big-parallel` is part of the nixpkgs `nix.settings.system-features` default (`[ "nixos-test" "benchmark" "big-parallel" "kvm" ]`). Nix concatenates list values, so re-listing a subset duplicates features and cannot remove `big-parallel`. Dropping it would require `lib.mkForce` on the whole list — not worth overriding the NixOS default. Left to the default.
+
 ### P2.3 Centralize per-host `max-jobs`/`cores`
 hera & p16 set `max-jobs = 12` + `cores = 0` identically; xps=4. Centralize (e.g. in `roles/psd.nix` or a nix-tier module) as a single per-host declaration.
 
@@ -74,7 +76,14 @@ No `.github` workflow. A `nixos-rebuild build --flake .#<host>` or `nix flake ch
 ---
 
 ## Status
-**P1: DONE** — both items implemented and verified via `nix eval` across all three hosts (earlyoom=false, oomd=true, nix-serve openFirewall=false + bind 127.0.0.1).
-**P2 / P3: not started.**
+**P1: DONE** — earlyoom→oomd, nix-serve bound to loopback (verified on all 3 hosts).
 
-Suggested order: P2 → P3.
+**P2: DONE.** All P2 work complete (with P2.1 done via alternative approach and P2.2 deliberately infeasible — see notes):
+- P2.3 **done**: per-host `max-jobs`/`cores` centralized via new `roles.nix.maxJobs`/`roles.nix.cores` options (xps 4/null, hera 12/0, p16 12/0); copy-pasted host blocks removed.
+- P2.4 **done**: `compress=zstd` + `noatime` on hera (`/`, `/data`) and p16 (`/`).
+- P2.1 **done via alternative approach**: `system-features` NOT hoisted into `roles/nix.nix` — left to the nixpkgs default instead (dedup achieved by removal, not by moving into shared role).
+- P2.2 **deferred (infeasible)**: cannot drop `big-parallel` from the nixpkgs default via list concat; would need `mkForce`. See P2.2 note.
+
+**P3: not started.**
+
+Suggested order: P3.

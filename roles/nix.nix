@@ -3,6 +3,24 @@
 with lib;
 
 {
+  # Per-host build parallelism. Declare once per host instead of duplicating
+  # the full nix.settings block:
+  #   laptop-xps: 4  cores/8 threads, 16 GiB RAM  -> maxJobs = 4 (RAM-bound)
+  #   laptop-hera: 64 GiB RAM                     -> maxJobs = 12, cores = 0
+  #   laptop-p16:  128 GiB RAM                    -> maxJobs = 12, cores = 0
+  options.roles.nix = {
+    maxJobs = mkOption {
+      type = types.int;
+      default = 4;
+      description = "Maximum number of parallel Nix jobs (nix.settings.max-jobs).";
+    };
+    cores = mkOption {
+      type = types.nullOr types.int;
+      default = null;
+      description = "Concurrent tasks per build (nix.settings.cores). 0 = all cores; null = unset.";
+    };
+  };
+
   config = {
     environment.systemPackages = with pkgs; [
       cachix
@@ -13,6 +31,16 @@ with lib;
       settings = {
         # do builds in sandbox by default
         sandbox = mkDefault true;
+
+        # per-host parallelism (declared via roles.nix.maxJobs/cores)
+        max-jobs = mkDefault config.roles.nix.maxJobs;
+        cores = mkIf (config.roles.nix.cores != null) (mkDefault config.roles.nix.cores);
+
+        # system-features intentionally not set here: the nixpkgs default
+        # already provides the full standard set (benchmark, cgroups, kvm,
+        # nixos, nixos-test, reproducible-paths, sandbox, big-parallel).
+        # Re-listing a subset would CONCATENATE with that default, producing
+        # duplicates and failing to drop big-parallel. Leave it to the default.
 
         #         # set explicit binary cache and add additional binary caches
         substituters = [
