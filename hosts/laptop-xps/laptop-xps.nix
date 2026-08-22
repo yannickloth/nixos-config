@@ -78,12 +78,29 @@ with lib;
   # In this file comes everything that is specific to this host.
   networking.hostName = "laptop-xps"; # Define your hostname.
 
+  # 16 GiB RAM -> keep browser profiles on disk (psd disabled).
+  roles.psd.enable = false;
+
+  # 16 GiB RAM -> kill the heaviest process on memory pressure instead of locking up.
+  systemd.oomd = {
+    enable = true;
+    enableRootSlice = true;
+    enableUserSlices = true;
+  };
+
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
   # Btrfs swapfile on the root filesystem (in addition to zram) as disk-swap overflow.
   swapDevices = [{ device = "/swapfile"; size = 16384; }]; # 16 GiB; adjust to match RAM/disk
+
+  # 16 GiB RAM -> 25% zram (shared default is 50%, sized for >=64 GiB hosts).
+  # Keeps page cache RAM free while still giving compressed overflow on top of the swapfile.
+  zramSwap.memoryPercent = lib.mkForce 25;
+
+  # Trim SSD (NVMe) weekly to keep free-space performance and endurance up.
+  services.fstrim.enable = true;
 
   # Family-safe DNS (Cloudflare Family 1.1.1.3 / 1.0.0.3, blocks malware + adult content).
   # Note: DNS applies machine-wide, not per-user.
@@ -98,6 +115,8 @@ with lib;
   };
 
   nix.settings = {
+    # 16 GiB RAM -> cap concurrent builds to avoid OOM during rebuilds.
+    max-jobs = 4;
     # cores = 0; # This option defines the maximum number of concurrent tasks during one build. It affects, e.g., -j option for make. The special value 0 means that the builder should use all available CPU cores in the system. Some builds may become non-deterministic with this option; use with care! Packages will only be affected if enableParallelBuilding is set for them.
     # max-jobs = 4; # This option defines the maximum number of jobs that Nix will try to build in parallel. The default is auto, which means it will use all available logical cores. It is recommend to set it to the total number of logical cores in your system (e.g., 16 for two CPUs with 4 cores each and hyper-threading).
     system-features = [

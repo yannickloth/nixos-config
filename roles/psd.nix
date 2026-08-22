@@ -1,33 +1,25 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, ... }:
 
-let
-  # Determine whether the host has at least 48 GiB of RAM at build time.
-  # Nix builds run locally on the target during `nixos-rebuild`, so a
-  # runCommand derivation can read the real /proc/meminfo. (Plain
-  # builtins.readFile fails on procfs, hence the derivation.)
-  memTotalKB =
-    let
-      meminfo = builtins.readFile (pkgs.runCommand "meminfo" { } ''
-        grep MemTotal /proc/meminfo > "$out"
-      '');
-      captured = builtins.match "MemTotal: *([0-9]+) kB[[:space:]]*" meminfo;
-    in
-    builtins.fromJSON (builtins.elemAt captured 0);
-
-  has48GB = memTotalKB >= 48 * 1024 * 1024;
-
-  homeUsers = [ "nicky" "aeiuno" "sven" "aaron" ];
-in
 {
-  # Enable psd (browser profiles in RAM) for every home-manager user only on
-  # hosts with >= 48 GiB RAM; otherwise psd is not installed and browser
-  # profiles remain on disk.
-  config = lib.mkIf has48GB {
-    home-manager.users = builtins.listToAttrs (
-      map (user: {
-        name = user;
-        value.commonHm.enablePsd = true;
-      }) homeUsers
-    );
+  # Whether psd (browser profiles in RAM) should be enabled for home-manager
+  # users on this host. Set explicitly per host based on known RAM:
+  #   laptop-hera: 64 GiB  -> enabled
+  #   laptop-p16:  128 GiB -> enabled
+  #   laptop-xps:  16 GiB  -> disabled
+  # When enabled, the profile-sync-daemon package is installed and browser
+  # profiles are kept in RAM; when disabled, profiles remain on disk.
+  options.roles.psd.enable = lib.mkOption {
+    type = lib.types.bool;
+    default = false;
+    description = "Enable psd (browser profiles in RAM) on >= 48 GiB RAM hosts.";
+  };
+
+  config = lib.mkIf config.roles.psd.enable {
+    # Apply psd to every home-manager user on this host (no hardcoded user list).
+    home-manager.sharedModules = [
+      {
+        commonHm.enablePsd = true;
+      }
+    ];
   };
 }

@@ -78,6 +78,9 @@ with lib;
   # In this file comes everything that is specific to this host.
   networking.hostName = "laptop-p16"; # Define your hostname.
 
+  # 128 GiB RAM -> run browser profiles in RAM.
+  roles.psd.enable = true;
+
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
