@@ -81,13 +81,6 @@ with lib;
   # 16 GiB RAM -> keep browser profiles on disk (psd disabled).
   roles.psd.enable = false;
 
-  # 16 GiB RAM -> kill the heaviest process on memory pressure instead of locking up.
-  systemd.oomd = {
-    enable = true;
-    enableRootSlice = true;
-    enableUserSlices = true;
-  };
-
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;

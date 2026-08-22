@@ -39,8 +39,13 @@ with lib;
       revision = mkDefault "latest";
     };
 
-    # enable earlyoom on all systems
-    services.earlyoom.enable = mkDefault true;
+    # enable systemd-oomd on all systems (replaces earlyoom: first-class,
+    # kills the heaviest process on memory pressure instead of locking up)
+    systemd.oomd = {
+      enable = mkDefault true;
+      enableRootSlice = mkDefault true;
+      enableUserSlices = mkDefault true;
+    };
 
     # enable fstrim on all systems, running fstrim weekly is a good practice
     services.fstrim.enable = mkDefault true;
