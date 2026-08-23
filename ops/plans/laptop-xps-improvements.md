@@ -82,6 +82,8 @@ nix.settings.max-jobs = 4;
 ### P2.1 Bind nix-serve to localhost
 `services/nix-serve.nix` sets `openFirewall = true` → binary cache exposed on a battery laptop. Restrict.
 
+> **DONE** — shared `services/nix-serve.nix:7-8` sets `openFirewall = false` + `bindAddress = "127.0.0.1"` (applies to all hosts, verified in cross-host plan).
+
 ```nix
 # in services/nix-serve.nix
 openFirewall = false;
@@ -91,12 +93,16 @@ bindAddress = "127.0.0.1";
 ### P2.2 Rework the system-wide Tor transparent proxy
 `services/tor.nix` forces `transparentProxy.enable = true` on all traffic — heavy on a 16 GB host. Prefer SOCKS-on-demand (keep `TOR_SOCKS_PORT`).
 
+> **DONE** — `services/tor.nix:11` sets `transparentProxy.enable = false`; `TOR_SOCKS_PORT = "9050"` kept (shared, all hosts).
+
 ```nix
 transparentProxy.enable = false;
 ```
 
 ### P2.3 nftables firewall
 `laptop-firewall.nix:7` is commented out. Switch from iptables to nftables for the (small) open port set.
+
+> **DONE** — `environments/laptop-firewall.nix:11` sets `networking.nftables.enable = true`. The two iptables `extraCommands` blockers (SONOS ipset hack, Samba netbios-ns helper) were converted/removed. See cross-host plan P3.1.
 
 ```nix
 networking.nftables.enable = true;
@@ -115,11 +121,22 @@ This host enables a very large set; several daemons are likely unused on a 16 GB
 ### P3.2 Drop unused RGB/gaming hardware imports
 `hardware/corsair.nix` and `openrazer` are effectively disabled; harmless but slim the build if unused.
 
+> **Deferred** — `hardware/corsair.nix` kept as a deliberate opt-in hook (cross-host P3.5 note). `openrazer` still enabled in `games/games.nix`. Revisit if the build needs slimming.
+
 ### P3.3 Document the `psmouse` blacklist
 `hardware-configuration.nix:15` blacklists `psmouse` with no comment. Likely a touchpad workaround — add a comment so it isn't removed accidentally.
 
+> **NOT DONE** — xps `hosts/laptop-xps/hardware-configuration.nix:15` still has no comment (hera/p16 both have `# the touchpad does not use psmouse`). Add the same comment.
+
+```nix
+blacklistedKernelModules = [ "psmouse" ] ++ lib.optionals (!config.hardware.enableRedistributableFirmware) [ "ath3k" ];
+# add: "psmouse" # the touchpad does not use psmouse
+```
+
 ### P3.4 Resolve VA-API driver ambiguity
 Both `intel-vaapi-driver` (via `hardware-configuration.nix`) and `intel-media-driver` (iHD, via `intel_graphics.nix`) are installed. Verify with `vainfo` and keep only the working driver for Kaby Lake (usually iHD).
+
+> **NOT DONE** — `hardware/intel_graphics.nix` still installs both `intel-media-driver` and `intel-vaapi-driver`. Needs `vainfo` on the host to decide.
 
 ---
 
@@ -132,6 +149,15 @@ Both `intel-vaapi-driver` (via `hardware-configuration.nix`) and `intel-media-dr
 ## Status
 **P1 (all 5 items): DONE** — implemented and verified via `nix eval` (zram xps=25/hera=50/p16=50; btrfs options uniform; oomd/fstrim/max-jobs correct). Awaiting `sudo nixos-rebuild switch --flake ./` to apply.
 
-**P2 / P3: not started.**
+**P2 (all 3 items): DONE** — via the cross-host plan (shared roles, applies to all hosts):
+- P2.1 nix-serve bound to loopback (`services/nix-serve.nix`).
+- P2.2 tor transparent proxy off, SOCKS on demand (`services/tor.nix`).
+- P2.3 nftables enabled (`environments/laptop-firewall.nix`).
 
-Suggested order for remaining work: P2 (nix-serve/tor/firewall) → P3 cleanup.
+**P3: partial.**
+- P3.1 workload trim — **not started** (needs a decision: which daemons are actually used).
+- P3.2 corsair/openrazer — **deferred** (corsair kept as opt-in hook; openrazer still enabled).
+- P3.3 psmouse comment — **NOT DONE** (xps `hardware-configuration.nix:15` lacks the comment the other hosts have).
+- P3.4 VA-API — **NOT DONE** (needs `vainfo` on the host to pick one driver).
+
+Remaining work: P3.1 (decision), P3.3 (one-line comment), P3.4 (verify + pick driver).
