@@ -56,7 +56,12 @@ with lib;
               add @upnp { ip saddr . udp sport timeout 3s }
           }
           chain input {
-            type filter hook input priority 0; policy accept;
+            # Must run BEFORE the nixos-fw input chain (priority filter = 0,
+            # policy drop) on the same hook: nftables evaluates lower priority
+            # numbers first. If this chain ran after, the reply (a NEW flow
+            # whose dport is the client's ephemeral port, absent from
+            # allowedTCP/UDPPorts) would already be dropped by nixos-fw.
+            type filter hook input priority filter - 1; policy accept;
             # accept only replies matching a recorded query (short-lived): the
             # reply is unicast from the speaker to the client's ephemeral port,
             # so match (daddr . dport) against the recorded (saddr . sport)
