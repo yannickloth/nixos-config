@@ -41,34 +41,38 @@ with lib;
       #   INPUT : -m set --match-set upnp dst,dst
       # i.e. the reply is accepted when its destination (ip . port) equals a
       # recorded outbound query source (ip . port).
-      nftables.tables.sonos-ssdp = {
-        family = "inet";
-        content = ''
-          set upnp {
-            type ipv4_addr . inet_service
-            flags timeout
-            timeout 3s
-          }
-          chain output {
-            type filter hook output priority 110; policy accept;
-            # record each outbound SSDP query source (ip . sport)
-            ip protocol udp udp dport 1900 ip daddr 239.255.255.250 \
-              add @upnp { ip saddr . udp sport timeout 3s }
-          }
-          chain input {
-            # Must run BEFORE the nixos-fw input chain (priority filter = 0,
-            # policy drop) on the same hook: nftables evaluates lower priority
-            # numbers first. If this chain ran after, the reply (a NEW flow
-            # whose dport is the client's ephemeral port, absent from
-            # allowedTCP/UDPPorts) would already be dropped by nixos-fw.
-            type filter hook input priority filter - 1; policy accept;
-            # accept only replies matching a recorded query (short-lived): the
-            # reply is unicast from the speaker to the client's ephemeral port,
-            # so match (daddr . dport) against the recorded (saddr . sport)
-            ip protocol udp ip daddr . udp dport @upnp accept
-          }
-        '';
-      };
+      #
+      # Why the set and chains live inside the nixos-fw table rather than a
+      # dedicated table: nftables traverses EVERY base chain on a hook in
+      # priority order, and an `accept` in one chain does not stop a later
+      # chain from dropping the packet (nixos-fw input, priority filter, has
+      # policy drop). The accept must therefore be the final verdict on the
+      # input hook, i.e. happen inside nixos-fw's input-allow chain (via
+      # extraInputRules). A rule can only reference sets in its own table, so
+      # the upnp set and the output tracking chain must live in the nixos-fw
+      # table too (merged in with mkBefore so the set is declared before use).
+      nftables.tables."nixos-fw".content = mkBefore ''
+        set upnp {
+          type ipv4_addr . inet_service
+          flags timeout
+          timeout 3s
+        }
+        chain output {
+          type filter hook output priority 110; policy accept;
+          # record each outbound SSDP query source (ip . sport)
+          ip protocol udp udp dport 1900 ip daddr 239.255.255.250 \
+            add @upnp { ip saddr . udp sport timeout 3s }
+        }
+      '';
+
+      # Accept only replies matching a recorded query (short-lived): the reply
+      # is unicast from the speaker to the client's ephemeral port, so match
+      # (daddr . dport) against the recorded (saddr . sport). Runs at the end
+      # of input-allow, i.e. after the allowedTCP/UDPPort checks have failed
+      # for the ephemeral reply port and before the input chain's policy drop.
+      firewall.extraInputRules = ''
+        ip protocol udp ip daddr . udp dport @upnp accept
+      '';
     };
   };
 }
