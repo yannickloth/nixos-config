@@ -11,14 +11,10 @@ with lib;
       nftables.enable = true;
       firewall = {
         enable = true;
-        # Open ports in the firewall.
-        allowedTCPPortRanges = [
-          { from = 1714; to = 1764; } # kdeconnect
-        ];
-
-        allowedUDPPortRanges = [
-          { from = 1714; to = 1764; } # kdeconnect
-        ];
+        # No explicit port ranges here: KDE Connect (1714-1764 TCP/UDP) is
+        # opened automatically by programs.kdeconnect.enable only where it is
+        # enabled (currently laptop-xps), and mDNS discovery (UDP 5353) by
+        # services.avahi.openFirewall. SONOS opens its own ports.
       };
     };
 }

@@ -33,6 +33,4 @@
   nixpkgs.config.permittedInsecurePackages = [
                 "electron-36.9.5"
               ];
-  
-  programs.kdeconnect.enable = true; # Enable KDE Connect for phone integration.
 }
