@@ -47,9 +47,11 @@ with lib;
           "https://attic.xuyh0120.win/lantian" # CachyOS kernel binary cache
           #"https://xtruder-public.cachix.org"
         ]
-          #++ (if (config.networking.hostName != "laptop-xps") then [ "http://laptop-xps.bee-blues.ts.net:5000/" ] else []) # any other hosts should use laptop-xps as a nix store cache
-          #++ (if (config.networking.hostName != "laptop-hera") then [ "http://laptop-hera.bee-blues.ts.net:5000/" ] else []) # any other hosts should use laptop-hera as a nix store cache
-          #++ (if (config.networking.hostName != "laptop-p16") then [ "http://laptop-p16.bee-blues.ts.net:5000/" ] else []) # any other hosts should use laptop-p16 as a nix store cache
+          # Distributed builds over Tailscale: each host is a nix-serve cache for the
+          # other two (access to port 5000 is Tailscale-only, see laptop-firewall.nix).
+          ++ (if (config.networking.hostName != "laptop-xps") then [ "http://laptop-xps.bee-blues.ts.net:5000/" ] else []) # any other hosts should use laptop-xps as a nix store cache
+          ++ (if (config.networking.hostName != "laptop-hera") then [ "http://laptop-hera.bee-blues.ts.net:5000/" ] else []) # any other hosts should use laptop-hera as a nix store cache
+          ++ (if (config.networking.hostName != "laptop-p16") then [ "http://laptop-p16.bee-blues.ts.net:5000/" ] else []) # any other hosts should use laptop-p16 as a nix store cache
         ;
         #         trusted-substituters = [
         #           "https://cache.nixos.org/"

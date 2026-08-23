@@ -16,5 +16,10 @@ with lib;
         # enabled (currently laptop-xps), and mDNS discovery (UDP 5353) by
         # services.avahi.openFirewall. SONOS opens its own ports.
       };
+      # nix-serve (port 5000) is reachable only from Tailscale peers (CGNAT
+      # 100.64.0.0/10) so the laptops can share builds; not from LAN/internet.
+      firewall.extraInputRules = ''
+        tcp dport 5000 ip saddr 100.64.0.0/10 accept
+      '';
     };
 }
