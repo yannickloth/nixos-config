@@ -35,6 +35,12 @@ with lib;
       # hash:ip,port with a 3s timeout): track the outbound query's
       # (source-ip . source-port) and accept only matching replies. nftables
       # has native sets with timeouts, so no external ipset is needed.
+      #
+      # Match semantics mirror the original iptables rules:
+      #   OUTPUT: -j SET --add-set upnp src,src
+      #   INPUT : -m set --match-set upnp dst,dst
+      # i.e. the reply is accepted when its destination (ip . port) equals a
+      # recorded outbound query source (ip . port).
       nftables.tables.sonos-ssdp = {
         family = "inet";
         content = ''
@@ -51,8 +57,10 @@ with lib;
           }
           chain input {
             type filter hook input priority 0; policy accept;
-            # accept only replies matching a recorded query (short-lived)
-            ip protocol udp udp dport 1900 @upnp { ip saddr . udp sport } accept
+            # accept only replies matching a recorded query (short-lived): the
+            # reply is unicast from the speaker to the client's ephemeral port,
+            # so match (daddr . dport) against the recorded (saddr . sport)
+            ip protocol udp ip daddr . udp dport @upnp accept
           }
         '';
       };
