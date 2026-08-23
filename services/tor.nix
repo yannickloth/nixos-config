@@ -6,8 +6,10 @@
       settings.ControlPort = 9051;
       client = {
         enable = true;
-        dns.enable = true;
-        transparentProxy.enable = true;
+        # SOCKS-on-demand only: do NOT route all system traffic through Tor
+        # via the transparent proxy (heavy on RAM/CPU, affects everything).
+        transparentProxy.enable = false;
+        # dns.enable = true; # tied to the transparent proxy; leave off
       };
     };
 

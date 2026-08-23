@@ -58,6 +58,11 @@ xps already got these (this session). hera/p16 `/` mounts only have `subvol=@`; 
 ### P3.1 nftables firewall
 `laptop-firewall.nix:7` has `#nftables.enable = true;` commented. Move to nftables for the small open port set.
 
+> **DONE** — nftables enabled. The two iptables `extraCommands` blockers were both in this repo's own modules (not nixpkgs): SONOS (`services/sonos.nix`) and Samba (`services/samba.nix`). Converted:
+> - **SONOS**: replaced the `ipset create upnp` iptables hack with a native nftables table (`networking.nftables.tables.sonos-ssdp`) using a `set` with a 3s timeout that tracks outbound SSDP M-SEARCH (ip . sport) and accepts the short-lived unicast replies. No ipset needed.
+> - **Samba**: removed the `netbios-ns` iptables CT-helper `extraCommands` line (unnecessary; `openFirewall` already opens UDP 137/138).
+> `networking.firewall.extraCommands` is now empty; `networking.nftables.enable = true`; `nix flake check` passes on all hosts.
+
 ### P3.2 Tor transparent proxy off by default
 `services/tor.nix` forces `transparentProxy.enable = true` on all traffic. Prefer SOCKS-on-demand (keep `TOR_SOCKS_PORT`).
 
@@ -67,11 +72,17 @@ No `.github` workflow. A `nixos-rebuild build --flake .#<host>` or `nix flake ch
 ### P3.4 Resolve nixos-hardware TODO modules
 `flake.nix:35,60` have `# TODO check which module may be imported` for hera/p16 (xps has `dell-xps-13-9360`).
 
+> **DONE (documented)** — exact models are not recorded in the repo and cannot be verified from config alone. Updated `flake.nix` comments: p16 keeps the safe generic `lenovo-thinkpad` module; hera's module remains commented with instructions to confirm the model via `sudo dmidecode -s system-product-name` before enabling a specific `dell-xps-13-*` module.
+
 ### P3.5 Remove dead imports
 `hardware/corsair.nix` (openrazer disabled) and commented `#desktop/gnome.nix`, `#apps/go-scripting.nix` across hosts.
 
+> **Not done (reverted)** — `hardware/corsair.nix` kept. Although it currently sets `ckb-next.enable = false`, it is a deliberate opt-in hook: flipping it to `true` installs/compiles ckb-next for a Corsair keyboard. Not dead weight. Commented-out gnome/go-scripting lines and `openrazer.enable = false` also kept as documentation/intent.
+
 ### P3.6 Reproducibility of cachyos-kernel input
 `flake.nix:16` tracks a moving `release` branch. Consider pinning or documenting the "latest" choice.
+
+> **DONE** — documented the deliberate "latest" choice in `flake.nix` with instructions for pinning if reproducibility is desired.
 
 ---
 
@@ -84,6 +95,13 @@ No `.github` workflow. A `nixos-rebuild build --flake .#<host>` or `nix flake ch
 - P2.1 **done via alternative approach**: `system-features` NOT hoisted into `roles/nix.nix` — left to the nixpkgs default instead (dedup achieved by removal, not by moving into shared role).
 - P2.2 **deferred (infeasible)**: cannot drop `big-parallel` from the nixpkgs default via list concat; would need `mkForce`. See P2.2 note.
 
-**P3: not started.**
+**P3: DONE** (P3.4 documented, P3.5 reverted) — `nix flake check` passes:
+- P3.1 **done**: nftables enabled; SONOS converted to a native nftables table, Samba netbios-ns iptables helper removed.
+- P3.2 tor transparent proxy off (SOCKS on demand), verified false.
+- P3.3 CI workflow added (`.github/workflows/ci.yml`: `nix flake check` + eval all 3 hosts).
+- P3.4 nixos-hardware TODOs documented (needs physical model verification).
+- P3.5 corsair kept (opt-in hook, not dead) — see note.
+- P3.6 cachyos-kernel input documented.
+- flake.lock updated via `nix flake update` (newer nixpkgs/home-manager/cachyos).
 
-Suggested order: P3.
+Suggested order: none — plan complete. Follow-ups: confirm hera/p16 models via dmidecode.

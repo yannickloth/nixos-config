@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  flake-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v4
+
+      - name: Enable flake + nix-command
+        run: |
+          mkdir -p /home/runner/.config/nix
+          echo 'experimental-features = nix-command flakes' >> /home/runner/.config/nix/nix.conf
+
+      - name: flake check
+        run: nix flake check --accept-flake-config
+
+  eval-hosts:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        host: [laptop-xps, laptop-hera, laptop-p16]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v4
+
+      - name: Enable flake + nix-command
+        run: |
+          mkdir -p /home/runner/.config/nix
+          echo 'experimental-features = nix-command flakes' >> /home/runner/.config/nix/nix.conf
+
+      # Evaluate the toplevel drvPath: catches eval/module/merge errors
+      # without building the full system closure.
+      - name: Eval host config
+        run: |
+          nix eval --accept-flake-config \
+            .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel.drvPath

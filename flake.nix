@@ -14,6 +14,12 @@
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
+    # CachyOS kernel: tracks the moving `release` branch (deliberate "latest"
+    # choice for all hosts, consistent with system.nixos.versionSuffix = ".latest").
+    # For reproducibility, pin to a specific tag/rev here; otherwise `nix flake
+    # update` advances the kernel. The kernel binary cache is declared above in
+    # nixConfig (and in roles/nix.nix) because the CachyOS flake's own nixConfig
+    # is NOT honored when used as an input.
     nix-cachyos-kernel.url = "github:xddxdd/nix-cachyos-kernel/release";
   };
 
@@ -65,7 +71,10 @@
                 # Optionally, use home-manager.extraSpecialArgs to pass
                 # arguments to home.nix
               }
-              #           nixos-hardware.nixosModules.dell-xps-13-9360 # TODO check which module may be imported for this laptop
+              # TODO: enable a specific Dell XPS module once the exact model is
+              # confirmed on the physical machine (e.g. `sudo dmidecode -s system-product-name`).
+              # Likely candidates: dell-xps-13-9360 (same as laptop-xps), 9300, 9310.
+              #           nixos-hardware.nixosModules.dell-xps-13-9360
               cachyos-bore-lto
             ];
           };
@@ -82,7 +91,7 @@
                 # Optionally, use home-manager.extraSpecialArgs to pass
                 # arguments to home.nix
               }
-              nixos-hardware.nixosModules.lenovo-thinkpad # TODO check which module may be imported for this laptop
+              nixos-hardware.nixosModules.lenovo-thinkpad # generic ThinkPad base; a model-specific module (e.g. thinkpad/p16s) may be added once confirmed via dmidecode
               cachyos-bore-lto
             ];
           };
