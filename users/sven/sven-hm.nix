@@ -10,13 +10,16 @@
     homeDirectory = "/home/sven";
     packages = with pkgs; [
       audacious # light music player
+      extremetuxracer # high-speed arctic penguin racing game
       gcompris # educational game suite for young children
       gimp # raster image editor
       klavaro # full-featured touch typing tutor
+      kdePackages.ktuberling # fun "potato head" constructor game for young kids
       krita # digital painting
       libreoffice # office suite for school work
       lutris # game library manager / launcher
       luanti # open-world Minecraft-style building game (formerly Minetest)
+      neverball # tilt the ball through levels
       supertux # Mario-style platformer with Tux
       supertuxkart # Tux kart racing
       tuxpaint # kid-friendly drawing
