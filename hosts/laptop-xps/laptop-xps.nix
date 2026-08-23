@@ -36,6 +36,7 @@ with lib;
       ../../apps/java.nix
       #../../apps/jitsi-meet.nix
       ../../apps/kdeconnect.nix
+      ../../apps/noson.nix
       #../../services/kubernetes.nix
       ../../services/libvirt.nix
       ../../services/malcontent.nix
