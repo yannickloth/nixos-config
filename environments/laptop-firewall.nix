@@ -4,7 +4,11 @@ with lib;
 
 {
     networking = {
-      #nftables.enable = true;
+      # nftables backend for the firewall. Requires that no iptables-based
+      # `networking.firewall.extraCommands` remain: SONOS (services/sonos.nix)
+      # was converted to a native nftables set and Samba's netbios-ns helper
+      # (services/samba.nix) removed, so nftables now evaluates cleanly.
+      nftables.enable = true;
       firewall = {
         enable = true;
         # Open ports in the firewall.
