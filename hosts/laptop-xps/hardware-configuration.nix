@@ -12,7 +12,8 @@
       #<nixos-hardware/dell/xps/13-9360>
     ];
   boot = {
-    blacklistedKernelModules = [ "psmouse" ] ++ lib.optionals (!config.hardware.enableRedistributableFirmware) [ "ath3k" ];
+    blacklistedKernelModules = [ "psmouse" ] # the touchpad does not use psmouse
+      ++ lib.optionals (!config.hardware.enableRedistributableFirmware) [ "ath3k" ];
     initrd = {
       availableKernelModules = [ "xhci_pci" "nvme" "usb_storage" "sd_mod" "rtsx_pci_sdmmc" "ahci" "dm_mod" "aesni_intel" "cryptd" ];
       kernelModules = [ "aesni_intel" "cryptd" "i915" ];

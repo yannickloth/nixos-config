@@ -2,9 +2,9 @@
 
 with lib;
 {
-  # Enable the ClamAV service and keep the database up to date
+  # ClamAV antivirus: run the scanning daemon AND keep the signature DB updated.
   services.clamav = {
-    daemon.enable = false;
+    daemon.enable = true;
     updater.enable = true;
   };
 }
