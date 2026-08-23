@@ -24,9 +24,7 @@
   };
 
   config = {
-    nixpkgs.config.allowUnfree = true; # This allows you to install unfree software, such as Google Chrome, Steam or MasterPDFEditor.
-
-    home.stateVersion = "25.05";
+    home.stateVersion = "26.05";
 
     # Symlink ~/sync to the shared syncthing data directory (/sync is created by the
     # system services.syncthing module, so create the symlink at activation time).

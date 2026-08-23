@@ -24,7 +24,7 @@
       };
     }
   ];
-  system.stateVersion = "23.05";
+  system.stateVersion = "26.05";
     };
     privateNetwork = true;
     hostAddress = "192.168.105.1";

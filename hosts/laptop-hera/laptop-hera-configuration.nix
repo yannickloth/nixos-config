@@ -7,7 +7,7 @@
 { config, pkgs, lib, ... }:
 
 {
-  system.stateVersion = "25.05"; # Did you read the comment?
+  system.stateVersion = "26.05"; # Did you read the comment?
 
   imports = [
     ./laptop-hera.nix
