@@ -89,6 +89,7 @@ in
 
     bun
     bat
+    digikam # photo management / organizer
     fd
     jq
     lsd
