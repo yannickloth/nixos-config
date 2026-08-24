@@ -14,6 +14,7 @@ notify() {
     [ "$(loginctl show-session "$sess" -p State --value 2>/dev/null)" = "active" ] || continue
     uid=$(loginctl show-session "$sess" -p User --value 2>/dev/null) || continue
     [ -n "$uid" ] || continue
+    export DISPLAY=":0"
     export XDG_RUNTIME_DIR="/run/user/$uid"
     export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus"
     sudo -u "#$uid" notify-send -i "$icon" -a "USB scan" "$summary" "$body" 2>/dev/null
