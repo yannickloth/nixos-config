@@ -1,12 +1,13 @@
 # role to be used on all systems
 
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 
 with lib;
 
 {
   imports = [
     ./nix.nix
+    ./home-readme.nix
   ];
 
   config = {
@@ -53,6 +54,22 @@ with lib;
     # replace ntpd by chrony on all systems
     services.chrony = {
       enable = mkDefault true;
+    };
+
+    # Python interpreter available to every user (scripting, kids' programming).
+    environment.systemPackages = [ pkgs.python3 ];
+
+    # Root-owned, immutable README.md in each family member's home, on every host
+    # (see roles/home-readme.nix). Parents share one file; sven and aaron get
+    # their own, age-appropriate versions.
+    roles.homeReadme = {
+      enable = mkDefault true;
+      files = {
+        nicky = ../users/readmes/parents.md;
+        aeiuno = ../users/readmes/parents.md;
+        sven = ../users/readmes/sven.md;
+        aaron = ../users/readmes/aaron.md;
+      };
     };
   };
 }

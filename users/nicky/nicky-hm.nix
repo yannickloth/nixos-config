@@ -97,6 +97,7 @@ in
     ripgrep
     tree # Command to produce a depth indented directory listing
     typst # New markup-based typesetting system that is powerful and easy to learn
+    jetbrains-toolbox # JetBrains IDEs (IntelliJ, PyCharm, ...) via Toolbox
     typstyle # Format your typst source code
     yq
     yed

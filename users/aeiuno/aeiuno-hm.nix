@@ -39,6 +39,7 @@
       hunspellDicts.en_GB-large
       hunspellDicts.de_DE
       inkscape-with-extensions
+      jetbrains-toolbox # JetBrains IDEs (IntelliJ, PyCharm, ...) via Toolbox
       #jellyfin-media-player
       #joplin-desktop
       kdePackages.kate

@@ -8,8 +8,19 @@ let
   dailyStart = 6 * 60 * 60;
   dailyEnd = 22 * 60 * 60;
 
+  # Lock time as HH:MM, derived from the daily schedule above.
+  lockAt =
+    let
+      h = dailyEnd / 3600;
+      m = (dailyEnd - h * 3600) / 60;
+      mm = if m == 0 then "00" else toString m;
+    in
+    "${toString h}:${mm}";
+
   # Kid-safe flatpak app IDs sven and aaron may run. Malcontent only enforces app
-  # filtering for flatpak apps (native binaries are covered by AppArmor).
+  # filtering for flatpak apps. Native binaries are gated by per-user home-manager
+  # package installation (the AppArmor LSM is enabled but defines no per-user
+  # native-binary profiles in this repo).
   allowlistApps = [
     "org.gnome.Calculator"
     "org.gnome.Maps"
@@ -135,5 +146,25 @@ in
       # Run before the other account rules.
       order = config.security.pam.services.login.rules.account.unix.order - 10;
     };
+
+    # Must-click (modal kdialog) warnings 30/15/5 minutes before the daily lock,
+    # running in the kid's graphical session.
+    home-manager.sharedModules = [
+      ({ config, pkgs, ... }: {
+        config = mkIf (config.home.username == "sven" || config.home.username == "aaron") {
+          home.packages = [ pkgs.kdePackages.kdialog ];
+          systemd.user.services.session-limit-reminder = {
+            Unit.Description = "Warn before the daily session lock";
+            Install.WantedBy = [ "default.target" ];
+            Service = {
+              Type = "simple";
+              Restart = "always";
+              RestartSec = "30";
+              ExecStart = "${pkgs.bash}/bin/bash ${./session-limit-reminder.sh} ${lockAt} kdialog 1800,900,300";
+            };
+          };
+        };
+      })
+    ];
   };
 }

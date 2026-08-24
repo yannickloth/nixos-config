@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Warns the user with a modal, must-click dialog before the daily session-limit
+# lock (sven/aaron parental-controls time limit).
+# Usage: session-limit-reminder.sh LOCK_AT [DIALOG] [INTERVALS]
+set -u
+
+LOCK_AT="${1:-22:00}"
+DIALOG="${2:-kdialog}"
+INTERVALS="${3:-1800,900,300}" # seconds before lock, e.g. 30/15/5 minutes
+
+TITLE="Screen-time warning"
+
+IFS=',' read -r -a IV <<<"$INTERVALS"
+declare -a SHOWN=()
+
+max_iv=0
+for iv in "${IV[@]}"; do
+  [ "$iv" -gt "$max_iv" ] && max_iv=$iv
+done
+
+show_dialog() {
+  local mins=$1
+  local msg="Heads up! Your account will be locked at ${LOCK_AT} in ${mins} minutes. Please save your work!"
+  if [ "$DIALOG" = kdialog ]; then
+    kdialog --title "$TITLE" --icon dialog-warning --msgbox "$msg"
+  else
+    zenity --info --title "$TITLE" --text "$msg" --width=420
+  fi
+}
+
+# Wait for a graphical session before trying to show dialogs.
+while [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; do sleep 10; done
+
+while true; do
+  now_s=$(date +%s)
+  lock_s=$(date -d "today ${LOCK_AT}" +%s)
+  if [ "$lock_s" -le "$now_s" ]; then
+    lock_s=$(date -d "tomorrow ${LOCK_AT}" +%s)
+  fi
+  remain=$((lock_s - now_s))
+
+  # New day (far from the next lock): reset so today's thresholds fire again.
+  if [ "$remain" -gt "$max_iv" ]; then
+    SHOWN=()
+  fi
+
+  for iv in "${IV[@]}"; do
+    already=0
+    if [ "${#SHOWN[@]}" -gt 0 ]; then
+      for s in "${SHOWN[@]}"; do
+        [ "$s" = "$iv" ] && already=1
+      done
+    fi
+    if [ "$remain" -le "$iv" ] && [ "$already" -eq 0 ]; then
+      show_dialog $((remain / 60))
+      SHOWN+=("$iv")
+    fi
+  done
+  sleep 30
+done
