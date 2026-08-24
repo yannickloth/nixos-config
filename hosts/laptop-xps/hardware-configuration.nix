@@ -8,7 +8,8 @@
   # $ sudo nix-channel --add https://github.com/NixOS/nixos-hardware/archive/master.tar.gz nixos-hardware
   # $ sudo nix-channel --update
   imports =
-    [ (modulesPath + "/installer/scan/not-detected.nix")
+    [
+      (modulesPath + "/installer/scan/not-detected.nix")
       #<nixos-hardware/dell/xps/13-9360>
     ];
   boot = {
@@ -22,7 +23,7 @@
         #devices.luks_swap.device = "/dev/disk/by-uuid/0fac828e-7388-4ce7-8d7d-3713c40d1e75"; # encrypted swap partition
       };
     };
-    kernelModules = [ "kvm-intel" "iwlwifi"];
+    kernelModules = [ "kvm-intel" "iwlwifi" ];
     # kernelPackages = pkgs.linuxKernel.packages.linux_lqx;
     kernelParams = [
       "i915.enable_fbc=1"
@@ -32,47 +33,58 @@
     ];
     kernel.sysctl = { "vm.swappiness" = 10; "fs.inotify.max_user_watches" = 2097152; };
   };
-#   fileSystems."/" =
-#     { device = "/dev/disk/by-uuid/fbd3da22-b61f-416b-bab1-248fa3e13515";
-#       fsType = "btrfs";
-#       options = [ "compress=zstd" "subvol=@" ];
-#     };
-    fileSystems."/" =
-    { device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
+  #   fileSystems."/" =
+  #     { device = "/dev/disk/by-uuid/fbd3da22-b61f-416b-bab1-248fa3e13515";
+  #       fsType = "btrfs";
+  #       options = [ "compress=zstd" "subvol=@" ];
+  #     };
+  fileSystems."/" =
+    {
+      device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
       fsType = "btrfs";
       #options = [ "compress=zstd" "subvol=@" ];
       options = [ "compress=zstd" "noatime" ];
     };
-    fileSystems."/home" =
-    { device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
+  fileSystems."/home" =
+    {
+      device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
       fsType = "btrfs";
       options = [ "subvol=home" "compress=zstd" "noatime" ];
     };
 
   fileSystems."/nix" =
-    { device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
+    {
+      device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
       fsType = "btrfs";
       options = [ "subvol=nix" "compress=zstd" "noatime" ];
     };
 
 
   fileSystems."/boot" =
-    { device = "/dev/disk/by-uuid/08E4-82CA";
+    {
+      device = "/dev/disk/by-uuid/08E4-82CA";
       fsType = "vfat";
       options = [ "fmask=0077" "dmask=0077" ];
     };
 
-#   swapDevices =
-#     [
-#       {
-#         device = "/dev/disk/by-uuid/8d6f5055-5eb6-42eb-a93e-b5b481d0aa1c";
-#         encrypted = {
-#           enable = true;
-#           label = "luks_swap";
-#           blkDev = "/dev/disk/by-uuid/0fac828e-7388-4ce7-8d7d-3713c40d1e75"; # encrypted swap partition
-#         };
-#       }
-#     ];
+  fileSystems."/steamlib" =
+    {
+      device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
+      fsType = "btrfs";
+      options = [ "subvol=steamlib" "compress=zstd" "noatime" "nofail" ];
+    };
+
+  #   swapDevices =
+  #     [
+  #       {
+  #         device = "/dev/disk/by-uuid/8d6f5055-5eb6-42eb-a93e-b5b481d0aa1c";
+  #         encrypted = {
+  #           enable = true;
+  #           label = "luks_swap";
+  #           blkDev = "/dev/disk/by-uuid/0fac828e-7388-4ce7-8d7d-3713c40d1e75"; # encrypted swap partition
+  #         };
+  #       }
+  #     ];
 
   # Enables DHCP on each ethernet and wireless interface. In case of scripted networking
   # (the default) this is the recommended approach. When using systemd-networkd it's
