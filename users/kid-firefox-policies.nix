@@ -50,6 +50,47 @@
     # Always ask where to save downloads (system policy already sends to temp)
     PromptForDownloadLocation = true;
 
+    # DoH locked to the family filter (otherwise Firefox could bypass the
+    # network DNS filtering via an unfiltered DoH resolver).
+    DNSOverHTTPS = {
+      Enabled = true;
+      ProviderURL = "https://family.cloudflare-dns.com/dns-query";
+      Locked = true;
+    };
+
+    # No private browsing / forget button: browsing stays visible to parents.
+    DisablePrivateBrowsing = true;
+    DisableForgetButton = true;
+
+    # Force HTTPS everywhere.
+    HttpsOnlyMode = "force_enabled";
+
+    # Never grant sensitive permissions without an explicit parent decision.
+    Permissions = {
+      Camera = { BlockNewRequests = true; Locked = true; };
+      Microphone = { BlockNewRequests = true; Locked = true; };
+      Location = { BlockNewRequests = true; Locked = true; };
+      Notifications = { BlockNewRequests = true; Locked = true; };
+      ScreenShare = { BlockNewRequests = true; Locked = true; };
+    };
+
+    # No installing extra search engines; lock the remaining about: pages.
+    SearchEngines.PreventInstalls = true;
+    BlockAboutProfiles = true;
+    BlockAboutSupport = true;
+    DisableSafeMode = true;
+
+    # Read-only family bookmarks.
+    ManagedBookmarks = [
+      { toplevel_name = "Family"; }
+      { title = "Gmail"; url = "https://mail.google.com"; }
+      { title = "Qwant"; url = "https://www.qwant.com"; }
+      { title = "DuckDuckGo"; url = "https://duckduckgo.com"; }
+      { title = "Disney+"; url = "https://www.disneyplus.com"; }
+      { title = "Prime Video"; url = "https://www.primevideo.com"; }
+      { title = "Netflix"; url = "https://www.netflix.com"; }
+    ];
+
     # uBlock Origin: force-installed and locked; block all other add-ons.
     ExtensionSettings = {
       "*" = {

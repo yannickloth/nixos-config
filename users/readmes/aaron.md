@@ -45,6 +45,11 @@ something by accident, don't worry — mum or dad can bring it back.
 
 Want something new? **Ask mum or dad** — they can add it for you.
 
+## USB sticks
+
+If you plug in a USB stick, the computer checks it for viruses first and opens
+it safely. If you want to put files on it, ask mum or dad.
+
 ## Help
 
 If something doesn't work, always ask mum or dad.

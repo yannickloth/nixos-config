@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Warns the user with a modal, must-click dialog before the daily session-limit
-# lock (sven/aaron parental-controls time limit), then logs the session out at
-# the lock time.
+# Warns the user with a pop-up before the daily session-limit lock (sven/aaron
+# parental-controls time limit), then logs the session out at the lock time.
+# Dialogs run in the background: they stay up until dismissed but never block
+# the loop, so the logout always fires on schedule.
 # Usage: session-limit-reminder.sh LOCK_AT [DIALOG] [INTERVALS]
 set -u
 

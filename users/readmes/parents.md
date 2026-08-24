@@ -32,6 +32,9 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 - Secrets (where AI chat is enabled): /etc/secrets (group `secrets`), never in
   git
 - Family-safe DNS (malware + adult-content filtering) where configured
+- Kernel hardening via sysctls on the (CachyOS) kernel: dmesg/pointer/BPF
+  restrictions (`roles/base.nix`); the system journal is persistent, so kids'
+  sessions can be reviewed across reboots (`journalctl`).
 
 ## Services & where things live
 
@@ -51,7 +54,7 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
   package because it carries its own kid policies
   (`users/kid-firefox-policies.nix`). Edit `services/malcontent.nix` for the
   allowlist or schedule.
-- **Screen-time enforcement:** sven/aaron get a must-click dialog at 30/15/5
+- **Screen-time enforcement:** sven/aaron get a pop-up warning at 30/15/5
   minutes before the daily lock, then the session is **forced to log out** at
   22:00; malcontent blocks re-login until the next window. Their screens also
   auto-lock after 10 min on AC / 5 min on battery
@@ -62,6 +65,11 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
   `sudo nixos-rebuild switch --flake ~/code/nixos-config`.
 
 ## Shared storage & family permissions
+
+> **Planned — not applied yet.** This describes the intended access model; the
+> config changes (`users/filedrop.nix`, `games/steam.nix`,
+> `services/syncthing.nix`) are not in the flake at the time of writing. Until
+> they land, sven and aaron can still write to `/steamlib` and `/sync`.
 
 - **`/steamlib`** — shared Steam library (`games/steam.nix`). The `steam`
   group (nicky, aeiuno) has read-write access; sven and aaron have read-only
@@ -98,3 +106,18 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
   so they can't bypass the family DNS filter (`services/tor.nix`)
 - Email: Geary (gated flatpak) is available; sven uses it with his Gmail
   account (first sign-in is interactive)
+- Firefox is locked down for them (`users/kid-firefox-policies.nix`): DoH is
+  pinned to the family filter (family.cloudflare-dns.com), private browsing and
+  the "Forget" button are disabled, HTTPS-only is forced, sensitive site
+  permissions are blocked by default, no extra search engines, and a read-only
+  Gmail bookmark is provided. uBlock Origin is force-installed; all other
+  add-ons are blocked.
+- They cannot change network/DNS settings or create hotspots (polkit,
+  `security/kids.nix`) — so they can't reroute around the family DNS filter;
+  connecting to configured networks still works. A build-time assertion also
+  guarantees they never get added to `wheel` (no sudo).
+- **USB drives:** when a USB stick is plugged in, it is mounted **read-only**
+  and scanned with ClamAV automatically (`services/usb-scan.nix`); a desktop
+  notification reports the result (clean / threats found). Infected files are
+  **reported, never deleted**. For write access to a stick, mount it yourself:
+  `sudo mount -o remount,rw <mountpoint>` (kids can't).

@@ -8,8 +8,10 @@ with lib;
   imports = [
     ./nix.nix
     ./home-readme.nix
+    ../security/kids.nix
     ../services/snapshots.nix
     ../services/home-quota.nix
+    ../services/usb-scan.nix
   ];
 
   config = {
@@ -56,6 +58,28 @@ with lib;
     # replace ntpd by chrony on all systems
     services.chrony = {
       enable = mkDefault true;
+    };
+
+    # Persistent system journal so parents can review kids' sessions across
+    # reboots (journalctl --since ... / journalctl -u ... / -b -1).
+    services.journald = {
+      storage = mkDefault "persistent";
+      extraConfig = ''
+        SystemMaxUse=2G
+        SystemKeepFree=1G
+      '';
+    };
+
+    # Kernel hardening applied via sysctls on the (CachyOS) kernel — no kernel
+    # swap. Note: dmesg/perf need root (parents have sudo); kexec is disabled.
+    boot.kernel.sysctl = {
+      "kernel.dmesg_restrict" = 1;
+      "kernel.kptr_restrict" = 2;
+      "kernel.perf_event_paranoid" = 3;
+      "kernel.unprivileged_bpf_disabled" = 1;
+      "net.core.bpf_jit_harden" = 2;
+      "kernel.panic_on_oops" = 1;
+      "kernel.kexec_load_disabled" = 1;
     };
 
     # Python interpreter available to every user (scripting, kids' programming).
