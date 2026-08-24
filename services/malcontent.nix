@@ -154,6 +154,23 @@ in
       ({ config, pkgs, ... }: {
         config = mkIf (config.home.username == "sven" || config.home.username == "aaron") {
           home.packages = [ pkgs.kdePackages.kdialog ];
+          # Lock the screen after idle (10 min on AC, 5 min on battery) so a kid
+          # can't wander off with an unlocked session.
+          home.file = {
+            ".config/kscreenlockerrc".text = ''
+              [Daemon]
+              Autolock=true
+              LockOnResume=false
+            '';
+            ".config/powermanagementprofilesrc".text = ''
+              [AC][DPMSControl]
+              idleTime=600
+              lockBeforeTurnOff=10
+              [Battery][DPMSControl]
+              idleTime=300
+              lockBeforeTurnOff=10
+            '';
+          };
           systemd.user.services.session-limit-reminder = {
             Unit.Description = "Warn before the daily session lock";
             Install.WantedBy = [ "default.target" ];

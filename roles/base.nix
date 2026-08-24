@@ -8,6 +8,8 @@ with lib;
   imports = [
     ./nix.nix
     ./home-readme.nix
+    ../services/snapshots.nix
+    ../services/home-quota.nix
   ];
 
   config = {

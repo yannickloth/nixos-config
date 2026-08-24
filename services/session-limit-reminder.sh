@@ -20,7 +20,12 @@ done
 
 show_dialog() {
   local mins=$1
-  local msg="Heads up! Your account will be locked at ${LOCK_AT} in ${mins} minutes. Please save your work!"
+  local msg
+  if [ "$mins" -le 0 ]; then
+    msg="Time's up! The computer is logging you out now. Good night!"
+  else
+    msg="Heads up! Your account will be locked at ${LOCK_AT} in ${mins} minutes. Please save your work!"
+  fi
   if [ "$DIALOG" = kdialog ]; then
     kdialog --title "$TITLE" --icon dialog-warning --msgbox "$msg"
   else
@@ -35,7 +40,13 @@ while true; do
   now_s=$(date +%s)
   lock_s=$(date -d "today ${LOCK_AT}" +%s)
   if [ "$lock_s" -le "$now_s" ]; then
-    lock_s=$(date -d "tomorrow ${LOCK_AT}" +%s)
+    # Time's up: warn, then force logout. malcontent's login rule blocks the
+    # account from logging back in until the next allowed window.
+    show_dialog 0
+    sleep 15
+    loginctl terminate-user "$(id -un)" 2>/dev/null || true
+    sleep 300
+    continue
   fi
   remain=$((lock_s - now_s))
 
