@@ -3,6 +3,7 @@
 {
   imports = [
     ../common-hm.nix
+    ../kid-firefox-policies.nix
   ];
 
   home = {
@@ -13,11 +14,8 @@
       digikam # photo management / organizer
       extremetuxracer # high-speed arctic penguin racing game
       gcompris # educational game suite for young children
-      gimp # raster image editor
       klavaro # full-featured touch typing tutor
       kdePackages.ktuberling # fun "potato head" constructor game for young kids
-      krita # digital painting
-      libreoffice # office suite for school work
       lutris # game library manager / launcher
       luanti # open-world Minecraft-style building game (formerly Minetest)
       neverball # tilt the ball through levels

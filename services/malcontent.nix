@@ -31,6 +31,7 @@ let
     "org.gnome.Logs"
     "org.gnome.Music"
     "org.gnome.Epiphany"
+    "org.gnome.Geary"
     "org.gnome.Totem"
     "org.videolan.VLC"
     "org.kde.okular"

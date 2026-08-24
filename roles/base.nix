@@ -59,6 +59,45 @@ with lib;
     # Python interpreter available to every user (scripting, kids' programming).
     environment.systemPackages = [ pkgs.python3 ];
 
+    # Flatpak apps installed system-wide that malcontent's allowlist gates for
+    # the kids (malcontent only filters flatpak apps). Kept in sync with the
+    # allowlist in services/malcontent.nix. Browsers stay in Nix: Firefox needs
+    # its declarative kid policies (users/kid-firefox-policies.nix). The kids'
+    # office/creative/media/mail apps (libreoffice, gimp, krita, VLC, Geary)
+    # come from flatpak so malcontent can gate them without a Nix rebuild.
+    # Overrides grant access to the shared family drop folder (/filedrop).
+    apps.flatpak = {
+      enable = mkDefault true;
+      apps = [
+        "app/org.gnome.Books/x86_64/stable"
+        "app/org.gnome.Calculator/x86_64/stable"
+        "app/org.gnome.Cheese/x86_64/stable"
+        "app/org.gnome.Clocks/x86_64/stable"
+        "app/org.gnome.Epiphany/x86_64/stable"
+        "app/org.gnome.Geary/x86_64/stable"
+        "app/org.gnome.Logs/x86_64/stable"
+        "app/org.gnome.Maps/x86_64/stable"
+        "app/org.gnome.Music/x86_64/stable"
+        "app/org.gnome.Notes/x86_64/stable"
+        "app/org.gnome.SystemMonitor/x86_64/stable"
+        "app/org.gnome.Totem/x86_64/stable"
+        "app/org.kde.dolphin/x86_64/stable"
+        "app/org.kde.gwenview/x86_64/stable"
+        "app/org.kde.kalk/x86_64/stable"
+        "app/org.kde.okular/x86_64/stable"
+        "app/org.kde.krita/x86_64/stable"
+        "app/org.gimp.GIMP/x86_64/stable"
+        "app/org.libreoffice.LibreOffice/x86_64/stable"
+        "app/org.videolan.VLC/x86_64/stable"
+      ];
+      overrides = {
+        "org.kde.krita" = [ "--filesystem=/filedrop" ];
+        "org.gimp.GIMP" = [ "--filesystem=/filedrop" ];
+        "org.libreoffice.LibreOffice" = [ "--filesystem=/filedrop" ];
+        "org.videolan.VLC" = [ "--filesystem=/filedrop" ];
+      };
+    };
+
     # Root-owned, immutable README.md in each family member's home, on every host
     # (see roles/home-readme.nix). Parents share one file; sven and aaron get
     # their own, age-appropriate versions.
