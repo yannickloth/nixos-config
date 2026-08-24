@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Warns the user with a modal, must-click dialog before the daily session-limit
-# lock (sven/aaron parental-controls time limit).
+# lock (sven/aaron parental-controls time limit), then logs the session out at
+# the lock time.
 # Usage: session-limit-reminder.sh LOCK_AT [DIALOG] [INTERVALS]
 set -u
 
@@ -18,6 +19,8 @@ for iv in "${IV[@]}"; do
   [ "$iv" -gt "$max_iv" ] && max_iv=$iv
 done
 
+# Show a dialog in the background: it stays up (must-click OK) but never blocks
+# the loop, so the lock-time enforcement always runs even if a dialog is open.
 show_dialog() {
   local mins=$1
   local msg
@@ -27,9 +30,9 @@ show_dialog() {
     msg="Heads up! Your account will be locked at ${LOCK_AT} in ${mins} minutes. Please save your work!"
   fi
   if [ "$DIALOG" = kdialog ]; then
-    kdialog --title "$TITLE" --icon dialog-warning --msgbox "$msg"
+    kdialog --title "$TITLE" --icon dialog-warning --msgbox "$msg" &
   else
-    zenity --info --title "$TITLE" --text "$msg" --width=420
+    zenity --info --title "$TITLE" --text "$msg" --width=420 &
   fi
 }
 
@@ -40,11 +43,12 @@ while true; do
   now_s=$(date +%s)
   lock_s=$(date -d "today ${LOCK_AT}" +%s)
   if [ "$lock_s" -le "$now_s" ]; then
-    # Time's up: warn, then force logout. malcontent's login rule blocks the
+    # Time's up: terminate the session. malcontent's login rule then blocks the
     # account from logging back in until the next allowed window.
     show_dialog 0
-    sleep 15
-    loginctl terminate-user "$(id -un)" 2>/dev/null || true
+    sleep 10
+    loginctl terminate-session "${XDG_SESSION_ID:-}" 2>/dev/null \
+      || loginctl terminate-user "$(id -un)" 2>/dev/null || true
     sleep 300
     continue
   fi

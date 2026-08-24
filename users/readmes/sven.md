@@ -27,6 +27,14 @@ A pop-up will appear **30, 15 and 5 minutes** before your time runs out at
 22:00, so you can save your game and finish up. You have to click OK to close
 it.
 
+When the clock reaches **22:00** the computer logs you out for the night — so
+save your work before then!
+
+## Email
+
+You have the **Geary** email app. The first time you open it, ask mum or dad to
+help sign you in with your Gmail address (svenandresloth@gmail.com).
+
 ## New apps and games
 
 Want a new game or app? **Ask mum or dad!** They can grant permission or
@@ -46,6 +54,12 @@ also reachable over the network as the `filedrop` SMB share.
 
 The Syncthing folder `/sync` is parents-only for now — ask mum or dad if you
 need access to a synced folder.
+
+## Your stuff
+
+Your files have a size limit of **50 GB**, so keep an eye on big downloads.
+Every night the computer takes a backup of your home folder — if you delete
+something by accident, mum or dad can get it back for you.
 
 ## Help
 

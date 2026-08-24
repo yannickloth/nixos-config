@@ -34,6 +34,13 @@ The synced family files at `/sync` are only for mum and dad.
 A pop-up will tell you **30, 15 and 5 minutes** before your time is up at
 22:00. Click OK and save your game!
 
+At **22:00** the computer logs you out for the night — so remember to save!
+
+## Your files
+
+Every night the computer quietly backs up your files. If you ever delete
+something by accident, don't worry — mum or dad can bring it back.
+
 ## New apps and games
 
 Want something new? **Ask mum or dad** — they can add it for you.

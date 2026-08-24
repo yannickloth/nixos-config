@@ -23,15 +23,24 @@
     serviceConfig = {
       Type = "oneshot";
     };
-    path = [ pkgs.btrfs-progs pkgs.coreutils ];
+    path = [ pkgs.btrfs-progs pkgs.coreutils pkgs.findutils ];
     script = ''
       set -eu
       snaproot="/.snapshots/home"
-      mkdir -p "$snaproot"
-      name="home-$(date +%Y%m%d-%H%M%S)"
-      ${pkgs.btrfs-progs}/bin/btrfs subvolume snapshot -r /home "$snaproot/$name"
+
+      # Snapshotting only works when /home is its own btrfs subvolume (e.g.
+      # hosts with subvol=home). Where /home is a plain directory inside the
+      # root subvolume, warn and skip (existing snapshots are still pruned).
+      if ! ${pkgs.btrfs-progs}/bin/btrfs subvolume show /home >/dev/null 2>&1; then
+        echo "home-snapshots: /home is not a btrfs subvolume on this host; skipping snapshot"
+      else
+        mkdir -p "$snaproot"
+        name="home-$(date +%Y%m%d-%H%M%S)"
+        ${pkgs.btrfs-progs}/bin/btrfs subvolume snapshot -r /home "$snaproot/$name"
+      fi
+
       # Prune: delete the oldest beyond the 14 most recent (names sort lexically).
-      find "$snaproot" -mindepth 1 -maxdepth 1 -type d -name 'home-*' | sort | head -n -14 \
+      find "$snaproot" -mindepth 1 -maxdepth 1 -type d -name 'home-*' 2>/dev/null | sort | head -n -14 \
         | while read -r s; do
             ${pkgs.btrfs-progs}/bin/btrfs subvolume delete "$s"
           done

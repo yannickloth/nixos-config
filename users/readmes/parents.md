@@ -42,15 +42,24 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 - **Syncthing:** web UI at http://this-host:8384, synced data lives in `/sync`,
   config in `/var/lib/syncthing` (group `syncthing`).
 - **Steam:** shared game installs live in `/steamlib/SteamLibrary/steamapps/common`.
-- **Parental controls (malcontent):** this is the tool that manages which
-  **flatpak** apps the kids may run (allowlist) and their session time limits.
-  Edit `services/malcontent.nix` to change the allowlist or schedule; on the
-  desktop, parental-controls settings apps can manage the per-user allowlist.
-- **Screen-time reminders:** sven/aaron get a must-click dialog at 30/15/5
-  minutes before the daily lock (`services/session-limit-reminder.sh`).
-- **Grants:** the kids can ask you to allow an app, or to install new software;
-  you grant it by editing the config (or the parental-controls allowlist) and
-  rebuilding with `sudo nixos-rebuild switch --flake ~/code/nixos-config`.
+- **Parental controls (malcontent):** manages which **flatpak** apps the kids
+  may run (allowlist) and their session time limits. The kids' office/creative/
+  media/mail apps (LibreOffice, GIMP, Krita, VLC, Geary) are installed as
+  flatpaks precisely so this allowlist can gate them — grant/revoke via the
+  parental-controls settings app, **no rebuild needed** (the flatpak installs
+  themselves land on the next boot). Firefox stays a native
+  package because it carries its own kid policies
+  (`users/kid-firefox-policies.nix`). Edit `services/malcontent.nix` for the
+  allowlist or schedule.
+- **Screen-time enforcement:** sven/aaron get a must-click dialog at 30/15/5
+  minutes before the daily lock, then the session is **forced to log out** at
+  22:00; malcontent blocks re-login until the next window. Their screens also
+  auto-lock after 10 min on AC / 5 min on battery
+  (`services/session-limit-reminder.sh`, `services/malcontent.nix`).
+- **Grants:** the kids can ask you to allow an app, or to install new software.
+  For flatpak apps, grant/revoke through the parental-controls allowlist (no
+  rebuild); for native software, edit the config and rebuild with
+  `sudo nixos-rebuild switch --flake ~/code/nixos-config`.
 
 ## Shared storage & family permissions
 
@@ -78,3 +87,14 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
   gate (`services/ai-chat/filters/kid-safety.py`)
 - Shared Steam library: read-only (they play, parents manage); `/sync` is
   blocked for them; shared files pass through `/filedrop`
+- Disk quotas: each kid is capped at 50 GiB on `/home`
+  (`services/home-quota.nix`)
+- Nightly read-only btrfs snapshots of `/home` into `/.snapshots/home` (14 kept)
+  for rollback (`services/snapshots.nix`; snapshots only run where `/home` is
+  its own subvolume)
+- Game binaries are AppArmor-confined: offline-only, write restricted to their
+  own home (`security/apparmor.nix`)
+- Their UIDs are blocked from the local Tor SOCKS/control ports (9050/9051/9150)
+  so they can't bypass the family DNS filter (`services/tor.nix`)
+- Email: Geary (gated flatpak) is available; sven uses it with his Gmail
+  account (first sign-in is interactive)
