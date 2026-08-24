@@ -1,7 +1,6 @@
-# Symlink this file into ~/.config/home-manager/ : 
-# ln -sf ~/code/nixos-config/users/nicky/home.nix ~/.config/home-manager/home.nix
-#
-# OR skip the symlink: home-manager switch -f ~/code/nixos-config/users/nicky/home.nix
+# Standalone home-manager config for nicky.
+# Build/apply via the consolidated flake: home-manager switch --flake ~/code/nixos-config/users
+# (or per-host via the main flake's home-manager.users.nicky).
 #
 {
   config,
