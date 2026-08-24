@@ -86,6 +86,8 @@
       { title = "Gmail"; url = "https://mail.google.com"; }
       { title = "Qwant"; url = "https://www.qwant.com"; }
       { title = "DuckDuckGo"; url = "https://duckduckgo.com"; }
+      { title = "Typing (Dance Mat)"; url = "https://www.dancemattyping.org"; }
+      { title = "Typing (TypingClub)"; url = "https://www.typingclub.com"; }
       { title = "Disney+"; url = "https://www.disneyplus.com"; }
       { title = "Prime Video"; url = "https://www.primevideo.com"; }
       { title = "Netflix"; url = "https://www.netflix.com"; }
