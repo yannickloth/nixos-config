@@ -8,7 +8,8 @@ delete or change it**. Source of truth: `users/readmes/aaron.md`.
 
 - User `aaron` — a family account on the family computer(s), running NixOS
 - You have fun games to play: ktuberling, extremetuxracer, neverball and more
-- Games are stored on the shared `/steamlib` drive with the rest of the family
+- Games are stored on the shared `/steamlib` drive with the rest of the family.
+  You can play them, but only mum or dad can change or delete them.
 
 ## Family rules (set up by the system)
 
@@ -17,6 +18,16 @@ delete or change it**. Source of truth: `users/readmes/aaron.md`.
 - The internet is filtered so you stay safe
 - The AI chat (where available) has a safety gate — you can ask it fun
   questions about animals, space or school! Use the account mum or dad made.
+
+## Sharing files
+
+There's a family drop folder — on your computer it's at **`~/filedrop`**. Put
+a drawing, photo or any file in there and anyone in the family can grab it
+from their computer. It's like the family noticeboard: everyone can see what's
+in there, and anyone can take or delete a file, so only drop things you're
+happy for everyone to see.
+
+The synced family files at `/sync` are only for mum and dad.
 
 ## Screen-time reminder
 

@@ -20,7 +20,7 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 - Key groups: `wheel`, `steam` (shared game library), `secrets` (may edit
   /etc/secrets where AI chat is enabled), `kvm`/`libvirtd` (VMs), `podman`,
   `networkmanager`, `lp`/`scanner`, `yubikey`, `tss`, `gamemode`, `syncthing`,
-  `cfo`
+  `filedrop`, `cfo`
 - Home-manager config: `users/<your-name>/`
 
 ## System highlights
@@ -52,6 +52,23 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
   you grant it by editing the config (or the parental-controls allowlist) and
   rebuilding with `sudo nixos-rebuild switch --flake ~/code/nixos-config`.
 
+## Shared storage & family permissions
+
+- **`/steamlib`** — shared Steam library (`games/steam.nix`). The `steam`
+  group (nicky, aeiuno) has read-write access; sven and aaron have read-only
+  access (they can launch the games, but cannot modify, delete or update
+  them). Install and update games from a parent account.
+- **`/sync`** — Syncthing data (`services/syncthing.nix`). The `syncthing`
+  group (nicky, aeiuno) has full access; sven and aaron have **no access** by
+  default, so shared data can't be wiped. Later we can whitelist a folder for
+  them with a `kids`-group ACL in `services/syncthing.nix`.
+- **`/filedrop`** — family drop folder (`users/filedrop.nix`). Every family
+  account (nicky, aeiuno, sven, aaron) can read, write and delete anything in
+  it (no sticky bit — anyone may delete). Each home has a `~/filedrop`
+  shortcut, and the folder is exposed over the network as the `filedrop`
+  Samba share (`services/samba.nix`, no guest access). Drop a file there to
+  pass it to anyone in the family.
+
 ## Kid accounts (aaron, sven)
 
 - Parental controls via malcontent: login window 06:00–22:00, flatpak
@@ -59,4 +76,5 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 - Kid-safe DNS applies machine-wide where configured
 - AI chat (where enabled) is available to them with the auto-seeded kid-safety
   gate (`services/ai-chat/filters/kid-safety.py`)
-- Their games + shared Steam library via the `steam` group
+- Shared Steam library: read-only (they play, parents manage); `/sync` is
+  blocked for them; shared files pass through `/filedrop`

@@ -11,6 +11,16 @@ To update packages
 
 Et voilà!
 
+## Family shared folders & permissions
+
+- `/steamlib` — shared Steam library (`games/steam.nix`): `steam` group
+  (parents) read-write, kids read-only (play, not modify).
+- `/sync` — Syncthing data (`services/syncthing.nix`): parents only; kids
+  blocked by default, per-folder `kids`-group ACL whitelist later.
+- `/filedrop` — family drop folder (`users/filedrop.nix`): all accounts
+  read-write (no sticky bit), `~/filedrop` symlink in every home, plus a
+  `filedrop` Samba share (`services/samba.nix`).
+
 ## Secrets
 
 Currently, no specific tool is used to manage secrets. They are either hashed in the `.nix` files, or not included in this repo.

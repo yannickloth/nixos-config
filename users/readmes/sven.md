@@ -10,7 +10,8 @@ NixOS flake.
 - User `sven` — family account on the family computer(s), running NixOS
 - Your games are installed: ktuberling, extremetuxracer, neverball and more
 - Steam games are stored on the shared `/steamlib` drive (all family members
-  share one install folder)
+  share one install folder). You can play them, but the folder is read-only
+  for you — you can't delete or change the installs.
 
 ## Family rules (set up by the system)
 
@@ -35,6 +36,16 @@ install it for you. Don't try to install things yourself.
 
 You have **Racket** (with the DrRacket IDE) and **Python** installed for you.
 Have fun trying out little programs — and ask mum or dad if you get stuck!
+
+## Sharing files
+
+The family has a shared drop folder at **`~/filedrop`** (the same as
+`/filedrop` on the system). Drop a file there to share it with anyone in the
+family — all family accounts can read, write and delete files in it. It's
+also reachable over the network as the `filedrop` SMB share.
+
+The Syncthing folder `/sync` is parents-only for now — ask mum or dad if you
+need access to a synced folder.
 
 ## Help
 
