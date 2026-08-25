@@ -82,7 +82,10 @@ with lib;
       "kernel.kexec_load_disabled" = 1;
     };
 
-    # Python interpreter available to every user (scripting, kids' programming).
+    # Python interpreter available to every user (kids' programming, Open WebUI
+    # filter payloads). The repo's own scripts are Java 25 compact source files
+    # (users/NaturalScroll.java, services/MalcontentMerge.java,
+    # services/ai-chat/SeedGates.java).
     environment.systemPackages = [ pkgs.python3 ];
 
     # Flatpak apps installed system-wide that malcontent's allowlist gates for

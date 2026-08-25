@@ -91,10 +91,10 @@ in
     services.malcontent.enable = mkDefault true;
 
     # Explicit dependency: the malcontent-kids activation script below runs
-    # ${pkgs.python3}/bin/python3. system.activationScripts only guarantee a
-    # fixed tool set, so declare python3 here to keep it in the system closure
-    # even if roles/base.nix stops shipping it.
-    environment.systemPackages = [ pkgs.python3 ];
+    # ${pkgs.jdk25}/bin/java (MalcontentMerge.java). system.activationScripts
+    # only guarantee a fixed tool set, so declare the JDK here to keep it in the
+    # system closure even if apps/java.nix changes.
+    environment.systemPackages = [ pkgs.jdk25 ];
 
     # Write sven's and aaron's parental-control restrictions to the accountsservice
     # per-user keyfile. The daemon reads this on startup and reloads when it changes.
@@ -112,32 +112,8 @@ in
             ${sessionLimitsSection}
             ${appFilterSection}
             EOF
-            ${pkgs.python3}/bin/python3 - <<'EOF'
-            import configparser, os
-
-            src = "/var/lib/AccountsService/users/.${user}-malcontent"
-            dst = "/var/lib/AccountsService/users/${user}"
-
-            cfg = configparser.ConfigParser(interpolation=None)
-            cfg.optionxform = str  # preserve key case
-            if os.path.exists(dst):
-                cfg.read(dst)
-
-            extra = configparser.ConfigParser(interpolation=None)
-            extra.optionxform = str
-            extra.read(src)
-
-            for name in extra.sections():
-                if not cfg.has_section(name):
-                    cfg.add_section(name)
-                for key, value in extra.items(name):
-                    cfg.set(name, key, value)
-
-            with open(dst, "w") as f:
-                cfg.write(f, space_around_delimiters=False)
-
-            os.unlink(src)
-            EOF
+            ${pkgs.jdk25}/bin/java ${./MalcontentMerge.java} /var/lib/AccountsService/users/.${user}-malcontent /var/lib/AccountsService/users/${user}
+            rm -f /var/lib/AccountsService/users/.${user}-malcontent
             chmod 0600 /var/lib/AccountsService/users/${user}
             chown root:root /var/lib/AccountsService/users/${user}
           '';

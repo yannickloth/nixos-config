@@ -41,22 +41,29 @@
   # reads filters from its DB at request time, so this runs after startup and is
   # a no-op whenever the file is unchanged.
   #
-  # Explicit dependency: the seed service runs ${pkgs.python3}/bin/python3; the
-  # `path` below and this systemPackages entry keep python3 in the system
-  # closure regardless of roles/base.nix.
-  environment.systemPackages = [ pkgs.python3 ];
+  # Explicit dependency: the seed service runs a Java 25 compact source file
+  # (SeedGates.java) via ${pkgs.jdk25}/bin/java with the sqlite-jdbc driver;
+  # this systemPackages entry keeps the JDK in the system closure regardless of
+  # apps/java.nix.
+  environment.systemPackages = [ pkgs.jdk25 ];
   systemd.services.open-webui-seed-gates = {
     description = "Seed the kid-safety filter into the Open WebUI database";
     wantedBy = [ "multi-user.target" ];
     after = [ "open-webui.service" ];
-    path = [ pkgs.python3 ];
     serviceConfig = {
       Type = "oneshot";
       # Retry if the DB is not ready on first boot or a transient SQLite lock.
       Restart = "on-failure";
       RestartSec = "10";
       ExecStart = [
-        "${pkgs.python3}/bin/python3 ${./ai-chat/seed_gates.py} ${./ai-chat/filters/kid-safety.py}"
+        "${pkgs.jdk25}/bin/java"
+        # sqlite-jdbc loads its native library via System.load (restricted in
+        # JDK 24+); the flag silences the runtime warning.
+        "--enable-native-access=ALL-UNNAMED"
+        "--class-path"
+        "${pkgs.sqlite-jdbc}/share/java/sqlite-jdbc-${pkgs.sqlite-jdbc.version}.jar"
+        "${./ai-chat/SeedGates.java}"
+        "${./ai-chat/filters/kid-safety.py}"
       ];
     };
   };
