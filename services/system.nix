@@ -13,7 +13,6 @@
     };
 
     openssh.enable = true; # Enable the OpenSSH daemon.
-    syncthing.openDefaultPorts = true;
     tailscale.enable = true;
   };
 }

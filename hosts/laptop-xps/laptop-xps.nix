@@ -58,7 +58,7 @@ with lib;
       ../../roles/shell.nix
       ../../services/sonos.nix
       ../../games/steam.nix
-      ../../services/syncthing.nix
+      ../../services/syncthing
       ../../security/apparmor.nix
       ../../security/sudo.nix
       ../../services/tor.nix
@@ -80,6 +80,9 @@ with lib;
     ];
   # In this file comes everything that is specific to this host.
   networking.hostName = "laptop-xps"; # Define your hostname.
+
+  # Syncthing device name for this host (see services/syncthing/pool.nix).
+  services.syncthing.self = "laptop-xps";
 
   # 16 GiB RAM -> keep browser profiles on disk (psd disabled).
   roles.psd.enable = false;

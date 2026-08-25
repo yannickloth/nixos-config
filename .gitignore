@@ -5,3 +5,9 @@ secrets.nix
 result
 result-*
 .agentmem/
+
+# Syncthing node identity (device cert/key). The device IDs are committed in
+# services/syncthing/pool.nix, but the private cert/key pairs must never reach
+# git — they authenticate each laptop to all peers and would grant full read
+# access to every synced folder if leaked.
+secrets/**

@@ -51,7 +51,7 @@ with lib;
       ../../apps/purescript.nix
       ../../services/samba.nix
       ../../services/scanning.nix
-      ../../services/syncthing.nix
+      ../../services/syncthing
       ../../roles/shell.nix
       ../../services/sonos.nix
       ../../games/steam.nix
@@ -76,6 +76,9 @@ with lib;
     ];
   # In this file comes everything that is specific to this host.
   networking.hostName = "laptop-hera"; # Define your hostname.
+
+  # Syncthing device name for this host (see services/syncthing/pool.nix).
+  services.syncthing.self = "laptop-hera";
 
   # 64 GiB RAM -> run browser profiles in RAM.
   roles.psd.enable = true;

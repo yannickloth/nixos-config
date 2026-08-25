@@ -129,13 +129,13 @@
     createDirectories = false;
     enable = true;
     setSessionVariables = true; # keep legacy default
-    desktop = "/home/aeiuno/syncthing/christine/LaptopSync/Desktop/";
-    documents = "/home/aeiuno/syncthing/christine/LaptopSync/Documents/";
-    download = "/home/aeiuno/syncthing/christine/LaptopSync/Downloads/";
-    music = "/home/aeiuno/syncthing/christine/LaptopSync/Music/";
-    pictures = "/home/aeiuno/syncthing/christine/LaptopSync/Pictures/";
-    publicShare = "/home/aeiuno/syncthing/christine/LaptopSync/Public/";
-    templates = "/home/aeiuno/syncthing/christine/LaptopSync/Templates/";
-    videos = "/home/aeiuno/syncthing/christine/LaptopSync/Videos/";
+    desktop = "/home/aeiuno/sync/christine/LaptopSync/Desktop/";
+    documents = "/home/aeiuno/sync/christine/LaptopSync/Documents/";
+    download = "/home/aeiuno/sync/christine/LaptopSync/Downloads/";
+    music = "/home/aeiuno/sync/christine/LaptopSync/Music/";
+    pictures = "/home/aeiuno/sync/christine/LaptopSync/Pictures/";
+    publicShare = "/home/aeiuno/sync/christine/LaptopSync/Public/";
+    templates = "/home/aeiuno/sync/christine/LaptopSync/Templates/";
+    videos = "/home/aeiuno/sync/christine/LaptopSync/Videos/";
   };
 }

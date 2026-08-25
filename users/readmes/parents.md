@@ -44,6 +44,67 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
   each account's password is chosen on first login.
 - **Syncthing:** web UI at http://this-host:8384, synced data lives in `/sync`,
   config in `/var/lib/syncthing` (group `syncthing`).
+
+### Setting up Syncthing on a new host
+
+Syncthing runs as a single system service on every host and is configured
+declaratively from `services/syncthing/`. All 34 folders replicate to nestor
+and the other laptops as the closest-to-backup copy. Follow these steps once
+per host.
+
+1. **Wire the host into the config** (`hosts/<host>/<host>.nix`):
+   - Add `../../services/syncthing` to the `imports` list (all hosts already do).
+   - Set `services.syncthing.self = "<device-name>";` where `<device-name>` is a
+     key of the device map in `services/syncthing/pool.nix` (e.g. `laptop-p16`,
+     `laptop-hera`, `laptop-xps`). The module derives that host's folders and
+     peers from the pool automatically.
+2. **Make sure the device has a stable identity (cert/key).** The device ID is
+   the public hash of its cert; the cert/key are the private secret. On the
+   host, the cert/key live in `/etc/nixos/secrets/syncthing/<device-name>/`.
+   The activation script provisions them on first activation, in this priority:
+   1. A cert/key already present at `/etc/nixos/secrets/syncthing/<device-name>/`
+      (e.g. restored from KeePass) → kept, ID stable.
+   2. A pre-generated copy in the repo at `secrets/syncthing/<device-name>/`
+      (gitignored) → copied in. Used for pre-seeded hosts like laptop-p16 and
+      laptop-xps; the private key must never be committed.
+   3. An existing `/var/lib/syncthing/{cert,key}.pem` → preserved, so an
+      already-registered host keeps its device ID.
+   4. Otherwise a fresh identity is generated (new, unseeded host).
+   If no cert is seeded and a fresh one is generated, the device ID changes —
+   update it in `pool.nix` and on every peer.
+
+   **Existing host (e.g. laptop-hera) keeping its ID:** the activation script
+   auto-preserves a cert only if it's at `/var/lib/syncthing/` (where the
+   config's `configDir` put it). If syncthing was set up elsewhere (a per-user
+   run, or an older config), find its config dir and copy the pair in. On the
+   old host, locate the cert via the running service:
+   ```
+   systemctl show syncthing -p ExecStart   # look for --config=PATH, or
+   ps aux | grep syncthing                 # --config=PATH on the command line
+   ```
+   The cert/key are `<PATH>/cert.pem` and `<PATH>/key.pem` (per-user runs use
+   `~/.config/syncthing/` or `~/.local/state/syncthing/`). Copy them into the
+   gitignored repo dir `secrets/syncthing/<device-name>/` (or directly to
+   `/etc/nixos/secrets/syncthing/<device-name>/`), and confirm the device ID
+   matches the one in `pool.nix`:
+   ```
+   sudo syncthing device-id <PATH>/cert.pem
+   ```
+3. **Set the GUI password.** Create `/etc/secrets/syncthing-gui-password`
+   (plaintext, one shared credential for nicky + aeiuno):
+   ```
+   sudo sh -c 'umask 077; printf "%s\n" "<a strong shared password>" > /etc/secrets/syncthing-gui-password'
+   ```
+4. **Apply the config:** `sudo nixos-rebuild switch --flake ~/code/nixos-config`.
+   On first run `overrideFolders/overrideDevices` reconcile the declared set —
+   folders/devices not in the pool are removed, so the exact 34 folders appear.
+5. **Verify:** open http://this-host:8384, log in, and confirm the folder list
+   matches the 34 declared folders and that all peers show up. Data lands under
+   `/sync/<folder>`; each user's `~/sync` symlink points there. Watch the first
+   sync complete before relying on a host as backup.
+6. **Back up the device secret** (the private key + cert) into KeePass so a
+   wiped disk can be re-seeded without changing the device ID. The device ID
+   itself is public and already in `pool.nix`.
 - **Steam:** shared game installs live in `/steamlib/SteamLibrary/steamapps/common`.
 - **Parental controls (malcontent):** manages which **flatpak** apps the kids
   may run (allowlist) and their session time limits. The kids' office/creative/
@@ -101,10 +162,10 @@ make it a flatpak; if it needs groups/GPU/policies, keep it native.**
   group (nicky, aeiuno) has read-write access; sven and aaron have read-only
   access (they can launch the games, but cannot modify, delete or update
   them). Install and update games from a parent account.
-- **`/sync`** — Syncthing data (`services/syncthing.nix`). The `syncthing`
+- **`/sync`** — Syncthing data (`services/syncthing/`). The `syncthing`
   group (nicky, aeiuno) has full access; sven and aaron have **no access** by
   default, so shared data can't be wiped. Later we can whitelist a folder for
-  them with a `kids`-group ACL in `services/syncthing.nix`.
+  them with a `kids`-group ACL in `services/syncthing/`.
 - **`/filedrop`** — family drop folder (`users/filedrop.nix`). Every family
   account (nicky, aeiuno, sven, aaron) can read, write and delete anything in
   it (no sticky bit — anyone may delete). Each home has a `~/filedrop`
