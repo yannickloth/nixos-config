@@ -65,6 +65,9 @@
       # stellarium # Desktop planetariums
       thunderbird
       tuner
+      vlc # native media player (parents only; kids use the gated flatpak)
+      libmicrodns # for playing from VLC onto ChromeCast
+      protobuf # for playing from VLC onto ChromeCast
       #vivaldi
       #vivaldi-ffmpeg-codecs
       zotero

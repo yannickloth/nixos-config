@@ -230,6 +230,9 @@ in
     thunderbird
     tinymist # Integrated language service for Typst
     tuner
+    vlc # native media player (parents only; kids use the gated flatpak)
+    libmicrodns # for playing from VLC onto ChromeCast
+    protobuf # for playing from VLC onto ChromeCast
     whitesur-gtk-theme
     catfish
     zeal # Simple offline API documentation browser.

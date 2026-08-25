@@ -137,10 +137,7 @@ in {
       #     hash = "sha256-eyYBK5ZxPcBakOvXUQZIU2aftyH6PXh/rtqC/1BJhg4=";
       #   };
       # })
-      vlc
       xdg-utils
-      libmicrodns # for playing from VLC onto ChromeCast
-      protobuf # for playing from VLC onto ChromeCast
 
       ### Networking tools
       dig
