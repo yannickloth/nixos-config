@@ -1,13 +1,11 @@
 smb-secrets
 .history/
 tmp/
-secrets.nix
 result
 result-*
 .agentmem/
 
-# Syncthing node identity (device cert/key). The device IDs are committed in
-# services/syncthing/pool.nix, but the private cert/key pairs must never reach
-# git — they authenticate each laptop to all peers and would grant full read
-# access to every synced folder if leaked.
+# All secrets live in the gitignored secrets/ folder (see
+# secrets-structure/README.md). Keep them out of git — never commit the real
+# values. Irreversible user password hashes in users/*.nix stay committed.
 secrets/**

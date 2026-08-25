@@ -12,6 +12,7 @@ with lib;
     ../services/snapshots.nix
     ../services/home-quota.nix
     ../services/usb-scan.nix
+    ../services/secrets.nix
   ];
 
   config = {

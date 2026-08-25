@@ -46,8 +46,10 @@ let
       description = "FHS environment for Tresorit";
     };
   };
-  secrets = if builtins.pathExists ./secrets.nix
-            then import ./secrets.nix
+  # AI-chat API keys live in the gitignored secrets/ folder (see
+  # secrets-structure/README.md). Fall back to empty when absent.
+  secrets = if builtins.pathExists /home/nicky/code/nixos-config/secrets/nicky.nix
+            then import /home/nicky/code/nixos-config/secrets/nicky.nix
             else {};
 in
 {

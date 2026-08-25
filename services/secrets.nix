@@ -1,0 +1,61 @@
+# Secret provisioning from the repo's gitignored `secrets/` folder.
+#
+# `secrets/` (repo root) is the single source of truth for every secret the
+# config expects (see secrets-structure/README.md for the inventory). This
+# module copies them into the conventional runtime paths that services read,
+# so the repo folder is the one place to drop/update secrets.
+#
+# - /etc/secrets/syncthing-gui-password  (Syncthing web UI, group syncthing)
+# - /etc/secrets/open-webui.env          (family AI chat, group secrets)
+# - /etc/nixos/smb-secrets               (CIFS/nestor mount credentials)
+#
+# All secrets in `secrets/` are gitignored; only their *expected layout* is
+# tracked under `secrets-structure/`.
+
+{ config, lib, pkgs, ... }:
+
+with lib;
+
+let
+  # Gitignored repo folder holding the real secret files.
+  secretsDir = "/home/nicky/code/nixos-config/secrets";
+in
+{
+  config = {
+    # Runtime directories for the services that read these secrets. The `secrets`
+    # group (also defined by services/ai-chat.nix with the same members) is
+    # declared here so /etc/secrets exists on any host.
+    users.groups.secrets = {
+      members = [ "nicky" "aeiuno" ];
+    };
+
+    systemd.tmpfiles.rules = [
+      # 2770 + group rw so nicky/aeiuno can edit secrets without sudo.
+      "d /etc/secrets 2770 root secrets -"
+    ];
+
+    # Copy each secret from `secrets/` into its runtime path, if present.
+    # Idempotent; missing sources are skipped (the file simply isn't provisioned).
+    system.activationScripts.secrets = stringAfter [ "users" ] ''
+      install -d -o root -g root -m 0755 /etc/nixos
+      # The GUI password target group only exists when syncthing is enabled.
+      ${lib.optionalString config.services.syncthing.enable ''
+        ${lib.optionalString (builtins.pathExists (secretsDir + "/syncthing-gui-password")) ''
+          install -o root -g syncthing -m 0640 \
+            ${lib.escapeShellArg (secretsDir + "/syncthing-gui-password")} \
+            /etc/secrets/syncthing-gui-password
+        ''}
+      ''}
+      ${lib.optionalString (builtins.pathExists (secretsDir + "/open-webui.env")) ''
+        install -o root -g secrets -m 0660 \
+          ${lib.escapeShellArg (secretsDir + "/open-webui.env")} \
+          /etc/secrets/open-webui.env
+      ''}
+      ${lib.optionalString (builtins.pathExists (secretsDir + "/smb-secrets")) ''
+        install -o root -g root -m 0600 \
+          ${lib.escapeShellArg (secretsDir + "/smb-secrets")} \
+          /etc/nixos/smb-secrets
+      ''}
+    '';
+  };
+}

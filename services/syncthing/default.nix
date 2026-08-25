@@ -90,13 +90,9 @@ in
 
     # --- Access control ---
     # Parents reach /sync via the syncthing group; kids are excluded (2770 +
-    # ACL: group rwx, no "others"). The web UI needs the shared GUI password.
+    # ACL: group rwx, no "others"). The web UI needs the shared GUI password,
+    # which is provisioned by services/secrets.nix from secrets/.
     users.groups.syncthing.members = [ "nicky" "aeiuno" ];
-    # /etc/secrets group (also used by services/ai-chat.nix); kept here so the
-    # syncthing GUI password dir exists even when ai-chat is disabled.
-    users.groups.secrets = {
-      members = [ "nicky" "aeiuno" ];
-    };
 
     networking.firewall.allowedTCPPorts = [
       8384 # syncthing web UI
@@ -109,9 +105,6 @@ in
       # world-readable.
       "A /sync 2770 syncthing syncthing - u::rwx,g::rwx,o::---"
       "d /var/lib/syncthing 0700 syncthing syncthing -"
-      # Shared GUI password (single credential for nicky + aeiuno).
-      "d /etc/secrets 2770 root secrets -"
-      "f /etc/secrets/syncthing-gui-password 0660 root syncthing -"
     ];
 
     # --- Automated device identity ---

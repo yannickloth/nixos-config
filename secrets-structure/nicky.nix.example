@@ -1,0 +1,4 @@
+{
+  ZAI_CODING_PLAN_API_KEY = "PUT_YOUR_API_KEY_HERE";
+  DEEPSEEK_API_KEY = "sk-your-deepseek-key";
+}
