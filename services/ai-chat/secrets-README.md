@@ -21,6 +21,14 @@ APIs.
 
       OPENAI_API_KEYS={"https://api.deepseek.com":"sk-your-deepseek-key"}
 
+### Configured providers
+
+| Provider | Base URL | Key |
+| --- | --- | --- |
+| DeepSeek | `https://api.deepseek.com` | DeepSeek API key |
+| Kimi for Coding | `https://api.kimi.com/coding/v1` | Kimi subscription key |
+| Hetzner AI | `https://inference.hetzner.com/api/v1` | Hetzner AI token |
+
 ### Adding another provider
 
 1. Add its base URL to `OPENAI_API_BASE_URLS` in `services/ai-chat.nix`, e.g.
@@ -36,6 +44,10 @@ APIs.
 ### Where to get keys
 
 - DeepSeek: https://platform.deepseek.com/api_keys (pay-per-token)
+- Kimi for Coding: Kimi Code Platform subscription (key via the Kimi account /
+  opencode auth); base URL `https://api.kimi.com/coding/v1`
+- Hetzner AI: Hetzner Cloud AI token (key via the Hetzner console); base URL
+  `https://inference.hetzner.com/api/v1`
 - OpenAI:   https://platform.openai.com/api-keys
 - Groq:     https://console.groq.com/keys
 - Ollama (local, free, no key): add `"http://localhost:11434"` to

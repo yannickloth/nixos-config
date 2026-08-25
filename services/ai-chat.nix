@@ -32,7 +32,7 @@
       # OpenAI-compatible providers (non-secret; keys live in the env file).
       # Add more base URLs here, then add matching keys in /etc/secrets/open-webui.env
       # via OPENAI_API_KEYS (see /etc/secrets/README.md).
-      OPENAI_API_BASE_URLS = ''["https://api.deepseek.com"]'';
+      OPENAI_API_BASE_URLS = ''["https://api.deepseek.com","https://api.kimi.com/coding/v1","https://inference.hetzner.com/api/v1"]'';
     };
     environmentFile = "/etc/secrets/open-webui.env"; # contains OPENAI_API_KEYS
   };

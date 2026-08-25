@@ -41,7 +41,7 @@ password=your-cifs-password
 <a strong shared password>
 
 # open-webui.env.example -> secrets/open-webui.env
-OPENAI_API_KEYS={"https://api.deepseek.com":"sk-your-deepseek-key"}
+OPENAI_API_KEYS={"https://api.deepseek.com":"sk-your-deepseek-key","https://api.kimi.com/coding/v1":"sk-kimi-your-key","https://inference.hetzner.com/api/v1":"your-hetzner-key"}
 
 # nicky.nix.example -> secrets/nicky.nix
 {
@@ -73,7 +73,11 @@ OPENAI_API_KEYS={"https://api.deepseek.com":"sk-your-deepseek-key"}
 
 ### `open-webui.env`
 - **What:** env file with `OPENAI_API_KEYS` mapping provider URLs to API keys
-  for the family AI chat (Open WebUI).
+  for the family AI chat (Open WebUI). One entry per provider.
+- **Providers:** DeepSeek (`api.deepseek.com`), Kimi for Coding
+  (`api.kimi.com/coding/v1`), Hetzner AI (`inference.hetzner.com/api/v1`) —
+  base URLs are declared in `services/ai-chat.nix`
+  (`OPENAI_API_BASE_URLS`); only the keys are secret here.
 - **Format:** see `open-webui.env.example`; details in
   `services/ai-chat/secrets-README.md`.
 - **Runtime path:** `/etc/secrets/open-webui.env` (group `secrets`).

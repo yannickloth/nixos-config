@@ -21,6 +21,7 @@ with lib;
       ../../roles/i18n/fr_BE.nix
       ../../apps/android.nix
       ../../apps/appimage.nix
+      ../../services/ai-chat.nix
       ../../services/avahi.nix
       ../../services/bittorrent.nix
       ../../apps/benchmark.nix

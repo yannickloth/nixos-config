@@ -79,6 +79,12 @@ in
       cert = "${secretsDir}/cert.pem";
       key = "${secretsDir}/key.pem";
       guiPasswordFile = "/etc/secrets/syncthing-gui-password";
+      settings.gui = {
+        # Single shared GUI account (username + password) for nicky + aeiuno;
+        # Syncthing's web UI supports only one login per instance. The password
+        # comes from guiPasswordFile; the username is set here.
+        user = "nicky";
+      };
       settings.devices = devices;
       settings.folders = folders;
       settings.options = {
