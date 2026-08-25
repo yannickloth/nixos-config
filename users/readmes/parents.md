@@ -64,6 +64,30 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
   rebuild); for native software, edit the config and rebuild with
   `sudo nixos-rebuild switch --flake ~/code/nixos-config`.
 
+## Installing apps: flatpak vs nixpkgs
+
+Apps are installed two different ways here, and the choice is driven by the
+kids' parental controls:
+
+- **Flatpak — sandboxed and malcontent-gated.** The parental controls only
+  filter *flatpak* apps, so anything the kids should be able to run (or that
+  you want to allow/block without a rebuild) comes from flatpak: their
+  office/creative/media/mail apps (LibreOffice, GIMP, Krita, VLC, Geary) plus
+  the GNOME/KDE utility apps in the allowlist (dolphin, okular, gwenview, kalk,
+  …). Declared in `roles/base.nix` under `apps.flatpak`, kept in sync
+  with the allowlist in `services/malcontent.nix`; installs land on the next
+  boot. Grant/revoke via the parental-controls settings app — no rebuild.
+- **nixpkgs — native, deep system access.** Everything that needs groups/ACLs,
+  GPU, gamepads, or its own policies: the games (Steam and Lutris on
+  `/steamlib`, and the kids' native games ktuberling, extremetuxracer,
+  supertux, luanti, …), Firefox (its kid policies
+  `users/kid-firefox-policies.nix` apply to the native build only), and
+  CLI/dev tools (python, racket, editors). Changes require a rebuild:
+  `sudo nixos-rebuild switch --flake ~/code/nixos-config`.
+
+Rule of thumb: **if malcontent should be able to allow or block it for a kid,
+make it a flatpak; if it needs groups/GPU/policies, keep it native.**
+
 ## Shared storage & family permissions
 
 - **`/steamlib`** — shared Steam library (`games/steam.nix`). The `steam`
