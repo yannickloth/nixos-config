@@ -27,15 +27,20 @@ Currently, no specific tool is used to manage secrets. They are either hashed in
 
 ### CIFS
 
-This config needs a file named `smb-secrets` in the root directory of this project containing your username and password in clear-text:
+CIFS **client** mounts each use their own credentials file under `secrets/cifs/`
+(see `secrets-structure/README.md`). For the nestor mount, place
+`username=…`/`password=…` in `secrets/cifs/nestor.secrets` (gitignored);
+`services/secrets.nix` provisions it to `/etc/nixos/cifs/nestor.secrets`,
+which `services/cifs-nestor.nix` reads:
 
-1. Run `touch smb-secrets`
-
-2. Open this file and add your credentials:
 ```ini
 username=xxx
 password=xxx
 ```
+
+> Samba **server** shares (`services/samba.nix`) authenticate each client with
+> its own OS account (`"valid users"` per share + `smbpasswd`); the CIFS
+> credentials files above are only for mounting remote shares.
 
 ### Syncthing
 

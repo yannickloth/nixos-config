@@ -52,7 +52,7 @@ This is a modular NixOS configuration using Nix flakes with the following struct
 ### Secrets Management
 - No specific secret management tool is used
 - Secrets are either hashed in .nix files or excluded from repo
-- CIFS credentials stored in `smb-secrets` file (not tracked in git)
+- CIFS credentials stored per mount in `secrets/cifs/<name>.secrets` (gitignored)
 
 ### External Dependencies
 - **nixos-hardware**: Hardware-specific configurations from NixOS/nixos-hardware

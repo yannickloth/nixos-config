@@ -23,24 +23,25 @@ secrets/
 │   ├── laptop-p16/     cert.pem, key.pem   # device VCAGGHS-…
 │   ├── laptop-hera/    cert.pem, key.pem   # device 6RRKHEE-…
 │   └── laptop-xps/     cert.pem, key.pem   # device MMPI6MM-…
+├── cifs/
+│   └── nestor.secrets                      # CIFS client creds for nestor mount
 ├── syncthing-gui-password                  # Syncthing web UI (shared)
 ├── open-webui.env                          # Family AI chat (OPENAI_API_KEYS)
-├── smb-secrets                             # CIFS/nestor credentials
 └── nicky.nix                               # AI API keys (DeepSeek, Z_AI)
 ```
 
 Exact formats (fill in the values, copy to `secrets/`):
 
 ```
+# cifs/nestor.secrets.example -> secrets/cifs/nestor.secrets
+username=your-cifs-username
+password=your-cifs-password
+
 # syncthing-gui-password.example -> secrets/syncthing-gui-password
 <a strong shared password>
 
 # open-webui.env.example -> secrets/open-webui.env
 OPENAI_API_KEYS={"https://api.deepseek.com":"sk-your-deepseek-key"}
-
-# smb-secrets.example -> secrets/smb-secrets
-username=your-cifs-username
-password=your-cifs-password
 
 # nicky.nix.example -> secrets/nicky.nix
 {
@@ -78,11 +79,23 @@ password=your-cifs-password
 - **Runtime path:** `/etc/secrets/open-webui.env` (group `secrets`).
 - **Provisioned by:** `services/secrets.nix`.
 
-### `smb-secrets`
-- **What:** CIFS credentials for the nestor shares, `username=…`/`password=…`.
-- **Format:** see `smb-secrets.example`.
-- **Runtime path:** `/etc/nixos/smb-secrets` (root-owned, mode 0600).
-- **Provisioned by:** `services/secrets.nix`. Read by `services/cifs-nestor.nix`.
+### `cifs/<mount>.secrets`
+- **What:** CIFS **client** credentials used by a single mount, `username=…`/
+  `password=…`. One file per mount — it is **not** a global secret. To add a
+  mount, add its own `secrets/cifs/<name>.secrets` and reference it from a
+  `cifs-<name>.nix` module; `services/secrets.nix` provisions every
+  `secrets/cifs/*.secrets` to `/etc/nixos/cifs/<name>.secrets`.
+- **Format:** see `cifs/nestor.secrets.example`.
+- **Runtime path:** `/etc/nixos/cifs/<name>.secrets` (root-owned, mode 0600).
+- **Provisioned by:** `services/secrets.nix`. Read by the matching
+  `services/cifs-*.nix` (e.g. `cifs-nestor.nix`).
+
+> **SMB server vs client auth:** Samba **server** shares (`services/samba.nix`)
+> authenticate each connecting client with its own OS account — who may connect
+> is set per share via `"valid users"`, and each user's SMB password is stored
+> server-side via `smbpasswd`. The `cifs/*.secrets` files here are only for the
+> **client** side (mounting remote shares), where one identity per mount is
+> used.
 
 ### `nicky.nix`
 - **What:** AI-chat API keys for nicky, a Nix attrset
