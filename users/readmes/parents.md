@@ -85,6 +85,13 @@ kids' parental controls:
   CLI/dev tools (python, racket, editors). Changes require a rebuild:
   `sudo nixos-rebuild switch --flake ~/code/nixos-config`.
 
+Flatpak apps are also **sandboxed from the shared folders**: they can't see
+`/steamlib`, `/sync` or `/filedrop` unless an override grants them access. The
+kids' office/creative apps already get `/filedrop` so they can save into the
+drop folder (`apps.flatpak.overrides` in `roles/base.nix`); `/steamlib` and
+`/sync` are deliberately native/group-accessed only — they are the protected
+shared data.
+
 Rule of thumb: **if malcontent should be able to allow or block it for a kid,
 make it a flatpak; if it needs groups/GPU/policies, keep it native.**
 
