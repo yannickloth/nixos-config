@@ -16,6 +16,7 @@
 
     ../../users/users.nix # commonalities
     ../../users/cfo.nix # chief family officer group
+    ../../users/filedrop.nix # shared family drop folder
     ../../users/aeiuno/aeiuno.nix
     ../../users/nicky/nicky.nix
     ../../users/sven/sven.nix

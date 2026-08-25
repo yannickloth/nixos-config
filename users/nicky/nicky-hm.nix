@@ -53,6 +53,7 @@ in
 {
   imports = [
     ../common-hm.nix
+    ../natural-scroll.nix
   ];
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)

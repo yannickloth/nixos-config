@@ -66,11 +66,6 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 
 ## Shared storage & family permissions
 
-> **Planned — not applied yet.** This describes the intended access model; the
-> config changes (`users/filedrop.nix`, `games/steam.nix`,
-> `services/syncthing.nix`) are not in the flake at the time of writing. Until
-> they land, sven and aaron can still write to `/steamlib` and `/sync`.
-
 - **`/steamlib`** — shared Steam library (`games/steam.nix`). The `steam`
   group (nicky, aeiuno) has read-write access; sven and aaron have read-only
   access (they can launch the games, but cannot modify, delete or update

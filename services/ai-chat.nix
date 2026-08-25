@@ -40,6 +40,11 @@
   # Keep the kid-safety gate in sync with the versioned source file. Open WebUI
   # reads filters from its DB at request time, so this runs after startup and is
   # a no-op whenever the file is unchanged.
+  #
+  # Explicit dependency: the seed service runs ${pkgs.python3}/bin/python3; the
+  # `path` below and this systemPackages entry keep python3 in the system
+  # closure regardless of roles/base.nix.
+  environment.systemPackages = [ pkgs.python3 ];
   systemd.services.open-webui-seed-gates = {
     description = "Seed the kid-safety filter into the Open WebUI database";
     wantedBy = [ "multi-user.target" ];

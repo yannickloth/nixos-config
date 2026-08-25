@@ -30,7 +30,7 @@ in
           "server string" = "${config.networking.hostName}";
           "netbios name" = "${config.networking.hostName}";
           security = "user";
-          "invalid users"=[ "root" ]; # List of users who are denied to login via Samba.
+          "invalid users" = [ "root" ]; # List of users who are denied to login via Samba.
           #use sendfile = yes
           #max protocol = smb2
           # note: localhost is the ipv6 localhost ::1
@@ -38,9 +38,9 @@ in
           "hosts deny" = "0.0.0.0/0";
           "guest account" = "nobody";
           "map to guest" = "bad user";
-  #         load printers = yes
-  #         printing = CUPS
-  #         printcap name = cups
+          #         load printers = yes
+          #         printing = CUPS
+          #         printcap name = cups
         };
         homes = {
           comment = "Home Directories";
@@ -54,43 +54,56 @@ in
           writable = "yes";
         };
       };
+      shares = {
+        filedrop = {
+          path = "/filedrop";
+          browseable = "yes";
+          "read only" = "no";
+          "guest ok" = "no";
+          "valid users" = "nicky aeiuno sven aaron";
+          # Keep files group-owned by filedrop (setgid on /filedrop), world hidden.
+          "create mask" = "0660";
+          "directory mask" = "2770";
+          "force group" = "filedrop";
+        };
+      };
       #shares = {
-  #       public = {
-  #         path = "/mnt/Shares/Public";
-  #         browseable = "yes";
-  #         "read only" = "no";
-  #         "guest ok" = "yes";
-  #         "create mask" = "0644";
-  #         "directory mask" = "0755";
-  #         "force user" = "username";
-  #         "force group" = "groupname";
-  #       };
-  #       private = {
-  #         path = "/mnt/Shares/Private";
-  #         browseable = "yes";
-  #         "read only" = "no";
-  #         "guest ok" = "no";
-  #         "create mask" = "0644";
-  #         "directory mask" = "0755";
-  #         "force user" = "username";
-  #         "force group" = "groupname";
-  #       };
-  #        printers = {
-  #          comment = "All Printers";
-  #          path = "/var/spool/samba";
-  #          public = "yes";
-  #          browseable = "yes";
-  #          # to allow user 'guest account' to print.
-  #          "guest ok" = "no";
-  #          writable = "no";
-  #          printable = "yes";
-  #          "create mode" = 0700;
-  #        };
+      #       public = {
+      #         path = "/mnt/Shares/Public";
+      #         browseable = "yes";
+      #         "read only" = "no";
+      #         "guest ok" = "yes";
+      #         "create mask" = "0644";
+      #         "directory mask" = "0755";
+      #         "force user" = "username";
+      #         "force group" = "groupname";
+      #       };
+      #       private = {
+      #         path = "/mnt/Shares/Private";
+      #         browseable = "yes";
+      #         "read only" = "no";
+      #         "guest ok" = "no";
+      #         "create mask" = "0644";
+      #         "directory mask" = "0755";
+      #         "force user" = "username";
+      #         "force group" = "groupname";
+      #       };
+      #        printers = {
+      #          comment = "All Printers";
+      #          path = "/var/spool/samba";
+      #          public = "yes";
+      #          browseable = "yes";
+      #          # to allow user 'guest account' to print.
+      #          "guest ok" = "no";
+      #          writable = "no";
+      #          printable = "yes";
+      #          "create mode" = 0700;
+      #        };
       # };
     };
-  #   systemd.tmpfiles.rules = [ # for samba printer sharing
-  #     "d /var/spool/samba 1777 root root -"
-  #   ];
+    #   systemd.tmpfiles.rules = [ # for samba printer sharing
+    #     "d /var/spool/samba 1777 root root -"
+    #   ];
 
     samba-wsdd = {
       enable = true; # make shares visible for windows 10 clients

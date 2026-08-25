@@ -4,6 +4,7 @@
   imports = [
     ../common-hm.nix
     ../kid-firefox-policies.nix
+    ../natural-scroll.nix
   ];
 
   home = {

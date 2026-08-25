@@ -90,6 +90,12 @@ in
   config = {
     services.malcontent.enable = mkDefault true;
 
+    # Explicit dependency: the malcontent-kids activation script below runs
+    # ${pkgs.python3}/bin/python3. system.activationScripts only guarantee a
+    # fixed tool set, so declare python3 here to keep it in the system closure
+    # even if roles/base.nix stops shipping it.
+    environment.systemPackages = [ pkgs.python3 ];
+
     # Write sven's and aaron's parental-control restrictions to the accountsservice
     # per-user keyfile. The daemon reads this on startup and reloads when it changes.
     # Merge into the existing file so accountsservice's per-user state

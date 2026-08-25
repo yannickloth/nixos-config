@@ -3,7 +3,7 @@
 with lib;
 {
   users.groups.steam = {
-    members = [ "aeiuno" "nicky" "sven" "aaron" ]; # Shared Steam library access
+    members = [ "aeiuno" "nicky" ]; # Shared Steam library access (parents read-write; kids get read-only via the o::rx default ACL)
   };
 
   systemd.tmpfiles.rules = [

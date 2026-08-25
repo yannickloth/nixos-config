@@ -20,14 +20,19 @@ with lib;
     };
   };
 
-  users.groups.syncthing.members = [ "nicky" "aeiuno" "sven" "aaron" ];
+  users.groups.syncthing.members = [ "nicky" "aeiuno" ];
 
   networking.firewall.allowedTCPPorts = [
     8384 # syncthing web UI
   ];
 
   systemd.tmpfiles.rules = [
-    "d /sync 2775 syncthing syncthing -"
+    # 2770 (no "others" access): only the syncthing group (parents) can reach
+    # /sync; sven/aaron get no access at all.
+    "d /sync 2770 syncthing syncthing -"
+    # Default ACL: new synced files inherit group rwx and are never
+    # world-readable, so kids can't read them via the "others" bits.
+    "A /sync 2770 syncthing syncthing - u::rwx,g::rwx,o::---"
     "d /var/lib/syncthing 0700 syncthing syncthing -"
   ];
 }
