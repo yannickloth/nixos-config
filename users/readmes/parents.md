@@ -27,9 +27,9 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 
 - btrfs + LUKS full-disk encryption; the shared Steam library lives at
   `/steamlib` (see `games/steam.nix`)
-- Family AI chat (Open WebUI, where enabled) — see `/etc/secrets/README.md`
+- Family AI chat (Open WebUI, on every host) — see `/etc/secrets/README.md`
   and `services/ai-chat/`
-- Secrets (where AI chat is enabled): /etc/secrets (group `secrets`), never in
+- Secrets: /etc/secrets (group `secrets`), never in
   git
 - Family-safe DNS (malware + adult-content filtering) where configured
 - Kernel hardening via sysctls on the (CachyOS) kernel: dmesg/pointer/BPF
@@ -43,7 +43,9 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
   kids' accounts (Admin Settings → Users). No password is stored in the config;
   each account's password is chosen on first login.
 - **Syncthing:** web UI at http://this-host:8384, synced data lives in `/sync`,
-  config in `/var/lib/syncthing` (group `syncthing`).
+  config in `/var/lib/syncthing` (group `syncthing`). Login is the shared
+  account user `nicky` + the password in `/etc/secrets/syncthing-gui-password`
+  (Syncthing has a single GUI account for nicky + aeiuno).
 
 ### Setting up Syncthing on a new host
 
@@ -91,7 +93,8 @@ per host.
    sudo syncthing device-id <PATH>/cert.pem
    ```
 3. **Set the GUI password.** Create `/etc/secrets/syncthing-gui-password`
-   (plaintext, one shared credential for nicky + aeiuno):
+   (plaintext, one shared credential for nicky + aeiuno; the GUI user is
+   `nicky`):
    ```
    sudo sh -c 'umask 077; printf "%s\n" "<a strong shared password>" > /etc/secrets/syncthing-gui-password'
    ```
@@ -178,7 +181,7 @@ make it a flatpak; if it needs groups/GPU/policies, keep it native.**
 - Parental controls via malcontent: login window 06:00–22:00, flatpak
   allowlist, OARS content-rating filter (no sexual / narcotics / gambling)
 - Kid-safe DNS applies machine-wide where configured
-- AI chat (where enabled) is available to them with the auto-seeded kid-safety
+- AI chat is available to them with the auto-seeded kid-safety
   gate (`services/ai-chat/filters/kid-safety.py`)
 - Shared Steam library: read-only (they play, parents manage); `/sync` is
   blocked for them; shared files pass through `/filedrop`

@@ -51,12 +51,26 @@ other laptops as replication / closest-to-backup. Each host only sets
 identity are derived automatically.
 
 - **Data**: `/sync` (group `syncthing` = nicky + aeiuno; kids blocked)
-- **Web UI**: `http://<host>:8384`, shared GUI password in `/etc/secrets/syncthing-gui-password`
+- **Web UI**: `http://<host>:8384`, single shared login — user `nicky`, password
+  in `/etc/secrets/syncthing-gui-password` (Syncthing has one GUI account)
 - **Device identity**: cert/key auto-provisioned into
   `/etc/nixos/secrets/syncthing/<host>/` by the activation script. The device
   **IDs** are committed in `pool.nix`, but the private **cert/key** stay out of
   git — back them up in KeePass and place them at that path on a fresh host to
   keep its device ID stable.
+
+### AI chat
+
+Family AI chat (Open WebUI) runs on every host at `http://localhost:8080`
+(`services/ai-chat.nix`). Providers are OpenAI-compatible; base URLs are kept in
+git, API keys in the gitignored `secrets/open-webui.env` (see
+`secrets-structure/README.md` and `/etc/secrets/README.md`):
+
+| Provider | Base URL |
+| --- | --- |
+| DeepSeek | `https://api.deepseek.com` |
+| Kimi for Coding | `https://api.kimi.com/coding/v1` |
+| Hetzner AI | `https://inference.hetzner.com/api/v1` |
 
 
 ## External resources used for this config

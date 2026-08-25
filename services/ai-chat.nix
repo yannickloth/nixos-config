@@ -1,7 +1,8 @@
 { config, pkgs, ... }:
 
 {
-  # Family AI chat interface (Open WebUI) backed by the DeepSeek API.
+  # Family AI chat interface (Open WebUI) with OpenAI-compatible providers
+  # (DeepSeek, Kimi for Coding, Hetzner AI).
   #
   # Secrets are NOT in this file or git. They live in /etc/secrets/open-webui.env
   # (outside the repo, group-writable by the 'secrets' group so nicky and aeiuno
