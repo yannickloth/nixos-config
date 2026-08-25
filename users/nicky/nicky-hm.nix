@@ -230,7 +230,6 @@ in
     thunderbird
     tinymist # Integrated language service for Typst
     tuner
-    vlc
     whitesur-gtk-theme
     catfish
     zeal # Simple offline API documentation browser.

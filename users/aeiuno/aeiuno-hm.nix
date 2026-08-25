@@ -67,7 +67,6 @@
       tuner
       #vivaldi
       #vivaldi-ffmpeg-codecs
-      vlc
       zotero
     ];
     sessionVariables = {
