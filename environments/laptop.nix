@@ -11,10 +11,15 @@ with lib;
     ];
   config = {
 
-    powerManagement = {
-      enable = mkDefault true; # enable suspend
-      powertop.enable = true; # Whether to enable powertop auto tuning on startup. Analyze power consumption on Intel-based laptops.
-    };
+    powerManagement.enable = mkDefault true; # enable suspend
+    # powertop auto-tune is deliberately NOT enabled: it overrides
+    # power-profiles-daemon's (Plasma's power slider backend) CPU settings and
+    # its USB auto-suspend makes input devices flaky. The `powertop` package
+    # is installed in roles/system.nix for interactive analysis only.
+
+    # thermald prevents overheating on Intel CPUs and complements ppd; shared here
+    # so all laptops get it (was previously duplicated in each host's hardware-configuration.nix).
+    services.thermald.enable = mkDefault true;
 
     # Compressed in-memory swap: gives effectively more usable RAM on machines
     # with soldered, non-upgradeable memory. Disk swap (if any) acts as overflow.

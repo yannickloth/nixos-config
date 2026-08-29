@@ -4,9 +4,8 @@
     # naps2 # Scan documents to PDF and more, as simply as possible. # Comment out because saving to PDF fails as well as OCR with tesseract.
     simple-scan
   ];
-  nixpkgs.config.permittedInsecurePackages = [
-    "dotnet-sdk-6.0.428" # marked as insecure, refusing to evaluate, needed for naps2
-  ];
+  # NOTE: permittedInsecurePackages (e.g. dotnet for naps2) must live in
+  # roles/system.nix only; definitions here would silently override it.
 
   hardware = {
     sane = {

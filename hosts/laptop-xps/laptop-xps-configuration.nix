@@ -31,7 +31,6 @@
     nixfmt
   ];
 
-  nixpkgs.config.permittedInsecurePackages = [
-    "electron-36.9.5"
-  ];
+  # NOTE: permittedInsecurePackages must live in roles/system.nix only;
+  # definitions here would silently override it (see comment there).
 }

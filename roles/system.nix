@@ -49,6 +49,16 @@ in {
   config = {
     # Allow unfree packages
     nixpkgs.config.allowUnfree = true;
+    # openclaw is marked insecure by nixpkgs (LLM-based agent parses untrusted
+    # content with full system access); explicitly accepted by the user.
+    # NOTE: `nixpkgs.config.permittedInsecurePackages` does NOT merge across
+    # modules — the last definition silently wins. Keep ALL entries here;
+    # do not set the option elsewhere (electron: xps, dotnet: naps2/scanning).
+    nixpkgs.config.permittedInsecurePackages = [
+      "openclaw-2026.5.7"
+      "electron-36.9.5"
+      "dotnet-sdk-6.0.428"
+    ];
     home-manager.useGlobalPkgs = true; # with this, HomeManager will use the same pkgs config as nixos, amongst others the same value for config.allowUnfree
 
     environment.systemPackages = with pkgs; [
@@ -59,25 +69,38 @@ in {
       nixpkgs-fmt
 
       ### general purpose command-line tools
+      age # simple, modern file encryption (rage is available in the dev shell)
       binutils
       bottom
       cht-sh # command-line cheat sheet
+      fastfetch # system information summary
       #fcp # Significantly faster alternative to the classic Unix cp(1) command
       fd # finder
       fzy # fuzzy finder
       hex # color hexdump
       inotify-tools # inotify-tools is a C library and a set of command-line programs for Linux providing a simple interface to inotify.
       iw # Wireless interface config tool using nl80211.
+      jq # JSON processor
       # ripgrep-all # ripgrep also file contents
+      restic # fast, secure backup program
       rm-improved
       unzip
+      yq-go # YAML/XML/TOML processor
+      nix-output-monitor # pretty rebuild monitor (`nom build`); also in dev shell
       ###
 
       ### for hardware info
       clinfo
       dmidecode
+      lm_sensors # CPU/temperature sensor readings (`sensors`)
       mesa-demos
+      nvme-cli # NVMe SSD health and management (`nvme smart-log`)
       pciutils
+      powertop # power consumption analysis (`powertop`); auto-tune intentionally not enabled
+      s-tui # terminal UI for CPU temp/frequency/power monitoring
+      smartmontools # disk/SSD health via SMART (`smartctl -a /dev/sda`)
+      stress-ng # system stress testing (paired with s-tui for thermals)
+      usbutils
       vulkan-tools
       wayland-utils
       ###
@@ -99,6 +122,7 @@ in {
       kdePackages.kfind
       mpv
       nixd # Nix language server
+      openclaw # self-hosted AI assistant/agent (https://openclaw.ai)
       nixdoc # Generate documentation for Nix functions
       ocrmypdf
       p7zip # A new p7zip fork with additional codecs and improvements
@@ -218,6 +242,15 @@ in {
         '';
       };
       partition-manager.enable = true; # Whether to enable KDE Partition Manager.
+    };
+
+    services = {
+      # Firmware update daemon (`fwupdmgr refresh && fwupdmgr update`);
+      # KDE Plasma surfaces it in Discover's updates view.
+      fwupd.enable = true;
+      # SMART monitoring daemon: watches disk health and logs/alerts on
+      # degradation. Complements the `smartmontools` package (smartctl).
+      smartd.enable = true;
     };
 
     xdg.portal = {
