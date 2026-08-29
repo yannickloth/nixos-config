@@ -13,6 +13,15 @@
   home.packages = [ pkgs.jdk25 ];
 
   home.activation.setNaturalScroll = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    ${pkgs.jdk25}/bin/java ${./NaturalScroll.java} || true
+    # `java File.java` (JEP 458) only works when the file name ends in .java
+    # AND the base name is a valid Java identifier, but nix store paths are
+    # hash-prefixed and extension-less. Copy to a temp dir under a valid
+    # class-style name, run, clean up.
+    NS_DIR=$(${pkgs.coreutils}/bin/mktemp -d)
+    ${pkgs.coreutils}/bin/cp ${./NaturalScroll.java} "$NS_DIR/NaturalScroll.java"
+    ${pkgs.jdk25}/bin/java "$NS_DIR/NaturalScroll.java"
+    _ns_rc=$?
+    ${pkgs.coreutils}/bin/rm -rf "$NS_DIR"
+    exit $_ns_rc
   '';
 }
