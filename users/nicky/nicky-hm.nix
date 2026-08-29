@@ -324,9 +324,11 @@ EOF
   home.activation.installUnsloth = lib.mkIf isP16 (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     if [ "$(hostname)" = "laptop-p16" ]; then
       # install.sh puts the CLI at ~/.local/bin/unsloth and data under ~/.unsloth.
+      # printf pipes 'n' to the installer's interactive "start now?" prompt
+      # (the service below starts it instead); timeout prevents a hung switch.
       if [ ! -x "$HOME/.local/bin/unsloth" ] && [ ! -d "$HOME/.unsloth" ]; then
         echo "Installing Unsloth Studio..."
-        $DRY_RUN_CMD bash -c 'curl -fsSL https://unsloth.ai/install.sh | sh'
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/timeout 1800 bash -c 'printf "n\n" | ${pkgs.curl}/bin/curl -fsSL https://unsloth.ai/install.sh | sh'
       fi
     fi
   '');
@@ -348,6 +350,11 @@ EOF
       text = ''
         #!/usr/bin/env bash
         if [ "$(hostname)" != "laptop-p16" ]; then
+          exit 0
+        fi
+        # Not installed yet -> exit cleanly instead of crash-looping the service.
+        if [ ! -x "$HOME/.local/bin/unsloth" ]; then
+          echo "unsloth CLI not installed; skipping" >&2
           exit 0
         fi
         exec "$HOME/.local/bin/unsloth" studio -p 8888
