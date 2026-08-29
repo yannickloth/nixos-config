@@ -323,12 +323,18 @@ EOF
   # the wrong machine.
   home.activation.installUnsloth = lib.mkIf isP16 (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     if [ "$(hostname)" = "laptop-p16" ]; then
-      # install.sh puts the CLI at ~/.local/bin/unsloth and data under ~/.unsloth.
-      # printf pipes 'n' to the installer's interactive "start now?" prompt
-      # (the service below starts it instead); timeout prevents a hung switch.
-      if [ ! -x "$HOME/.local/bin/unsloth" ] && [ ! -d "$HOME/.unsloth" ]; then
+      # install.sh puts the CLI at ~/.local/bin/unsloth, the venv under
+      # ~/.unsloth/studio/unsloth_studio and data under ~/.local/share/unsloth.
+      # UNSLOTH_SKIP_AUTOSTART=1 is the installer's documented non-interactive
+      # switch for piped installs (the "Start now?" prompt also only appears on
+      # a tty, so hm activation is non-interactive either way); the service
+      # below starts studio instead. timeout prevents a hung switch.
+      if [ ! -x "$HOME/.local/bin/unsloth" ] || [ ! -x "$HOME/.unsloth/studio/unsloth_studio/bin/unsloth" ]; then
         echo "Installing Unsloth Studio..."
-        $DRY_RUN_CMD ${pkgs.coreutils}/bin/timeout 1800 bash -c 'printf "n\n" | ${pkgs.curl}/bin/curl -fsSL https://unsloth.ai/install.sh | sh'
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/timeout 1800 env \
+          UNSLOTH_SKIP_AUTOSTART=1 NO_COLOR=1 \
+          ${pkgs.curl}/bin/curl -fsSL https://unsloth.ai/install.sh \
+          | ${pkgs.bash}/bin/sh </dev/null
       fi
     fi
   '');
@@ -358,6 +364,23 @@ EOF
           exit 0
         fi
         exec "$HOME/.local/bin/unsloth" studio -p 8888
+      '';
+    };
+    # Update wrapper for the systemd timer. The installer's own update path is
+    # `unsloth studio update` (install.sh runs exactly that), so updates go
+    # through the CLI, not a reinstall. Skips cleanly while not installed.
+    ".local/bin/unsloth-update.sh" = lib.mkIf isP16 {
+      executable = true;
+      text = ''
+        #!/usr/bin/env bash
+        if [ "$(hostname)" != "laptop-p16" ]; then
+          exit 0
+        fi
+        if [ ! -x "$HOME/.local/bin/unsloth" ]; then
+          echo "unsloth CLI not installed; skipping update" >&2
+          exit 0
+        fi
+        exec "$HOME/.local/bin/unsloth" studio update
       '';
     };
   };
@@ -479,6 +502,36 @@ EOF
       };
     };
 
+    # Weekly update of Unsloth Studio. Updates run via `unsloth studio update`
+    # (the same command the official install.sh uses), so new releases are
+    # picked up without reinstalling.
+    unsloth-update = lib.mkIf isP16 {
+      Unit = {
+        Description = "Update Unsloth Studio (unsloth studio update)";
+      };
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${config.home.homeDirectory}/.local/bin/unsloth-update.sh";
+        # Large torch/venv downloads can take a while.
+        TimeoutStartSec = "1h";
+      };
+    };
+  };
+
+  systemd.user.timers = {
+    unsloth-update = lib.mkIf isP16 {
+      Unit = {
+        Description = "Weekly Unsloth Studio update";
+      };
+      Timer = {
+        OnCalendar = "Mon *-*-* 09:00:00";
+        Persistent = true;
+        RandomizedDelaySec = "30min";
+      };
+      Install = {
+        WantedBy = [ "timers.target" ];
+      };
+    };
   };
   xdg.userDirs = {
           createDirectories = false;
@@ -492,5 +545,5 @@ EOF
           publicShare = "/home/nicky/sync/yannick/LaptopSync/Public/";
           templates = "/home/nicky/sync/yannick/LaptopSync/Templates/";
           videos = "/home/nicky/sync/yannick/LaptopSync/Videos/";
-        };
+  };
 }
