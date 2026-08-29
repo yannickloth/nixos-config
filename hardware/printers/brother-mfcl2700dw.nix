@@ -2,7 +2,7 @@
 let
   mfcl2700dw = "Brother MFC L2700DW";
   mfcl2700dw_name = "MFC-L2700DW";
-  mfcl2700dw_ip = "192.168.190.27";
+  mfcl2700dw_ip = "192.168.178.27";
   mfcl2700dw_model = "MFC-L2700DW";
 in
 {
