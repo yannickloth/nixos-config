@@ -51,6 +51,12 @@ let
   secrets = if builtins.pathExists /home/nicky/code/nixos-config/secrets/nicky.nix
             then import /home/nicky/code/nixos-config/secrets/nicky.nix
             else {};
+  # True when this config targets laptop-p16, carried via commonHm.hostName.
+  # That option is set by the standalone flake (users/flake.nix, used on
+  # CachyOS) and by the NixOS host (hosts/laptop-p16/laptop-p16.nix). Note
+  # config.networking.hostName is NOT reachable inside home-manager modules
+  # (they expose their own config namespace), so it cannot be used here.
+  isP16 = config.commonHm.hostName == "laptop-p16";
 in
 {
   imports = [
@@ -307,6 +313,24 @@ Categories=Network;
 EOF
   '';
 
+  # Install Unsloth Studio (browser-based LLM inference web UI + API server)
+  # on laptop-p16 only. Not packaged in nixpkgs, so install imperatively from
+  # the official installer script (same pattern as Tresorit above). The
+  # resulting `unsloth` CLI + Studio UI live under ~/.unsloth.
+  #
+  # Gated at build time by `isP16` (see let). The extra runtime `hostname`
+  # guard is belt-and-suspenders so a mis-targeted build can never install on
+  # the wrong machine.
+  home.activation.installUnsloth = lib.mkIf isP16 (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    if [ "$(hostname)" = "laptop-p16" ]; then
+      # install.sh puts the CLI at ~/.local/bin/unsloth and data under ~/.unsloth.
+      if [ ! -x "$HOME/.local/bin/unsloth" ] && [ ! -d "$HOME/.unsloth" ]; then
+        echo "Installing Unsloth Studio..."
+        $DRY_RUN_CMD bash -c 'curl -fsSL https://unsloth.ai/install.sh | sh'
+      fi
+    fi
+  '');
+
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
   # plain files is through 'home.file'.
   home.file = {
@@ -316,6 +340,17 @@ EOF
       text = ''
         #!/usr/bin/env bash
         ${tresoritFHS}/bin/tresorit-fhs -c "${config.home.homeDirectory}/.local/share/tresorit/tresorit --hidden" > ${config.home.homeDirectory}/.local/share/tresorit/fhs.log 2>&1 &
+      '';
+    };
+    # Unsloth Studio launcher (only defined on laptop-p16 builds; no-op guard).
+    ".local/bin/unsloth-studio-launcher.sh" = lib.mkIf isP16 {
+      executable = true;
+      text = ''
+        #!/usr/bin/env bash
+        if [ "$(hostname)" != "laptop-p16" ]; then
+          exit 0
+        fi
+        exec "$HOME/.local/bin/unsloth" studio -p 8888
       '';
     };
   };
@@ -413,6 +448,25 @@ EOF
         '';
         # CachyOS/Arch uses fusermount3
         ExecStop = "/usr/bin/fusermount3 -u %h/nestor";
+        Restart = "on-failure";
+        RestartSec = "15s";
+      };
+    };
+
+    # Run Unsloth Studio (LLM inference web UI + API) on laptop-p16 only,
+    # gated at build time by isP16. The launcher also no-ops if ever run on a
+    # non-p16 host.
+    unsloth-studio = lib.mkIf isP16 {
+      Unit = {
+        Description = "Unsloth Studio - local LLM inference web UI";
+        After = [ "network-online.target" ];
+      };
+      Install = {
+        WantedBy = [ "default.target" ];
+      };
+      Service = {
+        Type = "simple";
+        ExecStart = "${config.home.homeDirectory}/.local/bin/unsloth-studio-launcher.sh";
         Restart = "on-failure";
         RestartSec = "15s";
       };

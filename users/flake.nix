@@ -15,16 +15,23 @@
       inherit system;
       config.allowUnfree = true;
     };
-    mkHome = user: home-manager.lib.homeManagerConfiguration {
+    # hostName is passed so host-specific bits (e.g. Unsloth on laptop-p16) can
+    # be gated at build time via commonHm.hostName (config.networking.hostName
+    # does not exist in standalone home-manager). See nicky-hm.nix isP16.
+    mkHome = user: hostName: home-manager.lib.homeManagerConfiguration {
       inherit pkgs;
-      modules = [ ./${user}/${user}-hm.nix ];
+      modules = [
+        ./${user}/${user}-hm.nix
+        { commonHm.hostName = hostName; }
+      ];
     };
   in {
     homeConfigurations = {
-      nicky = mkHome "nicky";
-      aeiuno = mkHome "aeiuno";
-      sven = mkHome "sven";
-      aaron = mkHome "aaron";
+      # Default targets. nicky is deployed on laptop-p16 (CachyOS).
+      nicky = mkHome "nicky" "laptop-p16";
+      aeiuno = mkHome "aeiuno" "laptop-p16";
+      sven = mkHome "sven" "laptop-p16";
+      aaron = mkHome "aaron" "laptop-p16";
     };
   };
 }

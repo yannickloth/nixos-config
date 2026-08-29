@@ -23,6 +23,17 @@
     description = "Enable profile-sync-daemon (browser profiles in RAM) on >= 48 GiB hosts.";
   };
 
+  # Host this home-manager config is built for. Used to gate host-specific
+  # config (e.g. Unsloth on laptop-p16). Set by the standalone flake
+  # (users/flake.nix, used on CachyOS) and by the NixOS host
+  # (hosts/laptop-p16/laptop-p16.nix). config.networking.hostName is NOT
+  # reachable inside home-manager modules, so this option is the mechanism.
+  options.commonHm.hostName = lib.mkOption {
+    type = lib.types.str;
+    default = "";
+    description = "Host this home-manager config is built for.";
+  };
+
   config = {
     home.stateVersion = "26.05";
 
