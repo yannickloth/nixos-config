@@ -47,6 +47,9 @@
     "phone-pixel6a" = {
       id = "YJF7LAI-FVVUWAU-Q4BFON6-V2376XX-FBR67Y2-2HM5YHY-JMZRVFB-2G7YEAJ";
     };
+    "tab-rainbow" = {
+      id = "UWJWED2-V63UUL5-CC6LFQZ-I5IY3ON-2UNMOPG-XNWELTQ-PFXBFTA-2UYGPQU";
+    };
     "hassio" = {
       id = "HOYGZXB-5US6BPN-OZ6TLD7-F4FAUT6-XB557PL-U5EY46K-NIR7AFH-PAWWEAZ";
     };
@@ -182,7 +185,7 @@
     };
     "nixos" = {
       id = "yojhk-vh7km";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "tab-rainbow" ];
     };
     "notes" = {
       id = "kjauq-uhiyv";
@@ -194,6 +197,12 @@
     };
     "yannick" = {
       id = "pjpya-zmdwj";
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+    };
+    "YannickLOTH_FinDeContratBEI" = {
+      # Present on laptop-hera (id 4gvmu-movtl); merged into the pool so every
+      # host replicates it.
+      id = "4gvmu-movtl";
       devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
   };
