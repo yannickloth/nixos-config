@@ -76,7 +76,9 @@ in {
       fastfetch # system information summary
       #fcp # Significantly faster alternative to the classic Unix cp(1) command
       fd # finder
+      fzf # fuzzy finder (Ctrl-R history search, Ctrl-T file pick, Alt-C cd)
       fzy # fuzzy finder
+      zoxide # smart `z` cd: jump to frequently-visited directories
       hex # color hexdump
       inotify-tools # inotify-tools is a C library and a set of command-line programs for Linux providing a simple interface to inotify.
       iw # Wireless interface config tool using nl80211.

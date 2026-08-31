@@ -83,7 +83,7 @@ than by change driver.
 | `users/nicky/nicky-hm.nix` | { `D-USER` } (home-manager, wired into NixOS) |
 | `users/nicky/home.nix` | { `D-USER` } (standalone home-manager flake config) |
 | `users/nicky/flake.nix`, `flake.lock` | { `D-USER` } (standalone home-manager flake) |
-| `users/nicky/secrets.nix`, `secrets.example.nix` | { `D-USER` } (per-user secrets) |
+| `secrets/nicky.nix` (root), `secrets-structure/nicky.nix.example` | { `D-USER` } (per-user AI API keys) |
 | `users/nicky/emacs-config.el` | { `D-USER` } (dotfile) |
 | `users/nicky/localai.nix`, `openwebui.nix` | { `D-LLM`, `D-USER` } |
 

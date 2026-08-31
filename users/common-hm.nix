@@ -1,10 +1,13 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
+{ config
+, lib
+, pkgs
+, ...
 }:
 {
+  imports = [
+    ./shell-aliases.nix
+  ];
+
   # Whether to enable the shared developer-tools programs/services
   # (neovim, vscode, direnv, chromium, ssh, starship, etc.).
   # Nicky and aeiuno enable these; sven keeps a minimal environment.
@@ -63,14 +66,26 @@
     programs = lib.mkMerge [
       {
         # Shared by all users
-        bash.enable = true;
+        zsh = {
+          enable = true;
+          enableCompletion = true;
+          autosuggestion.enable = true;
+          syntaxHighlighting.enable = true;
+          historySubstringSearch.enable = true;
+          history = {
+            size = 10000;
+            save = 20000;
+            ignoreAllDups = true;
+            ignoreSpace = true;
+          };
+        };
         command-not-found.enable = true;
       }
       # Shared developer tools (nicky + aeiuno)
       (lib.mkIf config.commonHm.enableDeveloperTools {
         direnv = {
           enable = true;
-          enableBashIntegration = true;
+          enableZshIntegration = true;
           nix-direnv.enable = true;
         };
         chromium = {
@@ -115,7 +130,6 @@
         };
         starship = {
           enable = true;
-          enableBashIntegration = true;
           enableZshIntegration = true;
         };
         vscode = {

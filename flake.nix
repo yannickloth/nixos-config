@@ -14,6 +14,9 @@
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
+    # agenix: age-encrypted secrets managed in git. Encrypted .age files are
+    # committed; private keys stay in the gitignored age-keys/ and on each host.
+    agenix.url = "github:ryantm/agenix";
     # CachyOS kernel: tracks the moving `release` branch (deliberate "latest"
     # choice for all hosts, consistent with system.nixos.versionSuffix = ".latest").
     # For reproducibility, pin to a specific tag/rev here; otherwise `nix flake
@@ -23,7 +26,7 @@
     nix-cachyos-kernel.url = "github:xddxdd/nix-cachyos-kernel/release";
   };
 
-  outputs = inputs@{ self, nixpkgs, home-manager, nixos-hardware, nix-cachyos-kernel, ... }:
+  outputs = inputs@{ self, nixpkgs, home-manager, nixos-hardware, nix-cachyos-kernel, agenix, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -47,6 +50,9 @@
           eza
           direnv
           shellcheck
+          # Secrets management (agenix CLI + age for encrypting/decrypting).
+          agenix.packages.${system}.default
+          age
         ];
       };
 
@@ -63,6 +69,10 @@
             modules = [
               ./hosts/laptop-hera/laptop-hera-configuration.nix
               home-manager.nixosModules.home-manager
+              agenix.nixosModules.default
+              # Inject the agenix home-manager module so home-manager users can
+              # use `age.secrets` (nicky does for API keys).
+              { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
               {
                 home-manager.useGlobalPkgs = true;
                 home-manager.useUserPackages = true;
@@ -83,6 +93,8 @@
             modules = [
               ./hosts/laptop-p16/laptop-p16-configuration.nix
               home-manager.nixosModules.home-manager
+              agenix.nixosModules.default
+              { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
               {
                 home-manager.useGlobalPkgs = true;
                 home-manager.useUserPackages = true;
@@ -100,6 +112,8 @@
             modules = [
               ./hosts/laptop-xps/laptop-xps-configuration.nix
               home-manager.nixosModules.home-manager
+              agenix.nixosModules.default
+              { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
               {
                 home-manager.useGlobalPkgs = true;
                 home-manager.useUserPackages = true;

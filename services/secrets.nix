@@ -1,46 +1,23 @@
-# Secret provisioning from the repo's gitignored `secrets/` folder.
+# Secret provisioning via agenix (age-encrypted secrets, committed to git).
 #
-# `secrets/` (repo root) is the single source of truth for every secret the
-# config expects (see secrets-structure/README.md for the inventory). This
-# module copies them into the conventional runtime paths that services read,
-# so the repo folder is the one place to drop/update secrets.
+# `secrets/` (repo root) holds the encrypted `.age` files; `secrets.nix` lists
+# the recipient SSH keys. agenix decrypts each secret on the target host using
+# that host's SSH host key (`age.identityPaths`), then mounts it at the path the
+# consuming service reads. No plaintext is ever committed or copied at build
+# time — decryption happens at activation on the machine itself.
 #
-# - /etc/secrets/syncthing-gui-password  (Syncthing web UI, group syncthing)
-# - /etc/secrets/open-webui.env          (family AI chat, group secrets)
-# - /etc/nixos/cifs/<mount>.secrets      (per-mount CIFS client credentials)
-#
-# All secrets in `secrets/` are gitignored; only their *expected layout* is
-# tracked under `secrets-structure/`.
+# See secrets-structure/README.md for the full workflow (rekey, backup, new
+# host bring-up).
 
 { config, lib, pkgs, ... }:
 
 with lib;
 
-let
-  # Gitignored repo folder holding the real secret files.
-  secretsDir = "/home/nicky/code/nixos-config/secrets";
-
-  # Every CIFS *client* mount uses its own credentials file. They live in
-  # secrets/cifs/<mount>.secrets and are provisioned to
-  # /etc/nixos/cifs/<mount>.secrets. To add a mount: drop its credentials file
-  # in secrets/cifs/ and reference it from the mount's cifs-<name>.nix module.
-  cifsSecretsDir = secretsDir + "/cifs";
-  # Shell loop copies any secrets/cifs/*.secrets to /etc/nixos/cifs/.
-  cifsProvision = ''
-    install -d -o root -g root -m 0755 /etc/nixos/cifs
-    for f in ${lib.escapeShellArg (cifsSecretsDir + "/*.secrets")}; do
-      [[ -e "$f" ]] || continue
-      name="$(basename "$f")"
-      install -o root -g root -m 0600 "$f" "/etc/nixos/cifs/$name"
-      echo "cifs: provisioned /etc/nixos/cifs/$name"
-    done
-  '';
-in
 {
   config = {
-    # Runtime directories for the services that read these secrets. The `secrets`
-    # group (also defined by services/ai-chat.nix with the same members) is
-    # declared here so /etc/secrets exists on any host.
+    # Runtime directory for secrets shared by services (same group model as the
+    # old provisioning script, kept so existing consumers and the ai-chat module
+    # continue to work unchanged).
     users.groups.secrets = {
       members = [ "nicky" "aeiuno" ];
     };
@@ -50,24 +27,36 @@ in
       "d /etc/secrets 2770 root secrets -"
     ];
 
-    # Copy each secret from `secrets/` into its runtime path, if present.
-    # Idempotent; missing sources are skipped (the file simply isn't provisioned).
-    system.activationScripts.secrets = stringAfter [ "users" ] ''
-      install -d -o root -g root -m 0755 /etc/nixos
-      # The GUI password target group only exists when syncthing is enabled.
-      ${lib.optionalString config.services.syncthing.enable ''
-        ${lib.optionalString (builtins.pathExists (secretsDir + "/syncthing-gui-password")) ''
-          install -o root -g syncthing -m 0640 \
-            ${lib.escapeShellArg (secretsDir + "/syncthing-gui-password")} \
-            /etc/secrets/syncthing-gui-password
-        ''}
-      ''}
-      ${lib.optionalString (builtins.pathExists (secretsDir + "/open-webui.env")) ''
-        install -o root -g secrets -m 0660 \
-          ${lib.escapeShellArg (secretsDir + "/open-webui.env")} \
-          /etc/secrets/open-webui.env
-      ''}
-      ${cifsProvision}
-    '';
+    # agenix secrets. Each decrypts on this host (using its SSH host key) to the
+    # conventional runtime path the consuming service reads.
+    age.secrets = {
+      # Syncthing web-UI password. Only mounted when syncthing is enabled.
+      syncthing-gui-password = mkIf config.services.syncthing.enable {
+        file = ../secrets/syncthing-gui-password.age;
+        path = "/etc/secrets/syncthing-gui-password";
+        mode = "0640";
+        owner = "root";
+        group = "syncthing";
+      };
+
+      # Family AI-chat provider keys (Open WebUI), read via EnvironmentFile.
+      open-webui-env = {
+        file = ../secrets/open-webui.env.age;
+        path = "/etc/secrets/open-webui.env";
+        mode = "0660";
+        owner = "root";
+        group = "secrets";
+      };
+
+      # CIFS client credentials for the nestor mount. NOTE: services/cifs-nestor.nix
+      # is not currently imported by any host; enable this once the mount is wired up.
+      # cifs-nestor = {
+      #   file = ../secrets/cifs/nestor.secrets.age;
+      #   path = "/etc/nixos/cifs/nestor.secrets";
+      #   mode = "0600";
+      #   owner = "root";
+      #   group = "root";
+      # };
+    };
   };
 }

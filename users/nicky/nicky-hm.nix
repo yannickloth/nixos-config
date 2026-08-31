@@ -2,11 +2,10 @@
 # Build/apply via the consolidated flake: home-manager switch --flake ~/code/nixos-config/users
 # (or per-host via the main flake's home-manager.users.nicky).
 #
-{
-  config,
-  pkgs,
-  lib,
-  ...
+{ config
+, pkgs
+, lib
+, ...
 }:
 
 let
@@ -46,17 +45,14 @@ let
       description = "FHS environment for Tresorit";
     };
   };
-  # AI-chat API keys live in the gitignored secrets/ folder (see
-  # secrets-structure/README.md). Fall back to empty when absent.
-  secrets = if builtins.pathExists /home/nicky/code/nixos-config/secrets/nicky.nix
-            then import /home/nicky/code/nixos-config/secrets/nicky.nix
-            else {};
   # True when this config targets laptop-p16, carried via commonHm.hostName.
   # That option is set by the standalone flake (users/flake.nix, used on
   # CachyOS) and by the NixOS host (hosts/laptop-p16/laptop-p16.nix). Note
   # config.networking.hostName is NOT reachable inside home-manager modules
   # (they expose their own config namespace), so it cannot be used here.
   isP16 = config.commonHm.hostName == "laptop-p16";
+  # Runtime path of nicky's agenix-decrypted AI-chat API keys (see age.secrets).
+  nickyApiKeysPath = config.age.secrets."nicky.nix".path;
 in
 {
   imports = [
@@ -261,56 +257,56 @@ in
   ];
 
   home.activation.setupTresorit = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    # Install Tresorit if not already installed
-    if [ ! -f "$HOME/.local/share/tresorit/tresorit" ]; then
-      echo "Installing Tresorit..."
-      $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fL -o /tmp/tresorit_installer.run https://installer.tresorit.com/tresorit_installer.run
-      $DRY_RUN_CMD chmod +x /tmp/tresorit_installer.run
-      $DRY_RUN_CMD /tmp/tresorit_installer.run --target "$HOME/.local/share/tresorit" --noexec
-      $DRY_RUN_CMD rm /tmp/tresorit_installer.run
-    fi
+        # Install Tresorit if not already installed
+        if [ ! -f "$HOME/.local/share/tresorit/tresorit" ]; then
+          echo "Installing Tresorit..."
+          $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fL -o /tmp/tresorit_installer.run https://installer.tresorit.com/tresorit_installer.run
+          $DRY_RUN_CMD chmod +x /tmp/tresorit_installer.run
+          $DRY_RUN_CMD /tmp/tresorit_installer.run --target "$HOME/.local/share/tresorit" --noexec
+          $DRY_RUN_CMD rm /tmp/tresorit_installer.run
+        fi
 
-    # Create desktop file in applications directory
-    DESKTOP_FILE="$HOME/.local/share/applications/tresorit-fhs.desktop"
-    $DRY_RUN_CMD mkdir -p "$(dirname "$DESKTOP_FILE")"
-    if [ -f "$DESKTOP_FILE" ]; then
-      $DRY_RUN_CMD rm -f "$DESKTOP_FILE"
-    fi
-    $DRY_RUN_CMD cat > "$DESKTOP_FILE" <<EOF
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=Tresorit FHS
-Comment=Secure cloud storage
-Exec=${config.home.homeDirectory}/.local/share/tresorit/tresorit_fhs_launcher.sh
-Icon=tresorit
-Terminal=false
-Categories=Network;
-EOF
+        # Create desktop file in applications directory
+        DESKTOP_FILE="$HOME/.local/share/applications/tresorit-fhs.desktop"
+        $DRY_RUN_CMD mkdir -p "$(dirname "$DESKTOP_FILE")"
+        if [ -f "$DESKTOP_FILE" ]; then
+          $DRY_RUN_CMD rm -f "$DESKTOP_FILE"
+        fi
+        $DRY_RUN_CMD cat > "$DESKTOP_FILE" <<EOF
+    [Desktop Entry]
+    Version=1.0
+    Type=Application
+    Name=Tresorit FHS
+    Comment=Secure cloud storage
+    Exec=${config.home.homeDirectory}/.local/share/tresorit/tresorit_fhs_launcher.sh
+    Icon=tresorit
+    Terminal=false
+    Categories=Network;
+    EOF
 
-    # Disable Tresorit's broken autostart config
-    if [ -f "$HOME/.config/autostart/tresorit.desktop" ]; then
-      $DRY_RUN_CMD mv "$HOME/.config/autostart/tresorit.desktop" "$HOME/.config/autostart/tresorit.desktop.bk"
-      $DRY_RUN_CMD sed -i 's/^/# /' "$HOME/.config/autostart/tresorit.desktop.bk"
-    fi
+        # Disable Tresorit's broken autostart config
+        if [ -f "$HOME/.config/autostart/tresorit.desktop" ]; then
+          $DRY_RUN_CMD mv "$HOME/.config/autostart/tresorit.desktop" "$HOME/.config/autostart/tresorit.desktop.bk"
+          $DRY_RUN_CMD sed -i 's/^/# /' "$HOME/.config/autostart/tresorit.desktop.bk"
+        fi
 
-    # Set up autostart for FHS version
-    AUTOSTART_FILE="$HOME/.config/autostart/tresorit-fhs.desktop"
-    $DRY_RUN_CMD mkdir -p "$(dirname "$AUTOSTART_FILE")"
-    if [ -f "$AUTOSTART_FILE" ]; then
-      $DRY_RUN_CMD rm -f "$AUTOSTART_FILE"
-    fi
-    $DRY_RUN_CMD cat > "$AUTOSTART_FILE" <<EOF
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=Tresorit FHS
-Comment=Secure cloud storage
-Exec=${config.home.homeDirectory}/.local/share/tresorit/tresorit_fhs_launcher.sh
-Icon=tresorit
-Terminal=false
-Categories=Network;
-EOF
+        # Set up autostart for FHS version
+        AUTOSTART_FILE="$HOME/.config/autostart/tresorit-fhs.desktop"
+        $DRY_RUN_CMD mkdir -p "$(dirname "$AUTOSTART_FILE")"
+        if [ -f "$AUTOSTART_FILE" ]; then
+          $DRY_RUN_CMD rm -f "$AUTOSTART_FILE"
+        fi
+        $DRY_RUN_CMD cat > "$AUTOSTART_FILE" <<EOF
+    [Desktop Entry]
+    Version=1.0
+    Type=Application
+    Name=Tresorit FHS
+    Comment=Secure cloud storage
+    Exec=${config.home.homeDirectory}/.local/share/tresorit/tresorit_fhs_launcher.sh
+    Icon=tresorit
+    Terminal=false
+    Categories=Network;
+    EOF
   '';
 
   # Install Unsloth Studio (browser-based LLM inference web UI + API server)
@@ -403,24 +399,39 @@ EOF
   #
   home.sessionVariables = {
     MOZ_ENABLE_WAYLAND = 1; # for Firefox in Wayland sessions
-    ZAI_CODING_PLAN_API_KEY = secrets.ZAI_CODING_PLAN_API_KEY or "";
-    DEEPSEEK_API_KEY = secrets.DEEPSEEK_API_KEY or "";
+    # AI-chat API keys (ZAI_CODING_PLAN_API_KEY, DEEPSEEK_API_KEY) are sourced
+    # at shell init from the agenix-decrypted file (see programs.zsh.initExtra).
+    # Pretty man pages via bat: strips the raw formatting and syntax-highlights
+    # the man source. `-l man` tells bat the language, `-p` plain (no header).
+    MANPAGER = "sh -c 'col -bx | bat -l man -p'";
   };
-  home.shellAliases = {
+  home.shellAliases = { };
+
+  # agenix (home-manager module): decrypt nicky's AI-chat API keys at activation
+  # to $XDG_RUNTIME_DIR/agenix/nicky.nix, then sourced by the shell. The private
+  # key is the agenix-specific key at ~/.ssh/agenix_nicky (backed up in
+  # KeePassXC). A missing key fails the build loudly. See secrets-structure/README.md.
+  age = {
+    identityPaths = [ "/home/nicky/.ssh/agenix_nicky" ];
+    secrets."nicky.nix" = {
+      file = ../../secrets/nicky.nix.age;
+      mode = "0400";
+    };
   };
 
   programs = {
-    bash = {
-      enable = true;
+    zsh = {
       initExtra = ''
         # Unset guard to ensure PATH additions are applied even if
         # hm-session-vars.sh was already sourced (e.g., by .profile)
         unset __HM_SESS_VARS_SOURCED
         . "${config.home.profileDirectory}/etc/profile.d/hm-session-vars.sh"
 
-        # Bracketed paste — treat pasted text as single buffer, not executed line-by-line
-        if [[ $TERM_PROGRAM == vscode ]]; then
-          bind 'set enable-bracketed-paste on'
+        # Source agenix-decrypted AI-chat API keys if present (see age.secrets).
+        if [ -f "${nickyApiKeysPath}" ]; then
+          set -a
+          . "${nickyApiKeysPath}"
+          set +a
         fi
       '';
     };
@@ -534,16 +545,16 @@ EOF
     };
   };
   xdg.userDirs = {
-          createDirectories = false;
-          enable = true;
-          setSessionVariables = true; # keep legacy default
-          desktop = "/home/nicky/sync/yannick/LaptopSync/Desktop/";
-          documents = "/home/nicky/sync/yannick/LaptopSync/Documents/";
-          download = "/home/nicky/sync/yannick/LaptopSync/Downloads/";
-          music = "/home/nicky/sync/yannick/LaptopSync/Music/";
-          pictures = "/home/nicky/sync/yannick/LaptopSync/Pictures/";
-          publicShare = "/home/nicky/sync/yannick/LaptopSync/Public/";
-          templates = "/home/nicky/sync/yannick/LaptopSync/Templates/";
-          videos = "/home/nicky/sync/yannick/LaptopSync/Videos/";
+    createDirectories = false;
+    enable = true;
+    setSessionVariables = true; # keep legacy default
+    desktop = "/home/nicky/sync/yannick/LaptopSync/Desktop/";
+    documents = "/home/nicky/sync/yannick/LaptopSync/Documents/";
+    download = "/home/nicky/sync/yannick/LaptopSync/Downloads/";
+    music = "/home/nicky/sync/yannick/LaptopSync/Music/";
+    pictures = "/home/nicky/sync/yannick/LaptopSync/Pictures/";
+    publicShare = "/home/nicky/sync/yannick/LaptopSync/Public/";
+    templates = "/home/nicky/sync/yannick/LaptopSync/Templates/";
+    videos = "/home/nicky/sync/yannick/LaptopSync/Videos/";
   };
 }

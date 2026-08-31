@@ -50,18 +50,25 @@ let
       })
       (filterAttrs (_: f: elem selfName f.devices) pool.folders);
 
-  # Per-host secrets dir for the device cert/key.
+  # Per-host secrets dir for the device cert/key. agenix decrypts the cert/key
+  # here from the git-committed .age files (see age.secrets below).
   secretsDir = "/etc/nixos/secrets/syncthing/${selfName}";
-  # Gitignored staging copy inside the repo, if present (see .gitignore).
-  # Carries a pre-generated identity to a fresh host when the working tree
-  # (including gitignored files) is copied over.
-  stagingDir = "/home/nicky/code/nixos-config/secrets/syncthing/${selfName}";
+  # True when this host has a pre-generated syncthing identity committed as
+  # secrets/syncthing/<self>/cert.pem.age. Hosts without one (e.g. a brand-new
+  # laptop) skip the cert/key agenix secrets and let syncthing generate its own
+  # identity on first boot. Tracked .age files are visible to pure evaluation.
+  hasSyncthingIdentity = builtins.pathExists (../../secrets/syncthing/${selfName}/cert.pem.age);
 in
 {
   options.services.syncthing = {
     self = mkOption {
       type = types.str;
       description = "This host's device name (a key of services/syncthing pool devices).";
+    };
+    guiUser = mkOption {
+      type = types.str;
+      default = "nicky";
+      description = "Username for the Syncthing web UI login. The password is read from guiPasswordFile (the secret).";
     };
   };
 
@@ -76,14 +83,14 @@ in
       openDefaultPorts = true;
       overrideDevices = true; # strict: only the declared set is kept
       overrideFolders = true; # strict: only the declared set is kept
-      cert = "${secretsDir}/cert.pem";
-      key = "${secretsDir}/key.pem";
+      cert = lib.mkIf hasSyncthingIdentity "${secretsDir}/cert.pem";
+      key = lib.mkIf hasSyncthingIdentity "${secretsDir}/key.pem";
       guiPasswordFile = "/etc/secrets/syncthing-gui-password";
       settings.gui = {
         # Single shared GUI account (username + password) for nicky + aeiuno;
         # Syncthing's web UI supports only one login per instance. The password
-        # comes from guiPasswordFile; the username is set here.
-        user = "nicky";
+        # comes from guiPasswordFile; the username is set via the guiUser option.
+        user = cfg.guiUser;
       };
       settings.devices = devices;
       settings.folders = folders;
@@ -113,38 +120,29 @@ in
       "d /var/lib/syncthing 0700 syncthing syncthing -"
     ];
 
-    # --- Automated device identity ---
-    # Ensure the local cert/key exist before syncthing starts. Priority:
-    #   1. An already-present cert in the secrets dir (kept — idempotent; also
-    #      where a pre-generated cert dropped from KeePass is picked up).
-    #   2. A gitignored staging copy in the repo (secrets/syncthing/<self>/),
-    #      so a pre-generated identity rides along when the working tree is
-    #      copied to a new host.
-    #   3. An existing /var/lib/syncthing cert (already-registered hosts keep
-    #      their device ID, e.g. laptop-hera).
-    #   4. Generate a fresh identity (new hosts without a provided cert).
-    # Runs once, as root.
-    system.activationScripts.syncthing-keys = stringAfter [ "users" ] ''
-      mkdir -p ${lib.escapeShellArg secretsDir}
-      chmod 0700 ${lib.escapeShellArg secretsDir}
-      if [[ ! -e ${lib.escapeShellArg secretsDir}/cert.pem || ! -e ${lib.escapeShellArg secretsDir}/key.pem ]]; then
-        if [[ -e ${lib.escapeShellArg stagingDir}/cert.pem && -e ${lib.escapeShellArg stagingDir}/key.pem ]]; then
-          cp -p ${lib.escapeShellArg stagingDir}/cert.pem ${lib.escapeShellArg secretsDir}/cert.pem
-          cp -p ${lib.escapeShellArg stagingDir}/key.pem ${lib.escapeShellArg secretsDir}/key.pem
-          echo "syncthing: using pre-generated device cert/key from staging"
-        elif [[ -e /var/lib/syncthing/cert.pem && -e /var/lib/syncthing/key.pem ]]; then
-          cp -p /var/lib/syncthing/cert.pem ${lib.escapeShellArg secretsDir}/cert.pem
-          cp -p /var/lib/syncthing/key.pem ${lib.escapeShellArg secretsDir}/key.pem
-          echo "syncthing: preserved existing device cert/key from /var/lib/syncthing"
-        else
-          # Generate a fresh identity into secretsDir (cert.pem + key.pem).
-          ${lib.getExe pkgs.syncthing} generate --home=${lib.escapeShellArg secretsDir}
-          echo "syncthing: generated new device cert/key for ${selfName}"
-        fi
-        chown root:root ${lib.escapeShellArg secretsDir}/cert.pem ${lib.escapeShellArg secretsDir}/key.pem
-        chmod 0644 ${lib.escapeShellArg secretsDir}/cert.pem
-        chmod 0600 ${lib.escapeShellArg secretsDir}/key.pem
-      fi
-    '';
+    # --- Device identity via agenix ---
+    # The Syncthing device cert/key for this host are decrypted from the git-
+    # committed .age files at activation time (using this host's SSH host key).
+    # Because the .age files are encrypted to the union of all host/user keys,
+    # a reinstall can decrypt with any restored private key; the device ID is
+    # preserved by restoring this host's key from KeePassXC. See
+    # secrets-structure/README.md for the reinstall workflow.
+    #
+    # Only declared when a pre-generated identity exists for this host; otherwise
+    # syncthing generates its own on first boot (see hasSyncthingIdentity).
+    age.secrets.syncthing-cert = lib.mkIf hasSyncthingIdentity {
+      file = ../../secrets/syncthing/${selfName}/cert.pem.age;
+      path = "${secretsDir}/cert.pem";
+      mode = "0644";
+      owner = "root";
+      group = "root";
+    };
+    age.secrets.syncthing-key = lib.mkIf hasSyncthingIdentity {
+      file = ../../secrets/syncthing/${selfName}/key.pem.age;
+      path = "${secretsDir}/key.pem";
+      mode = "0600";
+      owner = "root";
+      group = "root";
+    };
   };
 }

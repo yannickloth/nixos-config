@@ -23,15 +23,18 @@ Et voilà!
 
 ## Secrets
 
-Currently, no specific tool is used to manage secrets. They are either hashed in the `.nix` files, or not included in this repo.
+Secrets are managed with **agenix** (age-encrypted files committed to git).
+Encrypted `.age` files live in `secrets/`; the recipient SSH public keys are
+listed in `secrets.nix`. Private keys stay on each machine (backed up in
+KeePassXC). See `secrets-structure/README.md` for the full workflow (key
+inventory, editing, new-host bring-up, rekey, backup).
 
 ### CIFS
 
 CIFS **client** mounts each use their own credentials file under `secrets/cifs/`
-(see `secrets-structure/README.md`). For the nestor mount, place
-`username=…`/`password=…` in `secrets/cifs/nestor.secrets` (gitignored);
-`services/secrets.nix` provisions it to `/etc/nixos/cifs/nestor.secrets`,
-which `services/cifs-nestor.nix` reads:
+(see `secrets-structure/README.md`). For the nestor mount, provision the
+credentials as an agenix secret that decrypts to `/etc/nixos/cifs/nestor.secrets`
+(read by `services/cifs-nestor.nix`):
 
 ```ini
 username=xxx
@@ -51,20 +54,21 @@ other laptops as replication / closest-to-backup. Each host only sets
 identity are derived automatically.
 
 - **Data**: `/sync` (group `syncthing` = nicky + aeiuno; kids blocked)
-- **Web UI**: `http://<host>:8384`, single shared login — user `nicky`, password
-  in `/etc/secrets/syncthing-gui-password` (Syncthing has one GUI account)
-- **Device identity**: cert/key auto-provisioned into
-  `/etc/nixos/secrets/syncthing/<host>/` by the activation script. The device
-  **IDs** are committed in `pool.nix`, but the private **cert/key** stay out of
-  git — back them up in KeePass and place them at that path on a fresh host to
-  keep its device ID stable.
+- **Web UI**: `http://<host>:8384`, single shared login — username set via the
+  `services.syncthing.guiUser` option (default `nicky`), password decrypted from
+  `secrets/syncthing-gui-password.age` to `/etc/secrets/syncthing-gui-password`
+- **Device identity**: cert/key decrypted from
+  `secrets/syncthing/<host>/*.age` to `/etc/nixos/secrets/syncthing/<host>/` by
+  agenix. Device **IDs** are committed in `pool.nix`; the private **cert/key**
+  are committed only as encrypted `.age` files. Back the host's SSH key up in
+  KeePassXC so a fresh host keeps its device ID stable.
 
 ### AI chat
 
 Family AI chat (Open WebUI) runs on every host at `http://localhost:8080`
 (`services/ai-chat.nix`). Providers are OpenAI-compatible; base URLs are kept in
-git, API keys in the gitignored `secrets/open-webui.env` (see
-`secrets-structure/README.md` and `/etc/secrets/README.md`):
+git, API keys decrypted from `secrets/open-webui.env.age` to
+`/etc/secrets/open-webui.env` (see `secrets-structure/README.md`):
 
 | Provider | Base URL |
 | --- | --- |

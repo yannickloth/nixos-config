@@ -4,7 +4,11 @@ result
 result-*
 .agentmem/
 
-# All secrets live in the gitignored secrets/ folder (see
-# secrets-structure/README.md). Keep them out of git — never commit the real
-# values. Irreversible user password hashes in users/*.nix stay committed.
-secrets/**
+# Private SSH keys used as agenix recipients. These must be backed up in
+# KeePassXC and distributed to each host/user. NEVER commit these (see
+# secrets-structure/README.md).
+ssh-keys/**
+# Backup archive of the private keys (same secret content).
+ssh-keys-backup-*.tar.gz
+# Imported syncthing config dumps from physical hosts (plaintext cert/key).
+laptop-*-dotconfig-syncthing/

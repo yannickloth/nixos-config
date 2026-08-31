@@ -14,6 +14,7 @@ in
       # TODO: replace with a real password hash (openssl passwd -6 '<password>').
       hashedPassword = "$6$AkAhumLiySn.FYR8$SWTfZTUbwSKXvTFC.b2S/2Ss1zzYvfJCr9YoKT.oE3QoXCvX6IG8pZRdrB.UvV2cQ6UxFAm4mjz0WlorwVug30";
       description = userDescription;
+      shell = pkgs.zsh;
       extraGroups = [
         "users"
       ]

@@ -71,28 +71,38 @@ with lib;
       ../../roles/psd.nix
 
       # commonHm.hostName: see hosts/laptop-p16/laptop-p16.nix.
-      { home-manager.users.aeiuno = {
+      {
+        home-manager.users.aeiuno = {
           imports = [ ../../users/aeiuno/aeiuno-hm.nix ];
           commonHm.hostName = "laptop-hera";
-        }; }
-      { home-manager.users.nicky = {
+        };
+      }
+      {
+        home-manager.users.nicky = {
           imports = [ ../../users/nicky/nicky-hm.nix ];
           commonHm.hostName = "laptop-hera";
-        }; }
-      { home-manager.users.sven = {
+        };
+      }
+      {
+        home-manager.users.sven = {
           imports = [ ../../users/sven/sven-hm.nix ];
           commonHm.hostName = "laptop-hera";
-        }; }
-      { home-manager.users.aaron = {
+        };
+      }
+      {
+        home-manager.users.aaron = {
           imports = [ ../../users/aaron/aaron-hm.nix ];
           commonHm.hostName = "laptop-hera";
-        }; }
+        };
+      }
     ];
   # In this file comes everything that is specific to this host.
   networking.hostName = "laptop-hera"; # Define your hostname.
 
   # Syncthing device name for this host (see services/syncthing/pool.nix).
   services.syncthing.self = "laptop-hera";
+  # Syncthing web-UI login username (the password comes from the agenix secret).
+  services.syncthing.guiUser = "syncthing";
 
   # 64 GiB RAM -> run browser profiles in RAM.
   roles.psd.enable = true;
