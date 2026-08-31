@@ -23,9 +23,9 @@
     };
     "laptop-xps" = {
       # Pre-generated so the device ID is stable and known ahead of install.
-      # The matching cert/key live in secrets/syncthing/laptop-xps/ (gitignored);
-      # they are copied to /etc/nixos/secrets by the activation script.
-      id = "MMPI6MM-BLZL6TA-QLI4BWG-33G77VU-RLAH2YQ-UEJV3EB-MENPSIZ-L3UCJQI";
+      # The matching cert/key live in secrets/syncthing/laptop-xps/*.age
+      # (committed encrypted); agenix decrypts them to /etc/nixos/secrets.
+      id = "XP3R6H3-GYSNFUS-33JMWTS-IHEROHL-WIQ37O3-72XXKP3-HIPUHED-NIYK4QZ";
     };
     "nestor" = {
       id = "X2BF7X6-AR33BUE-32MXKRW-VTRRVJM-53DNXSQ-AN26QLX-DOMXCFS-DYJU4Q3";
