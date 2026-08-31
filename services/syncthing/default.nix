@@ -120,6 +120,17 @@ in
       "d /var/lib/syncthing 0700 syncthing syncthing -"
     ];
 
+    # Files synced in from other hosts arrive with their original permissions
+    # (often owner-only), so the default ACL above is not enough — the parent
+    # users must be able to read/write everything. On activation, recursively
+    # add a group rwx ACL to all existing content under /sync so nicky/aeiuno
+    # (members of the syncthing group) can access everything. Idempotent.
+    system.activationScripts.syncthing-acl = stringAfter [ "users" "groups" ] ''
+      if [ -d /sync ]; then
+        ${pkgs.acl}/bin/setfacl -R -m g::rwx /sync 2>/dev/null || true
+      fi
+    '';
+
     # --- Device identity via agenix ---
     # The Syncthing device cert/key for this host are decrypted from the git-
     # committed .age files at activation time (using this host's SSH host key).
