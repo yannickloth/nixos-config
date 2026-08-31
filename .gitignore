@@ -12,3 +12,4 @@ ssh-keys/**
 ssh-keys-backup-*.tar.gz
 # Imported syncthing config dumps from physical hosts (plaintext cert/key).
 laptop-*-dotconfig-syncthing/
+laptop-*-dotconfig-syncthing.zip
