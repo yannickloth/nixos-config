@@ -27,6 +27,11 @@
       # (committed encrypted); agenix decrypts them to /etc/nixos/secrets.
       id = "XP3R6H3-GYSNFUS-33JMWTS-IHEROHL-WIQ37O3-72XXKP3-HIPUHED-NIYK4QZ";
     };
+    "laptop-travelmate" = {
+      # Pre-generated so the device ID is stable and known ahead of install.
+      # The matching cert/key live in secrets/syncthing/laptop-travelmate/*.age.
+      id = "76JTNVQ-YTC4Q7I-OKPUBFE-Q3GN6H6-YTXEI5E-SFL62L5-FB6YCCN-RRPWVQU";
+    };
     "nestor" = {
       id = "X2BF7X6-AR33BUE-32MXKRW-VTRRVJM-53DNXSQ-AN26QLX-DOMXCFS-DYJU4Q3";
     };
@@ -57,139 +62,139 @@
   folders = {
     "00-09 - Management and Meta" = {
       id = "k7t9g-2y5as";
-      devices = [ "hassio" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" ];
+      devices = [ "hassio" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "10-19 - Personnes et Animaux" = {
       id = "pz9yw-7sppl";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "20-29 - Secrets" = {
       id = "jhrug-pluzk";
-      devices = [ "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" ];
+      devices = [ "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "30-39 - Formation développement loisirs" = {
       id = "wrgy5-cfk7s";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "40-49 - Backups" = {
       id = "darda-brujx";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "50-59 - Finance et Assurance" = {
       id = "t6swq-u9tu6";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "70-79 - Administration et Etat" = {
       id = "szjwp-hkq4t";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "80-89 - Actifs" = {
       id = "tkqxb-9fp6t";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "90-99 - Public stuff" = {
       id = "dxjen-ryhzq";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Android Camera" = {
       id = "pixel_8a_ruqh-photos";
-      devices = [ "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" ];
+      devices = [ "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Calibre Library" = {
       id = "uefut-5awdq";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Camera Pixel3a" = {
       id = "apn3p-rscuc";
-      devices = [ "phone-pixel3a" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "phone-pixel3a" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Camera Pixel6a" = {
       id = "pixel_6a_71kh-photos";
-      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Camera Uploads Christine" = {
       id = "fsfij-7rnlh";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Camera Uploads Christine oneplusnord" = {
       id = "ac2003_b8vg-photos";
-      devices = [ "phone-OnePlusNord" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "phone-OnePlusNord" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Camera phone-pixel3a" = {
       id = "pixel_3a_4s5y-photos";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Dictaphone" = {
       id = "602jh-lb39h";
-      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "FileDrop" = {
       id = "hgetx-7cc6x";
-      devices = [ "phone-pixel3a" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" ];
+      devices = [ "phone-pixel3a" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "FileDropRandstadDigital" = {
       id = "nffhs-npqjb";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Photos" = {
       id = "nu5c3-ryptx";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Pixel6a Videos" = {
       id = "tn1rb-v20lm";
-      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Scans" = {
       id = "vxuuw-zcf7m";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Zotero" = {
       id = "ddg7b-dtlhb";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "christine" = {
       id = "4wsaa-aspyf";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "christine-dot-mozilla" = {
       id = "k26ga-rhpeq";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "code" = {
       id = "b7vv2-aomur";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "code_rd" = {
       id = "lou4f-crany";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "encrypted_password" = {
       id = "vx54o-nc963";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "hassioconfig" = {
       id = "aabts-zpssr";
-      devices = [ "hassio" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "hassio" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "music" = {
       id = "xkfuh-ep2th";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "nixos" = {
       id = "yojhk-vh7km";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "notes" = {
       id = "kjauq-uhiyv";
-      devices = [ "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" ];
+      devices = [ "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "software" = {
       id = "haoqu-jdh4f";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "yannick" = {
       id = "pjpya-zmdwj";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
   };
 }
