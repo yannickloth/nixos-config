@@ -200,19 +200,25 @@ in
     gimp
     gnome-disk-utility
     gnome-software
+    gparted
     hunspellDicts.fr-any
     hunspellDicts.en_US-large
     hunspellDicts.en_GB-large
     hunspellDicts.de_DE
     inkscape-with-extensions
     jetbrains-toolbox
+    kdePackages.dolphin
     kdePackages.elisa
     kdePackages.filelight
+    kdePackages.gwenview
+    kdePackages.kalk
     kdePackages.kate
+    kdePackages.okular
     keepassxc
     kid3-qt # A simple and powerful audio tag editor
     kodi
     krita
+    libreoffice
     lua
     lutris
     mastodon
@@ -544,6 +550,8 @@ in
       };
     };
   };
+  xdg.configFile."user-dirs.dirs".force = true;
+
   xdg.userDirs = {
     createDirectories = false;
     enable = true;

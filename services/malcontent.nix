@@ -43,6 +43,8 @@ let
     "org.libreoffice.LibreOffice"
     "org.mozilla.firefox"
     "org.gnome.SystemMonitor"
+    "md.obsidian.Obsidian"
+    "org.stellarium.Stellarium"
   ];
 
   # OARS content-ratings filter: allow up to 'moderate' for most sections
@@ -139,19 +141,25 @@ in
           # Lock the screen after idle (10 min on AC, 5 min on battery) so a kid
           # can't wander off with an unlocked session.
           home.file = {
-            ".config/kscreenlockerrc".text = ''
-              [Daemon]
-              Autolock=true
-              LockOnResume=false
-            '';
-            ".config/powermanagementprofilesrc".text = ''
-              [AC][DPMSControl]
-              idleTime=600
-              lockBeforeTurnOff=10
-              [Battery][DPMSControl]
-              idleTime=300
-              lockBeforeTurnOff=10
-            '';
+            ".config/kscreenlockerrc" = {
+              force = true;
+              text = ''
+                [Daemon]
+                Autolock=true
+                LockOnResume=false
+              '';
+            };
+            ".config/powermanagementprofilesrc" = {
+              force = true;
+              text = ''
+                [AC][DPMSControl]
+                idleTime=600
+                lockBeforeTurnOff=10
+                [Battery][DPMSControl]
+                idleTime=300
+                lockBeforeTurnOff=10
+              '';
+            };
           };
           systemd.user.services.session-limit-reminder = {
             Unit.Description = "Warn before the daily session lock";

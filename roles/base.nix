@@ -119,12 +119,15 @@ with lib;
         "app/org.gimp.GIMP/x86_64/stable"
         "app/org.libreoffice.LibreOffice/x86_64/stable"
         "app/org.videolan.VLC/x86_64/stable"
+        "app/md.obsidian.Obsidian/x86_64/stable"
+        "app/org.stellarium.Stellarium/x86_64/stable"
       ];
       overrides = {
         "org.kde.krita" = [ "--filesystem=/filedrop" ];
         "org.gimp.GIMP" = [ "--filesystem=/filedrop" ];
         "org.libreoffice.LibreOffice" = [ "--filesystem=/filedrop" ];
         "org.videolan.VLC" = [ "--filesystem=/filedrop" ];
+        "md.obsidian.Obsidian" = [ "--filesystem=/filedrop" ];
       };
     };
 

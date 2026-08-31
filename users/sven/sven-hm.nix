@@ -32,6 +32,10 @@
     };
   };
 
+  # home-manager's fontconfig (defaults to NixOS fonts.fontconfig.enable) writes
+  # this; force overwrite of a pre-existing unmanaged file.
+  xdg.configFile."fontconfig/conf.d/10-hm-fonts.conf".force = true;
+
   programs = {
     firefox = {
       enable = true;

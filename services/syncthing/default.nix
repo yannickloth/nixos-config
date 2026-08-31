@@ -131,6 +131,29 @@ in
       fi
     '';
 
+    # Create /sync at activation time, not only via tmpfiles at boot, so that
+    # ~/sync symlinks are correct from the very first `nixos-rebuild switch`
+    # (tmpfiles only runs at boot, which is after the switch). This runs before
+    # the home-manager-<user> boot services, which is what users/common-hm.nix
+    # linkSyncDir relies on. tmpfiles still enforces ownership/ACLs at boot.
+    system.activationScripts.syncthing-data-dir = {
+      deps = [ "groups" "users" ];
+      text = ''
+        mkdir -p /sync
+        chmod 2770 /sync
+        chown syncthing:syncthing /sync
+        # Link each syncthing group member's ~/sync right after /sync exists.
+        # Mirrors users/common-hm.nix linkSyncDir (needed for standalone
+        # home-manager, e.g. CachyOS laptop-p16).
+        ${concatMapStringsSep "\n" (user: ''
+          home='${escapeShellArg config.users.users.${user}.home}'
+          if [ -d "$home" ]; then
+            ln -sfn /sync "$home/sync"
+          fi
+        '') (config.users.groups.syncthing.members or [ ])}
+      '';
+    };
+
     # --- Device identity via agenix ---
     # The Syncthing device cert/key for this host are decrypted from the git-
     # committed .age files at activation time (using this host's SSH host key).

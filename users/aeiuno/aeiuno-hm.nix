@@ -34,6 +34,7 @@
       fsearch
       gimp
       gnome-software
+      gparted
       hunspellDicts.fr-any
       hunspellDicts.en_US-large
       hunspellDicts.en_GB-large
@@ -42,7 +43,13 @@
       jetbrains-toolbox # JetBrains IDEs (IntelliJ, PyCharm, ...) via Toolbox
       #jellyfin-media-player
       #joplin-desktop
+      kdePackages.dolphin
+      kdePackages.elisa
+      kdePackages.filelight
+      kdePackages.gwenview
+      kdePackages.kalk
       kdePackages.kate
+      kdePackages.okular
       keepassxc
       # keybase-gui
       # kgraphviewer
@@ -50,8 +57,7 @@
       kid3-qt # A simple and powerful audio tag editor
       kodi
       krita
-      kdePackages.elisa
-      kdePackages.filelight
+      libreoffice
       #microsoft-edge
       lutris
       mousai # Identify any songs in seconds
@@ -124,6 +130,8 @@
   };
 
   # Keybase not enabled: kbfs.enable and keybase.enable are intentionally left off.
+
+  xdg.configFile."user-dirs.dirs".force = true;
 
   xdg.userDirs = {
     createDirectories = false;
