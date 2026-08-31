@@ -85,11 +85,11 @@
   };
 
   # zsh helper *functions* and settings can't be plain aliases (they take
-  # arguments / are env vars), so they go in programs.zsh.initExtra, appended
-  # to ~/.zshrc. Merges fine with each user's own initExtra (home-manager
+  # arguments / are env vars), so they go in programs.zsh.initContent, appended
+  # to ~/.zshrc. Merges fine with each user's own initContent (home-manager
   # concatenates `lines`). History tuning is handled by the `programs.zsh.history`
   # options in common-hm.nix, not here.
-  programs.zsh.initExtra = ''
+  programs.zsh.initContent = ''
     # --- Fuzzy finder + smart cd (fzf/zoxide, installed in roles/system.nix) --
     # fzf: Ctrl-R searches history, Ctrl-T picks files, Alt-C cd's into a dir.
     # zoxide: `z <dir>` jumps to a directory you visit often; `zi` = interactive.

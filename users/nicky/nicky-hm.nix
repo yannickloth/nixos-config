@@ -400,7 +400,7 @@ in
   home.sessionVariables = {
     MOZ_ENABLE_WAYLAND = 1; # for Firefox in Wayland sessions
     # AI-chat API keys (ZAI_CODING_PLAN_API_KEY, DEEPSEEK_API_KEY) are sourced
-    # at shell init from the agenix-decrypted file (see programs.zsh.initExtra).
+    # at shell init from the agenix-decrypted file (see programs.zsh.initContent).
     # Pretty man pages via bat: strips the raw formatting and syntax-highlights
     # the man source. `-l man` tells bat the language, `-p` plain (no header).
     MANPAGER = "sh -c 'col -bx | bat -l man -p'";
@@ -421,7 +421,7 @@ in
 
   programs = {
     zsh = {
-      initExtra = ''
+      initContent = ''
         # Unset guard to ensure PATH additions are applied even if
         # hm-session-vars.sh was already sourced (e.g., by .profile)
         unset __HM_SESS_VARS_SOURCED

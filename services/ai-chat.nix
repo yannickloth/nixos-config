@@ -19,8 +19,9 @@
 
   systemd.tmpfiles.rules = [
     # setgid + group rw so nicky/aeiuno can edit secrets without root.
+    # The env file itself is decrypted by agenix (see services/secrets.nix);
+    # only the shared secrets dir is created here.
     "d /etc/secrets 2770 root secrets -"
-    "f /etc/secrets/open-webui.env 0660 root secrets -"
   ];
 
   # Versioned instructions for the secrets dir (symlinked into /etc/secrets).

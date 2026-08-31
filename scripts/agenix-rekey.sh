@@ -43,12 +43,19 @@ fi
 echo "Recipients ($(hostname)):"
 printf '  %s\n' "${recipients[@]}"
 
-# Regenerate the `all` union in secrets.nix from the discovered keys.
-# The file is structured as: `all = [ ... ];` inside the let block.
-awk -v new="$(printf '    %s\n' "${recipients[@]}")" '
-  /^  all = \[/ { print "  all = ["; print new; print "  ];"; inall=1; next }
-  inall && /^\];/ { inall=0; next }   # skip original closing
-  inall { next }                       # skip old entries
+# Build the new `all` list literal (4-space indented entries).
+all_list=""
+for r in "${recipients[@]}"; do
+  all_list+="    $r"$'\n'
+done
+
+# Regenerate secrets.nix: keep the header comment, rewrite the `all` block.
+# The recipients section (host-*/user-* = "...") is kept verbatim; only the
+# `all = [ ... ];` union is rebuilt from the discovered keys.
+awk -v alllist="$all_list" '
+  /^  all = \[/ { print "  all = ["; printf "%s", alllist; print "  ];"; inall=1; next }
+  inall && /^[[:space:]]*\]/  { inall=0; next }
+  inall { next }
   { print }
 ' "$SECRETS_NIX" > "$SECRETS_NIX.tmp" && mv "$SECRETS_NIX.tmp" "$SECRETS_NIX"
 
