@@ -86,6 +86,7 @@ in {
       # ripgrep-all # ripgrep also file contents
       restic # fast, secure backup program
       rm-improved
+      trash-cli # move files to the freedesktop trash (same trash as Dolphin/KDE)
       unzip
       yq-go # YAML/XML/TOML processor
       nix-output-monitor # pretty rebuild monitor (`nom build`); also in dev shell
