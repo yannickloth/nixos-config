@@ -53,18 +53,16 @@ in
           # parameter to 'yes' if you want to be able to write to them.
           writable = "yes";
         };
-        shares = {
-          filedrop = {
-            path = "/filedrop";
-            browseable = "yes";
-            "read only" = "no";
-            "guest ok" = "no";
-            "valid users" = "nicky aeiuno sven aaron";
-            # Keep files group-owned by filedrop (setgid on /filedrop), world hidden.
-            "create mask" = "0660";
-            "directory mask" = "2770";
-            "force group" = "filedrop";
-          };
+        filedrop = {
+          path = "/filedrop";
+          browseable = "yes";
+          "read only" = "no";
+          "guest ok" = "no";
+          "valid users" = "nicky aeiuno sven aaron";
+          # Keep files group-owned by filedrop (setgid on /filedrop), world hidden.
+          "create mask" = "0660";
+          "directory mask" = "2770";
+          "force group" = "filedrop";
         };
         #shares = {
         #       public = {
