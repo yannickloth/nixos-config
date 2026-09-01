@@ -89,13 +89,17 @@ with lib;
     # services/ai-chat/SeedGates.java).
     environment.systemPackages = [ pkgs.python3 ];
 
-    # Flatpak apps installed system-wide that malcontent's allowlist gates for
-    # the kids (malcontent only filters flatpak apps). Kept in sync with the
-    # allowlist in services/malcontent.nix. Browsers stay in Nix: Firefox needs
-    # its declarative kid policies (users/kid-firefox-policies.nix). The kids'
+    # Flatpak apps installed per-user that malcontent's allowlist gates for the
+    # kids (malcontent only filters flatpak apps; it filters per-user apps by
+    # app id just like system ones). Kept in sync with the allowlist in
+    # services/malcontent.nix. Browsers stay in Nix: Firefox needs its
+    # declarative kid policies (users/kid-firefox-policies.nix). The kids'
     # office/creative/media/mail apps (libreoffice, gimp, krita, VLC, Geary)
     # come from flatpak so malcontent can gate them without a Nix rebuild.
     # Overrides grant access to the shared family drop folder (/filedrop).
+    # adultApps is the same list minus the apps nicky/aeiuno already have from
+    # Nixpkgs (gimp, krita, libreoffice, vlc, obsidian, dolphin, gwenview,
+    # kalk, okular), so the adults never end up with two copies of an app.
     apps.flatpak = {
       enable = mkDefault true;
       apps = [
@@ -120,6 +124,21 @@ with lib;
         "app/org.libreoffice.LibreOffice/x86_64/stable"
         "app/org.videolan.VLC/x86_64/stable"
         "app/md.obsidian.Obsidian/x86_64/stable"
+        "app/org.stellarium.Stellarium/x86_64/stable"
+      ];
+      adultApps = [
+        "app/org.gnome.Books/x86_64/stable"
+        "app/org.gnome.Calculator/x86_64/stable"
+        "app/org.gnome.Cheese/x86_64/stable"
+        "app/org.gnome.Clocks/x86_64/stable"
+        "app/org.gnome.Epiphany/x86_64/stable"
+        "app/org.gnome.Geary/x86_64/stable"
+        "app/org.gnome.Logs/x86_64/stable"
+        "app/org.gnome.Maps/x86_64/stable"
+        "app/org.gnome.Music/x86_64/stable"
+        "app/org.gnome.Notes/x86_64/stable"
+        "app/org.gnome.SystemMonitor/x86_64/stable"
+        "app/org.gnome.Totem/x86_64/stable"
         "app/org.stellarium.Stellarium/x86_64/stable"
       ];
       overrides = {

@@ -22,6 +22,13 @@
     ${pkgs.jdk25}/bin/java "$NS_DIR/NaturalScroll.java"
     _ns_rc=$?
     ${pkgs.coreutils}/bin/rm -rf "$NS_DIR"
-    exit $_ns_rc
+    # Only fail the activation when Java actually fails. `exit $_ns_rc`
+    # unconditionally terminates the whole hm activate script (even on
+    # success), silently skipping every later activation entry such as
+    # setupOpenCodeKeys/setupTresorit.
+    if [ "$_ns_rc" -ne 0 ]; then
+      echo "setNaturalScroll: NaturalScroll.java failed (exit $_ns_rc)" >&2
+      exit 1
+    fi
   '';
 }
