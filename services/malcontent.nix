@@ -105,6 +105,10 @@ in
     system.activationScripts.malcontent-kids = mkIf (config.users.users ? sven || config.users.users ? aaron) {
       text =
         let
+          # Java's single-file launcher derives the class name from the file
+          # basename, but the nix store path is <hash>-MalcontentMerge.java (a
+          # leading digit is not a valid class name). Copy to a clean name first.
+          javaSrc = "${pkgs.coreutils}/bin/install -D -m 0644 ${./MalcontentMerge.java} /tmp/MalcontentMerge.java";
           mkUser = user: ''
             install -d -m 0700 -o root -g root /var/lib/AccountsService/users
             cat > /var/lib/AccountsService/users/.${user}-malcontent <<'EOF'
@@ -114,14 +118,18 @@ in
             ${sessionLimitsSection}
             ${appFilterSection}
             EOF
-            ${pkgs.jdk25}/bin/java ${./MalcontentMerge.java} /var/lib/AccountsService/users/.${user}-malcontent /var/lib/AccountsService/users/${user}
+            ${pkgs.jdk25}/bin/java /tmp/MalcontentMerge.java /var/lib/AccountsService/users/.${user}-malcontent /var/lib/AccountsService/users/${user}
             rm -f /var/lib/AccountsService/users/.${user}-malcontent
             chmod 0600 /var/lib/AccountsService/users/${user}
             chown root:root /var/lib/AccountsService/users/${user}
           '';
           users = [ ] ++ (if config.users.users ? sven then [ "sven" ] else [ ]) ++ (if config.users.users ? aaron then [ "aaron" ] else [ ]);
         in
-        lib.concatStringsSep "\n" (map mkUser users);
+        ''
+          ${javaSrc}
+          ${lib.concatStringsSep "\n" (map mkUser users)}
+          ${pkgs.coreutils}/bin/rm -f /tmp/MalcontentMerge.java
+        '';
     };
 
     # Enforce session time limits at login for sven/aaron via pam_malcontent.
