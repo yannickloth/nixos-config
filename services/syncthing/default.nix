@@ -2,7 +2,9 @@
 #
 # One daemon runs for all users (system user `syncthing`); nicky and aeiuno get
 # access to the data via the `syncthing` group and to the web UI via a shared
-# GUI password. Kids have no access to /sync.
+# GUI password. Kids have no access to the family data: sven/aaron only get
+# named-user ACLs on /sync/sven and /sync/aaron respectively (plus traverse
+# access on the /sync root), so they can reach their own folder and nothing else.
 #
 # The folder/device set is the single source of truth in `./pool.nix`: every
 # host syncs all 34 folders to nestor and the other laptops (replication /
@@ -102,9 +104,11 @@ in
     };
 
     # --- Access control ---
-    # Parents reach /sync via the syncthing group; kids are excluded (2770 +
-    # ACL: group rwx, no "others"). The web UI needs the shared GUI password,
-    # which is provisioned by services/secrets.nix from secrets/.
+    # Parents reach /sync via the syncthing group; kids are not in that group.
+    # sven/aaron reach /sync only to traverse into their own folder
+    # (/sync/sven, /sync/aaron), where a named ACL grants them rw. The web UI
+    # needs the shared GUI password, which is provisioned by services/secrets.nix
+    # from secrets/.
     users.groups.syncthing.members = [ "nicky" "aeiuno" ];
 
     networking.firewall.allowedTCPPorts = [
@@ -115,8 +119,15 @@ in
       # 2770 (no "others"): only the syncthing group (parents) can reach /sync.
       "d /sync 2770 syncthing syncthing -"
       # Default ACL: new synced files inherit group rwx and are never
-      # world-readable.
-      "A /sync 2770 syncthing syncthing - u::rwx,g::rwx,o::---"
+      # world-readable. sven/aaron get traverse-only (--x) so they can reach
+      # their own folder below without listing the rest of /sync.
+      "A /sync 2770 syncthing syncthing - u::rwx,u:sven:--x,u:aaron:--x,g::rwx,o::---"
+      # Per-kid folders: setgid (2770) so new content inherits group syncthing
+      # (parents + syncthing daemon both rw), plus a named ACL so the kid is rw.
+      "d /sync/sven 2770 syncthing syncthing -"
+      "A /sync/sven 2770 syncthing syncthing - u::rwx,u:sven:rwx,g::rwx,o::---"
+      "d /sync/aaron 2770 syncthing syncthing -"
+      "A /sync/aaron 2770 syncthing syncthing - u::rwx,u:aaron:rwx,g::rwx,o::---"
       "d /var/lib/syncthing 0700 syncthing syncthing -"
     ];
 
@@ -124,10 +135,34 @@ in
     # (often owner-only), so the default ACL above is not enough — the parent
     # users must be able to read/write everything. On activation, recursively
     # add a group rwx ACL to all existing content under /sync so nicky/aeiuno
-    # (members of the syncthing group) can access everything. Idempotent.
+    # (members of the syncthing group) can access everything. The same is done
+    # for the kids on their own folders. Idempotent.
     system.activationScripts.syncthing-acl = stringAfter [ "users" "groups" ] ''
       if [ -d /sync ]; then
         ${pkgs.acl}/bin/setfacl -R -m g::rwx /sync 2>/dev/null || true
+        ${pkgs.acl}/bin/setfacl -m u:sven:--x,u:aaron:--x /sync 2>/dev/null || true
+
+        # Per-kid folders + their XDG dirs: create if missing (syncthing only
+        # creates the folder root at first start; nothing creates the XDG
+        # subdirs), setgid + group rw, and grant the kid rw (also as a default
+        # ACL so new synced content stays writable by the kid). The setgid bit
+        # makes new files inherit group syncthing, so the daemon and the parents
+        # (group) can always reach them.
+        ${concatMapStringsSep "\n" (d: ''
+          for xd in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+            mkdir -p /sync/${d}/"$xd"
+            chmod 2770 /sync/${d}/"$xd"
+            chown syncthing:syncthing /sync/${d}/"$xd"
+            ${pkgs.acl}/bin/setfacl -m u:${d}:rwx /sync/${d}/"$xd" 2>/dev/null || true
+            ${pkgs.acl}/bin/setfacl -d -m u:${d}:rwx /sync/${d}/"$xd" 2>/dev/null || true
+          done
+          chmod 2770 /sync/${d}
+          chown syncthing:syncthing /sync/${d}
+          ${pkgs.acl}/bin/setfacl -m u:${d}:rwx /sync/${d} 2>/dev/null || true
+          ${pkgs.acl}/bin/setfacl -d -m u:${d}:rwx /sync/${d} 2>/dev/null || true
+          ${pkgs.acl}/bin/setfacl -R -m u:${d}:rwx /sync/${d} 2>/dev/null || true
+          ${pkgs.acl}/bin/setfacl -R -d -m u:${d}:rwx /sync/${d} 2>/dev/null || true
+        '') [ "sven" "aaron" ]}
       fi
     '';
 

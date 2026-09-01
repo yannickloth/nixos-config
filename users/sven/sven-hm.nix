@@ -42,6 +42,26 @@
     force = true;
   };
 
+  # Point the XDG user dirs into sven's syncthing folder (/sync/sven via the
+  # ~/sync symlink), mirroring nicky/aeiuno. KDE/Plasma and xdg-user-dirs pick
+  # these up so Desktop/Documents/... are synced and backed up to nestor.
+  # sven has rw access to /sync/sven via a named ACL (services/syncthing).
+  xdg.configFile."user-dirs.dirs".force = true;
+
+  xdg.userDirs = {
+    createDirectories = false;
+    enable = true;
+    setSessionVariables = true; # keep legacy default
+    desktop = "/home/sven/sync/sven/Desktop/";
+    documents = "/home/sven/sync/sven/Documents/";
+    download = "/home/sven/sync/sven/Downloads/";
+    music = "/home/sven/sync/sven/Music/";
+    pictures = "/home/sven/sync/sven/Pictures/";
+    publicShare = "/home/sven/sync/sven/Public/";
+    templates = "/home/sven/sync/sven/Templates/";
+    videos = "/home/sven/sync/sven/Videos/";
+  };
+
   programs = {
     firefox = {
       enable = true;

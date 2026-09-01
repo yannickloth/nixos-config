@@ -1,7 +1,7 @@
 # Syncthing folder/device pool — the single source of truth for what every host
 # syncs. Imported by services/syncthing/default.nix.
 #
-# The 34 folders + 9 devices below are the exact set exported from the live
+# The 36 folders + 9 devices below are the exact set exported from the live
 # host (laptop-p16, CachyOS) at `~/.local/state/syncthing/config.xml`, plus the
 # new laptop-xps device (whose cert was pre-generated). Every NixOS host built
 # from this flake syncs all of these folders, replicating each to nestor and the
@@ -193,6 +193,18 @@
     };
     "software" = {
       id = "haoqu-jdh4f";
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+    };
+    "sven" = {
+      # Per-person LaptopSync-equivalent folder for sven (XDG dirs live directly
+      # inside, e.g. /sync/sven/Desktop). ACLs in services/syncthing/default.nix
+      # give sven rw access; parents reach it via the syncthing group.
+      id = "505dc-fc5ae";
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+    };
+    "aaron" = {
+      # Per-person folder for aaron, same layout as sven (/sync/aaron/<XDG dir>).
+      id = "b086b-540d2";
       devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "yannick" = {

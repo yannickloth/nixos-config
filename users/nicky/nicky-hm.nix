@@ -558,17 +558,21 @@ in
   };
   xdg.configFile."user-dirs.dirs".force = true;
 
+  # XDG dirs live directly inside nicky's syncthing folder (/sync/yannick via
+  # the ~/sync symlink), the same layout used for aeiuno (christine), sven and
+  # aaron. KDE/Plasma and xdg-user-dirs pick these up; content is synced across
+  # the laptops and replicated to nestor.
   xdg.userDirs = {
     createDirectories = false;
     enable = true;
     setSessionVariables = true; # keep legacy default
-    desktop = "/home/nicky/sync/yannick/LaptopSync/Desktop/";
-    documents = "/home/nicky/sync/yannick/LaptopSync/Documents/";
-    download = "/home/nicky/sync/yannick/LaptopSync/Downloads/";
-    music = "/home/nicky/sync/yannick/LaptopSync/Music/";
-    pictures = "/home/nicky/sync/yannick/LaptopSync/Pictures/";
-    publicShare = "/home/nicky/sync/yannick/LaptopSync/Public/";
-    templates = "/home/nicky/sync/yannick/LaptopSync/Templates/";
-    videos = "/home/nicky/sync/yannick/LaptopSync/Videos/";
+    desktop = "/home/nicky/sync/yannick/Desktop/";
+    documents = "/home/nicky/sync/yannick/Documents/";
+    download = "/home/nicky/sync/yannick/Downloads/";
+    music = "/home/nicky/sync/yannick/Music/";
+    pictures = "/home/nicky/sync/yannick/Pictures/";
+    publicShare = "/home/nicky/sync/yannick/Public/";
+    templates = "/home/nicky/sync/yannick/Templates/";
+    videos = "/home/nicky/sync/yannick/Videos/";
   };
 }
