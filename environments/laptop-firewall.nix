@@ -12,8 +12,8 @@ with lib;
       firewall = {
         enable = true;
         # No explicit port ranges here: KDE Connect (1714-1764 TCP/UDP) is
-        # opened automatically by programs.kdeconnect.enable only where it is
-        # enabled (currently laptop-xps), and mDNS discovery (UDP 5353) by
+        # opened automatically by programs.kdeconnect.enable (enabled on all
+        # laptops via apps/kdeconnect.nix), and mDNS discovery (UDP 5353) by
         # services.avahi.openFirewall. SONOS opens its own ports.
       };
       # nix-serve (port 5000) is reachable only from Tailscale peers (CGNAT

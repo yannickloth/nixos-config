@@ -45,61 +45,61 @@ in
         homes = {
           comment = "Home Directories";
           browseable = "yes";
-          # By default, \\server\username shares can be connected to by anyone
+          # By default, \\server\home shares can be connected to by anyone
           # with access to the samba server. Un-comment the following parameter
-          # to make sure that only "username" can connect to \\server\username
+          # to make sure that only "username" can connect to \\server\home
           "valid users" = "%S";
           # By default, the home directories are exported read-only. Change next
           # parameter to 'yes' if you want to be able to write to them.
           writable = "yes";
         };
-      };
-      shares = {
-        filedrop = {
-          path = "/filedrop";
-          browseable = "yes";
-          "read only" = "no";
-          "guest ok" = "no";
-          "valid users" = "nicky aeiuno sven aaron";
-          # Keep files group-owned by filedrop (setgid on /filedrop), world hidden.
-          "create mask" = "0660";
-          "directory mask" = "2770";
-          "force group" = "filedrop";
+        shares = {
+          filedrop = {
+            path = "/filedrop";
+            browseable = "yes";
+            "read only" = "no";
+            "guest ok" = "no";
+            "valid users" = "nicky aeiuno sven aaron";
+            # Keep files group-owned by filedrop (setgid on /filedrop), world hidden.
+            "create mask" = "0660";
+            "directory mask" = "2770";
+            "force group" = "filedrop";
+          };
         };
+        #shares = {
+        #       public = {
+        #         path = "/mnt/Shares/Public";
+        #         browseable = "yes";
+        #         "read only" = "no";
+        #         "guest ok" = "yes";
+        #         "create mask" = "0644";
+        #         "directory mask" = "0755";
+        #         "force user" = "username";
+        #         "force group" = "groupname";
+        #       };
+        #       private = {
+        #         path = "/mnt/Shares/Private";
+        #         browseable = "yes";
+        #         "read only" = "no";
+        #         "guest ok" = "no";
+        #         "create mask" = "0644";
+        #         "directory mask" = "0755";
+        #         "force user" = "username";
+        #         "force group" = "groupname";
+        #       };
+        #        printers = {
+        #          comment = "All Printers";
+        #          path = "/var/spool/samba";
+        #          public = "yes";
+        #          browseable = "yes";
+        #          # to allow user 'guest account' to print.
+        #          "guest ok" = "no";
+        #          writable = "no";
+        #          printable = "yes";
+        #          "create mode" = 0700;
+        #        };
+        # };
       };
-      #shares = {
-      #       public = {
-      #         path = "/mnt/Shares/Public";
-      #         browseable = "yes";
-      #         "read only" = "no";
-      #         "guest ok" = "yes";
-      #         "create mask" = "0644";
-      #         "directory mask" = "0755";
-      #         "force user" = "username";
-      #         "force group" = "groupname";
-      #       };
-      #       private = {
-      #         path = "/mnt/Shares/Private";
-      #         browseable = "yes";
-      #         "read only" = "no";
-      #         "guest ok" = "no";
-      #         "create mask" = "0644";
-      #         "directory mask" = "0755";
-      #         "force user" = "username";
-      #         "force group" = "groupname";
-      #       };
-      #        printers = {
-      #          comment = "All Printers";
-      #          path = "/var/spool/samba";
-      #          public = "yes";
-      #          browseable = "yes";
-      #          # to allow user 'guest account' to print.
-      #          "guest ok" = "no";
-      #          writable = "no";
-      #          printable = "yes";
-      #          "create mode" = 0700;
-      #        };
-      # };
     };
     #   systemd.tmpfiles.rules = [ # for samba printer sharing
     #     "d /var/spool/samba 1777 root root -"

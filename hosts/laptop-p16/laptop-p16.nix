@@ -36,6 +36,7 @@ with lib;
       ../../apps/gstreamer.nix
       ../../apps/java.nix
       #../../apps/jitsi-meet.nix
+      ../../apps/kdeconnect.nix
       ../../services/libvirt.nix
       ../../services/malcontent.nix
       ../../services/network-manager.nix
