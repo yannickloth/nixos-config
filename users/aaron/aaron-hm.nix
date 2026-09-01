@@ -3,6 +3,7 @@
 {
   imports = [
     ../common-hm.nix
+    ../emacs-kid.nix
     ../kid-firefox-policies.nix
     ../natural-scroll.nix
   ];

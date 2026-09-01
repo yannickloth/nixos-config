@@ -3,6 +3,7 @@
 {
   imports = [
     ../common-hm.nix
+    ../emacs-adult.nix
   ];
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
@@ -89,26 +90,6 @@
   };
 
   programs = {
-    #       emacs =  with pkgs;{
-    #         enable = true;
-    #         package = emacs29-gtk3;
-    #         extraConfig = (builtins.readFile ../nicky/emacs-config.el);
-    #         extraPackages = epkgs: [
-    #           epkgs.magit
-    #           epkgs.markdown-mode
-    #           epkgs.org-modern
-    #           epkgs.org-roam
-    #           epkgs.org-roam-bibtex
-    #           epkgs.org-roam-timestamps
-    #           epkgs.org-roam-ui
-    #           epkgs.typescript-mode
-    #         ];
-    #       };
-    # firefox = {
-    #   enable = true;
-    #   #nativeMessagingHosts=[euwebid ];
-    #   package = pkgs.firefox-bin;
-    # };
     delta = {
       enable = true; # Whether to enable the delta syntax highlighter.
       enableGitIntegration = true;

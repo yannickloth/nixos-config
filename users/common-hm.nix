@@ -40,6 +40,16 @@
   config = {
     home.stateVersion = "26.05";
 
+    # Let home-manager take over an existing plain ~/.zshrc (e.g. one created
+    # by zsh-newuser-install); otherwise the zsh module's .zshrc would be a
+    # clobber and never get written (leaving starship etc. inactive).
+    # Note: the zsh module writes ~/.zshrc under the home-relative key
+    # "./.zshrc" (dotDir defaults to the home directory), so force must be set
+    # on that exact key to merge with it.
+    home.file."./.zshrc" = lib.mkIf config.programs.zsh.enable {
+      force = true;
+    };
+
     # Symlink ~/sync to the shared syncthing data directory (/sync is created by the
     # system services.syncthing module, so create the symlink at activation time).
     home.activation.linkSyncDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''

@@ -3,6 +3,7 @@
 {
   imports = [
     ../common-hm.nix
+    ../emacs-kid.nix
     ../kid-firefox-policies.nix
     ../natural-scroll.nix
   ];
@@ -33,8 +34,13 @@
   };
 
   # home-manager's fontconfig (defaults to NixOS fonts.fontconfig.enable) writes
-  # this; force overwrite of a pre-existing unmanaged file.
-  xdg.configFile."fontconfig/conf.d/10-hm-fonts.conf".force = true;
+  # this; force overwrite of a pre-existing unmanaged file. When the
+  # fontconfig module is disabled (e.g. standalone home-manager on CachyOS)
+  # the file doesn't exist, so the entry must be disabled too.
+  xdg.configFile."fontconfig/conf.d/10-hm-fonts.conf" = {
+    enable = config.fonts.fontconfig.enable;
+    force = true;
+  };
 
   programs = {
     firefox = {

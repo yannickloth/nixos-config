@@ -57,8 +57,13 @@ in
 {
   imports = [
     ../common-hm.nix
+    ../emacs-adult.nix
     ../natural-scroll.nix
+    ../opencode.nix
   ];
+
+  # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
+  opencode.enable = true;
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
@@ -414,11 +419,12 @@ in
   home.shellAliases = { };
 
   # agenix (home-manager module): decrypt nicky's AI-chat API keys at activation
-  # to $XDG_RUNTIME_DIR/agenix/nicky.nix, then sourced by the shell. The private
-  # key is the agenix-specific key at ~/.ssh/agenix_nicky (backed up in
-  # KeePassXC). A missing key fails the build loudly. See secrets-structure/README.md.
+  # to $XDG_RUNTIME_DIR/agenix/nicky.nix, then sourced by the shell. The key is
+  # ~/.ssh/id_ed25519 — the same keypair is registered on GitHub (SSH identity)
+  # and is the `user-nicky` agenix recipient. A missing key fails the build
+  # loudly. See secrets-structure/README.md.
   age = {
-    identityPaths = [ "/home/nicky/.ssh/agenix_nicky" ];
+    identityPaths = [ "/home/nicky/.ssh/id_ed25519" ];
     secrets."nicky.nix" = {
       file = ../../secrets/nicky.nix.age;
       mode = "0400";

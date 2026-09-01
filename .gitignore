@@ -4,6 +4,12 @@ result
 result-*
 .agentmem/
 
+# Plaintext secrets. The committed forms are the agenix-encrypted .age files.
+secrets/cifs/
+secrets/nicky.nix
+secrets/open-webui.env
+secrets/syncthing-gui-password
+
 # Private SSH keys used as agenix recipients. These must be backed up in
 # KeePassXC and distributed to each host/user. NEVER commit these (see
 # secrets-structure/README.md).

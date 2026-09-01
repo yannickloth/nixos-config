@@ -76,6 +76,9 @@
               {
                 home-manager.useGlobalPkgs = true;
                 home-manager.useUserPackages = true;
+                # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
+                # from zsh-newuser-install) instead of failing activation.
+                home-manager.backupFileExtension = "backup";
                 #home-manager.users.jdoe = import ./home.nix;
 
                 # Optionally, use home-manager.extraSpecialArgs to pass
@@ -98,6 +101,9 @@
               {
                 home-manager.useGlobalPkgs = true;
                 home-manager.useUserPackages = true;
+                # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
+                # from zsh-newuser-install) instead of failing activation.
+                home-manager.backupFileExtension = "backup";
                 #home-manager.users.jdoe = import ./home.nix;
 
                 # Optionally, use home-manager.extraSpecialArgs to pass
@@ -117,6 +123,9 @@
               {
                 home-manager.useGlobalPkgs = true;
                 home-manager.useUserPackages = true;
+                # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
+                # from zsh-newuser-install) instead of failing activation.
+                home-manager.backupFileExtension = "backup";
                 #home-manager.users.jdoe = import ./home.nix;
 
                 # Optionally, use home-manager.extraSpecialArgs to pass
