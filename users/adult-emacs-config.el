@@ -88,6 +88,69 @@
 (use-package nix-mode
   :mode "\\.nix\\'")
 
+(use-package typst-ts-mode
+  :mode "\\.typ\\'")
+
+(use-package tex
+  :mode "\\.tex\\'"
+  :custom (TeX-parse-self t)
+  (TeX-auto-save t))
+
+(use-package rust-mode
+  :mode "\\.rs\\'")
+
+(use-package go-mode
+  :mode "\\.go\\'")
+
+(use-package haskell-mode
+  :mode "\\.\\(?:hs\\|lhs\\)\\'")
+
+(use-package csharp-mode
+  :mode "\\.cs\\'")
+
+(use-package purescript-mode
+  :mode "\\.purs\\'")
+
+;; ---- Language servers (eglot, built into Emacs 29) --------------------------
+;; eglot talks to the LSP servers installed by Nix (see users/emacs-adult.nix,
+;; home.packages). Servers are started automatically for the major modes listed
+;; below; language servers not installed for a mode just stay unused.
+;; Keybindings (prefix "C-c e"): r rename, a code actions, f format, q shutdown.
+(use-package eglot
+  :hook ((typst-ts-mode
+          markdown-mode
+          LaTeX-mode
+          latex-mode
+          java-mode
+          csharp-mode
+          typescript-mode
+          js-mode
+          purescript-mode
+          haskell-mode
+          rust-mode
+          c-mode
+          c++-mode
+          go-mode)
+         . eglot-ensure)
+  :bind
+  (("C-c e r" . eglot-rename)
+   ("C-c e a" . eglot-code-actions)
+   ("C-c e f" . eglot-format)
+   ("C-c e q" . eglot-shutdown))
+  :config
+  (dolist (entry '((typst-ts-mode . ("tinymist"))
+                   (markdown-mode . ("marksman"))
+                   (LaTeX-mode latex-mode . ("texlab"))
+                   (java-mode . ("jdtls"))
+                   (csharp-mode . ("csharp-ls"))
+                   ((js-mode typescript-mode) . ("typescript-language-server" "--stdio"))
+                   (purescript-mode . ("purescript-language-server" "--stdio"))
+                   (haskell-mode haskell-literate-mode . ("haskell-language-server-wrapper" "--lsp"))
+                   (rust-mode . ("rust-analyzer"))
+                   ((c-mode c++-mode) . ("clangd"))
+                   (go-mode . ("gopls"))))
+    (add-to-list 'eglot-server-programs entry)))
+
 ;; ---- Org mode ---------------------------------------------------------------
 ;; org-mode ships with Emacs; heavy org packages (org-roam, org-modern) are
 ;; intentionally NOT in programs.emacs.extraPackages because they force a
