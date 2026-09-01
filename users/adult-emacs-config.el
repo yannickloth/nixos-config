@@ -88,18 +88,9 @@
 (use-package nix-mode
   :mode "\\.nix\\'")
 
-;; ---- Org mode & notes -------------------------------------------------------
+;; ---- Org mode ---------------------------------------------------------------
+;; org-mode ships with Emacs; heavy org packages (org-roam, org-modern) are
+;; intentionally NOT in programs.emacs.extraPackages because they force a
+;; native-compilation rebuild of org (see users/emacs-adult.nix).
 (setq org-directory (expand-file-name "~/Notes" (getenv "USER"))
       org-startup-with-inline-images t)
-
-(use-package org-modern
-  :hook (org-mode . org-modern-mode))
-
-;; Per-user notes directory, e.g. ~/Notes/nicky or ~/Notes/aeiuno.
-(use-package org-roam
-  :init
-  (setq org-roam-directory (expand-file-name (format "~/Notes/%s" (getenv "USER"))))
-  :custom
-  (org-roam-completion-everywhere t)
-  :config
-  (org-roam-db-autosync-mode))

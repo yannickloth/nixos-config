@@ -16,25 +16,6 @@ with lib;
   ];
 
   config = {
-    # Temporary workaround: nixpkgs-unstable's emacsPackages.org (9.8.3) points
-    # at org-9.8.3.tar which 404s on GNU ELPA. Pin to 9.8.10 (verified present).
-    # Wrapped via emacsPackagesFor so EVERY emacs scope (incl. emacs-gtk.pkgs,
-    # which home-manager's programs.emacs uses) gets the fixed org.
-    # Remove once nixpkgs bumps org past 9.8.3.
-    nixpkgs.overlays = [
-      (final: prev: {
-        emacsPackagesFor = emacs: (prev.emacsPackagesFor emacs).overrideScope (self: super: {
-          org = super.org.overrideAttrs (old: {
-            version = "9.8.10";
-            src = final.fetchurl {
-              url = "https://elpa.gnu.org/packages/org-9.8.10.tar";
-              sha256 = "079z8vn3n5fdcnka4wfwgz5sqskr1mki0g8bxpv7klpiqkars2l9";
-            };
-          });
-        });
-      })
-    ];
-
     # use UTC by default, do not leak location
     time.timeZone = mkDefault "Europe/Luxembourg";
 

@@ -18,8 +18,6 @@
       magit
       nix-mode
       orderless
-      org-modern
-      org-roam
       typescript-mode
       vertico
       which-key
