@@ -12,7 +12,6 @@
     username = "aaron";
     homeDirectory = "/home/aaron";
     packages = with pkgs; [
-      audacious # light music player
       extremetuxracer # high-speed arctic penguin racing game
       gcompris # educational game suite for young children
       klavaro # full-featured touch typing tutor

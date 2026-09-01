@@ -116,8 +116,12 @@ per host.
   parental-controls settings app, **no rebuild needed** (the flatpak installs
   themselves land on the next boot). Firefox stays a native
   package because it carries its own kid policies
-  (`users/kid-firefox-policies.nix`). Edit `services/malcontent.nix` for the
-  allowlist or schedule.
+  (`users/kid-firefox-policies.nix`). The defaults live in
+  `services/malcontent.nix`, but once a kid's account is set up the existing
+  permissions are **kept across rebuilds** — a rebuild only seeds the config on
+  first setup. To re-apply the Nix defaults, remove the
+  `[com.endlessm.ParentalControls.*]` sections from
+  `/var/lib/AccountsService/users/<kid>` (or delete that file) and rebuild.
 - **Screen-time enforcement:** sven/aaron get a pop-up warning at 30/15/5
   minutes before the daily lock, then the session is **forced to log out** at
   22:00; malcontent blocks re-login until the next window. Their screens also
@@ -136,9 +140,9 @@ kids' parental controls:
 - **Flatpak — sandboxed and malcontent-gated.** The parental controls only
   filter *flatpak* apps, so anything the kids should be able to run (or that
   you want to allow/block without a rebuild) comes from flatpak: their
-  office/creative/media/mail apps (LibreOffice, GIMP, Krita, VLC, Geary) plus
-  the GNOME/KDE utility apps in the allowlist (dolphin, okular, gwenview, kalk,
-  …). Declared in `roles/base.nix` under `apps.flatpak`, kept in sync
+  office/creative/media/mail apps (LibreOffice, GIMP, Krita, VLC, Audacious,
+  Geary) plus the GNOME/KDE utility apps in the allowlist (dolphin, okular,
+  gwenview, kalk, …). Declared in `roles/base.nix` under `apps.flatpak`, kept in sync
   with the allowlist in `services/malcontent.nix`; installs land on the next
   boot. Grant/revoke via the parental-controls settings app — no rebuild.
 - **nixpkgs — native, deep system access.** Everything that needs groups/ACLs,

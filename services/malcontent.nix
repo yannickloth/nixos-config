@@ -22,29 +22,43 @@ let
   # package installation (the AppArmor LSM is enabled but defines no per-user
   # native-binary profiles in this repo).
   allowlistApps = [
-    "org.gnome.Calculator"
     "org.gnome.Maps"
-    "org.gnome.Books"
-    "org.gnome.Notes"
     "org.gnome.Cheese"
     "org.gnome.Clocks"
     "org.gnome.Logs"
-    "org.gnome.Music"
-    "org.gnome.Epiphany"
     "org.gnome.Geary"
-    "org.gnome.Totem"
     "org.videolan.VLC"
+    "org.atheme.audacious"
     "org.kde.okular"
     "org.kde.gwenview"
     "org.kde.dolphin"
     "org.kde.kalk"
     "org.gimp.GIMP"
     "org.kde.krita"
+    "org.kde.kwordquiz"
+    "org.kde.khangman"
+    "org.kde.kanagram"
+    "org.kde.kmahjongg"
+    "org.kde.kpat"
+    "org.kde.kbreakout"
+    "org.kde.kturtle"
+    "org.kde.kgeography"
+    "org.kde.kalgebra"
+    "org.kde.kig"
+    "org.kde.kstars"
     "org.libreoffice.LibreOffice"
     "org.mozilla.firefox"
     "org.gnome.SystemMonitor"
+    "org.gnome.Chess"
+    "org.gnome.Sudoku"
+    "org.gnome.Quadrapassel"
+    "org.gnome.Mines"
+    "org.gnome.Nibbles"
     "md.obsidian.Obsidian"
     "org.stellarium.Stellarium"
+    "edu.mit.Scratch"
+    "io.gdevelop.ide"
+    "org.geogebra.GeoGebra"
   ];
 
   # OARS content-ratings filter: allow up to 'moderate' for most sections
@@ -98,8 +112,10 @@ in
     # system closure even if apps/java.nix changes.
     environment.systemPackages = [ pkgs.jdk25 ];
 
-    # Write sven's and aaron's parental-control restrictions to the accountsservice
+    # Seed sven's and aaron's parental-control restrictions into the accountsservice
     # per-user keyfile. The daemon reads this on startup and reloads when it changes.
+    # Only written on first setup: if the malcontent AppFilter section is already
+    # present, the existing permissions are kept so rebuilds don't reset them.
     # Merge into the existing file so accountsservice's per-user state
     # (e.g. the remembered Session) is preserved across boots.
     system.activationScripts.malcontent-kids = mkIf (config.users.users ? sven || config.users.users ? aaron) {
@@ -111,6 +127,9 @@ in
           javaSrc = "${pkgs.coreutils}/bin/install -D -m 0644 ${./MalcontentMerge.java} /tmp/MalcontentMerge.java";
           mkUser = user: ''
             install -d -m 0700 -o root -g root /var/lib/AccountsService/users
+            # Skip when malcontent was already configured so a rebuild keeps the
+            # current permissions instead of resetting them to the Nix defaults.
+            if ! ${pkgs.gnugrep}/bin/grep -q '^\[com.endlessm.ParentalControls.AppFilter\]' /var/lib/AccountsService/users/${user}; then
             cat > /var/lib/AccountsService/users/.${user}-malcontent <<'EOF'
             [User]
             SystemAccount=false
@@ -122,6 +141,7 @@ in
             rm -f /var/lib/AccountsService/users/.${user}-malcontent
             chmod 0600 /var/lib/AccountsService/users/${user}
             chown root:root /var/lib/AccountsService/users/${user}
+            fi
           '';
           users = [ ] ++ (if config.users.users ? sven then [ "sven" ] else [ ]) ++ (if config.users.users ? aaron then [ "aaron" ] else [ ]);
         in

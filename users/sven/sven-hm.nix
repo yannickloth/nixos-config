@@ -12,7 +12,6 @@
     username = "sven";
     homeDirectory = "/home/sven";
     packages = with pkgs; [
-      audacious # light music player
       digikam # photo management / organizer
       extremetuxracer # high-speed arctic penguin racing game
       gcompris # educational game suite for young children
