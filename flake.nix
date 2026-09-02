@@ -11,6 +11,10 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
+    # Fast-moving AI tooling (opencode, pi-coding-agent, jetbrains-toolbox,
+    # vscode) for nicky/aeiuno is overlaid from unstable on top of the stable
+    # base; see overlays/ai-unstable.nix.
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
@@ -26,12 +30,22 @@
     nix-cachyos-kernel.url = "github:xddxdd/nix-cachyos-kernel/release";
   };
 
-  outputs = inputs@{ self, nixpkgs, home-manager, nixos-hardware, nix-cachyos-kernel, agenix, ... }:
+  outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, nix-cachyos-kernel, agenix, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
         inherit system;
         config.allowUnfree = true;
+      };
+      # Stable pkgs (nixpkgs) are the base for every user; only the AI tooling
+      # list in overlays/ai-unstable.nix is swapped to unstable builds, and only
+      # for the adults (nicky, aeiuno). sven/aaron stay on plain stable.
+      unstablePkgs = import nixpkgs-unstable {
+        inherit system;
+        config.allowUnfree = true;
+      };
+      aiOverlay = import ./overlays/ai-unstable.nix {
+        inherit unstablePkgs;
       };
     in
     {
@@ -66,10 +80,14 @@
         {
           laptop-hera = nixpkgs.lib.nixosSystem {
             system = "x86_64-linux";
+            specialArgs = { inherit aiOverlay; };
             modules = [
               ./hosts/laptop-hera/laptop-hera-configuration.nix
               home-manager.nixosModules.home-manager
               agenix.nixosModules.default
+              # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
+              # jetbrains-toolbox, vscode); sven/aaron keep plain stable pkgs.
+              ./users/ai-pkgs.nix
               # Inject the agenix home-manager module so home-manager users can
               # use `age.secrets` (nicky does for API keys).
               { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
@@ -93,10 +111,14 @@
           };
           laptop-p16 = nixpkgs.lib.nixosSystem {
             system = "x86_64-linux";
+            specialArgs = { inherit aiOverlay; };
             modules = [
               ./hosts/laptop-p16/laptop-p16-configuration.nix
               home-manager.nixosModules.home-manager
               agenix.nixosModules.default
+              # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
+              # jetbrains-toolbox, vscode); sven/aaron keep plain stable pkgs.
+              ./users/ai-pkgs.nix
               { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
               {
                 home-manager.useGlobalPkgs = true;
@@ -115,10 +137,14 @@
           };
           laptop-xps = nixpkgs.lib.nixosSystem {
             system = "x86_64-linux";
+            specialArgs = { inherit aiOverlay; };
             modules = [
               ./hosts/laptop-xps/laptop-xps-configuration.nix
               home-manager.nixosModules.home-manager
               agenix.nixosModules.default
+              # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
+              # jetbrains-toolbox, vscode); sven/aaron keep plain stable pkgs.
+              ./users/ai-pkgs.nix
               { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
               {
                 home-manager.useGlobalPkgs = true;
