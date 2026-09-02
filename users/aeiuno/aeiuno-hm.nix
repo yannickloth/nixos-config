@@ -4,10 +4,14 @@
   imports = [
     ../common-hm.nix
     ../emacs-adult.nix
+    ../opencode.nix
   ];
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
+
+  # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
+  opencode.enable = true;
 
   home = {
     username = "aeiuno";
@@ -42,6 +46,8 @@
       hunspellDicts.de_DE
       inkscape-with-extensions
       jetbrains-toolbox # JetBrains IDEs (IntelliJ, PyCharm, ...) via Toolbox
+      opencode
+      pi-coding-agent
       #jellyfin-media-player
       #joplin-desktop
       kdePackages.dolphin
