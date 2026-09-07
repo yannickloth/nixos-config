@@ -60,6 +60,26 @@
       fi
     '';
 
+    # British English by default for every user session. The OS/console locale
+    # is already en_GB (roles/i18n/fr_BE.nix / /etc/locale.conf), but KDE
+    # Plasma caches its own per-user language and formats in
+    # ~/.config/plasma-localerc and can pin an old en_US choice that shadows
+    # the system default. LANG is exported so shells/new processes pick up
+    # British English too, while the fr_BE LC_* categories (time, numbers,
+    # EUR, ...) keep coming from the system locale.
+    home.sessionVariables.LANG = "en_GB.UTF-8";
+
+    xdg.configFile."plasma-localerc" = {
+      force = true; # Plasma may have written a real file; HM installs a symlink.
+      text = ''
+        [Formats]
+        LANG=en_GB.UTF-8
+
+        [Translations]
+        Language=en_GB
+      '';
+    };
+
     # Shared by all users
     services = {
       kdeconnect = {
@@ -141,6 +161,22 @@
         starship = {
           enable = true;
           enableZshIntegration = true;
+        };
+        tmux = {
+          enable = true;
+          mouse = true;
+          clock24 = true;
+          escapeTime = 0;
+          keyMode = "vi";
+          historyLimit = 10000;
+          baseIndex = 1;
+          sensibleOnTop = true;
+          secureSocket = true;
+          extraConfig = ''
+            set -g renumber-windows on
+            set -g focus-events on
+            set -as terminal-overrides ',xterm-256color:RGB'
+          '';
         };
         vscode = {
           enable = true;
