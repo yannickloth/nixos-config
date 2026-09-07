@@ -142,6 +142,22 @@
           enable = true;
           enableZshIntegration = true;
         };
+        tmux = {
+          enable = true;
+          mouse = true;
+          clock24 = true;
+          escapeTime = 0;
+          keyMode = "vi";
+          historyLimit = 10000;
+          baseIndex = 1;
+          sensibleOnTop = true;
+          secureSocket = true;
+          extraConfig = ''
+            set -g renumber-windows on
+            set -g focus-events on
+            set -as terminal-overrides ',xterm-256color:RGB'
+          '';
+        };
         vscode = {
           enable = true;
           mutableExtensionsDir = true;
