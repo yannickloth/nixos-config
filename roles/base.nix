@@ -94,12 +94,16 @@ with lib;
     # app id just like system ones). Kept in sync with the allowlist in
     # services/malcontent.nix. Browsers stay in Nix: Firefox needs its
     # declarative kid policies (users/kid-firefox-policies.nix). The kids'
-    # office/creative/media/mail apps (libreoffice, gimp, krita, VLC, Geary)
-    # come from flatpak so malcontent can gate them without a Nix rebuild.
+    # office/creative/media/mail/games apps (libreoffice, gimp, krita, VLC,
+    # Geary, the KDE mini-games) come from flatpak so malcontent can gate them
+    # without a Nix rebuild, while adults get those apps natively via
+    # home-manager — one source per user, never native + flatpak both.
     # Overrides grant access to the shared family drop folder (/filedrop).
     # adultApps is the same list minus the apps nicky/aeiuno already have from
     # Nixpkgs (gimp, krita, libreoffice, vlc, obsidian, dolphin, gwenview,
     # kalk, okular), so the adults never end up with two copies of an app.
+    # Note: KDE's Minesweeper is org.kde.kmines on Flathub (org.kde.Mines is a
+    # nonexistent id), and replaces GNOME Mines (removed: duplicates kmines).
     apps.flatpak = {
       enable = mkDefault true;
       apps = [
@@ -108,29 +112,33 @@ with lib;
         "app/org.gnome.Geary/x86_64/stable"
         "app/org.gnome.Logs/x86_64/stable"
         "app/org.gnome.Maps/x86_64/stable"
+        "app/org.gnome.Nibbles/x86_64/stable"
         "app/org.gnome.SystemMonitor/x86_64/stable"
         "app/org.gnome.Chess/x86_64/stable"
-        "app/org.gnome.Sudoku/x86_64/stable"
-        "app/org.gnome.Quadrapassel/x86_64/stable"
-        "app/org.gnome.Mines/x86_64/stable"
-        "app/org.gnome.Nibbles/x86_64/stable"
         "app/org.atheme.audacious/x86_64/stable"
         "app/org.kde.dolphin/x86_64/stable"
+        "app/org.kde.granatier/x86_64/stable"
         "app/org.kde.gwenview/x86_64/stable"
         "app/org.kde.kalk/x86_64/stable"
-        "app/org.kde.okular/x86_64/stable"
+        "app/org.kde.katomic/x86_64/stable"
+        "app/org.kde.kblocks/x86_64/stable"
+        "app/org.kde.kbreakout/x86_64/stable"
+        "app/org.kde.kdiamond/x86_64/stable"
+        "app/org.kde.kmahjongg/x86_64/stable"
+        "app/org.kde.kmines/x86_64/stable"
+        "app/org.kde.kpat/x86_64/stable"
+        "app/org.kde.kshisen/x86_64/stable"
+        "app/org.kde.ksudoku/x86_64/stable"
         "app/org.kde.krita/x86_64/stable"
         "app/org.kde.kwordquiz/x86_64/stable"
         "app/org.kde.khangman/x86_64/stable"
         "app/org.kde.kanagram/x86_64/stable"
-        "app/org.kde.kmahjongg/x86_64/stable"
-        "app/org.kde.kpat/x86_64/stable"
-        "app/org.kde.kbreakout/x86_64/stable"
         "app/org.kde.kturtle/x86_64/stable"
         "app/org.kde.kgeography/x86_64/stable"
         "app/org.kde.kalgebra/x86_64/stable"
         "app/org.kde.kig/x86_64/stable"
         "app/org.kde.kstars/x86_64/stable"
+        "app/org.kde.okular/x86_64/stable"
         "app/org.gimp.GIMP/x86_64/stable"
         "app/org.libreoffice.LibreOffice/x86_64/stable"
         "app/org.videolan.VLC/x86_64/stable"

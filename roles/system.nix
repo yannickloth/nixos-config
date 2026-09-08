@@ -174,7 +174,10 @@ in {
       netcat-gnu
 
       ### LibreOffice
-      libreoffice-qt
+      # No system-wide libreoffice here: nicky/aeiuno get it via home-manager,
+      # sven/aaron get the flatpak (org.libreoffice.LibreOffice) so malcontent
+      # can gate it. A system-wide copy showed up alongside the flatpak.
+      #libreoffice-qt
       #libreoffice-fresh
       hunspell
       hunspellDicts.nl_nl

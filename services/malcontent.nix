@@ -21,6 +21,10 @@ let
   # filtering for flatpak apps. Native binaries are gated by per-user home-manager
   # package installation (the AppArmor LSM is enabled but defines no per-user
   # native-binary profiles in this repo).
+  # Keep in sync with apps.flatpak.apps (roles/base.nix). The KDE mini-games
+  # are flatpak for kids, native home-manager for adults; GNOME Sudoku,
+  # Quadrapassel and Mines were removed because they duplicate the KDE games
+  # (ksudoku, kblocks, kmines).
   allowlistApps = [
     "org.gnome.Maps"
     "org.gnome.Cheese"
@@ -33,14 +37,21 @@ let
     "org.kde.gwenview"
     "org.kde.dolphin"
     "org.kde.kalk"
+    "org.kde.granatier"
+    "org.kde.katomic"
+    "org.kde.kblocks"
+    "org.kde.kbreakout"
+    "org.kde.kdiamond"
+    "org.kde.kmahjongg"
+    "org.kde.kmines"
+    "org.kde.kpat"
+    "org.kde.kshisen"
+    "org.kde.ksudoku"
     "org.gimp.GIMP"
     "org.kde.krita"
     "org.kde.kwordquiz"
     "org.kde.khangman"
     "org.kde.kanagram"
-    "org.kde.kmahjongg"
-    "org.kde.kpat"
-    "org.kde.kbreakout"
     "org.kde.kturtle"
     "org.kde.kgeography"
     "org.kde.kalgebra"
@@ -50,9 +61,6 @@ let
     "org.mozilla.firefox"
     "org.gnome.SystemMonitor"
     "org.gnome.Chess"
-    "org.gnome.Sudoku"
-    "org.gnome.Quadrapassel"
-    "org.gnome.Mines"
     "org.gnome.Nibbles"
     "md.obsidian.Obsidian"
     "org.stellarium.Stellarium"
@@ -114,10 +122,13 @@ in
 
     # Seed sven's and aaron's parental-control restrictions into the accountsservice
     # per-user keyfile. The daemon reads this on startup and reloads when it changes.
-    # Only written on first setup: if the malcontent AppFilter section is already
-    # present, the existing permissions are kept so rebuilds don't reset them.
-    # Merge into the existing file so accountsservice's per-user state
-    # (e.g. the remembered Session) is preserved across boots.
+    # MalcontentMerge.java merges per key: only the AppFilter and SessionLimits
+    # entries we manage are (re)written on every rebuild, while everything else
+    # in the keyfile (accountsservice state such as the remembered Session, and
+    # any keys malcontent doesn't own) is preserved across boots and rebuilds.
+    # Note: GUI edits to the managed keys themselves (app allowlist, OARS
+    # filter, installation bans, schedule) are reset to the Nix config on
+    # rebuild — the Nix config is the source of truth for those.
     system.activationScripts.malcontent-kids = mkIf (config.users.users ? sven || config.users.users ? aaron) {
       text =
         let
@@ -127,9 +138,6 @@ in
           javaSrc = "${pkgs.coreutils}/bin/install -D -m 0644 ${./MalcontentMerge.java} /tmp/MalcontentMerge.java";
           mkUser = user: ''
             install -d -m 0700 -o root -g root /var/lib/AccountsService/users
-            # Skip when malcontent was already configured so a rebuild keeps the
-            # current permissions instead of resetting them to the Nix defaults.
-            if ! ${pkgs.gnugrep}/bin/grep -q '^\[com.endlessm.ParentalControls.AppFilter\]' /var/lib/AccountsService/users/${user}; then
             cat > /var/lib/AccountsService/users/.${user}-malcontent <<'EOF'
             [User]
             SystemAccount=false
@@ -141,7 +149,6 @@ in
             rm -f /var/lib/AccountsService/users/.${user}-malcontent
             chmod 0600 /var/lib/AccountsService/users/${user}
             chown root:root /var/lib/AccountsService/users/${user}
-            fi
           '';
           users = [ ] ++ (if config.users.users ? sven then [ "sven" ] else [ ]) ++ (if config.users.users ? aaron then [ "aaron" ] else [ ]);
         in

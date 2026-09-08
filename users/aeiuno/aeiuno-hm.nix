@@ -57,6 +57,18 @@
       kdePackages.kalk
       kdePackages.kate
       kdePackages.okular
+      # KDE mini-games: adults get them natively, kids via gated flatpak
+      # (apps.flatpak.apps) — never both for the same user (see games/games.nix).
+      kdePackages.granatier
+      kdePackages.katomic
+      kdePackages.kblocks
+      kdePackages.kbreakout
+      kdePackages.kdiamond
+      kdePackages.kmahjongg
+      kdePackages.kmines
+      kdePackages.kpat
+      kdePackages.kshisen
+      kdePackages.ksudoku
       keepassxc
       # keybase-gui
       # kgraphviewer

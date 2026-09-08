@@ -101,6 +101,12 @@ with lib;
   # 128 GiB RAM -> run browser profiles in RAM.
   roles.psd.enable = true;
 
+  # 128 GiB RAM -> /tmp in RAM. Volatile by nature, so no cleanOnBoot wipe
+  # (deleting psd's tens of thousands of small profile files was slow at boot).
+  boot.tmp.useTmpfs = true;
+  boot.tmp.tmpfsSize = "50%";
+  boot.tmp.cleanOnBoot = false;
+
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;

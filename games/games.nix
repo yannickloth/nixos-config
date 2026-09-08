@@ -54,16 +54,20 @@ with lib;
     #ioquake3
     libcec # Allows you (with the right hardware) to control your device with your TV remote control using existing HDMI cabling
     libcec_platform # Platform library for libcec and Kodi addons
-    kdePackages.granatier
-    kdePackages.katomic
-    kdePackages.kblocks
-    kdePackages.kbreakout
-    kdePackages.kdiamond
-    kdePackages.kmahjongg
-    kdePackages.kmines
-    kdePackages.kpat
-    kdePackages.kshisen
-    kdePackages.ksudoku # Sudoku for KDE
+    # KDE mini-games are NOT installed system-wide: adults get them via
+    # home-manager (users/*/nicky-hm.nix, aeiuno-hm.nix), kids via flatpak
+    # (apps.flatpak.apps) so malcontent gates them. A native copy visible to
+    # the kids alongside their flatpak copy showed up as a duplicate.
+    # kdePackages.granatier
+    # kdePackages.katomic
+    # kdePackages.kblocks
+    # kdePackages.kbreakout
+    # kdePackages.kdiamond
+    # kdePackages.kmahjongg
+    # kdePackages.kmines
+    # kdePackages.kpat
+    # kdePackages.kshisen
+    # kdePackages.ksudoku
     # lutris
     mangohud # A Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load and more
     obs-studio-plugins.obs-vkcapture # OBS Linux Vulkan/OpenGL game capture
