@@ -10,8 +10,8 @@ NixOS flake.
 - User `sven` — family account on the family computer(s), running NixOS
 - Your games are installed: ktuberling, extremetuxracer, neverball and more
 - Steam games are stored on the shared `/steamlib` drive (all family members
-  share one install folder). You can play them, but the folder is read-only
-  for you — you can't delete or change the installs.
+  share one install folder). You can play them, and you can install or update
+  your own games there — but be careful, everyone shares the same folder.
 
 ## Family rules (set up by the system)
 

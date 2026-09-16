@@ -166,9 +166,9 @@ make it a flatpak; if it needs groups/GPU/policies, keep it native.**
 ## Shared storage & family permissions
 
 - **`/steamlib`** — shared Steam library (`games/steam.nix`). The `steam`
-  group (nicky, aeiuno) has read-write access; sven and aaron have read-only
-  access (they can launch the games, but cannot modify, delete or update
-  them). Install and update games from a parent account.
+  group (nicky, aeiuno, sven, aaron) has read-write access, so anyone can
+  install, update and remove games. Install and update games from any family
+  account.
 - **`/sync`** — Syncthing data (`services/syncthing/`). The `syncthing`
   group (nicky, aeiuno) has full access; sven and aaron have **no access** by
   default, so shared data can't be wiped. Later we can whitelist a folder for
@@ -187,7 +187,7 @@ make it a flatpak; if it needs groups/GPU/policies, keep it native.**
 - Kid-safe DNS applies machine-wide where configured
 - AI chat is available to them with the auto-seeded kid-safety
   gate (`services/ai-chat/filters/kid-safety.py`)
-- Shared Steam library: read-only (they play, parents manage); `/sync` is
+- Shared Steam library: read-write (they can install, play and save); `/sync` is
   blocked for them; shared files pass through `/filedrop`
 - Disk quotas: each kid is capped at 50 GiB on `/home`
   (`services/home-quota.nix`)
