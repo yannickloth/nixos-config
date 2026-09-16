@@ -4,7 +4,9 @@
 // filters from the database at request time, so changes take effect without a
 // restart.
 //
-// Run as: java --class-path <sqlite-jdbc.jar> seed_gates.java <filter.py>
+// Run as: java --enable-native-access=ALL-UNNAMED \
+//   --class-path <SeedGates-classes>:<sqlite-jdbc.jar> SeedGates <filter.py>
+// (compiled at build time by services/ai-chat.nix)
 import java.nio.file.*;
 import java.sql.*;
 import java.util.*;

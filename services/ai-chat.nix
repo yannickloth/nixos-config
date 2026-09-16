@@ -1,5 +1,20 @@
 { config, pkgs, ... }:
 
+let
+  # Compile the DB seeder at build time. SeedGates.java is a Java 25 compact
+  # source file whose implicit class name is derived from the *file basename*;
+  # the Nix store hash prefix would be an invalid class name, so copy it to
+  # "SeedGates.java" before compiling.
+  seedGates = pkgs.runCommand "open-webui-seed-gates" {
+    nativeBuildInputs = [ pkgs.jdk25 ];
+  } ''
+    mkdir -p src "$out"
+    cp ${./ai-chat/SeedGates.java} src/SeedGates.java
+    javac -d "$out" src/SeedGates.java
+  '';
+
+  sqliteJdbc = "${pkgs.sqlite-jdbc}/share/java/sqlite-jdbc-${pkgs.sqlite-jdbc.version}.jar";
+in
 {
   # Family AI chat interface (Open WebUI) with OpenAI-compatible providers
   # (DeepSeek, Kimi for Coding, Hetzner AI).
@@ -43,10 +58,9 @@
   # reads filters from its DB at request time, so this runs after startup and is
   # a no-op whenever the file is unchanged.
   #
-  # Explicit dependency: the seed service runs a Java 25 compact source file
-  # (SeedGates.java) via ${pkgs.jdk25}/bin/java with the sqlite-jdbc driver;
-  # this systemPackages entry keeps the JDK in the system closure regardless of
-  # apps/java.nix.
+  # Explicit dependency: the seed service runs the compiled SeedGates class
+  # (Java 25) via ${pkgs.jdk25}/bin/java with the sqlite-jdbc driver. Declaring
+  # the JDK here keeps it in the system closure regardless of apps/java.nix.
   environment.systemPackages = [ pkgs.jdk25 ];
   systemd.services.open-webui-seed-gates = {
     description = "Seed the kid-safety filter into the Open WebUI database";
@@ -54,18 +68,30 @@
     after = [ "open-webui.service" ];
     serviceConfig = {
       Type = "oneshot";
+      # Run as the same DynamicUser/namespace as open-webui so the SQLite DB
+      # (and any -wal/-shm/journal files) are written as the same on-disk
+      # owner. Running this as root created a root-owned webui.db that
+      # open-webui's DynamicUser could not write, which broke open-webui at
+      # boot.
+      User = "open-webui";
+      DynamicUser = true;
+      PrivateUsers = true;
+      StateDirectory = "open-webui";
+      PrivateTmp = true;
       # Retry if the DB is not ready on first boot or a transient SQLite lock.
       Restart = "on-failure";
       RestartSec = "10";
       ExecStart = [
-        "${pkgs.jdk25}/bin/java"
-        # sqlite-jdbc loads its native library via System.load (restricted in
-        # JDK 24+); the flag silences the runtime warning.
-        "--enable-native-access=ALL-UNNAMED"
-        "--class-path"
-        "${pkgs.sqlite-jdbc}/share/java/sqlite-jdbc-${pkgs.sqlite-jdbc.version}.jar"
-        "${./ai-chat/SeedGates.java}"
-        "${./ai-chat/filters/kid-safety.py}"
+        [
+          "${pkgs.jdk25}/bin/java"
+          # sqlite-jdbc loads its native library via System.load (restricted in
+          # JDK 24+); the flag silences the runtime warning.
+          "--enable-native-access=ALL-UNNAMED"
+          "--class-path"
+          "${seedGates}:${sqliteJdbc}"
+          "SeedGates"
+          "${./ai-chat/filters/kid-safety.py}"
+        ]
       ];
     };
   };
