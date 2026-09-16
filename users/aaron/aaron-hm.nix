@@ -14,6 +14,7 @@
     packages = with pkgs; [
       extremetuxracer # high-speed arctic penguin racing game
       gcompris # educational game suite for young children
+      kdePackages.dolphin # native file manager (group/ACL access to /steamlib, /filedrop; see roles/base.nix)
       klavaro # full-featured touch typing tutor
       kdePackages.ktuberling # fun "potato head" constructor game for young kids
       lutris # game library manager / launcher

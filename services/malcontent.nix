@@ -35,7 +35,6 @@ let
     "org.atheme.audacious"
     "org.kde.okular"
     "org.kde.gwenview"
-    "org.kde.dolphin"
     "org.kde.kalk"
     "org.kde.granatier"
     "org.kde.katomic"

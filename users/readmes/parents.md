@@ -141,24 +141,26 @@ kids' parental controls:
   filter *flatpak* apps, so anything the kids should be able to run (or that
   you want to allow/block without a rebuild) comes from flatpak: their
   office/creative/media/mail apps (LibreOffice, GIMP, Krita, VLC, Audacious,
-  Geary) plus the GNOME/KDE utility apps in the allowlist (dolphin, okular,
-  gwenview, kalk, …). Declared in `roles/base.nix` under `apps.flatpak`, kept in sync
+  Geary) plus the GNOME/KDE utility apps in the allowlist (okular, gwenview,
+  kalk, …). Declared in `roles/base.nix` under `apps.flatpak`, kept in sync
   with the allowlist in `services/malcontent.nix`; installs land on the next
   boot. Grant/revoke via the parental-controls settings app — no rebuild.
 - **nixpkgs — native, deep system access.** Everything that needs groups/ACLs,
   GPU, gamepads, or its own policies: the games (Steam and Lutris on
   `/steamlib`, and the kids' native games ktuberling, extremetuxracer,
   supertux, luanti, …), Firefox (its kid policies
-  `users/kid-firefox-policies.nix` apply to the native build only), and
+  `users/kid-firefox-policies.nix` apply to the native build only), the kids'
+  file manager Dolphin (group/ACL access to `/steamlib` and `/filedrop`), and
   CLI/dev tools (python, racket, editors). Changes require a rebuild:
   `sudo nixos-rebuild switch --flake ~/code/nixos-config`.
 
 Flatpak apps are also **sandboxed from the shared folders**: they can't see
 `/steamlib`, `/sync` or `/filedrop` unless an override grants them access. The
 kids' office/creative apps already get `/filedrop` so they can save into the
-drop folder (`apps.flatpak.overrides` in `roles/base.nix`); `/steamlib` and
-`/sync` are deliberately native/group-accessed only — they are the protected
-shared data.
+drop folder (`apps.flatpak.overrides` in `roles/base.nix`); `/sync` and
+`/steamlib` remain group-accessed by native apps only (the kids' file manager
+Dolphin is native, so it reaches `/steamlib` + `/filedrop` via the `steam` and
+`filedrop` groups) — they are the protected shared data.
 
 Rule of thumb: **if malcontent should be able to allow or block it for a kid,
 make it a flatpak; if it needs groups/GPU/policies, keep it native.**
