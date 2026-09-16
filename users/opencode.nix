@@ -8,10 +8,15 @@
 # services/secrets.nix). The activation runs as the user, who can read that file
 # through the `secrets` group.
 #
-# Provider/model research (2026-08):
+# Provider/model research (2026-08; Kimi corrected 2026-09):
 #   deepseek  https://api.deepseek.com          V4 flash/pro: 1M ctx, 384K out
 #   z.ai/GLM  https://api.z.ai/api/paas/v4/     glm-5.3 / glm-5.3-flash: 1M ctx, 128K out
-#   Kimi      https://api.kimi.com/coding/v1    kimi-k3: 1M ctx; k2.7-code/k2.6: 256K ctx
+#   Kimi      https://api.kimi.com/coding/v1    Kimi Code plan (subscription) IDs: k3 (1M ctx on
+#                                               Allegretto+, else 256K), k3-256k, kimi-for-coding
+#                                               (K2.8 Preview, 1M ctx), kimi-for-coding-highspeed
+#                                               (256K, Allegretto+). The pay-per-token platform API
+#                                               (api.moonshot.ai) uses different IDs (kimi-k3,
+#                                               kimi-k2.7-code, kimi-k2.7-code-highspeed, kimi-k2.6).
 #   Hetzner   https://inference.hetzner.com/api/v1   Qwen3.6-35B-A3B / Qwen3.8-27B: 256K ctx
 { config, lib, pkgs, ... }:
 
@@ -92,7 +97,7 @@ in
               apiKey = keyfile "kimi";
             };
             models = {
-              kimi-k3 = {
+              k3 = {
                 name = "Kimi K3";
                 reasoning = true;
                 attachment = true;
@@ -101,28 +106,28 @@ in
                   output = 131072;
                 };
               };
-              "kimi-k2.7-code" = {
-                name = "Kimi K2.7 Code";
+              "k3-256k" = {
+                name = "Kimi K3 256K";
                 reasoning = true;
-                limit = {
-                  context = 262144;
-                  output = 65536;
-                };
-              };
-              "kimi-k2.7-code-highspeed" = {
-                name = "Kimi K2.7 Code HighSpeed";
-                reasoning = true;
-                limit = {
-                  context = 262144;
-                  output = 65536;
-                };
-              };
-              "kimi-k2.6" = {
-                name = "Kimi K2.6";
                 attachment = true;
                 limit = {
                   context = 262144;
-                  output = 32768;
+                  output = 131072;
+                };
+              };
+              "kimi-for-coding" = {
+                name = "Kimi K2.8 Preview";
+                reasoning = true;
+                attachment = true;
+                limit.context = 1048576;
+              };
+              "kimi-for-coding-highspeed" = {
+                name = "Kimi K2.7 Code HighSpeed";
+                reasoning = true;
+                attachment = true;
+                limit = {
+                  context = 262144;
+                  output = 65536;
                 };
               };
             };
