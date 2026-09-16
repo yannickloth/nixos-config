@@ -8,9 +8,10 @@ delete or change it**. Source of truth: `users/readmes/aaron.md`.
 
 - User `aaron` — a family account on the family computer(s), running NixOS
 - You have fun games to play: ktuberling, extremetuxracer, neverball and more
-- Games are stored on the shared `/steamlib` drive with the rest of the family.
-  You can play them, and you can install or update your own games there — but
-  be careful, everyone shares the same folder.
+- Your games are installed in your own library (inside your home folder), so
+  your saves are yours. Ask mum or dad before installing a big game — the
+  system automatically removes duplicate game files between the family
+  accounts to save space.
 
 ## Family rules (set up by the system)
 

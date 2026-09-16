@@ -58,6 +58,7 @@ with lib;
       ../../roles/shell.nix
       ../../services/sonos.nix
       ../../games/steam.nix
+      ../../roles/bees.nix
       ../../services/syncthing
       ../../security/apparmor.nix
       ../../security/sudo.nix

@@ -17,7 +17,7 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 ## Your account
 
 - Admin (sudo/wheel) — you can install software and change the system
-- Key groups: `wheel`, `steam` (shared game library), `secrets` (may edit
+- Key groups: `wheel`, `secrets` (may edit
   /etc/secrets where AI chat is enabled), `kvm`/`libvirtd` (VMs), `podman`,
   `networkmanager`, `lp`/`scanner`, `yubikey`, `tss`, `gamemode`, `syncthing`,
   `filedrop`, `cfo`
@@ -25,8 +25,9 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 
 ## System highlights
 
-- btrfs + LUKS full-disk encryption; the shared Steam library lives at
-  `/steamlib` (see `games/steam.nix`)
+- btrfs + LUKS full-disk encryption; each user's Steam games live in their
+  own library and btrfs deduplication keeps one physical copy
+  (`games/steam.nix`, `roles/bees.nix`)
 - Family AI chat (Open WebUI, on every host) — see `/etc/secrets/README.md`
   and `services/ai-chat/`
 - Secrets: /etc/secrets (group `secrets`), never in
@@ -108,7 +109,10 @@ per host.
 6. **Back up the device secret** (the private key + cert) into KeePass so a
    wiped disk can be re-seeded without changing the device ID. The device ID
    itself is public and already in `pool.nix`.
-- **Steam:** shared game installs live in `/steamlib/SteamLibrary/steamapps/common`.
+- **Steam:** each account installs its own games in `~/.local/share/Steam`.
+  Proton requires the Wine prefix to be owned by the running user, so a
+  library cannot be shared between accounts; btrfs deduplication (`roles/bees.nix`)
+  keeps the duplicate game data at one physical copy.
 - **Parental controls (malcontent):** manages which **flatpak** apps the kids
   may run (allowlist) and their session time limits. The kids' office/creative/
   media/mail apps (LibreOffice, GIMP, Krita, VLC, Geary) are installed as
@@ -146,31 +150,30 @@ kids' parental controls:
   with the allowlist in `services/malcontent.nix`; installs land on the next
   boot. Grant/revoke via the parental-controls settings app — no rebuild.
 - **nixpkgs — native, deep system access.** Everything that needs groups/ACLs,
-  GPU, gamepads, or its own policies: the games (Steam and Lutris on
-  `/steamlib`, and the kids' native games ktuberling, extremetuxracer,
+  GPU, gamepads, or its own policies: the games (Steam and the kids' native
+  games ktuberling, extremetuxracer,
   supertux, luanti, …), Firefox (its kid policies
   `users/kid-firefox-policies.nix` apply to the native build only), the kids'
-  file manager Dolphin (group/ACL access to `/steamlib` and `/filedrop`), and
+  file manager Dolphin (group/ACL access to `/filedrop`), and
   CLI/dev tools (python, racket, editors). Changes require a rebuild:
   `sudo nixos-rebuild switch --flake ~/code/nixos-config`.
 
 Flatpak apps are also **sandboxed from the shared folders**: they can't see
-`/steamlib`, `/sync` or `/filedrop` unless an override grants them access. The
+`/sync` or `/filedrop` unless an override grants them access. The
 kids' office/creative apps already get `/filedrop` so they can save into the
-drop folder (`apps.flatpak.overrides` in `roles/base.nix`); `/sync` and
-`/steamlib` remain group-accessed by native apps only (the kids' file manager
-Dolphin is native, so it reaches `/steamlib` + `/filedrop` via the `steam` and
-`filedrop` groups) — they are the protected shared data.
+drop folder (`apps.flatpak.overrides` in `roles/base.nix`); `/sync` remains
+group-accessed by native apps only — it is the protected shared data.
 
 Rule of thumb: **if malcontent should be able to allow or block it for a kid,
 make it a flatpak; if it needs groups/GPU/policies, keep it native.**
 
 ## Shared storage & family permissions
 
-- **`/steamlib`** — shared Steam library (`games/steam.nix`). The `steam`
-  group (nicky, aeiuno, sven, aaron) has read-write access, so anyone can
-  install, update and remove games. Install and update games from any family
-  account.
+- **Steam** — each account has its own library (`games/steam.nix`); games are
+  installed per user (Proton needs a per-user Wine prefix), and btrfs
+  deduplication (`roles/bees.nix`) keeps the shared data at one physical copy.
+  The legacy `/steamlib` subvolume still holds the old shared library; delete
+  it once every account has reinstalled what it needs.
 - **`/sync`** — Syncthing data (`services/syncthing/`). The `syncthing`
   group (nicky, aeiuno) has full access; sven and aaron have **no access** by
   default, so shared data can't be wiped. Later we can whitelist a folder for
@@ -189,7 +192,8 @@ make it a flatpak; if it needs groups/GPU/policies, keep it native.**
 - Kid-safe DNS applies machine-wide where configured
 - AI chat is available to them with the auto-seeded kid-safety
   gate (`services/ai-chat/filters/kid-safety.py`)
-- Shared Steam library: read-write (they can install, play and save); `/sync` is
+- Steam: each kid installs and plays games in their own library (own Wine
+  prefix); `/sync` is
   blocked for them; shared files pass through `/filedrop`
 - Disk quotas: each kid is capped at 50 GiB on `/home`
   (`services/home-quota.nix`)

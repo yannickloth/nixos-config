@@ -100,9 +100,8 @@ with lib;
     # home-manager — one source per user, never native + flatpak both.
     # Overrides grant access to the shared family drop folder (/filedrop).
     # The kids' file manager (Dolphin) is native, not flatpak: it needs
-    # group/ACL access to /steamlib (steam group) and /filedrop (filedrop
-    # group), which a sandboxed flatpak can't use — see the rule of thumb in
-    # users/readmes/parents.md.
+    # group/ACL access to /filedrop (filedrop group), which a sandboxed
+    # flatpak can't use — see the rule of thumb in users/readmes/parents.md.
     # adultApps is the same list minus the apps nicky/aeiuno already have from
     # Nixpkgs (gimp, krita, libreoffice, vlc, obsidian, dolphin, gwenview,
     # kalk, okular), so the adults never end up with two copies of an app.

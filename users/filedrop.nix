@@ -13,8 +13,8 @@ with lib;
 
   systemd.tmpfiles.rules = [
     "d /filedrop 2770 root filedrop -"
-    # Default ACL (mirrors the /steamlib pattern): new files get owner rwx,
-    # group filedrop rwx, no access for others.
+    # Default ACL: new files get owner rwx, group filedrop rwx, no access
+    # for others.
     "A /filedrop 2770 root filedrop - u::rwx,g::rwx,o::---"
     # Recursively heal owner/mode/setgid of existing content on every boot.
     "Z /filedrop 2770 root filedrop -"

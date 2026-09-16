@@ -13,8 +13,11 @@ Et voilà!
 
 ## Family shared folders & permissions
 
-- `/steamlib` — shared Steam library (`games/steam.nix`): `steam` group
-  (parents) read-write, kids read-only (play, not modify).
+- Steam games — each account has its own library in `~/.local/share/Steam`
+  (`games/steam.nix`); Proton needs a per-user Wine prefix, so a library
+  cannot be shared between accounts. btrfs deduplication (`roles/bees.nix`)
+  keeps duplicate game data at one physical copy. The legacy `/steamlib`
+  subvolume can be deleted once every account has reinstalled its games.
 - `/sync` — Syncthing data (`services/syncthing/`): parents only; kids
   blocked by default, per-folder `kids`-group ACL whitelist later.
 - `/filedrop` — family drop folder (`users/filedrop.nix`): all accounts

@@ -67,12 +67,11 @@
       options = [ "fmask=0077" "dmask=0077" ];
     };
 
-  fileSystems."/steamlib" =
-    {
-      device = "/dev/mapper/luks-45c077f9-a627-4815-9a19-a1d6e33cb7c7";
-      fsType = "btrfs";
-      options = [ "subvol=steamlib" "compress=zstd" "noatime" "nofail" ];
-    };
+  # The btrfs subvolume steamlib (legacy shared Steam library) is no longer
+  # mounted or used: Steam games are installed per user (games/steam.nix).
+  # Its data is still reachable at /steamlib (the / subvolume is the btrfs
+  # top level) and can be deleted with `sudo btrfs subvolume delete /steamlib`
+  # once every account has reinstalled the games it wants.
 
   #   swapDevices =
   #     [
