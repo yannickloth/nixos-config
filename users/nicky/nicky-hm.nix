@@ -432,11 +432,12 @@ in
 
   # agenix (home-manager module): decrypt nicky's AI-chat API keys at activation
   # to $XDG_RUNTIME_DIR/agenix/nicky.nix, then sourced by the shell. The key is
-  # ~/.ssh/id_ed25519 — the same keypair is registered on GitHub (SSH identity)
-  # and is the `user-nicky` agenix recipient. A missing key fails the build
-  # loudly. See secrets-structure/README.md.
+  # ~/.ssh/agenix_nicky, whose public key is the `user-nicky` agenix recipient
+  # (see secrets.nix and ssh-keys/users/nicky). ~/.ssh/id_ed25519 is nicky's
+  # GitHub SSH identity and is NOT an agenix recipient, so it must not be used
+  # here. A missing key fails the build loudly. See secrets-structure/README.md.
   age = {
-    identityPaths = [ "/home/nicky/.ssh/id_ed25519" ];
+    identityPaths = [ "/home/nicky/.ssh/agenix_nicky" ];
     secrets."nicky.nix" = {
       file = ../../secrets/nicky.nix.age;
       mode = "0400";
