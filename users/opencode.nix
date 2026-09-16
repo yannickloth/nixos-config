@@ -1,5 +1,6 @@
 # Global opencode configuration for nicky: providers (deepseek, z.ai/GLM, Kimi,
-# Hetzner) and their models with researched context/output limits.
+# Hetzner, and on laptop-p16 the local Unsloth Studio server) and their models
+# with researched context/output limits.
 #
 # API keys are NOT stored here or in the nix store. They are read at runtime via
 # opencode's `{file:...}` substitution from per-key files that the
@@ -18,12 +19,17 @@
 #                                               (api.moonshot.ai) uses different IDs (kimi-k3,
 #                                               kimi-k2.7-code, kimi-k2.7-code-highspeed, kimi-k2.6).
 #   Hetzner   https://inference.hetzner.com/api/v1   Qwen3.6-35B-A3B / Qwen3.8-27B: 256K ctx
+#   unsloth   http://127.0.0.1:8888/v1   local Unsloth Studio (laptop-p16 only, keyless);
+#                                        Studio enforces its own per-model context budget
 { config, lib, pkgs, ... }:
 
 with lib;
 
 let
   keyfile = name: "{file:~/.config/opencode/keys/${name}.key}";
+  # Unsloth Studio is only installed on laptop-p16 (see nicky-hm.nix isP16),
+  # so gate the local provider on the same build-time condition.
+  isP16 = config.commonHm.hostName == "laptop-p16";
 in
 {
   options.opencode = {
@@ -46,18 +52,9 @@ in
                 output = 384000;
               };
             };
-            deepseek-v4-flash = {
-              name = "DeepSeek V4 Flash";
+            deepseek-flash = {
+              name = "DeepSeek Flash";
               reasoning = true;
-              limit = {
-                context = 1000000;
-                output = 384000;
-              };
-            };
-            deepseek-v4-flash-vision-exp = {
-              name = "DeepSeek V4 Flash Vision";
-              reasoning = true;
-              attachment = true;
               limit = {
                 context = 1000000;
                 output = 384000;
@@ -119,7 +116,10 @@ in
                 name = "Kimi K2.8 Preview";
                 reasoning = true;
                 attachment = true;
-                limit.context = 1048576;
+                limit = {
+                  context = 1048576;
+                  output = 131072;
+                };
               };
               "kimi-for-coding-highspeed" = {
                 name = "Kimi K2.7 Code HighSpeed";
@@ -150,6 +150,78 @@ in
                 name = "Qwen3.8-27B (Hetzner)";
                 limit = {
                   context = 262144;
+                  output = 32768;
+                };
+              };
+            };
+          };
+        } // optionalAttrs isP16 {
+          # Local Unsloth Studio server: OpenAI-compatible API on localhost.
+          # Model list captured from `curl http://127.0.0.1:8888/v1/models`
+          # (2026-09-16). The TTS (unsloth/orpheus-*) and text-to-image
+          # (unsloth/Qwen-Image-*) entries are excluded: opencode only speaks
+          # chat completions. Download/load new models in the Studio UI, then
+          # add matching entries here; limits are advisory (opencode uses them
+          # for compaction thresholds) and set to the ~100K budget Studio
+          # actually serves per loaded model, well under the native windows.
+          unsloth = {
+            npm = "@ai-sdk/openai-compatible";
+            options = {
+              baseURL = "http://127.0.0.1:8888/v1";
+              # Studio's keyless mode rejects any non-empty bearer token but
+              # accepts an empty one, which the ai-sdk sends for apiKey "".
+              apiKey = "";
+            };
+            models = {
+              "empero-ai/Qwen3.8-9B-Distill-GGUF" = {
+                name = "Qwen3.8-9B Distill (local)";
+                reasoning = true;
+                limit = {
+                  context = 103424;
+                  output = 32768;
+                };
+              };
+              "ornith-ai/Ornith-1.5-9B-GGUF" = {
+                name = "Ornith-1.5-9B (local)";
+                limit = {
+                  context = 103424;
+                  output = 32768;
+                };
+              };
+              "unsloth/qwen3.8-27B-GGUF" = {
+                name = "Qwen3.8-27B (local)";
+                reasoning = true;
+                limit = {
+                  context = 103424;
+                  output = 32768;
+                };
+              };
+              "empero-ai/Qwen3.8-27B-Ridge-GGUF" = {
+                name = "Qwen3.8-27B Ridge (local)";
+                reasoning = true;
+                limit = {
+                  context = 103424;
+                  output = 32768;
+                };
+              };
+              "empero-ai/Qwythos-9B-v2-GGUF" = {
+                name = "Qwythos-9B v2 (local)";
+                limit = {
+                  context = 103424;
+                  output = 32768;
+                };
+              };
+              "empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF" = {
+                name = "Qwythos-9B Claude-Mythos 1M (local)";
+                limit = {
+                  context = 103424;
+                  output = 32768;
+                };
+              };
+              "unsloth/gemma-4-12B-it-qat-GGUF" = {
+                name = "Gemma-4-12B IT QAT (local)";
+                limit = {
+                  context = 103424;
                   output = 32768;
                 };
               };
