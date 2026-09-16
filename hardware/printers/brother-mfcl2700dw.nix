@@ -17,15 +17,16 @@ in
     };
     printers = {
       ensureDefaultPrinter = mfcl2700dw_name;
-      #       ensurePrinters = [
-      #         {
-      #           name = mfcl2700dw_name;
-      #           deviceUri = "ipp://${mfcl2700dw_ip}/ipp";
-      #           model = "everywhere";
-      #           description = pkgs.lib.replaceStrings [ "_" ] [ " " ] mfcl2700dw;
-      #           location = "B31 1 Bureau";
-      #         }
-      #       ];
+      # Declarative queue: exists for every user after each rebuild.
+      ensurePrinters = [
+        {
+          name = mfcl2700dw_name;
+          deviceUri = "ipp://${mfcl2700dw_ip}/ipp";
+          model = "everywhere";
+          description = pkgs.lib.replaceStrings [ "_" ] [ " " ] mfcl2700dw;
+          location = "B31 1 Bureau";
+        }
+      ];
     };
   };
 }

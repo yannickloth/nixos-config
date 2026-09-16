@@ -7,16 +7,16 @@ in
 {
   hardware = {
     printers = {
-      #       ensurePrinters = [
-      #         {
-      #           name = xp15000;
-      #           deviceUri = "https://${xp15000_ip}:631/ipp/print";
-      # #           model = "escpr2";
-      #           model = "everywhere";
-      #           description = pkgs.lib.replaceStrings [ "_" ] [ " " ] xp15000;
-      #           location = "B31 0 SàM";
-      #         }
-      # ];
+      # Declarative queue: exists for every user after each rebuild.
+      ensurePrinters = [
+        {
+          name = xp15000_name;
+          deviceUri = "https://${xp15000_ip}:631/ipp/print";
+          model = "everywhere";
+          description = pkgs.lib.replaceStrings [ "_" ] [ " " ] xp15000;
+          location = "B31 0 SàM";
+        }
+      ];
     };
   };
 }
