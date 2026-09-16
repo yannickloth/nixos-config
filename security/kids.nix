@@ -26,8 +26,16 @@ with lib;
 
   # Kids cannot change network settings (DNS, proxy, IP, hostname) or create
   # hotspots — otherwise they could bypass the family DNS filter. Connecting to
-  # already-configured networks stays allowed (org.freedesktop.NetworkManager.network-control).
-  security.polkit.extraConfig = ''
+  # already-configured networks stays allowed
+  # (org.freedesktop.NetworkManager.network-control), as does toggling wifi
+  # (enable-disable-wifi).
+  #
+  # polkit evaluates rules in order and the FIRST rule that returns a value
+  # wins. This deny must therefore run before the NixOS networkmanager rule that
+  # grants the networkmanager group every org.freedesktop.NetworkManager.*
+  # action (both rules live in the same /etc/polkit-1/rules.d/10-nixos.rules);
+  # mkBefore pins that order instead of relying on merge order.
+  security.polkit.extraConfig = mkBefore ''
     polkit.addRule(function (action, subject) {
       if (subject.user == "sven" || subject.user == "aaron") {
         if (action.id.indexOf("org.freedesktop.NetworkManager.settings.modify") === 0 ||
