@@ -9,7 +9,21 @@
 { unstablePkgs }:
 
 final: prev: {
-  opencode = unstablePkgs.opencode;
+  # opencode 1.18.30/1.18.31 crash on every prompt when the config declares
+  # any custom provider: "TypeError: undefined is not an object (evaluating
+  # 'a.name')" / "Unexpected server error". Root cause is a circular runtime
+  # import between packages/core/src/filesystem.ts and
+  # filesystem/search.ts, which the newer Bun bundler (1.4.x, now used by
+  # nixpkgs) evaluates in the order that leaves FileSystemSearch.node
+  # undefined. Upstream fixed it in anomalyco/opencode PR #49298 (merged to
+  # dev 2026-09-16), but as of 1.18.31 no tagged release contains the fix.
+  # Apply that patch until a release with it lands in nixpkgs-unstable, then
+  # drop it. See packages/patches/.
+  opencode = (unstablePkgs.opencode.overrideAttrs (old: {
+    patches = (old.patches or [ ]) ++ [
+      ../packages/patches/opencode-fix-filesystem-import-cycle.patch
+    ];
+  }));
   pi-coding-agent = unstablePkgs.pi-coding-agent;
   jetbrains-toolbox = unstablePkgs.jetbrains-toolbox;
   vscode = unstablePkgs.vscode;
