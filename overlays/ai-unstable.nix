@@ -6,7 +6,7 @@
 # Example: the opencode / pi-coding-agent / jetbrains-toolbox / vscode you get
 # on a stable channel lag unstable by weeks-to-months. These four move fast
 # because of built-in AI features, so they are pulled from nixos-unstable.
-{ unstablePkgs }:
+{ unstablePkgs, hermesAgent }:
 
 final: prev: {
   # opencode 1.18.30/1.18.31 crash on every prompt when the config declares
@@ -25,6 +25,9 @@ final: prev: {
     ];
   }));
   pi-coding-agent = unstablePkgs.pi-coding-agent;
+  # Hermes Agent is packaged in-tree (packages/hermes-agent) from upstream's
+  # uv.lock via uv2nix — it is not in nixpkgs at all.
+  hermes-agent = hermesAgent;
   jetbrains-toolbox = unstablePkgs.jetbrains-toolbox;
   vscode = unstablePkgs.vscode;
 }

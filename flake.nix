@@ -28,9 +28,21 @@
     # nixConfig (and in roles/nix.nix) because the CachyOS flake's own nixConfig
     # is NOT honored when used as an input.
     nix-cachyos-kernel.url = "github:xddxdd/nix-cachyos-kernel/release";
+    # hermes-agent packaging (packages/hermes-agent): builds the upstream
+    # uv.lock into a Python virtualenv. Pin all three to this repo's
+    # nixpkgs-unstable so there is a single evaluation of nixpkgs.
+    pyproject-nix.url = "github:nix-community/pyproject.nix";
+    pyproject-nix.inputs.nixpkgs.follows = "nixpkgs-unstable";
+    pyproject-build-systems.url = "github:pyproject-nix/build-system-pkgs";
+    pyproject-build-systems.inputs.pyproject-nix.follows = "pyproject-nix";
+    pyproject-build-systems.inputs.uv2nix.follows = "uv2nix";
+    pyproject-build-systems.inputs.nixpkgs.follows = "nixpkgs-unstable";
+    uv2nix.url = "github:pyproject-nix/uv2nix";
+    uv2nix.inputs.pyproject-nix.follows = "pyproject-nix";
+    uv2nix.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, nix-cachyos-kernel, agenix, ... }:
+  outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, nix-cachyos-kernel, agenix, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -44,8 +56,15 @@
         inherit system;
         config.allowUnfree = true;
       };
+      # Hermes Agent (Nous Research) built from upstream uv.lock via uv2nix.
+      hermesAgent = unstablePkgs.callPackage ./packages/hermes-agent {
+        uv2nix = uv2nix;
+        pyproject-nix = pyproject-nix;
+        pyproject-build-systems = pyproject-build-systems;
+      };
       aiOverlay = import ./overlays/ai-unstable.nix {
         inherit unstablePkgs;
+        inherit hermesAgent;
       };
     in
     {

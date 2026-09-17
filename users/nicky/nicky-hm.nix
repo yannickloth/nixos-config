@@ -172,6 +172,7 @@ in
     languagetool
     opencode
     pi-coding-agent
+    hermes-agent
 
     jdk25 # Java 25
     elan # Lean theorem prover version manager

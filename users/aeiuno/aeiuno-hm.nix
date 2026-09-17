@@ -48,6 +48,7 @@
       jetbrains-toolbox # JetBrains IDEs (IntelliJ, PyCharm, ...) via Toolbox
       opencode
       pi-coding-agent
+      hermes-agent
       #jellyfin-media-player
       #joplin-desktop
       kdePackages.dolphin
