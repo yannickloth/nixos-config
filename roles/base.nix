@@ -104,7 +104,8 @@ with lib;
     # flatpak can't use — see the rule of thumb in users/readmes/parents.md.
     # adultApps is the same list minus the apps nicky/aeiuno already have from
     # Nixpkgs (gimp, krita, libreoffice, vlc, obsidian, dolphin, gwenview,
-    # kalk, okular), so the adults never end up with two copies of an app.
+    # kalk, okular, calibre, filelight), so the adults never end up with two
+    # copies of an app.
     # Note: KDE's Minesweeper is org.kde.kmines on Flathub (org.kde.Mines is a
     # nonexistent id), and replaces GNOME Mines (removed: duplicates kmines).
     apps.flatpak = {
@@ -141,7 +142,9 @@ with lib;
         "app/org.kde.kig/x86_64/stable"
         "app/org.kde.kstars/x86_64/stable"
         "app/org.kde.okular/x86_64/stable"
+        "app/org.kde.filelight/x86_64/stable"
         "app/org.gimp.GIMP/x86_64/stable"
+        "app/com.calibre_ebook.calibre/x86_64/stable"
         "app/org.libreoffice.LibreOffice/x86_64/stable"
         "app/org.videolan.VLC/x86_64/stable"
         "app/md.obsidian.Obsidian/x86_64/stable"
