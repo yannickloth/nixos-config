@@ -225,6 +225,17 @@ in
                   output = 32768;
                 };
               };
+              # Vision OCR model. Studio serves it with a tiny default
+              # context budget (4K); expanded to 131072 in the Studio UI
+              # (2026-09-17), so the advisory limit matches that.
+              "unsloth/GLM-OCR" = {
+                name = "GLM-OCR (local)";
+                attachment = true;
+                limit = {
+                  context = 131072;
+                  output = 32768;
+                };
+              };
             };
           };
         };
