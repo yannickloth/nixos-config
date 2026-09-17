@@ -40,6 +40,12 @@
   config = {
     home.stateVersion = "26.05";
 
+    # shell-aliases.nix runs `eval "$(zoxide init zsh)"` unconditionally, so
+    # zoxide must exist in every user's PATH. On NixOS hosts it also comes
+    # from roles/system.nix; listing it here keeps the standalone
+    # home-manager deployment (users/flake.nix, CachyOS hosts) working.
+    home.packages = [ pkgs.zoxide ];
+
     # Let home-manager take over an existing plain ~/.zshrc (e.g. one created
     # by zsh-newuser-install); otherwise the zsh module's .zshrc would be a
     # clobber and never get written (leaving starship etc. inactive).
