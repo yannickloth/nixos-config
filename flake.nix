@@ -89,6 +89,10 @@
         ];
       };
 
+      # Laya (System 1 decision engine) CLI + MCP server. Scope wrappers live
+      # beside it: packages/laya/home.nix and packages/laya/nixos.nix.
+      packages.${system}.laya = pkgs.callPackage ./packages/laya { };
+
       nixosConfigurations =
         let
           cachyos-bore-lto = { pkgs, ... }: {

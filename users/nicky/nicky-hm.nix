@@ -58,12 +58,17 @@ in
   imports = [
     ../common-hm.nix
     ../emacs-adult.nix
+    ../../packages/laya/home.nix
     ../natural-scroll.nix
     ../opencode.nix
   ];
 
   # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
   opencode.enable = true;
+
+  # Laya (System 1 decision engine) + its MCP server, from the reusable
+  # packages/laya package/module. Only laptop-p16 has the CUDA venv it targets.
+  laya.enable = isP16;
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;

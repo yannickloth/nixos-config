@@ -1,0 +1,22 @@
+# Laya playground (Convai Innovations) — a System 1 decision engine.
+#
+# Shipped by the Nix package in this directory (packages/laya/default.nix),
+# which copies the project read-only into the store; the virtualenv is created
+# outside it via UV_PROJECT_ENVIRONMENT (see the launchers).
+#
+# `torch` is pulled from PyPI's default Linux wheel, which is the CUDA build.
+#
+# `mcp` backs the streamable-HTTP MCP server (mcp_server.py) that exposes Laya
+# to MCP clients (opencode) as a shared, GPU-resident remote server.
+[project]
+name = "laya-demo"
+version = "0.1.0"
+description = "Laya (System 1 decision engine) playground"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "laya>=0.3.3",
+  "mcp>=2.2.0",
+]
+
+[tool.uv]
+package = false
