@@ -32,6 +32,20 @@ in
       example = "cuda";
       description = "Device to load checkpoints on (cuda, cpu, mps). null lets laya auto-detect.";
     };
+
+    maxLen = mkOption {
+      type = types.nullOr types.ints.positive;
+      default = null;
+      example = 8192;
+      description = ''
+        Override the checkpoint context window, in tokens. null keeps the
+        checkpoint default (512 English / 1024 multilingual). The encoders
+        state 8192 positions and use rotary embeddings, so they accept even
+        more, but the decision heads were trained on 512/1024-token windows, so
+        quality beyond the trained length is unvalidated (and cost grows
+        quadratically).
+      '';
+    };
   };
 
   config = mkIf cfg.enable {
@@ -63,7 +77,8 @@ in
         Type = "simple";
         ExecStart = "${cfg.package}/bin/laya-mcp";
         Environment = [ "LAYA_MCP_PORT=${toString cfg.mcpPort}" ]
-          ++ optional (cfg.device != null) "LAYA_DEVICE=${cfg.device}";
+          ++ optional (cfg.device != null) "LAYA_DEVICE=${cfg.device}"
+          ++ optional (cfg.maxLen != null) "LAYA_MAX_LEN=${toString cfg.maxLen}";
         Restart = "on-failure";
         RestartSec = "15s";
       };

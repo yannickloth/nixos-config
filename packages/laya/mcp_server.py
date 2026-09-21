@@ -9,6 +9,9 @@ Environment:
   LAYA_MCP_HOST   bind address          (default 127.0.0.1)
   LAYA_MCP_PORT   bind port             (default 8765)
   LAYA_DEVICE     cuda | cpu | mps      (default: auto)
+  LAYA_MAX_LEN    context window, tokens (default: checkpoint value, 512/1024).
+                  The encoders are 8k-native, but the decision heads were trained
+                  on 512/1024-token windows, so quality beyond that is unvalidated.
 """
 from __future__ import annotations
 
@@ -49,6 +52,40 @@ _ready = threading.Event()
 _load_error: Optional[str] = None
 
 
+def _apply_max_len(router: "laya.Router") -> None:
+    """Override each loaded checkpoint's context window from LAYA_MAX_LEN.
+
+    `max_len` is a checkpoint setting, not an architecture limit: both encoders
+    are 8k-native. It is clamped so the question/option head always fits.
+    """
+    raw = os.environ.get("LAYA_MAX_LEN")
+    if not raw:
+        return
+    try:
+        requested = int(raw)
+    except ValueError:
+        log.warning("ignoring invalid LAYA_MAX_LEN=%r", raw)
+        return
+    for name in router.loaded:
+        agent = router.load(name)
+        floor = int(agent.cfg.get("head_max_len", 192)) + 16
+        applied = max(requested, floor)
+        agent.cfg["max_len"] = applied
+        if applied != requested:
+            log.info("max_len for %s: %d (raised from %d to fit the head)", name, applied, requested)
+        else:
+            log.info("max_len for %s: %d", name, applied)
+        # Rotary positions have no fixed table, so the encoder accepts more than
+        # its stated max — but that is extrapolation past the trained window.
+        enc_max = getattr(agent.model.encoder.config, "max_position_embeddings", None)
+        if enc_max and applied > enc_max:
+            log.warning(
+                "max_len for %s: %d exceeds the encoder's %d positions (rotary "
+                "extrapolation; quality unvalidated)",
+                name, applied, enc_max,
+            )
+
+
 def _preload() -> None:
     global _router, _load_error
     try:
@@ -58,6 +95,7 @@ def _preload() -> None:
         # is truthy and would load *every* checkpoint. Preload the two we serve.
         _router = laya.Router(device=device)
         _router.preload(["english", "multilingual"])
+        _apply_max_len(_router)
         log.info("Router ready: %s", _router.loaded)
     except Exception as exc:  # keep serving; tool calls surface the error
         _load_error = f"{type(exc).__name__}: {exc}"
