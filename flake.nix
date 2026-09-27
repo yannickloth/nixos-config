@@ -89,9 +89,14 @@
         ];
       };
 
-      # Laya (System 1 decision engine) CLI + MCP server. Scope wrappers live
-      # beside it: packages/laya/home.nix and packages/laya/nixos.nix.
-      packages.${system}.laya = pkgs.callPackage ./packages/laya { };
+      # System 1 decision engines. Scope wrappers live beside them:
+      # packages/laya/{home,nixos}.nix and packages/clm/home.nix. (One
+      # packages.${system} assignment: flake outputs do not merge repeated
+      # dynamic-attribute paths.)
+      packages.${system} = {
+        laya = pkgs.callPackage ./packages/laya { };
+        clm = pkgs.callPackage ./packages/clm { };
+      };
 
       nixosConfigurations =
         let

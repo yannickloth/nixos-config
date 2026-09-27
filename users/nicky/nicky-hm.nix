@@ -59,6 +59,7 @@ in
     ../common-hm.nix
     ../emacs-adult.nix
     ../../packages/laya/home.nix
+    ../../packages/clm/home.nix
     ../natural-scroll.nix
     ../opencode.nix
   ];
@@ -69,6 +70,13 @@ in
   # Laya (System 1 decision engine) + its MCP server, from the reusable
   # packages/laya package/module. Only laptop-p16 has the CUDA venv it targets.
   laya.enable = isP16;
+
+  # CLM (Contrastive Language Models) encoder + API server user services, from
+  # the reusable packages/clm package/module. Same GPU gating as laya: the
+  # Qwen3-8B encoder wants ~17 GB VRAM on top of what laya/unsloth hold. If
+  # VRAM gets tight, keep the service but set clm.enableEncoder = false and
+  # point clm.embUrl at another host's encoder.
+  clm.enable = isP16;
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
