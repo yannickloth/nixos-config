@@ -269,15 +269,17 @@ in
         };
 
         # Laya System 1 decision engine, served as a shared streamable-HTTP MCP
-        # server by the packages/laya home-manager module. Enabled whenever that
-        # feature is enabled for this user (nicky gates it on laptop-p16). The
-        # `or` defaults keep this module usable without importing packages/laya.
-        # The long timeout covers a cold checkpoint load on first connect.
+        # server by the packages/laya home-manager module. The MCP entry is
+        # registered only when that feature is enabled for this user, but it is
+        # DISABLED by default: laya is a local engine and when its checkpoint is
+        # not loaded every call hung for the full 120s timeout. Routing/decisions
+        # now go to deepseek-flash (see tier-router and the local_decide tool), so
+        # flip `enabled` back to true only when laya is actually running.
         mcp = optionalAttrs (config.laya.enable or false) {
           laya = {
             type = "remote";
             url = "http://127.0.0.1:${toString (config.laya.mcpPort or 8765)}/mcp";
-            enabled = true;
+            enabled = false;
             timeout = 120000;
           };
         };
