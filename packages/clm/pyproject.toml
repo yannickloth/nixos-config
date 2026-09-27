@@ -1,0 +1,23 @@
+# CLM (Contrastive Language Models) playground — a System 1 decision engine.
+#
+# Shipped by the Nix package in this directory (packages/clm/default.nix),
+# which copies the project read-only into the store; the virtualenv is created
+# outside it via UV_PROJECT_ENVIRONMENT (see the launchers).
+#
+# `torch` and `vllm` come from PyPI's default Linux wheels (CUDA builds), so
+# the first `clm-setup` downloads several GB.
+#
+# `contrastive-lm` ships the `clm-serve` API server (typed noul/choice/score
+# questions) and `clm-download` (the 75 MB reference head); `vllm` backs the
+# Qwen3-8B pooling encoder that `clm-encode` runs on the GPU.
+[project]
+name = "clm-demo"
+version = "0.1.0"
+description = "CLM (contrastive language model) playground"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "contrastive-lm>=0.1.0",
+]
+
+[tool.uv]
+package = false
