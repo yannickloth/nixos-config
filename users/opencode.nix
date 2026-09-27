@@ -19,7 +19,7 @@
 #                                               (api.moonshot.ai) uses different IDs (kimi-k3,
 #                                               kimi-k2.7-code, kimi-k2.7-code-highspeed, kimi-k2.6).
 #   Hetzner   https://inference.hetzner.com/api/v1   Qwen3.6-35B-A3B / Qwen3.8-27B: 256K ctx
-#   unsloth   http://127.0.0.1:8888/v1   local Unsloth Studio (laptop-p16 only, keyless);
+#   unsloth   http://127.0.0.1:8888/v1   local Unsloth Studio (laptop-p16 only);
 #                                        Studio enforces its own per-model context budget
 { config, lib, pkgs, ... }:
 
@@ -164,13 +164,14 @@ in
           # add matching entries here; limits are advisory (opencode uses them
           # for compaction thresholds) and set to the ~100K budget Studio
           # actually serves per loaded model, well under the native windows.
-          unsloth = {
+          unsloth-studio = {
             npm = "@ai-sdk/openai-compatible";
             options = {
               baseURL = "http://127.0.0.1:8888/v1";
-              # Studio's keyless mode rejects any non-empty bearer token but
-              # accepts an empty one, which the ai-sdk sends for apiKey "".
-              apiKey = "";
+              # Studio requires an API key even for the local server. The key
+              # is read from ~/.config/opencode/keys/unsloth.key (materialized
+              # by setupOpenCodeKeys from /etc/secrets/open-webui.env).
+              apiKey = keyfile "unsloth";
             };
             models = {
               "empero-ai/Qwen3.8-9B-Distill-GGUF" = {
@@ -270,6 +271,7 @@ in
           "https://api.kimi.com/coding/v1": "kimi.key",
           "https://inference.hetzner.com/api/v1": "hetzner.key",
           "https://api.z.ai/api/paas/v4/": "zai.key",
+          "http://127.0.0.1:8888/v1": "unsloth.key",
       }
       if not os.path.exists(envfile):
           print(f"opencode: {envfile} missing; skipping key setup")
