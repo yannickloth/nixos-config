@@ -60,6 +60,7 @@ in
     ../emacs-adult.nix
     ../../packages/laya/home.nix
     ../../packages/clm/home.nix
+    ../../packages/strata/home.nix
     ../natural-scroll.nix
     ../opencode.nix
   ];
@@ -77,6 +78,13 @@ in
   # VRAM gets tight, keep the service but set clm.enableEncoder = false and
   # point clm.embUrl at another host's encoder.
   clm.enable = isP16;
+
+  # Strata (Qwen3.8-Flash-Next 125B MoE inference, OpenAI/Anthropic API on
+  # localhost). Same GPU gating as laya/clm: the engine is built for the
+  # A3000's sm_86 and the runtime wants its 12 GB of VRAM plus 34-50 GB of
+  # RAM for the expert arena. First `strata` run downloads the ~70-84 GB
+  # model into ~/.local/share/strata (STRATA_HOME overrides the directory).
+  strata.enable = isP16;
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;

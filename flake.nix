@@ -96,6 +96,10 @@
       packages.${system} = {
         laya = pkgs.callPackage ./packages/laya { };
         clm = pkgs.callPackage ./packages/clm { };
+        # Strata (packages/strata): CUDA inference engine for the A3000
+        # (sm_86) + runtime wrappers; consumed via home-manager
+        # (packages/strata/home.nix, `strata.enable`).
+        strata = pkgs.callPackage ./packages/strata { };
       };
 
       nixosConfigurations =

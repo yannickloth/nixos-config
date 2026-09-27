@@ -113,9 +113,9 @@
     nvidia = let
   nvidiaPackage = config.hardware.nvidia.package;
 in{
-    # NVIDIA RTX A3000
+    # NVIDIA RTX A3000 12GB Laptop GPU (Ampere, compute capability 8.6)
 
-    dynamicBoost.enable = false; # The NVIDIA GeForce GTX 1050 Ti does not have the Ampere (2020) architecture. # Whether to enable dynamic Boost balances power between the CPU and the GPU for improved performance on supported laptops using the nvidia-powerd daemon. For more information, see the NVIDIA docs, on Chapter 23. Dynamic Boost on Linux. https://download.nvidia.com/XFree86/Linux-x86_64/510.73.05/README/dynamicboost.html
+    dynamicBoost.enable = false; # Left off (the A3000 is Ampere and could use it, but it changes GPU power behavior). # Whether to enable dynamic Boost balances power between the CPU and the GPU for improved performance on supported laptops using the nvidia-powerd daemon. For more information, see the NVIDIA docs, on Chapter 23. Dynamic Boost on Linux. https://download.nvidia.com/XFree86/Linux-x86_64/510.73.05/README/dynamicboost.html
 
     gsp.enable = true; # Whether to enable the GPU System Processor (GSP) on the video card. The NVIDIA GPU System Processor (GSP) is a specialized co-processor embedded within certain NVIDIA GPUs. Its primary function is to offload tasks traditionally handled by the CPU, such as GPU initialization and management, directly onto the GPU. By handling low-level tasks, the GSP allows for more efficient communication between the CPU and GPU, which can be particularly beneficial in data-centric applications and gaming.
 

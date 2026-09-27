@@ -1,0 +1,16 @@
+--- a/src/core/native_head.cpp
++++ b/src/core/native_head.cpp
+@@ -118,9 +118,11 @@
+         }
+         row_ = strata::kernels::iq_row_bytes((int) t->type, n_embd);
+         bytes_ = (uint64_t) row_ * (uint64_t) n_vocab;
+-        if (cudaHostAlloc(&host_, bytes_, cudaHostAllocMapped | cudaHostAllocPortable) != cudaSuccess) {
++        cudaError_t host_err = cudaHostAlloc(&host_, bytes_, cudaHostAllocMapped | cudaHostAllocPortable);
++        if (host_err != cudaSuccess) {
+             host_ = nullptr;
+-            err = "native embedding: cannot pin " + std::to_string(bytes_ >> 20) + " MiB";
++            err = "native embedding: cannot pin " + std::to_string(bytes_ >> 20) + " MiB: " +
++                  cudaGetErrorString(host_err);
+             return false;
+         }
+         std::memcpy(host_, gguf.tensor_data(*t), bytes_);

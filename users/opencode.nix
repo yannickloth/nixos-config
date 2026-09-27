@@ -21,6 +21,8 @@
 #   Hetzner   https://inference.hetzner.com/api/v1   Qwen3.6-35B-A3B / Qwen3.8-27B: 256K ctx
 #   unsloth   http://127.0.0.1:8888/v1   local Unsloth Studio (laptop-p16 only);
 #                                        Studio enforces its own per-model context budget
+#   strata    http://127.0.0.1:8080/v1   local Strata server (laptop-p16 only); any
+#                                        key/model name, context = the one picked in `strata` setup
 { config, lib, pkgs, ... }:
 
 with lib;
@@ -234,6 +236,31 @@ in
                 attachment = true;
                 limit = {
                   context = 131072;
+                  output = 32768;
+                };
+              };
+            };
+          };
+          # Local Strata server (packages/strata, laptop-p16 only):
+          # Qwen3.8-Flash-Next 125B MoE, OpenAI-compatible API on localhost.
+          # The server accepts ANY API key and model name (chat.py sends
+          # "strata"), so no key file is needed. Context is advisory (opencode
+          # uses it for compaction thresholds) and matches the context chosen
+          # in `strata --setup`. Images are not enabled in the strata package
+          # (vision = false), so no attachment flag. reasoning=true: the model
+          # thinks before answering; tune via reasoning effort.
+          strata-local = {
+            npm = "@ai-sdk/openai-compatible";
+            options = {
+              baseURL = "http://127.0.0.1:8080/v1";
+              apiKey = "strata";
+            };
+            models = {
+              strata = {
+                name = "Strata Qwen3.8-Flash-Next 125B (local)";
+                reasoning = true;
+                limit = {
+                  context = 32768;
                   output = 32768;
                 };
               };
