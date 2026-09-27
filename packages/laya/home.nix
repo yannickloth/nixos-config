@@ -46,6 +46,16 @@ in
         quadratically).
       '';
     };
+
+    autoStart = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Start the MCP server automatically at login (WantedBy =
+        default.target). false leaves the unit installed but stopped; start it
+        with `systemctl --user start laya-mcp`.
+      '';
+    };
   };
 
   config = mkIf cfg.enable {
@@ -72,7 +82,7 @@ in
         Description = "Laya MCP server (System 1 decision engine, streamable HTTP)";
         After = [ "network-online.target" ];
       };
-      Install.WantedBy = [ "default.target" ];
+      Install = mkIf cfg.autoStart { WantedBy = [ "default.target" ]; };
       Service = {
         Type = "simple";
         ExecStart = "${cfg.package}/bin/laya-mcp";
