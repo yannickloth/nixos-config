@@ -86,7 +86,14 @@ in
   # A3000's sm_86 and the runtime wants its 12 GB of VRAM plus 34-50 GB of
   # RAM for the expert arena. First `strata` run downloads the ~70-84 GB
   # model into ~/.local/share/strata (STRATA_HOME overrides the directory).
-  strata.enable = isP16;
+  # Strata (Qwen3.8-Flash-Next 125B MoE) — DISABLED 2026-09-28: Unsloth
+  # Studio runs the same model via its bundled llama.cpp (which supports the
+  # qwen4exp architecture) with CPU/GPU expert offload, and llama.cpp's
+  # kernels are tuned for Ampere too (Strata's are sm_120-only, ~6 tok/s on
+  # the A3000 — see packages/strata/engine.nix for the measurements). The
+  # nix package stays in the repo for reuse; re-enable with
+  # `strata.enable = isP16;` if ever wanted.
+  strata.enable = false;
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
