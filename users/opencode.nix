@@ -42,6 +42,12 @@ in
     xdg.configFile."opencode/opencode.json" = {
       text = builtins.toJSON {
         "$schema" = "https://opencode.ai/config.json";
+        # Global plugin, registered by absolute path so it loads from any
+        # project cwd. `local-decide` exposes the bounded-decision `local_decide`
+        # tool (DeepSeek flash). Source: code/llm-harness-plugins.
+        plugin = [
+          "${config.home.homeDirectory}/code/llm-harness-plugins/local-decide/opencode/index.ts"
+        ];
         provider = {
           # deepseek is a built-in opencode provider whose key already lives in
           # opencode auth; only refine the researched context/output limits.
