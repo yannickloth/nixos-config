@@ -15,7 +15,23 @@
 #
 # Images (the strata-vision encoder) are opt-in via the `vision` argument
 # (off by default: the encoder costs ~1.2 GB of VRAM and a few % of speed).
-{ lib
+# Runtime notes (laptop-p16, established 2026-09-27 - see also engine.nix):
+# - The wrapper enforces two engine-arg policies on every config at startup:
+#   expert cache OFF (upstream flags that path's output as divergent; it was
+#   also no faster: 7.3 vs 6.3 tok/s) and --vram-reserve-mib 1800 (the auto
+#   expert cache otherwise fills VRAM completely and the first request dies
+#   with "verify: instantiate: out of memory").
+# - Native (IQ) packs REQUIRE --spec >= 2: the engine refuses to start
+#   without it, and deeper is faster (spec 4 > spec 2: 6.3 vs 5.6 tok/s).
+# - The engine only resolves libcuda through the wrapper's LD_LIBRARY_PATH
+#   (the lib-driver dir, see ./engine.nix): launching serve/server.py by hand
+#   without it fails with a misleading "cannot pin 322 MiB: CUDA driver
+#   version is insufficient".
+# - Measured speed: ~6 tok/s output whatever the quant (see the experiment
+#   matrix in ./engine.nix). Interactive-snappy local chat stays on
+#   unsloth-studio's 9B GGUFs; this is the quality endpoint for opencode.
+{
+  lib
 , stdenv
   , symlinkJoin
   , writeShellApplication
@@ -153,12 +169,11 @@ let
                 with open(p, encoding="utf-8") as f:
                     c = json.load(f)
                 args = c.setdefault("args", [])
-                # Upstream warns the expert-cache GPU hit path produces output
-                # that diverges from a cache-off run; on this GPU it is also
-                # barely faster (6 vs 7.3 tok/s), so keep it off.
-                while "--expert-cache" in args:
-                    i = args.index("--expert-cache")
-                    del args[i:i+2]
+                # NOTE: --expert-cache must STAY: the engine refuses to serve
+                # native packs at large contexts without it ("needs --spec T,
+                # ... and --expert-cache"). Upstream warns its GPU hit path
+                # can diverge from a cache-off run; with the cache mandatory
+                # there is no off switch to fall back on.
                 if "--vram-reserve-mib" in args:
                     args[args.index("--vram-reserve-mib") + 1] = "${toString vramReserveMiB}"
                 else:
@@ -170,18 +185,23 @@ let
         PY
 
         # The model wants the A3000's full 12 GB of VRAM and tens of GB of
-        # RAM, so free them: stop the Unsloth Studio service when the model
-        # is actually about to start (--setup/--check/--no-start don't).
-        # Restart it afterwards with: systemctl --user start unsloth-studio
+        # RAM, so free them: stop the GPU-resident user services (unsloth-
+        # studio, laya-mcp) when the model is actually about to start
+        # (--setup/--check/--no-start don't). Restart afterwards with
+        # systemctl --user start <unit>.
         start_model=1
         for arg in "$@"; do
           case "$arg" in
             --setup | --check | --no-start) start_model=0 ;;
           esac
         done
-        if [ "$start_model" = 1 ] && systemctl --user is-active --quiet unsloth-studio 2>/dev/null; then
-          echo "Strata: stopping unsloth-studio (frees VRAM/RAM for the model)..." >&2
-          systemctl --user stop unsloth-studio
+        if [ "$start_model" = 1 ]; then
+          for unit in unsloth-studio laya-mcp; do
+            if systemctl --user is-active --quiet "$unit" 2>/dev/null; then
+              echo "Strata: stopping $unit (frees VRAM/RAM for the model)..." >&2
+              systemctl --user stop "$unit"
+            fi
+          done
         fi
 
         cd "$STRATA_HOME"
