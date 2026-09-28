@@ -69,8 +69,10 @@ in
   opencode.enable = true;
 
   # Laya (System 1 decision engine) + its MCP server, from the reusable
-  # packages/laya package/module. Only laptop-p16 has the CUDA venv it targets.
-  laya.enable = isP16;
+  # packages/laya package/module. DISABLED 2026-09-28: laya is not in use, so
+  # the package, its user service, and the (gated) opencode MCP entry are all
+  # off. Set back to isP16 to re-enable on laptop-p16.
+  laya.enable = false;
 
   # CLM (Contrastive Language Models) encoder + API server user services, from
   # the reusable packages/clm package/module. Same GPU gating as laya: the
