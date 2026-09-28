@@ -284,6 +284,17 @@ in
             enabled = false;
             timeout = 120000;
           };
+        } // {
+          # TypeSafe's Jev System One MCP server, global so every project sees
+          # it (it was previously only in ~/code/llm-harness-plugins/opencode.json).
+          # The API key is read at runtime via `{file:...}`, never stored in the
+          # nix store (see the header comment).
+          jev = {
+            type = "local";
+            command = [ "npx" "-y" "@jkudish/jev-mcp" ];
+            environment.TYPESAFE_API_KEY = keyfile "typesafe";
+            enabled = true;
+          };
         };
       };
     };
