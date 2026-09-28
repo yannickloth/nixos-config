@@ -245,10 +245,12 @@ in
           # Qwen3.8-Flash-Next 125B MoE, OpenAI-compatible API on localhost.
           # The server accepts ANY API key and model name (chat.py sends
           # "strata"), so no key file is needed. Context is advisory (opencode
-          # uses it for compaction thresholds) and matches the context chosen
-          # in `strata --setup`. Images are not enabled in the strata package
-          # (vision = false), so no attachment flag. reasoning=true: the model
-          # thinks before answering; tune via reasoning effort.
+          # uses it for compaction thresholds) and matches the 65536-token
+          # context chosen in `strata --setup` (KV streaming keeps the full
+          # cache in RAM; 262K does not fit the A3000's serve layout). Images
+          # are not enabled in the strata package (vision = false), so no
+          # attachment flag. reasoning=true: the model thinks before
+          # answering; tune via reasoning effort.
           strata-local = {
             npm = "@ai-sdk/openai-compatible";
             options = {
@@ -260,8 +262,8 @@ in
                 name = "Strata Qwen3.8-Flash-Next 125B (local)";
                 reasoning = true;
                 limit = {
-                  context = 32768;
-                  output = 32768;
+                  context = 65536;
+                  output = 65536;
                 };
               };
             };
