@@ -44,14 +44,14 @@ with lib;
 
         #         # set explicit binary cache and add additional binary caches
         substituters = [
-          "https://attic.xuyh0120.win/lantian" # CachyOS kernel binary cache
+          "https://attic.xuyh0120.win/lantian" # CachyOS kernel binary cache (hosts using kernels.cachyos-bore-lto)
           #"https://xtruder-public.cachix.org"
         ]
-          # Distributed builds over Tailscale: each host is a nix-serve cache for the
-          # other two (access to port 5000 is Tailscale-only, see laptop-firewall.nix).
-          ++ (if (config.networking.hostName != "laptop-xps") then [ "http://laptop-xps.bee-blues.ts.net:5000/" ] else []) # any other hosts should use laptop-xps as a nix store cache
-          ++ (if (config.networking.hostName != "laptop-hera") then [ "http://laptop-hera.bee-blues.ts.net:5000/" ] else []) # any other hosts should use laptop-hera as a nix store cache
-          ++ (if (config.networking.hostName != "laptop-p16") then [ "http://laptop-p16.bee-blues.ts.net:5000/" ] else []) # any other hosts should use laptop-p16 as a nix store cache
+        # Distributed builds over Tailscale: each host is a nix-serve cache for the
+        # other two (access to port 5000 is Tailscale-only, see laptop-firewall.nix).
+        ++ (if (config.networking.hostName != "laptop-xps") then [ "http://laptop-xps.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-xps as a nix store cache
+        ++ (if (config.networking.hostName != "laptop-hera") then [ "http://laptop-hera.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-hera as a nix store cache
+        ++ (if (config.networking.hostName != "laptop-p16") then [ "http://laptop-p16.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-p16 as a nix store cache
         ;
         #         trusted-substituters = [
         #           "https://cache.nixos.org/"
@@ -59,7 +59,7 @@ with lib;
         #         ];
         trusted-public-keys = [
           "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
-          "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=" # CachyOS kernel binary cache
+          "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=" # CachyOS kernel binary cache (hosts using kernels.cachyos-bore-lto)
           #"xtruder-public.cachix.org-1:+qG/fM2195QJcE2BXmKC+sS4mX/lQHqwjBH83Rhzl14="
         ];
       };

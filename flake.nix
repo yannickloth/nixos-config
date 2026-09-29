@@ -22,11 +22,12 @@
     # committed; private keys stay in the gitignored age-keys/ and on each host.
     agenix.url = "github:ryantm/agenix";
     # CachyOS kernel: tracks the moving `release` branch (deliberate "latest"
-    # choice for all hosts, consistent with system.nixos.versionSuffix = ".latest").
-    # For reproducibility, pin to a specific tag/rev here; otherwise `nix flake
-    # update` advances the kernel. The kernel binary cache is declared above in
-    # nixConfig (and in roles/nix.nix) because the CachyOS flake's own nixConfig
-    # is NOT honored when used as an input.
+    # choice, consistent with system.nixos.versionSuffix = ".latest"). Used by
+    # laptop-p16 and laptop-xps; laptop-hera uses the nixpkgs zen kernel, see
+    # `kernels` below. For reproducibility, pin to a specific tag/rev here;
+    # otherwise `nix flake update` advances the kernel. The kernel binary cache
+    # is declared above in nixConfig (and in roles/nix.nix) because the CachyOS
+    # flake's own nixConfig is NOT honored when used as an input.
     nix-cachyos-kernel.url = "github:xddxdd/nix-cachyos-kernel/release";
     # hermes-agent packaging (packages/hermes-agent): builds the upstream
     # uv.lock into a Python virtualenv. Pin all three to this repo's
@@ -104,9 +105,24 @@
 
       nixosConfigurations =
         let
-          cachyos-bore-lto = { pkgs, ... }: {
-            nixpkgs.overlays = [ nix-cachyos-kernel.overlays.pinned ];
-            boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-bore-lto-x86_64-v3;
+          # Per-host kernel choice. Both are "latest-ish" performance kernels;
+          # they differ only in who builds the binary:
+          #
+          # - cachyos-bore-lto: built by the nix-cachyos-kernel flake. Its Attic
+          #   cache (attic.xuyh0120.win/lantian, see nixConfig above and
+          #   roles/nix.nix) only contains the versions it has already compiled,
+          #   so every `nix flake update` that advances the pin can mean a full
+          #   local LTO kernel build (hours) before the cache catches up.
+          # - linux-zen: built by Hydra, so cache.nixos.org has the binary for
+          #   the exact pinned nixpkgs rev; `nix flake update` costs a download.
+          kernels = {
+            cachyos-bore-lto = { pkgs, ... }: {
+              nixpkgs.overlays = [ nix-cachyos-kernel.overlays.pinned ];
+              boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-bore-lto-x86_64-v3;
+            };
+            linux-zen = { pkgs, ... }: {
+              boot.kernelPackages = pkgs.linuxKernel.packages.linux_zen;
+            };
           };
         in
         {
@@ -138,7 +154,9 @@
               # confirmed on the physical machine (e.g. `sudo dmidecode -s system-product-name`).
               # Likely candidates: dell-xps-13-9360 (same as laptop-xps), 9300, 9310.
               #           nixos-hardware.nixosModules.dell-xps-13-9360
-              cachyos-bore-lto
+              # nixpkgs BORE/zen kernel: Hydra-built, so `nix flake update` is a
+              # download here instead of an hours-long LTO kernel rebuild.
+              kernels.linux-zen
             ];
           };
           laptop-p16 = nixpkgs.lib.nixosSystem {
@@ -164,7 +182,7 @@
                 # arguments to home.nix
               }
               nixos-hardware.nixosModules.lenovo-thinkpad # generic ThinkPad base; a model-specific module (e.g. thinkpad/p16s) may be added once confirmed via dmidecode
-              cachyos-bore-lto
+              kernels.cachyos-bore-lto
             ];
           };
           laptop-xps = nixpkgs.lib.nixosSystem {
@@ -192,7 +210,7 @@
 
               nixos-hardware.nixosModules.dell-xps-13-9360
 
-              cachyos-bore-lto
+              kernels.cachyos-bore-lto
             ];
           };
         };
