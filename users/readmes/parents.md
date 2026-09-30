@@ -33,7 +33,7 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 - Secrets: /etc/secrets (group `secrets`), never in
   git
 - Family-safe DNS (malware + adult-content filtering) where configured
-- Kernel hardening via sysctls on the (CachyOS) kernel: dmesg/pointer/BPF
+- Kernel hardening via sysctls on the (linux-zen) kernel: dmesg/pointer/BPF
   restrictions (`roles/base.nix`); the system journal is persistent, so kids'
   sessions can be reviewed across reboots (`journalctl`).
 

@@ -71,7 +71,7 @@ with lib;
       '';
     };
 
-    # Kernel hardening applied via sysctls on the (CachyOS) kernel — no kernel
+    # Kernel hardening applied via sysctls on the (linux-zen) kernel — no kernel
     # swap. Note: dmesg/perf need root (parents have sudo); kexec is disabled.
     boot.kernel.sysctl = {
       "kernel.dmesg_restrict" = 1;

@@ -1,14 +1,6 @@
 {
   description = "NixOS configuration";
 
-  # Binary caches to use for this flake's dependencies. Important for the
-  # CachyOS kernel: its own flake's nixConfig is NOT honored when it's an
-  # input, so the Attic cache must be declared here (and in nix.settings).
-  nixConfig = {
-    extra-substituters = [ "https://attic.xuyh0120.win/lantian" ];
-    extra-trusted-public-keys = [ "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=" ];
-  };
-
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
     # Fast-moving AI tooling (opencode, pi-coding-agent, jetbrains-toolbox,
@@ -21,14 +13,6 @@
     # agenix: age-encrypted secrets managed in git. Encrypted .age files are
     # committed; private keys stay in the gitignored age-keys/ and on each host.
     agenix.url = "github:ryantm/agenix";
-    # CachyOS kernel: tracks the moving `release` branch (deliberate "latest"
-    # choice, consistent with system.nixos.versionSuffix = ".latest"). Used by
-    # laptop-p16 and laptop-xps; laptop-hera uses the nixpkgs zen kernel, see
-    # `kernels` below. For reproducibility, pin to a specific tag/rev here;
-    # otherwise `nix flake update` advances the kernel. The kernel binary cache
-    # is declared above in nixConfig (and in roles/nix.nix) because the CachyOS
-    # flake's own nixConfig is NOT honored when used as an input.
-    nix-cachyos-kernel.url = "github:xddxdd/nix-cachyos-kernel/release";
     # hermes-agent packaging (packages/hermes-agent): builds the upstream
     # uv.lock into a Python virtualenv. Pin all three to this repo's
     # nixpkgs-unstable so there is a single evaluation of nixpkgs.
@@ -43,7 +27,7 @@
     uv2nix.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, nix-cachyos-kernel, agenix, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
+  outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, agenix, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -105,21 +89,20 @@
 
       nixosConfigurations =
         let
-          # Per-host kernel choice. Both are "latest-ish" performance kernels;
-          # they differ only in who builds the binary:
+          # Per-host kernel choice. All hosts use the nixpkgs zen kernel
+          # (BORE-ish interactive tuning, MQSS/BFQ): Hydra builds it without
+          # LTO, so cache.nixos.org has the binary for the exact pinned nixpkgs
+          # rev and `nix flake update` costs a download.
           #
-          # - cachyos-bore-lto: built by the nix-cachyos-kernel flake. Its Attic
-          #   cache (attic.xuyh0120.win/lantian, see nixConfig above and
-          #   roles/nix.nix) only contains the versions it has already compiled,
-          #   so every `nix flake update` that advances the pin can mean a full
-          #   local LTO kernel build (hours) before the cache catches up.
-          # - linux-zen: built by Hydra, so cache.nixos.org has the binary for
-          #   the exact pinned nixpkgs rev; `nix flake update` costs a download.
+          # The CachyOS LTO kernels (nix-cachyos-kernel flake) are gone: their
+          # Attic cache only contains the versions that flake has already
+          # compiled, so every `nix flake update` that advanced the pin could
+          # mean a full local LTO kernel build (hours) before the cache caught
+          # up. To go back, re-add the `nix-cachyos-kernel` input, its Attic
+          # cache (nixConfig here + roles/nix.nix), and a module with
+          #   nixpkgs.overlays = [ nix-cachyos-kernel.overlays.pinned ];
+          #   boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-bore-lto-x86_64-v3;
           kernels = {
-            cachyos-bore-lto = { pkgs, ... }: {
-              nixpkgs.overlays = [ nix-cachyos-kernel.overlays.pinned ];
-              boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-bore-lto-x86_64-v3;
-            };
             linux-zen = { pkgs, ... }: {
               boot.kernelPackages = pkgs.linuxKernel.packages.linux_zen;
             };
@@ -154,8 +137,6 @@
               # confirmed on the physical machine (e.g. `sudo dmidecode -s system-product-name`).
               # Likely candidates: dell-xps-13-9360 (same as laptop-xps), 9300, 9310.
               #           nixos-hardware.nixosModules.dell-xps-13-9360
-              # nixpkgs BORE/zen kernel: Hydra-built, so `nix flake update` is a
-              # download here instead of an hours-long LTO kernel rebuild.
               kernels.linux-zen
             ];
           };
@@ -182,7 +163,7 @@
                 # arguments to home.nix
               }
               nixos-hardware.nixosModules.lenovo-thinkpad # generic ThinkPad base; a model-specific module (e.g. thinkpad/p16s) may be added once confirmed via dmidecode
-              kernels.cachyos-bore-lto
+              kernels.linux-zen
             ];
           };
           laptop-xps = nixpkgs.lib.nixosSystem {
@@ -210,7 +191,7 @@
 
               nixos-hardware.nixosModules.dell-xps-13-9360
 
-              kernels.cachyos-bore-lto
+              kernels.linux-zen
             ];
           };
         };

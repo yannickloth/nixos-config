@@ -44,7 +44,9 @@ with lib;
 
         #         # set explicit binary cache and add additional binary caches
         substituters = [
-          "https://attic.xuyh0120.win/lantian" # CachyOS kernel binary cache (hosts using kernels.cachyos-bore-lto)
+          # CachyOS kernel binary cache; re-enable together with a
+          # kernels.cachyos-bore-lto module (see the `kernels` set in flake.nix):
+          # "https://attic.xuyh0120.win/lantian"
           #"https://xtruder-public.cachix.org"
         ]
         # Distributed builds over Tailscale: each host is a nix-serve cache for the
@@ -59,7 +61,8 @@ with lib;
         #         ];
         trusted-public-keys = [
           "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
-          "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=" # CachyOS kernel binary cache (hosts using kernels.cachyos-bore-lto)
+          # lantian key, pairs with the CachyOS substituter above:
+          # "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
           #"xtruder-public.cachix.org-1:+qG/fM2195QJcE2BXmKC+sS4mX/lQHqwjBH83Rhzl14="
         ];
       };
