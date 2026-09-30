@@ -5,27 +5,37 @@
 #
 # MEASURED PERFORMANCE ON LAPTOP-P16 (RTX A3000 12GB Laptop, GA104, sm_86,
 # 60-80W, driver 615.71.09 open module, i7-12850HX AVX2-only, 125 GB RAM,
-# 2026-09-27, output generation through the API, thinking off):
-#   IQ3_S ~6.0 tok/s, IQ2_XS ~5.9-6.3 tok/s - QUANT-INDEPENDENT.
-#   The per-token cost is a fixed ~165 ms engine/hardware latency on sm_86,
-#   not bandwidth or model size: upstream's 54-78 tok/s numbers need the
-#   benchmark card (RTX 5070 desktop: 2x memory bandwidth, ~3x tensor
-#   throughput, kernels hand-tuned on its sm_120) and were measured on
-#   Windows. Upstream documents RTX 30/40 as *untested*; DETAILS.md's own
-#   estimate table for Ampere is extrapolated, not measured.
+# output generation through the API, thinking off):
 #
-#   EXPERIMENT MATRIX (all IQ2_XS, 32K ctx, cache off, thinking off, measured
-#   end-to-end over the API, 256-token generation):
-#     spec 4 (baseline)            6.3 tok/s
-#     spec 2                       5.6 tok/s   (deeper MTP wins - keep 4)
-#     spec off                     impossible: native IQ packs require spec >= 2
-#     global --use_fast_math       5.5 tok/s   (reverted)
-#     expert cache ON (IQ3_S)      7.3 tok/s   but upstream flags that path's
-#                                              output as incorrect - stays off
-#   The floor is per-token sync/launch latency, not fp math or bytes moved.
-#   Next lever would be kernel-level (moe/grouped-expert launch shapes), which
-#   needs Nsight Compute (sudo) plus the parity harness upstream leaves out of
-#   the published tree - not attempted as of this date.
+#   THE ENGINE VERSION DOMINATES EVERYTHING ELSE.  The same model, pack,
+#   tokenizer, MTP layer and run config, only the engine swapped (2026-09-28):
+#     fork base 0.1.18 (b38c183)     28.4 tok/s decode   (fresh prose, 64K)
+#     our earlier pin a9047fd         8.4 tok/s decode   (identical everything)
+#   So the "~6 tok/s quant-independent floor" measured before that date was an
+#   artifact of the stale pin: upstream had improved the engine ~3.4x by
+#   0.1.18.  (0.1.18 also made --prefill auto fit 262K context in 12 GB, which
+#   the old engine could not serve.)  The old matrix, kept for the record, was
+#   ALL on a9047fd and is superseded:
+#     spec 4 baseline ~6.3, spec 2 5.6, global --use_fast_math 5.5 (reverted),
+#     expert cache ON ~7.3 but upstream flags that path's output as incorrect.
+#   Content swings decode on the SAME engine/config: fresh prose ~23-28 tok/s,
+#   echo-heavy text ~39 tok/s (speculation accepts copied tokens) - so any
+#   "Nx faster" claim from chat measurements alone is meaningless.
+#
+#   Unsloth Studio (llama.cpp, generic MoE offload) ran the same GGUFs at
+#   ~2 tok/s for the 125B (2026-09-28) - llama.cpp does support the qwen4exp
+#   architecture, so that comparison is apples to apples.
+#
+#   EXPERIMENTAL SPEED PROJECTION (data/experimental-speed-projection/): NOT an
+#   optimization - it projects out a refusal direction on layers 4-44.  Upstream
+#   measures 0.2-0.4% *slower* on identical tokens; apparent tok/s rises only
+#   because the model writes different text (fewer refusals, more echoing).
+#   Upstream: "removing refusals removes a safety behaviour".  Off by default;
+#   keep it off unless that trade is wanted knowingly.
+#
+#   Remaining headroom is now ~2.3x to the desktop benchmark card's 64.6 tok/s
+#   (IQ3_XXS, RTX 5070) - consistent with 2x bandwidth and a 60-80W laptop
+#   part, rather than the 9x gap the stale pin suggested.
 #
 # Two CUDA builds ship here:
 #   strata        - the inference engine (main target)
@@ -50,9 +60,10 @@
 # libcuda resolution, not memory). Pinned allocations otherwise work even
 # under RLIMIT_MEMLOCK=8M: the open kernel module does not enforce it.
 #
-# native-embed-diag.patch: surfaces the real cudaError instead of upstream's
-# bare "cannot pin N MiB" - without it that message cost a full debugging
-# session. Candidate for upstream.
+# The native-embedding error report (the real cudaError instead of upstream's
+# bare "cannot pin N MiB") and the serve lifecycle API (/api/inference/*,
+# --no-preload, --idle-unload) live in the fork (github.com/yannickloth/
+# forks-Strata, branch local/lifecycle), not as patches here.
 {
   lib,
   stdenv,
@@ -95,9 +106,6 @@ let
     pname = "strata-engine";
     inherit version;
     src = strataSrc;
-    # Diagnostic: surface the real cudaError when the native-embedding
-    # cudaHostAlloc fails (IQ2_XS/IQ3_XXS start-up on Linux).
-    patches = [ ./native-embed-diag.patch ];
 
   stdenv = cudaPackages.stdenv;
   nativeBuildInputs = [

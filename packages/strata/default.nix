@@ -42,11 +42,15 @@
   , uv
   , cudaArch ? "86"
   , vision ? false
-, strataSrc ? fetchFromGitHub {
-    owner = "Niko1221";
-    repo = "Strata";
-    rev = "a9047fdb79acf9382fa6623a89290327e29235f4";
-    hash = "sha256-qeDI9D12WuWs/+6MOIwtWqqeqeWRt4sQ/sEwj/lo6Uk=";
+  # A private fork (github.com/yannickloth/forks-Strata): upstream plus the
+  # engine-lifecycle API and the native-embedding error report (see the branch
+  # local/lifecycle there). Fetched at evaluation time with the caller's ssh
+  # key, rev pinned (pure flake evaluation allows builtins.fetchGit with a
+  # rev); a plain fetchFromGitHub/fetchgit derivation cannot authenticate to a
+  # private repository - the nix daemon runs as root, without this key.
+, strataSrc ? builtins.fetchGit {
+    url = "git+ssh://git@github.com/yannickloth/forks-Strata.git";
+    rev = "6c4024fdda2301587e955edf66c9d799b849a62b";
   }
 , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -58,7 +62,7 @@
 }:
 
 let
-  version = "0.1.0-unstable-2026-09-27";
+  version = "0.1.18";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
@@ -196,7 +200,7 @@ let
           esac
         done
         if [ "$start_model" = 1 ]; then
-          for unit in unsloth-studio laya-mcp; do
+          for unit in strata unsloth-studio laya-mcp; do
             if systemctl --user is-active --quiet "$unit" 2>/dev/null; then
               echo "Strata: stopping $unit (frees VRAM/RAM for the model)..." >&2
               systemctl --user stop "$unit"
@@ -239,6 +243,46 @@ let
         exec "$STRATA_HOME/.venv/bin/python" chat.py "$@"
       '';
   };
+
+  # The always-on, engine-optional server for the Unsloth Studio integration
+  # (systemd user service, see ./home.nix). It serves with NO engine loaded:
+  # the first request starts it, and it unloads itself after
+  # STRATA_IDLE_UNLOAD seconds (default 300) without one - so a machine can
+  # host this model and Studio's own models without either holding the GPU
+  # forever. No setup.py: no service stopping, no browser, no downloading.
+  # The store's serve/ is used directly (ROOT resolves to share/strata, whose
+  # tools/ has the tokenizer module); paths inside the config are absolute.
+  strata-server = writeShellApplication {
+    name = "strata-server";
+    text =
+      env
+      + ''
+        PY="$STRATA_HOME/.venv/bin/python"
+        if [ ! -x "$PY" ]; then
+          echo "Strata: not set up yet - run 'strata' once first (first-run setup)." >&2
+          exit 1
+        fi
+        CFG=""
+        for f in "$STRATA_HOME"/strata-*.json; do
+          [ -f "$f" ] || continue                       # no config at all: the glob stays literal
+          case "$f" in *.shared-settings.json) continue ;; esac   # the web app's Chat settings, not a model
+          grep -q '"args"' "$f" 2>/dev/null || continue           # an engine config carries args
+          if [ -z "$CFG" ] || [ "$f" -nt "$CFG" ]; then CFG="$f"; fi
+        done
+        # STRATA_CONFIG pins the served model when several are configured;
+        # without it the most recently written config wins.
+        if [ -n "''${STRATA_CONFIG:-}" ] && [ -f "''${STRATA_CONFIG}" ]; then
+          CFG="$STRATA_CONFIG"
+        fi
+        if [ -z "$CFG" ]; then
+          echo "Strata: no model configured - run 'strata' once first." >&2
+          exit 1
+        fi
+        exec "$PY" ${share}/serve/server.py --engine strata --config "$CFG" \
+          --host 127.0.0.1 --port "''${STRATA_PORT:-8080}" \
+          --no-preload --idle-unload "''${STRATA_IDLE_UNLOAD:-300}"
+      '';
+  };
 in
 symlinkJoin {
   name = "strata-${version}";
@@ -246,6 +290,7 @@ symlinkJoin {
     runtime
     strata
     strata-chat
+    strata-server
   ];
   meta = with lib; {
     description = "Strata: local Qwen3.8-Flash-Next (125B MoE) inference with an OpenAI/Anthropic-compatible API";

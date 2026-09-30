@@ -49,6 +49,7 @@
       opencode
       pi-coding-agent
       hermes-agent
+      magpie
       #jellyfin-media-player
       #joplin-desktop
       kdePackages.dolphin

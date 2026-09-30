@@ -40,263 +40,278 @@ in
 
   config = mkIf config.opencode.enable {
     xdg.configFile."opencode/opencode.json" = {
-      text = builtins.toJSON {
-        "$schema" = "https://opencode.ai/config.json";
-        provider = {
-          # deepseek is a built-in opencode provider whose key already lives in
-          # opencode auth; only refine the researched context/output limits.
-          deepseek.models = {
-            deepseek-v4-pro = {
-              name = "DeepSeek V4 Pro";
-              reasoning = true;
-              limit = {
-                context = 1000000;
-                output = 384000;
+      text =
+        let
+          baseConfig = {
+            "$schema" = "https://opencode.ai/config.json";
+            provider = {
+              # deepseek is a built-in opencode provider whose key already lives in
+              # opencode auth; only refine the researched context/output limits.
+              deepseek.models = {
+                deepseek-v4-pro = {
+                  name = "DeepSeek V4 Pro";
+                  reasoning = true;
+                  limit = {
+                    context = 1000000;
+                    output = 384000;
+                  };
+                };
+                deepseek-flash = {
+                  name = "DeepSeek Flash";
+                  reasoning = true;
+                  limit = {
+                    context = 1000000;
+                    output = 384000;
+                  };
+                };
+              };
+              zai = {
+                npm = "@ai-sdk/openai-compatible";
+                options = {
+                  baseURL = "https://api.z.ai/api/paas/v4/";
+                  apiKey = keyfile "zai";
+                };
+                models = {
+                  "glm-5.3" = {
+                    name = "GLM-5.3";
+                    reasoning = true;
+                    limit = {
+                      context = 1000000;
+                      output = 128000;
+                    };
+                  };
+                  "glm-5.3-flash" = {
+                    name = "GLM-5.3-Flash";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 1000000;
+                      output = 128000;
+                    };
+                  };
+                };
+              };
+              kimi = {
+                npm = "@ai-sdk/openai-compatible";
+                options = {
+                  baseURL = "https://api.kimi.com/coding/v1";
+                  apiKey = keyfile "kimi";
+                };
+                models = {
+                  k3 = {
+                    name = "Kimi K3";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 1048576;
+                      output = 131072;
+                    };
+                  };
+                  "k3-256k" = {
+                    name = "Kimi K3 256K";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 262144;
+                      output = 131072;
+                    };
+                  };
+                  "kimi-for-coding" = {
+                    name = "Kimi K2.8 Preview";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 1048576;
+                      output = 131072;
+                    };
+                  };
+                  "kimi-for-coding-highspeed" = {
+                    name = "Kimi K2.7 Code HighSpeed";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 262144;
+                      output = 65536;
+                    };
+                  };
+                };
+              };
+              hetzner = {
+                npm = "@ai-sdk/openai-compatible";
+                options = {
+                  baseURL = "https://inference.hetzner.com/api/v1";
+                  apiKey = keyfile "hetzner";
+                };
+                models = {
+                  "Qwen/Qwen3.6-35B-A3B-FP8" = {
+                    name = "Qwen3.6-35B-A3B (Hetzner)";
+                    limit = {
+                      context = 262144;
+                      output = 32768;
+                    };
+                  };
+                  "Qwen3.8-27B" = {
+                    name = "Qwen3.8-27B (Hetzner)";
+                    limit = {
+                      context = 262144;
+                      output = 32768;
+                    };
+                  };
+                };
+              };
+            } // optionalAttrs isP16 {
+              # Local Unsloth Studio server: OpenAI-compatible API on localhost.
+              # Model list captured from `curl http://127.0.0.1:8888/v1/models`
+              # (2026-09-16). The TTS (unsloth/orpheus-*) and text-to-image
+              # (unsloth/Qwen-Image-*) entries are excluded: opencode only speaks
+              # chat completions. Download/load new models in the Studio UI, then
+              # add matching entries here; limits are advisory (opencode uses them
+              # for compaction thresholds) and set to the ~100K budget Studio
+              # actually serves per loaded model, well under the native windows.
+              unsloth-studio = {
+                npm = "@ai-sdk/openai-compatible";
+                options = {
+                  baseURL = "http://127.0.0.1:8888/v1";
+                  # Studio requires an API key even for the local server. The key
+                  # is read from ~/.config/opencode/keys/unsloth.key (materialized
+                  # by setupOpenCodeKeys from /etc/secrets/open-webui.env).
+                  apiKey = keyfile "unsloth";
+                };
+                models = {
+                  "empero-ai/Qwen3.8-9B-Distill-GGUF" = {
+                    name = "Qwen3.8-9B Distill (local)";
+                    reasoning = true;
+                    limit = {
+                      context = 103424;
+                      output = 32768;
+                    };
+                  };
+                  "ornith-ai/Ornith-1.5-9B-GGUF" = {
+                    name = "Ornith-1.5-9B (local)";
+                    limit = {
+                      context = 103424;
+                      output = 32768;
+                    };
+                  };
+                  "unsloth/qwen3.8-27B-GGUF" = {
+                    name = "Qwen3.8-27B (local)";
+                    reasoning = true;
+                    limit = {
+                      context = 103424;
+                      output = 32768;
+                    };
+                  };
+                  "empero-ai/Qwen3.8-27B-Ridge-GGUF" = {
+                    name = "Qwen3.8-27B Ridge (local)";
+                    reasoning = true;
+                    limit = {
+                      context = 103424;
+                      output = 32768;
+                    };
+                  };
+                  "empero-ai/Qwythos-9B-v2-GGUF" = {
+                    name = "Qwythos-9B v2 (local)";
+                    limit = {
+                      context = 103424;
+                      output = 32768;
+                    };
+                  };
+                  "empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF" = {
+                    name = "Qwythos-9B Claude-Mythos 1M (local)";
+                    limit = {
+                      context = 103424;
+                      output = 32768;
+                    };
+                  };
+                  "unsloth/gemma-4-12B-it-qat-GGUF" = {
+                    name = "Gemma-4-12B IT QAT (local)";
+                    limit = {
+                      context = 103424;
+                      output = 32768;
+                    };
+                  };
+                  # Vision OCR model. Studio serves it with a tiny default
+                  # context budget (4K); expanded to 131072 in the Studio UI
+                  # (2026-09-17), so the advisory limit matches that.
+                  "unsloth/GLM-OCR" = {
+                    name = "GLM-OCR (local)";
+                    attachment = true;
+                    limit = {
+                      context = 131072;
+                      output = 32768;
+                    };
+                  };
+                };
+              };
+              # Local Strata server (packages/strata, laptop-p16 only):
+              # Qwen3.8-Flash-Next 125B MoE, OpenAI-compatible API on localhost.
+              # The server accepts ANY API key and model name (chat.py sends
+              # "strata"), so no key file is needed. Context is advisory (opencode
+              # uses it for compaction thresholds) and matches the 65536-token
+              # context chosen in `strata --setup` (KV streaming keeps the full
+              # cache in RAM; 128K fits the A3000's serve layout, 262K does not). Images
+              # are not enabled in the strata package (vision = false), so no
+              # attachment flag. reasoning=true: the model thinks before
+              # answering; tune via reasoning effort.
+              strata-local = {
+                npm = "@ai-sdk/openai-compatible";
+                options = {
+                  baseURL = "http://127.0.0.1:8080/v1";
+                  apiKey = "strata";
+                };
+                models = {
+                  "qwen3.8-flash-next-125b" = {
+                    name = "Strata Qwen3.8-Flash-Next 125B (local)";
+                    reasoning = true;
+                    limit = {
+                      context = 262144;
+                      output = 65536;
+                    };
+                  };
+                  "swift-1.5-iq3_xxs" = {
+                    name = "Strata swift 1.5 IQ3_XXS (local)";
+                    limit = {
+                      context = 262144;
+                      output = 65536;
+                    };
+                  };
+                };
               };
             };
-            deepseek-flash = {
-              name = "DeepSeek Flash";
-              reasoning = true;
-              limit = {
-                context = 1000000;
-                output = 384000;
-              };
-            };
-          };
-          zai = {
-            npm = "@ai-sdk/openai-compatible";
-            options = {
-              baseURL = "https://api.z.ai/api/paas/v4/";
-              apiKey = keyfile "zai";
-            };
-            models = {
-              "glm-5.3" = {
-                name = "GLM-5.3";
-                reasoning = true;
-                limit = {
-                  context = 1000000;
-                  output = 128000;
-                };
-              };
-              "glm-5.3-flash" = {
-                name = "GLM-5.3-Flash";
-                reasoning = true;
-                attachment = true;
-                limit = {
-                  context = 1000000;
-                  output = 128000;
-                };
-              };
-            };
-          };
-          kimi = {
-            npm = "@ai-sdk/openai-compatible";
-            options = {
-              baseURL = "https://api.kimi.com/coding/v1";
-              apiKey = keyfile "kimi";
-            };
-            models = {
-              k3 = {
-                name = "Kimi K3";
-                reasoning = true;
-                attachment = true;
-                limit = {
-                  context = 1048576;
-                  output = 131072;
-                };
-              };
-              "k3-256k" = {
-                name = "Kimi K3 256K";
-                reasoning = true;
-                attachment = true;
-                limit = {
-                  context = 262144;
-                  output = 131072;
-                };
-              };
-              "kimi-for-coding" = {
-                name = "Kimi K2.8 Preview";
-                reasoning = true;
-                attachment = true;
-                limit = {
-                  context = 1048576;
-                  output = 131072;
-                };
-              };
-              "kimi-for-coding-highspeed" = {
-                name = "Kimi K2.7 Code HighSpeed";
-                reasoning = true;
-                attachment = true;
-                limit = {
-                  context = 262144;
-                  output = 65536;
-                };
-              };
-            };
-          };
-          hetzner = {
-            npm = "@ai-sdk/openai-compatible";
-            options = {
-              baseURL = "https://inference.hetzner.com/api/v1";
-              apiKey = keyfile "hetzner";
-            };
-            models = {
-              "Qwen/Qwen3.6-35B-A3B-FP8" = {
-                name = "Qwen3.6-35B-A3B (Hetzner)";
-                limit = {
-                  context = 262144;
-                  output = 32768;
-                };
-              };
-              "Qwen3.8-27B" = {
-                name = "Qwen3.8-27B (Hetzner)";
-                limit = {
-                  context = 262144;
-                  output = 32768;
-                };
-              };
-            };
-          };
-        } // optionalAttrs isP16 {
-          # Local Unsloth Studio server: OpenAI-compatible API on localhost.
-          # Model list captured from `curl http://127.0.0.1:8888/v1/models`
-          # (2026-09-16). The TTS (unsloth/orpheus-*) and text-to-image
-          # (unsloth/Qwen-Image-*) entries are excluded: opencode only speaks
-          # chat completions. Download/load new models in the Studio UI, then
-          # add matching entries here; limits are advisory (opencode uses them
-          # for compaction thresholds) and set to the ~100K budget Studio
-          # actually serves per loaded model, well under the native windows.
-          unsloth-studio = {
-            npm = "@ai-sdk/openai-compatible";
-            options = {
-              baseURL = "http://127.0.0.1:8888/v1";
-              # Studio requires an API key even for the local server. The key
-              # is read from ~/.config/opencode/keys/unsloth.key (materialized
-              # by setupOpenCodeKeys from /etc/secrets/open-webui.env).
-              apiKey = keyfile "unsloth";
-            };
-            models = {
-              "empero-ai/Qwen3.8-9B-Distill-GGUF" = {
-                name = "Qwen3.8-9B Distill (local)";
-                reasoning = true;
-                limit = {
-                  context = 103424;
-                  output = 32768;
-                };
-              };
-              "ornith-ai/Ornith-1.5-9B-GGUF" = {
-                name = "Ornith-1.5-9B (local)";
-                limit = {
-                  context = 103424;
-                  output = 32768;
-                };
-              };
-              "unsloth/qwen3.8-27B-GGUF" = {
-                name = "Qwen3.8-27B (local)";
-                reasoning = true;
-                limit = {
-                  context = 103424;
-                  output = 32768;
-                };
-              };
-              "empero-ai/Qwen3.8-27B-Ridge-GGUF" = {
-                name = "Qwen3.8-27B Ridge (local)";
-                reasoning = true;
-                limit = {
-                  context = 103424;
-                  output = 32768;
-                };
-              };
-              "empero-ai/Qwythos-9B-v2-GGUF" = {
-                name = "Qwythos-9B v2 (local)";
-                limit = {
-                  context = 103424;
-                  output = 32768;
-                };
-              };
-              "empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF" = {
-                name = "Qwythos-9B Claude-Mythos 1M (local)";
-                limit = {
-                  context = 103424;
-                  output = 32768;
-                };
-              };
-              "unsloth/gemma-4-12B-it-qat-GGUF" = {
-                name = "Gemma-4-12B IT QAT (local)";
-                limit = {
-                  context = 103424;
-                  output = 32768;
-                };
-              };
-              # Vision OCR model. Studio serves it with a tiny default
-              # context budget (4K); expanded to 131072 in the Studio UI
-              # (2026-09-17), so the advisory limit matches that.
-              "unsloth/GLM-OCR" = {
-                name = "GLM-OCR (local)";
-                attachment = true;
-                limit = {
-                  context = 131072;
-                  output = 32768;
-                };
-              };
-            };
-          };
-          # Local Strata server (packages/strata, laptop-p16 only):
-          # Qwen3.8-Flash-Next 125B MoE, OpenAI-compatible API on localhost.
-          # The server accepts ANY API key and model name (chat.py sends
-          # "strata"), so no key file is needed. Context is advisory (opencode
-          # uses it for compaction thresholds) and matches the 65536-token
-          # context chosen in `strata --setup` (KV streaming keeps the full
-          # cache in RAM; 262K does not fit the A3000's serve layout). Images
-          # are not enabled in the strata package (vision = false), so no
-          # attachment flag. reasoning=true: the model thinks before
-          # answering; tune via reasoning effort.
-          strata-local = {
-            npm = "@ai-sdk/openai-compatible";
-            options = {
-              baseURL = "http://127.0.0.1:8080/v1";
-              apiKey = "strata";
-            };
-            models = {
-              strata = {
-                name = "Strata Qwen3.8-Flash-Next 125B (local)";
-                reasoning = true;
-                limit = {
-                  context = 65536;
-                  output = 65536;
-                };
-              };
-            };
-          };
-        };
 
-        # Laya System 1 decision engine, served as a shared streamable-HTTP MCP
-        # server by the packages/laya home-manager module. The MCP entry is
-        # registered only when that feature is enabled for this user, but it is
-        # DISABLED by default: laya is a local engine and when its checkpoint is
-        # not loaded every call hung for the full 120s timeout. Routing/decisions
-        # now go to deepseek-flash (see tier-router and the local_decide tool), so
-        # flip `enabled` back to true only when laya is actually running.
-        mcp = optionalAttrs (config.laya.enable or false) {
-          laya = {
-            type = "remote";
-            url = "http://127.0.0.1:${toString (config.laya.mcpPort or 8765)}/mcp";
-            enabled = false;
-            timeout = 120000;
+            # Laya System 1 decision engine, served as a shared streamable-HTTP MCP
+            # server by the packages/laya home-manager module. The MCP entry is
+            # registered only when that feature is enabled for this user, but it is
+            # DISABLED by default: laya is a local engine and when its checkpoint is
+            # not loaded every call hung for the full 120s timeout. Routing/decisions
+            # now go to deepseek-flash (see tier-router and the local_decide tool), so
+            # flip `enabled` back to true only when laya is actually running.
+            mcp = optionalAttrs (config.laya.enable or false)
+              {
+                laya = {
+                  type = "remote";
+                  url = "http://127.0.0.1:${toString (config.laya.mcpPort or 8765)}/mcp";
+                  enabled = false;
+                  timeout = 120000;
+                };
+              } // {
+              # TypeSafe's Jev System One MCP server, global so every project sees
+              # it (it was previously only in ~/code/llm-harness-plugins/opencode.json).
+              # The API key is read at runtime via `{file:...}`, never stored in the
+              # nix store (see the header comment).
+              jev = {
+                type = "local";
+                command = [ "npx" "-y" "@jkudish/jev-mcp" ];
+                environment.TYPESAFE_API_KEY = keyfile "typesafe";
+                enabled = true;
+              };
+            };
           };
-        } // {
-          # TypeSafe's Jev System One MCP server, global so every project sees
-          # it (it was previously only in ~/code/llm-harness-plugins/opencode.json).
-          # The API key is read at runtime via `{file:...}`, never stored in the
-          # nix store (see the header comment).
-          jev = {
-            type = "local";
-            command = [ "npx" "-y" "@jkudish/jev-mcp" ];
-            environment.TYPESAFE_API_KEY = keyfile "typesafe";
-            enabled = true;
-          };
-        };
-      };
+        in
+        builtins.toJSON (baseConfig // optionalAttrs isP16 {
+          # Default model on laptop-p16: the local Strata swift-1.5 IQ3_XXS quant.
+          model = "strata-local/swift-1.5-iq3_xxs";
+        });
     };
 
     # Materialize per-provider API key files from the decrypted Open WebUI env

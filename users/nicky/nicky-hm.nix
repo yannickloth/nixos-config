@@ -86,14 +86,15 @@ in
   # A3000's sm_86 and the runtime wants its 12 GB of VRAM plus 34-50 GB of
   # RAM for the expert arena. First `strata` run downloads the ~70-84 GB
   # model into ~/.local/share/strata (STRATA_HOME overrides the directory).
-  # Strata (Qwen3.8-Flash-Next 125B MoE) — DISABLED 2026-09-28: Unsloth
-  # Studio runs the same model via its bundled llama.cpp (which supports the
-  # qwen4exp architecture) with CPU/GPU expert offload, and llama.cpp's
-  # kernels are tuned for Ampere too (Strata's are sm_120-only, ~6 tok/s on
-  # the A3000 — see packages/strata/engine.nix for the measurements). The
-  # nix package stays in the repo for reuse; re-enable with
-  # `strata.enable = isP16;` if ever wanted.
-  strata.enable = false;
+  # Strata (Qwen3.8-Flash-Next 125B MoE) — re-enabled 2026-09-28: measured
+  # against Unsloth Studio on the same model (IQ2_XS, expert offload),
+  # Studio produces ~2 tok/s vs Strata's ~6 tok/s — Strata's MTP speculative
+  # decoding + expert cache + PLE are worth 3x here. Studio keeps the fast 9B
+  # and 27B models; Strata is the 125B endpoint. The model files live in
+  # Studio's HF cache and are symlinked into ~/.local/share/strata/models/,
+  # so both tools read the same bytes (no duplicate disk). See
+  # packages/strata/engine.nix for the full measurement matrix.
+  strata.enable = isP16;
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
@@ -203,6 +204,7 @@ in
     opencode
     pi-coding-agent
     hermes-agent
+    magpie
 
     jdk25 # Java 25
     elan # Lean theorem prover version manager
@@ -564,6 +566,12 @@ in
       Service = {
         Type = "simple";
         ExecStart = "${config.home.homeDirectory}/.local/bin/unsloth-studio-launcher.sh";
+        # Studio's models own the GPU while it runs: ask the Strata server (if
+        # up) to unload its 125B engine first - the same /api/inference contract
+        # Studio itself exposes. The '-' prefix tolerates "not running" and
+        # "already unloaded". (If a STRATA_API_KEY is ever set, the curl needs
+        # to send it.)
+        ExecStartPre = "-${pkgs.curl}/bin/curl -sS -m 150 -X POST http://127.0.0.1:8080/api/inference/unload -o /dev/null";
         Restart = "on-failure";
         RestartSec = "15s";
       };

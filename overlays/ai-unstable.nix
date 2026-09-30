@@ -4,8 +4,10 @@
 # the adults bleeding-edge AI tooling while kids stay on stable nixpkgs.
 #
 # Example: the opencode / pi-coding-agent / jetbrains-toolbox / vscode you get
-# on a stable channel lag unstable by weeks-to-months. These four move fast
-# because of built-in AI features, so they are pulled from nixos-unstable.
+# on a stable channel lag unstable by weeks-to-months. These move fast because
+# of built-in AI features, so they are pulled from nixos-unstable. hermes-agent
+# and magpie are not in nixpkgs at all and are packaged in-tree
+# (packages/hermes-agent, packages/magpie).
 { unstablePkgs, hermesAgent }:
 
 final: prev: {
@@ -28,6 +30,10 @@ final: prev: {
   # Hermes Agent is packaged in-tree (packages/hermes-agent) from upstream's
   # uv.lock via uv2nix — it is not in nixpkgs at all.
   hermes-agent = hermesAgent;
+  # magpie (yetone/magpie): menu-bar/TUI/CLI model switcher and the local
+  # gateway every agent points at. Packaged in-tree (packages/magpie) and built
+  # with unstable's Go, which go.mod requires (>= 1.26.3).
+  magpie = unstablePkgs.callPackage ../packages/magpie { };
   jetbrains-toolbox = unstablePkgs.jetbrains-toolbox;
   vscode = unstablePkgs.vscode;
 }
