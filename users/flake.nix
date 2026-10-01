@@ -3,8 +3,9 @@
 # Base is stable nixpkgs (nixos-26.05, matching the NixOS hosts' root
 # flake.nix). The adults (nicky, aeiuno) additionally get opencode,
 # pi-coding-agent, jetbrains-toolbox and vscode overlaid from unstable
-# nixpkgs because those move fast (built-in AI features). Kids (sven, aaron)
-# stay entirely on stable. See ../overlays/ai-unstable.nix.
+# nixpkgs because those move fast (built-in AI features), plus the in-tree
+# hermes-agent, magpie and deepseek-harness packages. Kids (sven, aaron) stay
+# entirely on stable. See ../overlays/ai-unstable.nix.
 {
   description = "Standalone home-manager configs for each family user";
 

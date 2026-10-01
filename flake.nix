@@ -117,7 +117,8 @@
               home-manager.nixosModules.home-manager
               agenix.nixosModules.default
               # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
-              # jetbrains-toolbox, vscode); sven/aaron keep plain stable pkgs.
+              # jetbrains-toolbox, vscode, hermes-agent, magpie,
+              # deepseek-harness); sven/aaron keep plain stable pkgs.
               ./users/ai-pkgs.nix
               # Inject the agenix home-manager module so home-manager users can
               # use `age.secrets` (nicky does for API keys).
@@ -148,7 +149,8 @@
               home-manager.nixosModules.home-manager
               agenix.nixosModules.default
               # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
-              # jetbrains-toolbox, vscode); sven/aaron keep plain stable pkgs.
+              # jetbrains-toolbox, vscode, hermes-agent, magpie,
+              # deepseek-harness); sven/aaron keep plain stable pkgs.
               ./users/ai-pkgs.nix
               { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
               {
@@ -174,7 +176,8 @@
               home-manager.nixosModules.home-manager
               agenix.nixosModules.default
               # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
-              # jetbrains-toolbox, vscode); sven/aaron keep plain stable pkgs.
+              # jetbrains-toolbox, vscode, hermes-agent, magpie,
+              # deepseek-harness); sven/aaron keep plain stable pkgs.
               ./users/ai-pkgs.nix
               { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
               {

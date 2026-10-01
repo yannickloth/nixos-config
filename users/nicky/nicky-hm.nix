@@ -205,6 +205,7 @@ in
     pi-coding-agent
     hermes-agent
     magpie
+    deepseek-harness
 
     jdk25 # Java 25
     elan # Lean theorem prover version manager
