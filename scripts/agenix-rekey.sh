@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# agenix rekey helper: regenerate the recipient union from ssh-keys/ and
-# re-encrypt every .age secret to all of them.
+# agenix rekey helper: regenerate the `hosts` recipient group from ssh-keys/
+# and re-encrypt every .age secret to its declared recipients.
 #
-# Use this whenever the recipient set changes (e.g. adding a new host or user):
-#   1. Generate the new host/user SSH key into ssh-keys/ (gitignored):
+# Use this whenever the host key set changes (e.g. adding a new host):
+#   1. Generate the new host SSH key into ssh-keys/ (gitignored):
 #        ssh-keygen -t ed25519 -N "" -C "host <name>" -f ssh-keys/hosts/<name>
-#   2. Run:
-#        ./scripts/agenix-rekey.sh
+#   2. Run (needs a host key to decrypt existing secrets, hence sudo):
+#        sudo ./scripts/agenix-rekey.sh
 #   3. Commit secrets.nix + the re-encrypted .age files.
 #
-# The `all` union in secrets.nix is rebuilt from every ssh-keys/hosts/*.pub and
-# ssh-keys/users/*.pub, so any host/user can decrypt any secret. The `hosts`
-# group (used for the host-key-scoped password hashes, see users/passwords.nix)
-# is rebuilt from ssh-keys/hosts/*.pub only. Private keys are distributed to
-# their machines and backed up in KeePassXC (see secrets-structure/README.md).
+# secrets.nix has no global "all" union: each secret lists its own recipients
+# (see the strategy note there). This script only rebuilds the `hosts` group
+# (used for host-wide system secrets and the login password hashes) from
+# ssh-keys/hosts/*.pub. Private keys are distributed to their machines and
+# backed up in KeePassXC (see secrets-structure/README.md).
 #
 # Requires the agenix CLI (nix run nixpkgs#agenix or via the devShell).
 
@@ -22,68 +22,46 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SECRETS_NIX="$REPO_DIR/secrets.nix"
 HOSTS_DIR="$REPO_DIR/ssh-keys/hosts"
-USERS_DIR="$REPO_DIR/ssh-keys/users"
-# Any SSH private key here lets the script decrypt existing .age files to rekey them.
+# Any host private key lets the script decrypt existing .age files to rekey them.
 IDENTITY="${AGENIX_IDENTITY:-/etc/ssh/ssh_host_ed25519_key}"
 
-# Build the list of recipient public keys (type + base64), deduplicated.
-recipients=()
-for f in "$HOSTS_DIR"/*.pub "$USERS_DIR"/*.pub; do
-  [[ -e "$f" ]] || continue
-  key="$(awk '{print $1" "$2}' "$f")"
-  recipients+=("$key")
-done
-# Deduplicate preserving order.
-mapfile -t recipients < <(printf '%s\n' "${recipients[@]}" | awk '!seen[$0]++')
-
-# Host keys only, for the `hosts` group (password secrets are scoped to hosts).
+# Build the deduplicated list of host public keys (type + base64).
 hosts_recipients=()
 for f in "$HOSTS_DIR"/*.pub; do
   [[ -e "$f" ]] || continue
-  key="$(awk '{print $1" "$2}' "$f")"
-  hosts_recipients+=("$key")
+  hosts_recipients+=("$(awk '{print $1" "$2}' "$f")")
 done
 if [[ ${#hosts_recipients[@]} -gt 0 ]]; then
   mapfile -t hosts_recipients < <(printf '%s\n' "${hosts_recipients[@]}" | awk '!seen[$0]++')
 fi
 
-if [[ ${#recipients[@]} -eq 0 ]]; then
-  echo "error: no SSH public keys found under ssh-keys/hosts/ and ssh-keys/users/" >&2
+if [[ ${#hosts_recipients[@]} -eq 0 ]]; then
+  echo "error: no SSH public keys found under ssh-keys/hosts/" >&2
   exit 1
 fi
 
-echo "Recipients ($(hostname)):"
-printf '  %s\n' "${recipients[@]}"
+echo "Host recipients ($(hostname)):"
+printf '  %s\n' "${hosts_recipients[@]}"
 
-# Build the new `all` and `hosts` list literals (4-space indented Nix strings;
-# the keys must be quoted — base64 contains +// which are not valid in a bare
-# Nix identifier).
-all_list=""
-for r in "${recipients[@]}"; do
-  all_list+="    \"$r\""$'\n'
+# Build the `hosts` list literal (4-space indented Nix strings; the keys must
+# be quoted — base64 contains +// which are not valid in a bare Nix identifier).
+hosts_list=""
+for r in "${hosts_recipients[@]}"; do
+  hosts_list+="    \"$r\""$'\n'
 done
 
-hosts_list=""
-if [[ ${#hosts_recipients[@]} -gt 0 ]]; then
-  for r in "${hosts_recipients[@]}"; do
-    hosts_list+="    \"$r\""$'\n'
-  done
-fi
-
 # Regenerate secrets.nix: keep the header comment and the named recipients
-# (host-*/user-* = "..."), rewrite the `all = [ ... ];` union and the
-# `hosts = [ ... ];` host-only group from the discovered keys.
-awk -v alllist="$all_list" -v hostlist="$hosts_list" '
-  /^  all = \[/   { print "  all = [";   printf "%s", alllist;   print "  ];"; skip=1; next }
+# (host-*/user-* = "..."), rewrite only the `hosts = [ ... ];` group.
+awk -v hostlist="$hosts_list" '
   /^  hosts = \[/ { print "  hosts = ["; printf "%s", hostlist; print "  ];"; skip=1; next }
   skip && /^[[:space:]]*\]/ { skip=0; next }
   skip { next }
   { print }
 ' "$SECRETS_NIX" > "$SECRETS_NIX.tmp" && mv "$SECRETS_NIX.tmp" "$SECRETS_NIX"
 
-echo "Rewrote the \`all\` union and the \`hosts\` group in secrets.nix."
+echo "Rewrote the \`hosts\` group in secrets.nix."
 
-echo "Re-encrypting all secrets to the union..."
+echo "Re-encrypting all secrets to their declared recipients..."
 if command -v agenix >/dev/null 2>&1; then
   agenix -r -i "$IDENTITY"
 else

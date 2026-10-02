@@ -9,13 +9,14 @@ belong to (plus a KeePassXC backup for reinstall recovery).
 - **Encrypted `.age` files** live in `secrets/` and are committed to git.
 - **Recipients** are SSH public keys — one per host (`ssh-keys/hosts/`) and one
   per user (`ssh-keys/users/`).
-- **Union strategy:** every `.age` file is encrypted to **all** recipients, so
-  any host or user can decrypt anything. This is the most automatic setup — no
-  per-host targeting to maintain.
-  - **Exception — password hashes** (`secrets/passwords/*.age`): encrypted to
-    the **host keys only**, never the union, so one user's key (or another's)
-    cannot read a password hash. Consumed via
-    `users.users.<n>.hashedPasswordFile` (see `users/passwords.nix`).
+- **Per-secret scoping (no global union):** each `.age` file is encrypted only
+  to the keys that must decrypt it (see the strategy note in `secrets.nix`):
+  - host-wide system secrets (Syncthing GUI password, Open WebUI keys) and the
+    user password hashes → the host keys (`hosts`);
+  - a host's Syncthing device identity → that host's key only;
+  - nicky's personal API keys → `user-nicky` + the host keys (for recovery).
+  A kid's (or another user's) key therefore cannot read a secret it has no
+  business reading.
 - **Decryption** happens on the machine at activation, using that machine's
   private key (NixOS hosts use `/etc/ssh/ssh_host_ed25519_key` automatically;
   home-manager uses the user's key). Nothing is decrypted into the Nix store.
@@ -37,8 +38,8 @@ keep decrypting and to preserve the syncthing device identity.
 - `secrets/*.age` — the encrypted secrets (committed).
 - `secrets-structure/*.example` — example plaintext formats for reference.
 - `ssh-keys/` — private keys (gitignored, backed up in KeePassXC).
-- `scripts/agenix-rekey.sh` — regenerate the recipient union + re-encrypt.
-- `scripts/agenix-backup.sh` — package private keys into a backup archive.
+- `scripts/agenix-rekey.sh` — regenerate the `hosts` group + re-encrypt.
+- `scripts/agenix-backup.sh` — package private keys into a passphrase-encrypted archive.
 
 ## Editing a secret
 
@@ -77,13 +78,14 @@ decrypt secrets:
 1. Get its public key: `cat /etc/ssh/ssh_host_ed25519_key.pub` (or read it
    after first install).
 2. Add it as a recipient in `secrets.nix` (or run the rekey script on that host).
-3. `agenix -r` to re-encrypt all `.age` files to the new union.
+3. `sudo ./scripts/agenix-rekey.sh` to add it to `hosts` and re-encrypt the
+   host-scoped secrets to it.
 4. Commit `secrets.nix` + the re-encrypted `.age` files.
 
 For a host that has a **syncthing identity** you want to keep, also drop its
-`cert.pem`/`key.pem` into `secrets/syncthing/<host>/` (encrypted to the union)
-so the device ID is preserved. If the host has no syncthing identity yet, the
-module skips the cert/key and syncthing generates its own on first boot.
+`cert.pem`/`key.pem` into `secrets/syncthing/<host>/` (encrypted to that host's
+key) so the device ID is preserved. If the host has no syncthing identity yet,
+the module skips the cert/key and syncthing generates its own on first boot.
 
 ## Adding a host/user key (automated)
 
@@ -91,8 +93,8 @@ module skips the cert/key and syncthing generates its own on first boot.
 # generate the key (for a new host or user)
 ssh-keygen -t ed25519 -N "" -C "host <name>" -f ssh-keys/hosts/<name>
 
-# regenerate the union + re-encrypt
-./scripts/agenix-rekey.sh
+# regenerate the `hosts` group + re-encrypt
+sudo ./scripts/agenix-rekey.sh
 
 # back up the new private key in KeePassXC
 ./scripts/agenix-backup.sh
@@ -116,7 +118,7 @@ The decrypted secrets are mounted at the paths services already expect:
 
 - age is **not post-quantum safe**; keys are long-lived, so keep them strong and
   rotate periodically if the threat model warrants it (see the agenix README).
-- The union strategy trades per-host isolation for simplicity: any compromised
-  private key can decrypt everything. Acceptable given the goal of a quick,
-  uniform, fully-automatic setup. If you need isolation later, narrow the
-  `publicKeys` per secret.
+- Secrets are scoped per recipient set (no global union), so a compromised key
+  only exposes the secrets encrypted to it: a host key exposes the host-scoped
+  system secrets and password hashes; a user key only that user's own secrets.
+  Keep the host keys root-only (they are `/etc/ssh/ssh_host_ed25519_key`).

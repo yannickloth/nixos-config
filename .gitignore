@@ -17,8 +17,8 @@ secrets/syncthing-gui-password
 # KeePassXC and distributed to each host/user. NEVER commit these (see
 # secrets-structure/README.md).
 ssh-keys/**
-# Backup archive of the private keys (same secret content).
-ssh-keys-backup-*.tar.gz
+# Backup archive of the private keys (same secret content), now passphrase-encrypted.
+ssh-keys-backup-*.tar.gz*
 # Imported syncthing config dumps from physical hosts (plaintext cert/key).
 laptop-*-dotconfig-syncthing/
 laptop-*-dotconfig-syncthing.zip

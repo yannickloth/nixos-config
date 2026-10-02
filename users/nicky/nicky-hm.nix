@@ -105,14 +105,16 @@ in
   #   --pcie-frac 0.35  beats the 0.55 default and the probe's 0.12-0.15
   #                     (32.7 vs 27.0 tok/s for the 0.12 the probe picks)
   #   --spec-min-p 0.70 beats 0.5 (34.0 vs 31.5 tok/s; slower CPU, no AVX-512)
-  #   --pool-workers 8  beats the default 15 (the 8 E-cores are the tail)
+  #   --pool-workers 15 (the engine default) beats 8 on the fresh path: the
+  #                     E-cores add pool capacity here, they are not a tail
+  #                     (P2 re-measure, ops/p2-pool-affinity-results.md)
   # Enforced on every config the package writes, so setup cannot undo them.
   # enable stays gated on laptop-p16 (isP16).
   strata = lib.mkIf isP16 {
     enable = true;
     pcieFrac = 0.35;
     specMinP = 0.70;
-    poolWorkers = 8;
+    poolWorkers = 15;
   };
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
