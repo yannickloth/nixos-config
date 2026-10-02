@@ -54,6 +54,14 @@
   , kv ? "int8"
   , kvResident ? 32768
   , ropeScaling ? "yarn"
+  # Measured hardware tuning from tools/calibrate.py (see the bench/results
+  # entry for this host in the fork). null leaves the engine's own default: the
+  # PCIe probe for --pcie-frac, 0.5 for --spec-min-p, and every physical core
+  # minus the host's for --pool-workers.
+  , pcieFrac ? null
+  , specMinP ? null
+  , poolWorkers ? null
+  , poolAffinity ? null
   # Source: the `forksStrata` flake input (github.com/yannickloth/forks-Strata,
   # branch perf/am47) - upstream 0.1.34 (1678de3) plus the sm_86 work: the
   # native-embedding error report and the A3000 bench harness. (The Q4_K/Q5_K/
@@ -81,6 +89,12 @@ let
   # otherwise fills VRAM completely.
   vramReserveMiB = if vision then 2800 else 1800;
 
+  # "none" sentinel: an argument the configPatch below must leave unset (the
+  # engine keeps its own default), for the calibrated knobs that are optional.
+  optArg = v: if v == null then "none" else toString v;
+  # Numbers via toJSON so a float renders as "0.35", not Nix's "0.350000".
+  jsonArg = v: if v == null then "none" else builtins.toJSON v;
+
   # Declarative engine policy: rewrite the args of every engine config under
   # STRATA_HOME so the served model always matches the module options, whatever
   # `strata --setup` answered. Runs from both the `strata` and `strata-server`
@@ -91,9 +105,11 @@ let
     name = "strata-patch-config";
     runtimeInputs = [ python3 ];
     text = ''
-      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} <<'PY'
+      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} <<'PY'
       import glob, json, os, sys
-      ctx, kv, kv_res, rope, vram = int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5])
+      ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity = (
+          int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5]),
+          sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9])
       home = os.environ.get("STRATA_HOME") or os.path.expanduser("~/.local/share/strata")
 
       def set_opt(args, flag, value):
@@ -138,6 +154,16 @@ let
                   a = set_opt(a, "--rope-scaling", None)
                   a = set_opt(a, "--rope-scale", None)
               a = set_opt(a, "--vram-reserve-mib", vram)
+              # Calibrated hardware knobs (tools/calibrate.py): set only when the
+              # module provided them, otherwise the engine's default/probe stands.
+              if pcie != "none":
+                  a = set_opt(a, "--pcie-frac", pcie)
+              if spec != "none":
+                  a = set_opt(a, "--spec-min-p", spec)
+              if workers != "none":
+                  a = set_opt(a, "--pool-workers", workers)
+              if affinity != "none":
+                  a = set_opt(a, "--pool-affinity", affinity)
               c["args"] = a
               with open(p, "w", encoding="utf-8") as f:
                   json.dump(c, f, indent=1)

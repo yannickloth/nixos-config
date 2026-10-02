@@ -31,9 +31,9 @@ in
       type = types.package;
       default = pkgs.callPackage ./default.nix {
         inherit strataSrc;
-        inherit (cfg) context kv kvResident ropeScaling;
+        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity;
       };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit strataSrc; inherit (config.strata) context kv kvResident ropeScaling; }";
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit strataSrc; inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
     };
 
@@ -72,6 +72,44 @@ in
       type = types.enum [ "yarn" "linear" "none" ];
       default = "yarn";
       description = "RoPE extension method used only when context > 262144 (`--rope-scaling`).";
+    };
+
+    pcieFrac = mkOption {
+      type = types.nullOr types.float;
+      default = null;
+      description = ''
+        Share of the experts missing from VRAM copied over PCIe and computed on
+        the GPU instead of the CPU (`--pcie-frac`, 0..1). null keeps the engine's
+        one-shot probe, which can read a busy or not-yet-ramped link several
+        times low; run `tools/calibrate.py` and pin the measured value here.
+      '';
+    };
+
+    specMinP = mkOption {
+      type = types.nullOr types.float;
+      default = null;
+      description = ''
+        Draft confidence below which the verify window is not extended by another
+        guess (`--spec-min-p`, 0..1). null keeps the engine's 0.5; a slower CPU
+        wants a higher floor.
+      '';
+    };
+
+    poolWorkers = mkOption {
+      type = types.nullOr types.ints.unsigned;
+      default = null;
+      description = ''
+        CPU expert-pool worker threads (`--pool-workers`). null keeps the engine's
+        default (every physical core minus the host's); on a hybrid CPU the
+        E-cores can make every window wait for them, so calibration often picks
+        fewer.
+      '';
+    };
+
+    poolAffinity = mkOption {
+      type = types.nullOr (types.enum [ "all" "auto" "p-cores" ]);
+      default = null;
+      description = "CPU affinity mode for the expert pool (`--pool-affinity`). null keeps the engine's `all`.";
     };
 
     autoStart = mkOption {
