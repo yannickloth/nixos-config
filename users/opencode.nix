@@ -22,7 +22,8 @@
 #   unsloth   http://127.0.0.1:8888/v1   local Unsloth Studio (laptop-p16 only);
 #                                        Studio enforces its own per-model context budget
 #   strata    http://127.0.0.1:8080/v1   local Strata server (laptop-p16 only); any
-#                                        key/model name, context = the one picked in `strata` setup
+#                                        key/model name, context = packages/strata's
+#                                        `strata.context` (default 524288)
 { config, lib, pkgs, ... }:
 
 with lib;
@@ -247,10 +248,10 @@ in
               # Qwen3.8-Flash-Next 125B MoE, OpenAI-compatible API on localhost.
               # The server accepts ANY API key and model name (chat.py sends
               # "strata"), so no key file is needed. Context is advisory (opencode
-              # uses it for compaction thresholds) and matches the 65536-token
-              # context chosen in `strata --setup` (KV streaming keeps the full
-              # cache in RAM; 128K fits the A3000's serve layout, 262K does not). Images
-              # are not enabled in the strata package (vision = false), so no
+              # uses it for compaction thresholds) and must track the single
+              # server context: packages/strata defaults to 524288 (yarn factor 2,
+              # 8-bit KV streamed from pinned RAM; see strata.context). Images are
+              # not enabled in the strata package (vision = false), so no
               # attachment flag. reasoning=true: the model thinks before
               # answering; tune via reasoning effort.
               strata-local = {
@@ -264,14 +265,14 @@ in
                     name = "Strata Qwen3.8-Flash-Next 125B (local)";
                     reasoning = true;
                     limit = {
-                      context = 262144;
+                      context = 524288;
                       output = 65536;
                     };
                   };
                   "swift-1.5-iq3_xxs" = {
                     name = "Strata swift 1.5 IQ3_XXS (local)";
                     limit = {
-                      context = 262144;
+                      context = 524288;
                       output = 65536;
                     };
                   };

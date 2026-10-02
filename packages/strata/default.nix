@@ -16,18 +16,20 @@
 # Images (the strata-vision encoder) are opt-in via the `vision` argument
 # (off by default: the encoder costs ~1.2 GB of VRAM and a few % of speed).
 # Runtime notes (laptop-p16, established 2026-09-27 - see also engine.nix):
-# - The wrapper enforces two engine-arg policies on every config at startup:
-#   expert cache OFF (upstream flags that path's output as divergent; it was
-#   also no faster: 7.3 vs 6.3 tok/s) and --vram-reserve-mib 1800 (the auto
-#   expert cache otherwise fills VRAM completely and the first request dies
-#   with "verify: instantiate: out of memory").
+# - The wrapper and `strata-server` enforce a declarative engine policy on
+#   every config (the module options, see home.nix): --max-context (default
+#   524288, with yarn factor 2 past the trained 262144), --kv / --kv-resident
+#   (8-bit, streamed from pinned RAM) and --vram-reserve-mib 1800 (the auto
+#   expert cache otherwise fills VRAM and the first request dies with "verify:
+#   instantiate: out of memory"). --expert-cache must stay: the engine refuses
+#   to serve native packs at large contexts without it.
 # - Native (IQ) packs REQUIRE --spec >= 2: the engine refuses to start
 #   without it, and deeper is faster (spec 4 > spec 2: 6.3 vs 5.6 tok/s).
 # - The engine only resolves libcuda through the wrapper's LD_LIBRARY_PATH
 #   (the lib-driver dir, see ./engine.nix): launching serve/server.py by hand
 #   without it fails with a misleading "cannot pin 322 MiB: CUDA driver
 #   version is insufficient".
-# - Measured speed (0.1.31, fixed 22-token prompt, bench/a3000-tune.sh):
+# - Measured speed (0.1.31+, fixed 22-token prompt, bench/a3000-tune.sh):
 #   ~28-33 tok/s decode; the 0.1.18-era ~6 tok/s figure predates the engine
 #   fixes upstream landed in 0.1.19-0.1.31. Interactive-snappy local chat
 #   stays on unsloth-studio's 9B GGUFs; this is the quality endpoint for
@@ -44,18 +46,25 @@
   , uv
   , cudaArch ? "86"
   , vision ? false
-  # A private fork (github.com/yannickloth/forks-Strata): upstream 0.1.31 plus
-  # the sm_86 tuning work on branch perf/am47 (Q4_K/Q5_K/Q5_1/Q6_K MMQ
-  # instances, bench/a3000-tune.sh). Fetched at evaluation time with the
-  # caller's ssh key, rev pinned (pure flake evaluation allows builtins.fetchGit
-  # with a rev); a plain fetchFromGitHub/fetchgit derivation cannot authenticate
-  # to a private repository - the nix daemon runs as root, without this key.
-, strataSrc ? builtins.fetchGit {
-    url = "git+ssh://git@github.com/yannickloth/forks-Strata.git";
-    # 0.1.31 + Q4_K/Q5_K/Q5_1/Q6_K MMQ instances (perf/am47)
-    rev = "1c101ca721a70ccccd5f991bf37160ae3cf232a2";
-  }
-, llamaCpp ? fetchFromGitHub {
+  # Engine config policy, enforced on every engine config the package writes
+  # (see configPatch below). Default: one 512K-context Strata - the model's
+  # trained 262144 extended by yarn factor 2 - with the KV cache 8-bit and
+  # streamed from pinned RAM. See packages/strata/home.nix for the options.
+  , context ? 524288
+  , kv ? "int8"
+  , kvResident ? 32768
+  , ropeScaling ? "yarn"
+  # Source: the `forksStrata` flake input (github.com/yannickloth/forks-Strata,
+  # branch perf/am47) - upstream 0.1.34 (1678de3) plus the sm_86 work: the
+  # native-embedding error report and the A3000 bench harness. (The Q4_K/Q5_K/
+  # Q5_1 MMQ instances this branch used to carry are upstream as of 0.1.32,
+  # behind STRATA_MMQ_KQUANTS.) Passed in from flake.nix and home.nix;
+  # `nix flake update forksStrata` moves it to the branch head. The private repo
+  # is fetched over ssh with the invoking user's key - a fetchFromGitHub/fetchgit
+  # derivation cannot authenticate to it (the nix daemon runs as root without
+  # that key), which is why it is a flake input, not a fetcher derivation.
+  , strataSrc
+  , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
     repo = "llama.cpp";
     rev = "3cf03257f219afbe7334045ff7c6a06ac68c627d";
@@ -65,12 +74,78 @@
 }:
 
 let
-  version = "0.1.31";
+  version = "0.1.34";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
   # otherwise fills VRAM completely.
   vramReserveMiB = if vision then 2800 else 1800;
+
+  # Declarative engine policy: rewrite the args of every engine config under
+  # STRATA_HOME so the served model always matches the module options, whatever
+  # `strata --setup` answered. Runs from both the `strata` and `strata-server`
+  # wrappers (idempotent). --max-context/--kv/--kv-resident/--rope-scaling are
+  # exactly what setup.py itself would write for `--context <context>`, but from
+  # Nix instead of a runtime answer; --vram-reserve-mib stays enforced as before.
+  configPatch = writeShellApplication {
+    name = "strata-patch-config";
+    runtimeInputs = [ python3 ];
+    text = ''
+      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} <<'PY'
+      import glob, json, os, sys
+      ctx, kv, kv_res, rope, vram = int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5])
+      home = os.environ.get("STRATA_HOME") or os.path.expanduser("~/.local/share/strata")
+
+      def set_opt(args, flag, value):
+          # drop every occurrence of flag (and its value, if it takes one), then
+          # append it at the end when value is not None
+          out, i = [], 0
+          while i < len(args):
+              if args[i] == flag:
+                  i += 1
+                  if i < len(args) and not args[i].startswith("--"):
+                      i += 1
+                  continue
+              out.append(args[i]); i += 1
+          if value is not None:
+              out += [flag, str(value)]
+          return out
+
+      for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
+          if p.endswith(".shared-settings.json"):     # the web app's Chat settings, not a model
+              continue
+          try:
+              with open(p, encoding="utf-8") as f:
+                  c = json.load(f)
+              if not isinstance(c, dict) or not isinstance(c.get("args"), list):
+                  continue
+              a = c["args"]
+              if ctx > 0:
+                  a = set_opt(a, "--max-context", ctx)
+              if kv:
+                  a = set_opt(a, "--kv", kv)
+              # k8v4 never streams its KV (the engine refuses the combination)
+              if kv == "k8v4" or kv_res <= 0:
+                  a = set_opt(a, "--kv-resident", None)
+              else:
+                  a = set_opt(a, "--kv-resident", kv_res)
+              # past the trained 262144 the angles must be rescaled; inside it,
+              # keep the model completely stock (no rope flags at all)
+              if ctx > 262144:
+                  a = set_opt(a, "--rope-scaling", rope)
+                  a = set_opt(a, "--rope-scale", f"{ctx / 262144:g}")
+              else:
+                  a = set_opt(a, "--rope-scaling", None)
+                  a = set_opt(a, "--rope-scale", None)
+              a = set_opt(a, "--vram-reserve-mib", vram)
+              c["args"] = a
+              with open(p, "w", encoding="utf-8") as f:
+                  json.dump(c, f, indent=1)
+          except Exception as e:
+              print(f"strata: could not patch {p}: {e}", file=sys.stderr)
+      PY
+    '';
+  };
 
   engine = callPackage ./engine.nix {
     inherit strataSrc llamaCpp cudaArch;
@@ -163,33 +238,26 @@ let
           uv venv --seed --python "${python3}/bin/python3" "$STRATA_HOME/.venv" >&2
         fi
 
-        # The auto expert cache sizes itself to the last MiB of VRAM and
-        # leaves too little for request-time buffers - the engine then dies
-        # on the first request ("verify: instantiate: out of memory") even
-        # though it warns "LOW" at startup. Enforce a healthy VRAM reserve
-        # in every config; setup.py only writes 700 MiB (for vision).
-        ${python3}/bin/python3 - <<'PY' >&2
-        import glob, json, os, sys
-        home = os.environ.get("STRATA_HOME") or os.path.expanduser("~/.local/share/strata")
-        for p in glob.glob(os.path.join(home, "strata-*.json")):
-            try:
-                with open(p, encoding="utf-8") as f:
-                    c = json.load(f)
-                args = c.setdefault("args", [])
-                # NOTE: --expert-cache must STAY: the engine refuses to serve
-                # native packs at large contexts without it ("needs --spec T,
-                # ... and --expert-cache"). Upstream warns its GPU hit path
-                # can diverge from a cache-off run; with the cache mandatory
-                # there is no off switch to fall back on.
-                if "--vram-reserve-mib" in args:
-                    args[args.index("--vram-reserve-mib") + 1] = "${toString vramReserveMiB}"
-                else:
-                    args += ["--vram-reserve-mib", "${toString vramReserveMiB}"]
-                with open(p, "w", encoding="utf-8") as f:
-                    json.dump(c, f, indent=1)
-            except Exception as e:
-                print(f"strata: could not patch {p}: {e}", file=sys.stderr)
-        PY
+        # Declarative engine policy (max-context, KV format, rope scaling) and
+        # the VRAM reserve are enforced on every config here and again in
+        # strata-server (see configPatch above). NOTE: --expert-cache must
+        # STAY: the engine refuses to serve native packs at large contexts
+        # without it ("needs --spec T, ... and --expert-cache"). Upstream warns
+        # its GPU hit path can diverge from a cache-off run; with the cache
+        # mandatory there is no off switch to fall back on.
+        ${configPatch}/bin/strata-patch-config
+
+        # First-run setup must write this context too, not whatever the
+        # interactive default offers (setup.py then derives the matching yarn
+        # factor itself). An explicit --context on the command line still wins;
+        # configPatch above re-normalizes KV and rope args regardless.
+        want_context=0
+        for arg in "$@"; do
+          case "$arg" in --context | --context=*) want_context=1 ;; esac
+        done
+        if [ "$want_context" = 0 ]; then
+          set -- "$@" --context "${toString context}"
+        fi
 
         # The model wants the A3000's full 12 GB of VRAM and tens of GB of
         # RAM, so free them: stop the GPU-resident user services (unsloth-
@@ -248,8 +316,9 @@ let
   };
 
   # The always-on, engine-optional server for the Unsloth Studio integration
-  # (systemd user service, see ./home.nix). It serves with NO engine loaded:
-  # the first request starts it, and it unloads itself after
+  # (systemd user service, see ./home.nix). `--lazy` (upstream's replacement
+  # for the fork's removed `--no-preload`) means it serves with NO engine
+  # loaded: the first request starts it, and it unloads itself after
   # STRATA_IDLE_UNLOAD seconds (default 300) without one - so a machine can
   # host this model and Studio's own models without either holding the GPU
   # forever. No setup.py: no service stopping, no browser, no downloading.
@@ -265,6 +334,10 @@ let
           echo "Strata: not set up yet - run 'strata' once first (first-run setup)." >&2
           exit 1
         fi
+        # Re-assert the declarative engine policy (max-context, KV, rope) on the
+        # configs before serving; a config edited by hand or written by setup.py
+        # is brought back in line here too.
+        ${configPatch}/bin/strata-patch-config
         CFG=""
         for f in "$STRATA_HOME"/strata-*.json; do
           [ -f "$f" ] || continue                       # no config at all: the glob stays literal
@@ -283,7 +356,7 @@ let
         fi
         exec "$PY" ${share}/serve/server.py --engine strata --config "$CFG" \
           --host 127.0.0.1 --port "''${STRATA_PORT:-8080}" \
-          --idle-unload "''${STRATA_IDLE_UNLOAD:-300}"
+          ${lib.optionalString (!vision) "--lazy "}--idle-unload "''${STRATA_IDLE_UNLOAD:-300}"
       '';
   };
 in

@@ -6,15 +6,19 @@
 # Installs `strata` (first-run setup + foreground start), `strata-chat` and
 # `strata-server`. The first `strata` run asks the model/size/context questions
 # and downloads the ~70-84 GB model into ~/.local/share/strata (override the
-# directory with STRATA_HOME).
+# directory with STRATA_HOME). The engine policy below (context, KV format, rope
+# scaling, VRAM reserve) overrides whatever setup answered, whenever a config is
+# written or served.
 #
-# `strata-server` is the always-on, ENGINE-OPTIONAL server behind the Unsloth
-# Studio integration: it holds no model until a request arrives (Studio's
-# Custom provider points at http://127.0.0.1:8080/v1), and frees the engine's
-# ~55 GB of RAM and most of the 12 GB card again after STRATA_IDLE_UNLOAD
-# seconds (default 300) without a request. Runs as a user service so Studio
-# can reach it whenever; Studio's own models keep the GPU the rest of the time.
-{ config, lib, pkgs, ... }:
+# `strata-server` is the always-on, engine-optional server behind the Unsloth
+# Studio integration (Studio's Custom provider points at
+# http://127.0.0.1:8080/v1). It passes `--lazy` (upstream's replacement for the
+# fork's removed `--no-preload`): it holds no model until a request arrives, then
+# frees the ~55 GB of RAM and most of the 12 GB card again after
+# STRATA_IDLE_UNLOAD seconds (default 300) without a request, reloading on the
+# next one. Runs as a user service so Studio can reach it whenever; Studio's own
+# models keep the GPU the rest of the time.
+{ config, lib, pkgs, strataSrc, ... }:
 with lib;
 let
   cfg = config.strata;
@@ -25,9 +29,49 @@ in
 
     package = mkOption {
       type = types.package;
-      default = pkgs.callPackage ./default.nix { };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { }";
+      default = pkgs.callPackage ./default.nix {
+        inherit strataSrc;
+        inherit (cfg) context kv kvResident ropeScaling;
+      };
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit strataSrc; inherit (config.strata) context kv kvResident ropeScaling; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
+    };
+
+    context = mkOption {
+      type = types.ints.positive;
+      default = 524288;
+      description = ''
+        Engine KV/state capacity (`--max-context`). Past the model's trained
+        262144 this also enables yarn rope scaling with factor
+        `context / 262144` (524288 -> factor 2). Enforced on every Strata config
+        the package writes or serves, so `strata --setup` cannot leave it at a
+        different value.
+      '';
+    };
+
+    kv = mkOption {
+      type = types.enum [ "int8" "q4_0" "k8v4" "fp16" ];
+      default = "int8";
+      description = ''
+        KV cache format (`--kv`). `k8v4` is the lowest-memory hybrid but cannot
+        stream its KV, so `kvResident` is dropped for it.
+      '';
+    };
+
+    kvResident = mkOption {
+      type = types.ints.unsigned;
+      default = 32768;
+      description = ''
+        Cells of each attention layer kept in VRAM; the rest of the KV cache
+        lives in pinned RAM (`--kv-resident`, engine minimum 20480). 0 keeps the
+        whole KV in VRAM. Costs ~13.7 KB of RAM per context token at 8-bit.
+      '';
+    };
+
+    ropeScaling = mkOption {
+      type = types.enum [ "yarn" "linear" "none" ];
+      default = "yarn";
+      description = "RoPE extension method used only when context > 262144 (`--rope-scaling`).";
     };
 
     autoStart = mkOption {
@@ -69,6 +113,17 @@ in
   };
 
   config = mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = cfg.ropeScaling != "none" || cfg.context <= 262144;
+        message = "strata.ropeScaling = \"none\" needs strata.context <= 262144: the engine refuses --rope-scale with no scaling past the trained context.";
+      }
+      {
+        assertion = cfg.kvResident == 0 || cfg.kvResident >= 20480;
+        message = "strata.kvResident must be 0 (whole KV in VRAM) or at least 20480 (the engine's --kv-resident minimum).";
+      }
+    ];
+
     home.packages = [ cfg.package ];
 
     systemd.user.services.strata = {

@@ -13,6 +13,16 @@
     # agenix: age-encrypted secrets managed in git. Encrypted .age files are
     # committed; private keys stay in the gitignored age-keys/ and on each host.
     agenix.url = "github:ryantm/agenix";
+    # Strata fork (github.com/yannickloth/forks-Strata), branch perf/am47:
+    # upstream 0.1.34 (1678de3) plus the native-embedding error report and the
+    # A3000 bench harness. A flake input (rather than an inline builtins.fetchGit
+    # rev) so `nix flake update forksStrata` moves it to the branch head;
+    # flake.lock pins the exact rev between updates. The repo ships no flake.nix,
+    # so it is consumed as a plain source (`flake = false`). Private repo:
+    # fetched over ssh with the invoking user's key. Passed to packages/strata as
+    # `strataSrc`.
+    forksStrata.url = "git+ssh://git@github.com/yannickloth/forks-Strata.git?ref=refs/heads/perf/am47";
+    forksStrata.flake = false;
     # hermes-agent packaging (packages/hermes-agent): builds the upstream
     # uv.lock into a Python virtualenv. Pin all three to this repo's
     # nixpkgs-unstable so there is a single evaluation of nixpkgs.
@@ -27,7 +37,7 @@
     uv2nix.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, agenix, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
+  outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, agenix, uv2nix, pyproject-nix, pyproject-build-systems, forksStrata, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -84,7 +94,7 @@
         # Strata (packages/strata): CUDA inference engine for the A3000
         # (sm_86) + runtime wrappers; consumed via home-manager
         # (packages/strata/home.nix, `strata.enable`).
-        strata = pkgs.callPackage ./packages/strata { };
+        strata = pkgs.callPackage ./packages/strata { strataSrc = forksStrata; };
       };
 
       nixosConfigurations =
@@ -129,10 +139,9 @@
                 # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
                 # from zsh-newuser-install) instead of failing activation.
                 home-manager.backupFileExtension = "backup";
-                #home-manager.users.jdoe = import ./home.nix;
-
-                # Optionally, use home-manager.extraSpecialArgs to pass
-                # arguments to home.nix
+                # Pass the Strata fork source (the flake input) to the users'
+                # home modules; packages/strata/home.nix takes it as `strataSrc`.
+                home-manager.extraSpecialArgs = { strataSrc = forksStrata; };
               }
               # TODO: enable a specific Dell XPS module once the exact model is
               # confirmed on the physical machine (e.g. `sudo dmidecode -s system-product-name`).
@@ -159,10 +168,9 @@
                 # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
                 # from zsh-newuser-install) instead of failing activation.
                 home-manager.backupFileExtension = "backup";
-                #home-manager.users.jdoe = import ./home.nix;
-
-                # Optionally, use home-manager.extraSpecialArgs to pass
-                # arguments to home.nix
+                # Pass the Strata fork source (the flake input) to the users'
+                # home modules; packages/strata/home.nix takes it as `strataSrc`.
+                home-manager.extraSpecialArgs = { strataSrc = forksStrata; };
               }
               nixos-hardware.nixosModules.lenovo-thinkpad # generic ThinkPad base; a model-specific module (e.g. thinkpad/p16s) may be added once confirmed via dmidecode
               kernels.linux-zen
@@ -186,10 +194,9 @@
                 # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
                 # from zsh-newuser-install) instead of failing activation.
                 home-manager.backupFileExtension = "backup";
-                #home-manager.users.jdoe = import ./home.nix;
-
-                # Optionally, use home-manager.extraSpecialArgs to pass
-                # arguments to home.nix
+                # Pass the Strata fork source (the flake input) to the users'
+                # home modules; packages/strata/home.nix takes it as `strataSrc`.
+                home-manager.extraSpecialArgs = { strataSrc = forksStrata; };
               }
 
               nixos-hardware.nixosModules.dell-xps-13-9360

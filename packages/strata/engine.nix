@@ -61,9 +61,10 @@
 # under RLIMIT_MEMLOCK=8M: the open kernel module does not enforce it.
 #
 # The native-embedding error report (the real cudaError instead of upstream's
-# bare "cannot pin N MiB") and the serve lifecycle API (/api/inference/*,
-# --no-preload, --idle-unload) live in the fork (github.com/yannickloth/
-# forks-Strata, branch local/lifecycle), not as patches here.
+# bare "cannot pin N MiB") and the bench harness live in the fork
+# (github.com/yannickloth/forks-Strata, branch perf/am47), not as patches here.
+# The engine-lifecycle API this comment used to mention is upstream as of 0.1.31
+# (--idle-unload); upstream main is 0.1.34.
 {
   lib,
   stdenv,
@@ -77,8 +78,8 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "9259cad4cfa3543cd3b8decab5962672b968c649";
-    hash = "sha256-I3nuDdrdbzcafSWeX9vMNaXL1G4wWUqLZ7DZTHxLcmE=";
+    rev = "1678de333d0e0711bc414ad992b640e1a37dd814";  # 0.1.34 (main)
+    hash = "sha256-h4ugSQlvVlZCjSaxB0BLhkGU5GlYo1f1pM8CRLM4XqI=";
   },
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -90,7 +91,7 @@
 }:
 
 let
-  version = "0.1.31";
+  version = "0.1.34";
 
   meta = with lib; {
     description =
@@ -130,6 +131,11 @@ let
     (lib.cmakeBool "STRATA_ENABLE_CUDA" true)
     (lib.cmakeBool "STRATA_BUILD_TESTS" false)
     (lib.cmakeBool "STRATA_PORTABLE" true)
+    # Upstream 0.1.32 gates the Q4_K/Q5_K/Q5_1 MMQ prompt kernels behind this
+    # option (OFF by default). With it, the UD-Q4_K_XL GGUF experts use int8
+    # tensor cores instead of dequant + cuBLAS; the IQ3_XXS native pack is
+    # unaffected. This is the fork's perf/am47 work, merged upstream.
+    (lib.cmakeBool "STRATA_MMQ_KQUANTS" true)
     (lib.cmakeFeature "STRATA_GGML_DIR" "${llamaCpp}")
     (lib.cmakeFeature "CMAKE_CUDA_ARCHITECTURES" cudaArch)
     # Experiment 2026-09-27 (see matrix in the header): global --use_fast_math
