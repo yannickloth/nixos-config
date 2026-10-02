@@ -371,7 +371,7 @@ symlinkJoin {
   meta = with lib; {
     description = "Strata: local Qwen3.8-Flash-Next (125B MoE) inference with an OpenAI/Anthropic-compatible API";
     homepage = "https://github.com/Niko1221/Strata";
-    license = licenses.unfree; # no LICENSE file upstream (see ./engine.nix)
+    license = licenses.mit; # upstream's LICENSE (see ./engine.nix)
     platforms = platforms.linux;
     mainProgram = "strata";
   };

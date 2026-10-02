@@ -97,9 +97,9 @@ let
     description =
       "Strata inference engine: Qwen3.8-Flash-Next (125B MoE) on a 12 GB NVIDIA GPU + system RAM";
     homepage = "https://github.com/Niko1221/Strata";
-    # Upstream ships no LICENSE file (the README says "free and open source");
-    # treated as unfree until one is added.
-    license = licenses.unfree;
+    # The repo carries an MIT LICENSE (upstream added it after this package was
+    # written; the model weights are a separate matter).
+    license = licenses.mit;
     platforms = platforms.linux;
   };
 
