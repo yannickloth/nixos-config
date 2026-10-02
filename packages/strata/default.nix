@@ -63,7 +63,7 @@
   , poolWorkers ? null
   , poolAffinity ? null
   # Source: the `forksStrata` flake input (github.com/yannickloth/forks-Strata,
-  # branch perf/am47) - upstream 0.1.34 (1678de3) plus the sm_86 work: the
+  # branch perf/am47) - upstream 0.1.35 (d9ab843) plus the sm_86 work: the
   # native-embedding error report and the A3000 bench harness. (The Q4_K/Q5_K/
   # Q5_1 MMQ instances this branch used to carry are upstream as of 0.1.32,
   # behind STRATA_MMQ_KQUANTS.) Passed in from flake.nix and home.nix;
@@ -82,7 +82,7 @@
 }:
 
 let
-  version = "0.1.34";
+  version = "0.1.35";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
@@ -364,6 +364,14 @@ let
         # configs before serving; a config edited by hand or written by setup.py
         # is brought back in line here too.
         ${configPatch}/bin/strata-patch-config
+        # Point the engine at THIS build. The `strata` wrapper does this during
+        # setup, but the server is what a `home-manager switch` restart runs, so
+        # without it an upgrade would keep serving the older store engine (the
+        # config's `exe` is the engine/strata symlink).
+        mkdir -p "$STRATA_HOME/engine"
+        ln -sfn "${engine}/bin/strata" "$STRATA_HOME/engine/strata"
+        printf '%s\n' '{"source": "local", "version": "${version}", "archs": [${cudaArch}], "vision": "${if vision then "gpu" else "none"}", "cuda_dirs": []}' \
+          > "$STRATA_HOME/engine/BUILD.json"
         CFG=""
         for f in "$STRATA_HOME"/strata-*.json; do
           [ -f "$f" ] || continue                       # no config at all: the glob stays literal

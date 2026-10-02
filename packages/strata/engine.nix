@@ -64,7 +64,7 @@
 # bare "cannot pin N MiB") and the bench harness live in the fork
 # (github.com/yannickloth/forks-Strata, branch perf/am47), not as patches here.
 # The engine-lifecycle API this comment used to mention is upstream as of 0.1.31
-# (--idle-unload); upstream main is 0.1.34.
+# (--idle-unload); upstream main is 0.1.35.
 {
   lib,
   stdenv,
@@ -78,8 +78,8 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "1678de333d0e0711bc414ad992b640e1a37dd814";  # 0.1.34 (main)
-    hash = "sha256-h4ugSQlvVlZCjSaxB0BLhkGU5GlYo1f1pM8CRLM4XqI=";
+    rev = "d9ab8435f654c368c586340d490915f6addf56a3";  # 0.1.35 (main)
+    hash = "sha256-cklOp4RjPN8B0lWei681rzE7a0JlEKLRhqb4PuTO6vg=";
   },
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -91,7 +91,7 @@
 }:
 
 let
-  version = "0.1.34";
+  version = "0.1.35";
 
   meta = with lib; {
     description =

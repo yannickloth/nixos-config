@@ -14,7 +14,7 @@
     # committed; private keys stay in the gitignored age-keys/ and on each host.
     agenix.url = "github:ryantm/agenix";
     # Strata fork (github.com/yannickloth/forks-Strata), branch perf/am47:
-    # upstream 0.1.34 (1678de3) plus the native-embedding error report and the
+    # upstream 0.1.35 (d9ab843) plus the native-embedding error report and the
     # A3000 bench harness. A flake input (rather than an inline builtins.fetchGit
     # rev) so `nix flake update forksStrata` moves it to the branch head;
     # flake.lock pins the exact rev between updates. The repo ships no flake.nix,
