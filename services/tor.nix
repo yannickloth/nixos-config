@@ -22,6 +22,13 @@
   # Kids must not be able to route around the family DNS filter through the
   # local Tor SOCKS proxy (or a Tor Browser's port). Block their UIDs from the
   # Tor ports; parents are unaffected. Runs after user accounts are created.
+  #
+  # Uses iptables (nixpkgs' iptables is iptables-nft, so this is nftables under
+  # the hood) at activation time because the UID is only known then. A
+  # declarative networking.nftables chain would need `users.users.<n>.uid` set
+  # explicitly — sven/aaron have null uids (auto-allocated at activation), so
+  # `toString null` would render an invalid `meta skuid { , }`. Only convert to
+  # a declarative chain after giving the kids explicit, stable uids.
   system.activationScripts.tor-block-kids = {
     deps = [ "users" ];
     text = ''

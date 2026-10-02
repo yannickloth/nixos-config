@@ -282,6 +282,14 @@ right analogue: declarative, no always-on dependency, rotation via rebuild.
   another host's device key); it rebuilds `hosts` then re-encrypts each secret
   to its declared recipients, skipping files this host cannot decrypt.
   End-to-end tested on a throwaway copy.
-- **Still open:** B4 (tor→nftables), B5 (network-manager), B9 (strata libcuda),
-  B14 (confirm CI green on GitHub); IVP P3 (roles/system naming); H2/H4–H8;
+- **B5 resolved:** `wireless.enable` must stay `lib.mkForce true` — nixpkgs
+  26.05's NM module sets it `true` for the DBus-controlled wpa_supplicant
+  backend; `false` leaves no wpa_supplicant service and breaks Wi-Fi. The old
+  "disable wpasupplicant" comment was wrong (corrected).
+- **B4 deferred:** converting the Tor kid-block to a declarative
+  `networking.nftables` chain needs explicit `users.users.<n>.uid` (null at eval
+  → invalid `meta skuid { , }`); kept the iptables-nft activation and documented
+  the requirement in `services/tor.nix`.
+- **Still open:** B4 (blocked on explicit uids), B9 (strata libcuda), B14
+  (confirm CI green on GitHub); IVP P3 (roles/system naming); H2/H4–H8;
   Phase 4 (restic backup).
