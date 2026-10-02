@@ -192,10 +192,10 @@ in
     # --- Device identity via agenix ---
     # The Syncthing device cert/key for this host are decrypted from the git-
     # committed .age files at activation time (using this host's SSH host key).
-    # Because the .age files are encrypted to the union of all host/user keys,
-    # a reinstall can decrypt with any restored private key; the device ID is
-    # preserved by restoring this host's key from KeePassXC. See
-    # secrets-structure/README.md for the reinstall workflow.
+    # The .age files are encrypted to THIS host's key only (see secrets.nix), so
+    # no other host or user can impersonate this device. The device ID is
+    # preserved on reinstall by restoring this host's private key from
+    # KeePassXC. See secrets-structure/README.md for the reinstall workflow.
     #
     # Only declared when a pre-generated identity exists for this host; otherwise
     # syncthing generates its own on first boot (see hasSyncthingIdentity).

@@ -267,3 +267,21 @@ right analogue: declarative, no always-on dependency, rotation via rebuild.
   `nicky`/`sven` `extraGroups` still match the previous computed lists.
 - **Still open:** B4, B5, B9, B14; IVP P2 (dead files), P3 (roles/system
   naming), P5 (masterpdfeditor); H2/H4–H8; S1–S6; Phase 3–4.
+
+### 2026-10-02 — IVP P2/P5 + secrets S1/S2
+
+- **P2/P5:** deleted 9 unimported/disabled modules; extracted the duplicated
+  `masterpdfeditor` override into `packages/masterpdfeditor`.
+- **S1:** dropped the global `all` union. Recips are now per-secret: system
+  secrets + password hashes → `hosts`; each host's Syncthing device identity →
+  that host only; `nicky.nix.age` → `user-nicky` + `hosts`. Verified decryption
+  matrix; kids'/other users' keys can no longer read system secrets.
+- **S2:** `agenix-backup.sh` now writes a passphrase-encrypted
+  `.tar.gz.age` (`age -p`) instead of a plaintext tar of every key.
+- **Rekey fix:** `agenix-rekey.sh` no longer uses `agenix -r` (which aborts on
+  another host's device key); it rebuilds `hosts` then re-encrypts each secret
+  to its declared recipients, skipping files this host cannot decrypt.
+  End-to-end tested on a throwaway copy.
+- **Still open:** B4 (tor→nftables), B5 (network-manager), B9 (strata libcuda),
+  B14 (confirm CI green on GitHub); IVP P3 (roles/system naming); H2/H4–H8;
+  Phase 4 (restic backup).

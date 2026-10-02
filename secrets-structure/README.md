@@ -77,9 +77,12 @@ decrypt secrets:
 
 1. Get its public key: `cat /etc/ssh/ssh_host_ed25519_key.pub` (or read it
    after first install).
-2. Add it as a recipient in `secrets.nix` (or run the rekey script on that host).
-3. `sudo ./scripts/agenix-rekey.sh` to add it to `hosts` and re-encrypt the
-   host-scoped secrets to it.
+2. Drop its public key into `ssh-keys/hosts/<host>.pub` (gitignored).
+3. On an **existing** host that holds a current host key, run
+   `sudo ./scripts/agenix-rekey.sh` — it rebuilds the `hosts` group in
+   `secrets.nix` from `ssh-keys/hosts/*.pub` and re-encrypts the host-scoped
+   secrets to include the new host. Do **not** run it on the new host: it cannot
+   decrypt the existing secrets, and the script refuses to drop recipients.
 4. Commit `secrets.nix` + the re-encrypted `.age` files.
 
 For a host that has a **syncthing identity** you want to keep, also drop its
@@ -93,7 +96,7 @@ the module skips the cert/key and syncthing generates its own on first boot.
 # generate the key (for a new host or user)
 ssh-keygen -t ed25519 -N "" -C "host <name>" -f ssh-keys/hosts/<name>
 
-# regenerate the `hosts` group + re-encrypt
+# regenerate the `hosts` group + re-encrypt (run on an existing host)
 sudo ./scripts/agenix-rekey.sh
 
 # back up the new private key in KeePassXC
