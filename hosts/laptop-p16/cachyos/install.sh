@@ -17,8 +17,10 @@ install -Dm644 "$here/99-strata-memlock.conf"  /etc/security/limits.d/99-strata-
 install -Dm644 "$here/user@.service.d/99-strata-memlock.conf" \
                 /etc/systemd/system/user@.service.d/99-strata-memlock.conf
 
-# Everything except vm.nr_hugepages is safe to apply live.
-sysctl --system >/dev/null 2>&1 || true
+# Deliberately NOT `sysctl --system` here: that would apply
+# vm.nr_hugepages=22528 live, which can stall in memory compaction while
+# Strata holds its pinned arena. It is reserved by systemd-sysctl at boot.
+# The memlock drop-in takes effect on daemon-reload + the next login/reboot.
 
 case "${1:-}" in
   --apply-hugepages)
