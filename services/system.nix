@@ -12,7 +12,8 @@
       package = pkgs.ananicy-cpp;
     };
 
-    openssh.enable = true; # Enable the OpenSSH daemon.
+    # OpenSSH is configured (and firewall-opened) by services/openssh.nix,
+    # which every host imports via environments/family-laptop.nix.
     tailscale.enable = true;
   };
 }

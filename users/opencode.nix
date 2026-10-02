@@ -40,6 +40,11 @@ in
   };
 
   config = mkIf config.opencode.enable {
+    # The TypeSafe `jev` MCP entry below runs `npx -y @jkudish/jev-mcp`, so the
+    # Node toolchain must be on PATH for every user with this module enabled
+    # (previously only nicky had it via her own home.packages).
+    home.packages = [ pkgs.nodejs ];
+
     xdg.configFile."opencode/opencode.json" = {
       text =
         let

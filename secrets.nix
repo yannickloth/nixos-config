@@ -41,6 +41,16 @@ let
     user-sven
     user-aaron
   ];
+
+  # Host keys only. Used for the per-user password hashes: a user's own key
+  # (or another user's) must not decrypt a password hash, so these are NOT
+  # encrypted to the union.
+  hosts = [
+    host-laptop-p16
+    host-laptop-hera
+    host-laptop-xps
+    host-laptop-travelmate
+  ];
 in
 {
   # --- System secrets ------------------------------------------------------
@@ -67,6 +77,16 @@ in
 
   # nicky's AI-chat API keys (env-file format, KEY=VALUE lines).
   "nicky.nix.age".publicKeys = all;
+
+  # Per-user password hashes (SHA-512 crypt), consumed by users/passwords.nix
+  # as users.users.<n>.hashedPasswordFile. Encrypted to host keys only.
+  "passwords/nicky.hash.age".publicKeys = hosts;
+  "passwords/aeiuno.hash.age".publicKeys = hosts;
+  "passwords/sven.hash.age".publicKeys = hosts;
+  "passwords/aaron.hash.age".publicKeys = hosts;
+
+  # root break-glass password (see users/passwords.nix). Same host-key scope.
+  "passwords/root.hash.age".publicKeys = hosts;
 
   # CIFS client credentials for the nestor mount. NOTE: services/cifs-nestor.nix
   # is not currently imported by any host; add its .age file here once wired up.

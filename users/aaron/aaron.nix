@@ -11,8 +11,6 @@ in
     };
     users.aaron = {
       isNormalUser = true; # Indicates whether this is an account for a "real" user. This automatically sets group to users, createHome to true, home to /home/«username», useDefaultShell to true, and isSystemUser to false. Exactly one of isNormalUser and isSystemUser must be true.
-      # TODO: replace with a real password hash (openssl passwd -6 '<password>').
-      hashedPassword = "$6$AkAhumLiySn.FYR8$SWTfZTUbwSKXvTFC.b2S/2Ss1zzYvfJCr9YoKT.oE3QoXCvX6IG8pZRdrB.UvV2cQ6UxFAm4mjz0WlorwVug30";
       description = userDescription;
       shell = pkgs.zsh;
       extraGroups = [

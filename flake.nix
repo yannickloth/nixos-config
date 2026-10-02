@@ -65,7 +65,10 @@
     {
       devShells.${system}.default = pkgs.mkShell {
         packages = with pkgs; [
-          nixpkgs-fmt
+          nixpkgs-fmt # legacy formatter; nixfmt (RFC style) is the target (see plan)
+          nixfmt # RFC-style formatter: `nix fmt`
+          deadnix # dead-code detection for Nix
+          statix # Nix lint/anti-pattern checks
           nil
           nix-output-monitor
           nvd
@@ -83,6 +86,10 @@
           age
         ];
       };
+
+      # `nix fmt` target (RFC-style). Bulk reformat is deferred until the
+      # Phase 0/2 cleanups land, so CI does not enforce formatting yet.
+      formatter.${system} = pkgs.nixfmt;
 
       # System 1 decision engines. Scope wrappers live beside them:
       # packages/laya/{home,nixos}.nix and packages/clm/home.nix. (One

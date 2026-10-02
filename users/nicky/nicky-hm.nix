@@ -218,7 +218,6 @@ in
     }))
     obsidian
 
-    nodejs
     languagetool
     opencode
     pi-coding-agent
@@ -230,7 +229,7 @@ in
     elan # Lean theorem prover version manager
 
     rclone # Used to mount nestor shares
-    # fuse3 # Already installed as a CachyOS package.
+    fuse3 # provides fusermount3, used by the nestor-mount unit below
 
     quarto
     # panache
@@ -586,8 +585,8 @@ in
           --allow-other \
           --network-mode
         '';
-        # CachyOS/Arch uses fusermount3
-        ExecStop = "/usr/bin/fusermount3 -u %h/nestor";
+        # fusermount3 from the Nix closure (not /usr/bin: wrong on NixOS).
+        ExecStop = "${pkgs.fuse3}/bin/fusermount3 -u %h/nestor";
         Restart = "on-failure";
         RestartSec = "15s";
       };

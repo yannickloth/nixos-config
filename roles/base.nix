@@ -16,7 +16,8 @@ with lib;
   ];
 
   config = {
-    # use UTC by default, do not leak location
+    # Default timezone (Europe/Luxembourg; environments/laptop.nix pins the
+    # same value for laptops). Not UTC — this is a home LAN, not a server.
     time.timeZone = mkDefault "Europe/Luxembourg";
 
     # You are not allowed to manage users manually by default

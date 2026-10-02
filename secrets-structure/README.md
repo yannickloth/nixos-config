@@ -12,6 +12,10 @@ belong to (plus a KeePassXC backup for reinstall recovery).
 - **Union strategy:** every `.age` file is encrypted to **all** recipients, so
   any host or user can decrypt anything. This is the most automatic setup — no
   per-host targeting to maintain.
+  - **Exception — password hashes** (`secrets/passwords/*.age`): encrypted to
+    the **host keys only**, never the union, so one user's key (or another's)
+    cannot read a password hash. Consumed via
+    `users.users.<n>.hashedPasswordFile` (see `users/passwords.nix`).
 - **Decryption** happens on the machine at activation, using that machine's
   private key (NixOS hosts use `/etc/ssh/ssh_host_ed25519_key` automatically;
   home-manager uses the user's key). Nothing is decrypted into the Nix store.
@@ -43,6 +47,27 @@ keep decrypting and to preserve the syncthing device identity.
 nix run nixpkgs#agenix -- -e secrets/<name>.age
 # If the default key doesn't match, pass -i with a private key you hold.
 ```
+
+## Passwords (declarative, host-key scoped)
+
+`users.mutableUsers = false`: accounts are owned by the config, so users cannot
+change their own password (a `passwd` change is reverted on the next
+activation). The per-user and `root` password **hashes** live in
+`secrets/passwords/<user>.hash.age`, encrypted to the host keys only, and are
+consumed by `users/passwords.nix` via `hashedPasswordFile`. Parents rotate a
+password by editing the secret and rebuilding:
+
+```sh
+mkpasswd -m sha-512                 # copy the new hash
+# A password secret is encrypted to the HOST keys only, so decrypting it needs
+# a host key (root):
+sudo ./scripts/agenix-rekey.sh
+# or: sudo agenix -e -i /etc/ssh/ssh_host_ed25519_key secrets/passwords/<user>.hash.age
+```
+
+`root` is the local break-glass administrator (console/recovery); wheel users
+reach root through passwordless `sudo`, and root SSH login is disabled entirely
+(`PermitRootLogin = "no"`, `services/openssh.nix`).
 
 ## Adding a new host (bring-up)
 
@@ -84,6 +109,8 @@ The decrypted secrets are mounted at the paths services already expect:
 | Syncthing device cert (per host) | `secrets/syncthing/<host>/cert.pem.age` | `/etc/nixos/secrets/syncthing/<host>/cert.pem` |
 | Syncthing device key (per host) | `secrets/syncthing/<host>/key.pem.age` | `/etc/nixos/secrets/syncthing/<host>/key.pem` |
 | nicky's AI API keys (home-manager) | `secrets/nicky.nix.age` | `$XDG_RUNTIME_DIR/agenix/nicky.nix` |
+| User login password hashes | `secrets/passwords/<user>.hash.age` | `/run/agenix/password-<user>` |
+| root break-glass password | `secrets/passwords/root.hash.age` | `/run/agenix/password-root` |
 
 ## Threats / notes
 

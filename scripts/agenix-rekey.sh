@@ -10,9 +10,10 @@
 #   3. Commit secrets.nix + the re-encrypted .age files.
 #
 # The `all` union in secrets.nix is rebuilt from every ssh-keys/hosts/*.pub and
-# ssh-keys/users/*.pub, so any host/user can decrypt any secret. Private keys
-# are distributed to their machines and backed up in KeePassXC (see
-# secrets-structure/README.md).
+# ssh-keys/users/*.pub, so any host/user can decrypt any secret. The `hosts`
+# group (used for the host-key-scoped password hashes, see users/passwords.nix)
+# is rebuilt from ssh-keys/hosts/*.pub only. Private keys are distributed to
+# their machines and backed up in KeePassXC (see secrets-structure/README.md).
 #
 # Requires the agenix CLI (nix run nixpkgs#agenix or via the devShell).
 
@@ -35,6 +36,17 @@ done
 # Deduplicate preserving order.
 mapfile -t recipients < <(printf '%s\n' "${recipients[@]}" | awk '!seen[$0]++')
 
+# Host keys only, for the `hosts` group (password secrets are scoped to hosts).
+hosts_recipients=()
+for f in "$HOSTS_DIR"/*.pub; do
+  [[ -e "$f" ]] || continue
+  key="$(awk '{print $1" "$2}' "$f")"
+  hosts_recipients+=("$key")
+done
+if [[ ${#hosts_recipients[@]} -gt 0 ]]; then
+  mapfile -t hosts_recipients < <(printf '%s\n' "${hosts_recipients[@]}" | awk '!seen[$0]++')
+fi
+
 if [[ ${#recipients[@]} -eq 0 ]]; then
   echo "error: no SSH public keys found under ssh-keys/hosts/ and ssh-keys/users/" >&2
   exit 1
@@ -43,23 +55,33 @@ fi
 echo "Recipients ($(hostname)):"
 printf '  %s\n' "${recipients[@]}"
 
-# Build the new `all` list literal (4-space indented entries).
+# Build the new `all` and `hosts` list literals (4-space indented Nix strings;
+# the keys must be quoted — base64 contains +// which are not valid in a bare
+# Nix identifier).
 all_list=""
 for r in "${recipients[@]}"; do
-  all_list+="    $r"$'\n'
+  all_list+="    \"$r\""$'\n'
 done
 
-# Regenerate secrets.nix: keep the header comment, rewrite the `all` block.
-# The recipients section (host-*/user-* = "...") is kept verbatim; only the
-# `all = [ ... ];` union is rebuilt from the discovered keys.
-awk -v alllist="$all_list" '
-  /^  all = \[/ { print "  all = ["; printf "%s", alllist; print "  ];"; inall=1; next }
-  inall && /^[[:space:]]*\]/  { inall=0; next }
-  inall { next }
+hosts_list=""
+if [[ ${#hosts_recipients[@]} -gt 0 ]]; then
+  for r in "${hosts_recipients[@]}"; do
+    hosts_list+="    \"$r\""$'\n'
+  done
+fi
+
+# Regenerate secrets.nix: keep the header comment and the named recipients
+# (host-*/user-* = "..."), rewrite the `all = [ ... ];` union and the
+# `hosts = [ ... ];` host-only group from the discovered keys.
+awk -v alllist="$all_list" -v hostlist="$hosts_list" '
+  /^  all = \[/   { print "  all = [";   printf "%s", alllist;   print "  ];"; skip=1; next }
+  /^  hosts = \[/ { print "  hosts = ["; printf "%s", hostlist; print "  ];"; skip=1; next }
+  skip && /^[[:space:]]*\]/ { skip=0; next }
+  skip { next }
   { print }
 ' "$SECRETS_NIX" > "$SECRETS_NIX.tmp" && mv "$SECRETS_NIX.tmp" "$SECRETS_NIX"
 
-echo "Rewrote the \`all\` union in secrets.nix."
+echo "Rewrote the \`all\` union and the \`hosts\` group in secrets.nix."
 
 echo "Re-encrypting all secrets to the union..."
 if command -v agenix >/dev/null 2>&1; then
