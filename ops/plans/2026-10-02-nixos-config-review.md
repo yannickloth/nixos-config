@@ -307,6 +307,7 @@ right analogue: declarative, no always-on dependency, rotation via rebuild.
   `config.…`); dropped the one-entry `kernels` indirection in `flake.nix`;
   removed unused `self`/`inputs@` from both flake `outputs`.
 - **Verification:** 122 files parse; deadnix clean on changed files; all three
-  hosts evaluate to the same known-good derivations.
-- **Still open:** B4 (needs explicit stable uids), B9 (strata libcuda), B14
-  (confirm CI green on GitHub); H7 (stale `result` symlinks); Phase 4 (restic).
+  hosts evaluate to the same known-good derivations. CI confirmed **green** on
+  GitHub (run 37057440148: nix-parse + nix-lint + eval-hosts ×3 all succeeded).
+- **Still open:** B4 (needs explicit stable uids), B9 (strata libcuda); H7
+  (stale `result` symlinks); Phase 4 (restic).
