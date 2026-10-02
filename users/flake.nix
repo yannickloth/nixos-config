@@ -66,7 +66,9 @@
         modules = [
           agenix.homeManagerModules.default
           ./${user}/${user}-hm.nix
-          { commonHm.hostName = hostName; }
+          # isCachyOS gates the CachyOS-only host tuning (see common-hm.nix and
+          # hosts/laptop-p16/cachyos/); the NixOS host leaves it false.
+          { commonHm.hostName = hostName; commonHm.isCachyOS = true; }
         ];
       };
     in

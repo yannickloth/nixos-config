@@ -51,6 +51,12 @@ let
   # config.networking.hostName is NOT reachable inside home-manager modules
   # (they expose their own config namespace), so it cannot be used here.
   isP16 = config.commonHm.hostName == "laptop-p16";
+  # True when this config is built by the standalone CachyOS flake
+  # (users/flake.nix). On CachyOS the engine's host tuning lives in /etc
+  # (hosts/laptop-p16/cachyos/), because no NixOS system module runs there; on
+  # the NixOS host it is provided by hosts/laptop-p16/ instead. Gating keeps
+  # the CachyOS-only activation out of a future NixOS install.
+  isCachyOS = config.commonHm.isCachyOS;
   # Runtime path of nicky's agenix-decrypted AI-chat API keys (see age.secrets).
   nickyApiKeysPath = config.age.secrets."nicky.nix".path;
 in
@@ -391,6 +397,27 @@ in
       fi
     fi
   '');
+
+  # CachyOS: the Strata engine needs a 2 MiB hugetlb pool covering its whole
+  # ~40 GiB arena, and an unlimited RLIMIT_MEMLOCK for the systemd user manager
+  # (the strata unit's LimitMEMLOCK=infinity is capped at the manager's 8 MiB
+  # otherwise). Both live in /etc, which home-manager cannot write. Apply the
+  # bundled installer, but only non-interactively (`sudo -n`) so `home-manager
+  # switch` never blocks: run `sudo -v` beforehand to have it applied, else it
+  # prints the one command. The future NixOS install uses hosts/laptop-p16/
+  # instead and never runs this (isCachyOS is false there).
+  home.activation.strataHostTuning = lib.mkIf (isP16 && isCachyOS)
+    (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      setup=${../../hosts/laptop-p16/cachyos}
+      if [ "$(cat /proc/sys/vm/nr_hugepages 2>/dev/null || echo 0)" -lt 20480 ] \
+         || [ ! -e /etc/systemd/system/user@.service.d/99-strata-memlock.conf ]; then
+        if sudo -n true 2>/dev/null; then
+          $DRY_RUN_CMD sudo "$setup/install.sh"
+        else
+          echo "strata: host tuning not installed; run once: sudo $setup/install.sh" >&2
+        fi
+      fi
+    '');
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
   # plain files is through 'home.file'.
