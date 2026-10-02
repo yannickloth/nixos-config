@@ -5,5 +5,8 @@
 { ... }:
 
 {
-  imports = [ ./passwords.nix ];
+  imports = [
+    ./common-groups.nix
+    ./passwords.nix
+  ];
 }

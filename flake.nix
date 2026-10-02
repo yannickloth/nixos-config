@@ -124,93 +124,52 @@
               boot.kernelPackages = pkgs.linuxKernel.packages.linux_zen;
             };
           };
+
+          # Home-manager + shared-module wiring common to every host.
+          commonModules = [
+            home-manager.nixosModules.home-manager
+            agenix.nixosModules.default
+            # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
+            # jetbrains-toolbox, vscode, hermes-agent, magpie,
+            # deepseek-harness); sven/aaron keep plain stable pkgs.
+            ./users/ai-pkgs.nix
+            # Inject the agenix home-manager module so home-manager users can
+            # use `age.secrets` (nicky does for API keys).
+            { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
+              # from zsh-newuser-install) instead of failing activation.
+              home-manager.backupFileExtension = "backup";
+              # Pass the Strata fork source (the flake input) to the users'
+              # home modules; packages/strata/home.nix takes it as `strataSrc`.
+              home-manager.extraSpecialArgs = { strataSrc = forksStrata; };
+            }
+            kernels.linux-zen
+          ];
+
+          # One host: its configuration module + any host-only modules, on top
+          # of commonModules.
+          mkHost = configModule: extraModules:
+            nixpkgs.lib.nixosSystem {
+              system = "x86_64-linux";
+              specialArgs = { inherit aiOverlay; };
+              modules = [ configModule ] ++ extraModules ++ commonModules;
+            };
         in
         {
-          laptop-hera = nixpkgs.lib.nixosSystem {
-            system = "x86_64-linux";
-            specialArgs = { inherit aiOverlay; };
-            modules = [
-              ./hosts/laptop-hera/laptop-hera-configuration.nix
-              home-manager.nixosModules.home-manager
-              agenix.nixosModules.default
-              # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
-              # jetbrains-toolbox, vscode, hermes-agent, magpie,
-              # deepseek-harness); sven/aaron keep plain stable pkgs.
-              ./users/ai-pkgs.nix
-              # Inject the agenix home-manager module so home-manager users can
-              # use `age.secrets` (nicky does for API keys).
-              { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
-              {
-                home-manager.useGlobalPkgs = true;
-                home-manager.useUserPackages = true;
-                # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
-                # from zsh-newuser-install) instead of failing activation.
-                home-manager.backupFileExtension = "backup";
-                # Pass the Strata fork source (the flake input) to the users'
-                # home modules; packages/strata/home.nix takes it as `strataSrc`.
-                home-manager.extraSpecialArgs = { strataSrc = forksStrata; };
-              }
-              # TODO: enable a specific Dell XPS module once the exact model is
-              # confirmed on the physical machine (e.g. `sudo dmidecode -s system-product-name`).
-              # Likely candidates: dell-xps-13-9360 (same as laptop-xps), 9300, 9310.
-              #           nixos-hardware.nixosModules.dell-xps-13-9360
-              kernels.linux-zen
-            ];
-          };
-          laptop-p16 = nixpkgs.lib.nixosSystem {
-            system = "x86_64-linux";
-            specialArgs = { inherit aiOverlay; };
-            modules = [
-              ./hosts/laptop-p16/laptop-p16-configuration.nix
-              home-manager.nixosModules.home-manager
-              agenix.nixosModules.default
-              # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
-              # jetbrains-toolbox, vscode, hermes-agent, magpie,
-              # deepseek-harness); sven/aaron keep plain stable pkgs.
-              ./users/ai-pkgs.nix
-              { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
-              {
-                home-manager.useGlobalPkgs = true;
-                home-manager.useUserPackages = true;
-                # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
-                # from zsh-newuser-install) instead of failing activation.
-                home-manager.backupFileExtension = "backup";
-                # Pass the Strata fork source (the flake input) to the users'
-                # home modules; packages/strata/home.nix takes it as `strataSrc`.
-                home-manager.extraSpecialArgs = { strataSrc = forksStrata; };
-              }
-              nixos-hardware.nixosModules.lenovo-thinkpad # generic ThinkPad base; a model-specific module (e.g. thinkpad/p16s) may be added once confirmed via dmidecode
-              kernels.linux-zen
-            ];
-          };
-          laptop-xps = nixpkgs.lib.nixosSystem {
-            system = "x86_64-linux";
-            specialArgs = { inherit aiOverlay; };
-            modules = [
-              ./hosts/laptop-xps/laptop-xps-configuration.nix
-              home-manager.nixosModules.home-manager
-              agenix.nixosModules.default
-              # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
-              # jetbrains-toolbox, vscode, hermes-agent, magpie,
-              # deepseek-harness); sven/aaron keep plain stable pkgs.
-              ./users/ai-pkgs.nix
-              { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
-              {
-                home-manager.useGlobalPkgs = true;
-                home-manager.useUserPackages = true;
-                # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
-                # from zsh-newuser-install) instead of failing activation.
-                home-manager.backupFileExtension = "backup";
-                # Pass the Strata fork source (the flake input) to the users'
-                # home modules; packages/strata/home.nix takes it as `strataSrc`.
-                home-manager.extraSpecialArgs = { strataSrc = forksStrata; };
-              }
+          laptop-hera = mkHost ./hosts/laptop-hera/laptop-hera-configuration.nix [ ];
 
-              nixos-hardware.nixosModules.dell-xps-13-9360
+          # generic ThinkPad base; a model-specific module (e.g. thinkpad/p16s)
+          # may be added once confirmed via dmidecode.
+          laptop-p16 = mkHost ./hosts/laptop-p16/laptop-p16-configuration.nix [
+            nixos-hardware.nixosModules.lenovo-thinkpad
+          ];
 
-              kernels.linux-zen
-            ];
-          };
+          laptop-xps = mkHost ./hosts/laptop-xps/laptop-xps-configuration.nix [
+            nixos-hardware.nixosModules.dell-xps-13-9360
+          ];
         };
     };
 }

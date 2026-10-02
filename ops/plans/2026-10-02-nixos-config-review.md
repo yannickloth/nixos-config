@@ -5,8 +5,9 @@
 - **Scope:** every `*.nix` in the repo (~120 files, ~8,940 lines), plus
   `flake.nix`/`users/flake.nix`, CI, `scripts/`, `secrets.nix`, and the docs.
 - **Method:** manual read of the whole tree + a fresh IVP (Independent
-  Variation Principle) pass. This supersedes `docs/ivp-analysis.md`, which is
-  stale (see F13).
+  Variation Principle) pass. This supersedes the (now removed) stale
+  `docs/ivp-analysis.md`, which described a `modules/` tree that no longer
+  exists.
 
 ---
 
@@ -247,3 +248,22 @@ right analogue: declarative, no always-on dependency, rotation via rebuild.
   IVP P2 (dead files), P3 (roles/system naming), P4 (flake helper), P5
   (masterpdfeditor), P6 (user groups), P7 (doc counts); H2/H4–H8; S1–S6
   (recipient scoping, backup encryption, restic); Phase 3–4.
+
+### 2026-10-02 — IVP P4/P6/P7 + B13
+
+- **P6:** new `users/common-groups.nix` computes `users.commonExtraGroups` from
+  enabled services; the four user files now use
+  `[ "users" ( "wheel" ) ] ++ config.users.commonExtraGroups` instead of a
+  copy-pasted conditional block.
+- **P4:** `flake.nix` extracts `commonModules` + a `mkHost configModule
+  extraModules` helper; the three host definitions are one line each.
+- **P7/B13:** corrected the syncthing counts (37 folders / 11 devices) in
+  `README.md`, `services/syncthing/pool.nix`, `services/syncthing/default.nix`
+  and `users/readmes/parents.md`; removed the stale `docs/ivp-analysis.md`.
+- **Verification:** 129 files parse; with the `.nix` refactor alone (readmes
+  held at HEAD) all three hosts evaluate to the *same* derivations as before
+  (behavior-preserving). With the readme edits included the toplevel drv
+  changes only because `parents.md` content feeds `systemd.services.home-readmes`;
+  `nicky`/`sven` `extraGroups` still match the previous computed lists.
+- **Still open:** B4, B5, B9, B14; IVP P2 (dead files), P3 (roles/system
+  naming), P5 (masterpdfeditor); H2/H4–H8; S1–S6; Phase 3–4.

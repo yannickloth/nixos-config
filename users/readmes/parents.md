@@ -51,7 +51,7 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 ### Setting up Syncthing on a new host
 
 Syncthing runs as a single system service on every host and is configured
-declaratively from `services/syncthing/`. All 34 folders replicate to nestor
+declaratively from `services/syncthing/`. All 37 folders replicate to nestor
 and the other laptops as the closest-to-backup copy. Follow these steps once
 per host.
 
@@ -101,9 +101,9 @@ per host.
    ```
 4. **Apply the config:** `sudo nixos-rebuild switch --flake ~/code/nixos-config`.
    On first run `overrideFolders/overrideDevices` reconcile the declared set —
-   folders/devices not in the pool are removed, so the exact 34 folders appear.
+   folders/devices not in the pool are removed, so the exact 37 folders appear.
 5. **Verify:** open http://this-host:8384, log in, and confirm the folder list
-   matches the 34 declared folders and that all peers show up. Data lands under
+   matches the 37 declared folders and that all peers show up. Data lands under
    `/sync/<folder>`; each user's `~/sync` symlink points there. Watch the first
    sync complete before relying on a host as backup.
 6. **Back up the device secret** (the private key + cert) into KeePass so a

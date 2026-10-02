@@ -7,7 +7,7 @@
 # access on the /sync root), so they can reach their own folder and nothing else.
 #
 # The folder/device set is the single source of truth in `./pool.nix`: every
-# host syncs all 34 folders to nestor and the other laptops (replication /
+# host syncs all 37 folders to nestor and the other laptops (replication /
 # closest-to-backup). A host only needs to set `services.syncthing.self` to its
 # device name; folders, devices, and the per-host cert/key are derived here.
 #

@@ -51,7 +51,7 @@ password=xxx
 ### Syncthing
 
 Syncthing runs as a single system service on every host (`services/syncthing/`),
-syncing all 34 folders (see `services/syncthing/pool.nix`) to nestor and the
+syncing all 37 folders (see `services/syncthing/pool.nix`) to nestor and the
 other laptops as replication / closest-to-backup. Each host only sets
 `services.syncthing.self` to its device name; folders, devices and per-host
 identity are derived automatically.
