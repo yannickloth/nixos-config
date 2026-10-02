@@ -35,7 +35,7 @@
     uv2nix.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, agenix, uv2nix, pyproject-nix, pyproject-build-systems, forksStrata }:
+  outputs = { nixpkgs, nixpkgs-unstable, home-manager, agenix, uv2nix, pyproject-nix, pyproject-build-systems, forksStrata, ... }:
     let
       system = "x86_64-linux";
       stablePkgs = import nixpkgs {

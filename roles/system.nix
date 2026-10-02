@@ -11,7 +11,8 @@ let
   masterPdfEditor = pkgs.callPackage ../packages/masterpdfeditor { };
 in {
   imports = [
-    ../services/system.nix
+    ../services/ananicy.nix
+    ../services/tailscale.nix
   ];
 
   options.system.masterPdfEditor = {

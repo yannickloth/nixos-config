@@ -37,7 +37,7 @@
     uv2nix.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, agenix, uv2nix, pyproject-nix, pyproject-build-systems, forksStrata, ... }:
+  outputs = { nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, agenix, uv2nix, pyproject-nix, pyproject-build-systems, forksStrata, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -106,25 +106,11 @@
 
       nixosConfigurations =
         let
-          # Per-host kernel choice. All hosts use the nixpkgs zen kernel
-          # (BORE-ish interactive tuning, MQSS/BFQ): Hydra builds it without
-          # LTO, so cache.nixos.org has the binary for the exact pinned nixpkgs
-          # rev and `nix flake update` costs a download.
+          # All hosts run the nixpkgs zen kernel (BORE-ish interactive tuning).
+          # Hydra builds it, so `nix flake update` is a download. The CachyOS LTO
+          # kernels were dropped: their cache lagged each pin and could trigger a
+          # multi-hour local LTO build. See git history to reintroduce.
           #
-          # The CachyOS LTO kernels (nix-cachyos-kernel flake) are gone: their
-          # Attic cache only contains the versions that flake has already
-          # compiled, so every `nix flake update` that advanced the pin could
-          # mean a full local LTO kernel build (hours) before the cache caught
-          # up. To go back, re-add the `nix-cachyos-kernel` input, its Attic
-          # cache (nixConfig here + roles/nix.nix), and a module with
-          #   nixpkgs.overlays = [ nix-cachyos-kernel.overlays.pinned ];
-          #   boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-bore-lto-x86_64-v3;
-          kernels = {
-            linux-zen = { pkgs, ... }: {
-              boot.kernelPackages = pkgs.linuxKernel.packages.linux_zen;
-            };
-          };
-
           # Home-manager + shared-module wiring common to every host.
           commonModules = [
             home-manager.nixosModules.home-manager
@@ -146,7 +132,10 @@
               # home modules; packages/strata/home.nix takes it as `strataSrc`.
               home-manager.extraSpecialArgs = { strataSrc = forksStrata; };
             }
-            kernels.linux-zen
+            # nixpkgs zen kernel on every host (see the note above).
+            ({ pkgs, ... }: {
+              boot.kernelPackages = pkgs.linuxKernel.packages.linux_zen;
+            })
           ];
 
           # One host: its configuration module + any host-only modules, on top

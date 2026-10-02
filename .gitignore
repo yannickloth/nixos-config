@@ -3,9 +3,14 @@ tmp/
 result
 result-*
 .agentmem/
+# JetBrains IDE project state (kept locally, not in git).
+.idea/
 # Tinymist (Typst LSP) compilation cache: auto-generated, indexes absolute
 # store paths under result/, machine-specific.
 tinymist.lock
+
+# Vendor driver archive (kept locally; not needed in git, ~18 MB).
+displaylink-*.zip
 
 # Plaintext secrets. The committed forms are the agenix-encrypted .age files.
 secrets/cifs/

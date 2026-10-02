@@ -293,3 +293,20 @@ right analogue: declarative, no always-on dependency, rotation via rebuild.
 - **Still open:** B4 (blocked on explicit uids), B9 (strata libcuda), B14
   (confirm CI green on GitHub); IVP P3 (roles/system naming); H2/H4–H8;
   Phase 4 (restic backup).
+
+### 2026-10-02 — CI action bump, service split, repo hygiene
+
+- **CI:** bumped `DeterminateSystems/nix-installer-action` v4 → v23 (v4 is
+  Node16-era and fails on current runners). Parse/lint/eval jobs unchanged.
+- **P3:** split `services/system.nix` into `services/ananicy.nix` and
+  `services/tailscale.nix` (one service per file, matching the repo), removing
+  the `system.nix` name clash with `roles/system.nix`. Behavior-preserving.
+- **H2/H6:** stopped tracking `.idea/` and the 18 MB `displaylink-580.zip`
+  (`git rm --cached`, kept on disk) and added them to `.gitignore`.
+- **H4/H5:** `apps/typst.nix` uses `environment.systemPackages` (not
+  `config.…`); dropped the one-entry `kernels` indirection in `flake.nix`;
+  removed unused `self`/`inputs@` from both flake `outputs`.
+- **Verification:** 122 files parse; deadnix clean on changed files; all three
+  hosts evaluate to the same known-good derivations.
+- **Still open:** B4 (needs explicit stable uids), B9 (strata libcuda), B14
+  (confirm CI green on GitHub); H7 (stale `result` symlinks); Phase 4 (restic).
