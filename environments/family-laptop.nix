@@ -43,7 +43,6 @@
 
     # Hardware.
     ../hardware/bluetooth.nix
-    ../hardware/corsair.nix
     ../hardware/firmware.nix
     ../hardware/intel_cpu.nix
     ../hardware/intel_graphics.nix
@@ -75,7 +74,6 @@
     ../services/malcontent.nix
     ../services/network-manager.nix
     ../services/nix-serve.nix
-    ../services/onedrive.nix
     ../services/openssh.nix
     ../services/plantuml.nix
     ../services/podman.nix
