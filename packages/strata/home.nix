@@ -85,6 +85,8 @@ in
           "STRATA_PORT=${toString cfg.port}"
           "STRATA_IDLE_UNLOAD=${toString cfg.idleUnloadSeconds}"
         ] ++ optional (cfg.defaultConfig != "") "STRATA_CONFIG=${cfg.defaultConfig}";
+        # MAP_HUGETLB for the expert arena is charged to RLIMIT_MEMLOCK.
+        LimitMEMLOCK = "infinity";
         # No setup yet (no venv/config): exit cleanly with guidance instead of
         # restart-looping. startLimit* keeps a broken config from spinning.
         Restart = "on-failure";

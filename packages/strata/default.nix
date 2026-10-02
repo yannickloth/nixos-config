@@ -27,9 +27,11 @@
 #   (the lib-driver dir, see ./engine.nix): launching serve/server.py by hand
 #   without it fails with a misleading "cannot pin 322 MiB: CUDA driver
 #   version is insufficient".
-# - Measured speed: ~6 tok/s output whatever the quant (see the experiment
-#   matrix in ./engine.nix). Interactive-snappy local chat stays on
-#   unsloth-studio's 9B GGUFs; this is the quality endpoint for opencode.
+# - Measured speed (0.1.31, fixed 22-token prompt, bench/a3000-tune.sh):
+#   ~28-33 tok/s decode; the 0.1.18-era ~6 tok/s figure predates the engine
+#   fixes upstream landed in 0.1.19-0.1.31. Interactive-snappy local chat
+#   stays on unsloth-studio's 9B GGUFs; this is the quality endpoint for
+#   opencode.
 {
   lib
 , stdenv
@@ -42,15 +44,16 @@
   , uv
   , cudaArch ? "86"
   , vision ? false
-  # A private fork (github.com/yannickloth/forks-Strata): upstream plus the
-  # engine-lifecycle API and the native-embedding error report (see the branch
-  # local/lifecycle there). Fetched at evaluation time with the caller's ssh
-  # key, rev pinned (pure flake evaluation allows builtins.fetchGit with a
-  # rev); a plain fetchFromGitHub/fetchgit derivation cannot authenticate to a
-  # private repository - the nix daemon runs as root, without this key.
+  # A private fork (github.com/yannickloth/forks-Strata): upstream 0.1.31 plus
+  # the sm_86 tuning work on branch perf/am47 (Q4_K/Q5_K/Q5_1/Q6_K MMQ
+  # instances, bench/a3000-tune.sh). Fetched at evaluation time with the
+  # caller's ssh key, rev pinned (pure flake evaluation allows builtins.fetchGit
+  # with a rev); a plain fetchFromGitHub/fetchgit derivation cannot authenticate
+  # to a private repository - the nix daemon runs as root, without this key.
 , strataSrc ? builtins.fetchGit {
     url = "git+ssh://git@github.com/yannickloth/forks-Strata.git";
-    rev = "6c4024fdda2301587e955edf66c9d799b849a62b";
+    # 0.1.31 + Q4_K/Q5_K/Q5_1/Q6_K MMQ instances (perf/am47)
+    rev = "1c101ca721a70ccccd5f991bf37160ae3cf232a2";
   }
 , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -62,7 +65,7 @@
 }:
 
 let
-  version = "0.1.18";
+  version = "0.1.31";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
@@ -280,7 +283,7 @@ let
         fi
         exec "$PY" ${share}/serve/server.py --engine strata --config "$CFG" \
           --host 127.0.0.1 --port "''${STRATA_PORT:-8080}" \
-          --no-preload --idle-unload "''${STRATA_IDLE_UNLOAD:-300}"
+          --idle-unload "''${STRATA_IDLE_UNLOAD:-300}"
       '';
   };
 in

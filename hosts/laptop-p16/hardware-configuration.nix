@@ -53,6 +53,9 @@
     kernel.sysctl = {
       "vm.swappiness" = 10;
       "fs.inotify.max_user_watches" = 2097152;
+      # Strata's 33.97 GiB expert arena uses MAP_HUGETLB|MAP_HUGE_2MB;
+      # the pool must cover the whole mmap, otherwise it falls back to 4 KiB pages.
+      "vm.nr_hugepages" = 17408;  # 34 GiB of 2 MB pages
     };
          plymouth = {
            enable = false;

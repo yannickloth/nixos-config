@@ -77,8 +77,8 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "a9047fdb79acf9382fa6623a89290327e29235f4";
-    hash = "sha256-qeDI9D12WuWs/+6MOIwtWqqeqeWRt4sQ/sEwj/lo6Uk=";
+    rev = "9259cad4cfa3543cd3b8decab5962672b968c649";
+    hash = "sha256-I3nuDdrdbzcafSWeX9vMNaXL1G4wWUqLZ7DZTHxLcmE=";
   },
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -90,7 +90,7 @@
 }:
 
 let
-  version = "0.1.0-unstable-2026-09-27";
+  version = "0.1.31";
 
   meta = with lib; {
     description =
