@@ -108,6 +108,12 @@ in
   #   --pool-workers 15 (the engine default) beats 8 on the fresh path: the
   #                     E-cores add pool capacity here, they are not a tail
   #                     (P2 re-measure, ops/p2-pool-affinity-results.md)
+  #   --kv-resident 20480 (was 32768): frees ~90 expert-cache slots; P8 measured
+  #                     the warm hit rate 0.618 -> 0.632 and fewer refusals,
+  #                     costing extra pinned-RAM KV reads only past ~20k context
+  #   --adapt-every 1   (was 4): learns a cold conversation's hot experts faster
+  #                     (fresh hit 0.468 -> 0.539 at a small warm-turn trade)
+  #                     (P8, ops/issues/p8-reduce-misses.md)
   # Enforced on every config the package writes, so setup cannot undo them.
   # enable stays gated on laptop-p16 (isP16).
   strata = lib.mkIf isP16 {
@@ -115,6 +121,8 @@ in
     pcieFrac = 0.35;
     specMinP = 0.70;
     poolWorkers = 15;
+    kvResident = 20480;
+    adaptEvery = 1;
   };
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)

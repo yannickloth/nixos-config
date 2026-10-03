@@ -31,12 +31,12 @@ in
       type = types.package;
       default = pkgs.callPackage ./default.nix {
         inherit strataSrc;
-        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity;
+        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery;
         # CachyOS needs the /usr/lib/libcuda shim; NixOS uses the driver runpath
         # (set by the standalone CachyOS flake / left false on NixOS).
         inherit (config.commonHm) isCachyOS;
       };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit strataSrc; inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity; inherit (config.commonHm) isCachyOS; }";
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit strataSrc; inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery; inherit (config.commonHm) isCachyOS; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
     };
 
@@ -113,6 +113,18 @@ in
       type = types.nullOr (types.enum [ "all" "auto" "p-cores" ]);
       default = null;
       description = "CPU affinity mode for the expert pool (`--pool-affinity`). null keeps the engine's `all`.";
+    };
+
+    adaptEvery = mkOption {
+      type = types.nullOr types.ints.positive;
+      default = null;
+      description = ''
+        Adaptive expert-cache exchange interval (`--adapt-every`, engine default
+        4). A lower value lets the cache learn a conversation's hot experts
+        sooner, which helps the first request of a cold session (P8 measured the
+        fresh hit rate 0.468 -> 0.539 at 1); it trades a small warm-turn hit
+        rate. null keeps the engine's default 4.
+      '';
     };
 
     autoStart = mkOption {
