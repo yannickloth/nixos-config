@@ -46,6 +46,9 @@
   , uv
   , cudaArch ? "86"
   , vision ? false
+  # Host family: true on the CachyOS host (adds the /usr/lib/libcuda shim in the
+  # engine; NixOS uses /run/opengl-driver/lib). Set by packages/strata/home.nix.
+  , isCachyOS ? false
   # Engine config policy, enforced on every engine config the package writes
   # (see configPatch below). Default: one 512K-context Strata - the model's
   # trained 262144 extended by yarn factor 2 - with the KV cache 8-bit and
@@ -174,7 +177,7 @@ let
   };
 
   engine = callPackage ./engine.nix {
-    inherit strataSrc llamaCpp cudaArch;
+    inherit strataSrc llamaCpp cudaArch isCachyOS;
     withVision = vision;
   };
 
@@ -215,6 +218,11 @@ let
       export LOCALE_ARCHIVE=/usr/lib/locale/locale-archive
     fi
     export LD_LIBRARY_PATH="${engine}/lib-driver:${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    # NixOS: the NVIDIA driver is at /run/opengl-driver/lib (already on the
+    # binaries' RUNPATH via autoAddDriverRunpath); prepend it when present.
+    if [ -e /run/opengl-driver/lib/libcuda.so.1 ]; then
+      export LD_LIBRARY_PATH="/run/opengl-driver/lib:$LD_LIBRARY_PATH"
+    fi
   '';
 
   strata = writeShellApplication {

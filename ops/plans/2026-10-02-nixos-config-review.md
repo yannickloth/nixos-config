@@ -311,3 +311,24 @@ right analogue: declarative, no always-on dependency, rotation via rebuild.
   GitHub (run 37057440148: nix-parse + nix-lint + eval-hosts ×3 all succeeded).
 - **Still open:** B4 (needs explicit stable uids), B9 (strata libcuda); H7
   (stale `result` symlinks); Phase 4 (restic).
+
+### 2026-10-03 — Tor nftables (uids), strata libcuda gate, symlink cleanup
+
+- **B4:** pinned explicit uids (nicky=1000, aeiuno=1001, sven=1002, aaron=1003)
+  and converted the Tor kid-block to a declarative nftables output chain
+  (`meta skuid { 1002, 1003 } ip daddr 127.0.0.1 tcp dport {9050,9051,9150}
+  reject with tcp reset`). **Caveat:** NixOS never changes an existing user's
+  uid (`update-users-groups.pl` keeps the old one and warns), so on
+  already-installed hosts verify `getent passwd sven aaron` returns 1002/1003;
+  if not, either set the config to the actual uids or migrate with `chown`,
+  else the rule keys on the wrong uid.
+- **B9:** `packages/strata/engine.nix` gained an `isCachyOS` argument (fed from
+  `commonHm.isCachyOS` via `packages/strata/home.nix`); the
+  `/usr/lib/libcuda.so.1` shim is now CachyOS-only. NixOS uses
+  `/run/opengl-driver/lib` (autoAddDriverRunpath + a runtime `LD_LIBRARY_PATH`
+  prepend), so a future NixOS reinstall of laptop-p16 works.
+- **H7:** removed the stale `./result` and `./users/sven/result` symlinks.
+- **Verification:** 122 files parse; uids render `1000-1003`; the nft chain
+  renders `meta skuid { 1002, 1003 }`. (Full host eval was interrupted on
+  request; re-run `nixos-rebuild test` on a host to confirm.)
+- **Still open:** Phase 4 (restic backup).

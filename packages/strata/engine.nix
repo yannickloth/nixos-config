@@ -75,6 +75,11 @@
   symlinkJoin,
   cudaArch ? "86", # laptop-p16: RTX A3000 12GB Laptop GPU (compute capability 8.6)
   withVision ? false, # also build the strata-vision image encoder
+  # Host family. CachyOS needs the /usr/lib/libcuda.so.1 RUNPATH shim (its
+  # NVIDIA driver is not in the Nix store); NixOS finds the driver at
+  # /run/opengl-driver/lib via autoAddDriverRunpath, so the shim is skipped.
+  # Passed from packages/strata/home.nix via config.commonHm.isCachyOS.
+  isCachyOS ? false,
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
@@ -153,11 +158,13 @@ let
   # /usr/lib, which the nix loader does not search, and cudart dlopens it at
   # run time. Expose it through a symlink dir referenced from the binary's
   # RUNPATH (added post-fixup so RPATH shrinking does not strip it) and the
-  # wrapper's LD_LIBRARY_PATH. The dir contains only libcuda, so it cannot
-  # shadow nix libraries.
+  # wrapper's LD_LIBRARY_PATH. On NixOS the driver is at /run/opengl-driver/lib
+  # (autoAddDriverRunpath puts it on the RUNPATH), so the shim is omitted.
   postFixup = ''
     mkdir -p $out/lib-driver
-    ln -sf /usr/lib/libcuda.so.1 $out/lib-driver/libcuda.so.1
+    ${lib.optionalString isCachyOS ''
+      ln -sf /usr/lib/libcuda.so.1 $out/lib-driver/libcuda.so.1
+    ''}
     patchelf --add-rpath $out/lib-driver $out/bin/strata
   '';
 
@@ -198,11 +205,13 @@ let
       runHook postInstall
     '';
 
-    # ggml-cuda links libcuda.so.1 (the host driver) directly; see the
-    # engine's postFixup for why the symlink dir is needed on CachyOS.
+    # ggml-cuda links libcuda.so.1 (the host driver) directly; the /usr/lib
+    # shim is CachyOS-only (see the engine's postFixup).
     postFixup = ''
       mkdir -p $out/lib-driver
-      ln -sf /usr/lib/libcuda.so.1 $out/lib-driver/libcuda.so.1
+      ${lib.optionalString isCachyOS ''
+        ln -sf /usr/lib/libcuda.so.1 $out/lib-driver/libcuda.so.1
+      ''}
       patchelf --add-rpath $out/lib-driver $out/bin/strata-vision
     '';
 

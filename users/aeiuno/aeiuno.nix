@@ -11,6 +11,7 @@ in
     };
     users.aeiuno = {
       isNormalUser = true; # isNormalUser = true; # Indicates whether this is an account for a “real” user. This automatically sets group to users, createHome to true, home to /home/«username», useDefaultShell to true, and isSystemUser to false. Exactly one of isNormalUser and isSystemUser must be true.
+      uid = 1001; # explicit/stable
       description = userDescription;
       shell = pkgs.zsh;
       extraGroups = [ "users" "wheel" ] ++ config.users.commonExtraGroups;

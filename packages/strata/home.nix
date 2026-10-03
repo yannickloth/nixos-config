@@ -32,8 +32,11 @@ in
       default = pkgs.callPackage ./default.nix {
         inherit strataSrc;
         inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity;
+        # CachyOS needs the /usr/lib/libcuda shim; NixOS uses the driver runpath
+        # (set by the standalone CachyOS flake / left false on NixOS).
+        inherit (config.commonHm) isCachyOS;
       };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit strataSrc; inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity; }";
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit strataSrc; inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity; inherit (config.commonHm) isCachyOS; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
     };
 
