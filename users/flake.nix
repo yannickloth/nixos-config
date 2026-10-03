@@ -18,10 +18,10 @@
     };
     agenix.url = "github:ryantm/agenix";
     # Strata fork source (same as the root flake's `forksStrata`): upstream
-    # 0.1.35 + the sm_86 work on branch perf/am47. Tracked so `nix flake update
-    # forksStrata` moves it; the lock pins the rev between updates. Private
-    # repo, fetched over ssh; flake = false (the repo ships no flake.nix).
-    forksStrata.url = "git+ssh://git@github.com/yannickloth/forks-Strata.git?ref=refs/heads/perf/am47";
+    # 0.1.38 + the sm_86 work on branch release/0.1.38. Tracked so `nix flake
+    # update forksStrata` moves it; the lock pins the rev between updates.
+    # Private repo, fetched over ssh; flake = false (the repo ships no flake.nix).
+    forksStrata.url = "git+ssh://git@github.com/yannickloth/forks-Strata.git?ref=refs/heads/release/0.1.38";
     forksStrata.flake = false;
     # Same hermes-agent packaging inputs as the root flake (see
     # packages/hermes-agent).

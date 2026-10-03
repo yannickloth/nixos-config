@@ -62,9 +62,9 @@
 #
 # The native-embedding error report (the real cudaError instead of upstream's
 # bare "cannot pin N MiB") and the bench harness live in the fork
-# (github.com/yannickloth/forks-Strata, branch perf/am47), not as patches here.
-# The engine-lifecycle API this comment used to mention is upstream as of 0.1.31
-# (--idle-unload); upstream main is 0.1.35.
+# (github.com/yannickloth/forks-Strata, branch release/0.1.38), not as patches
+# here. The engine-lifecycle API this comment used to mention is upstream as of
+# 0.1.31 (--idle-unload); upstream main is 0.1.38.
 {
   lib,
   stdenv,
@@ -83,8 +83,8 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "d9ab8435f654c368c586340d490915f6addf56a3";  # 0.1.35 (main)
-    hash = "sha256-cklOp4RjPN8B0lWei681rzE7a0JlEKLRhqb4PuTO6vg=";
+    rev = "99f3dbd0b21d1401b3769e0c0d963913607f380b";  # 0.1.38 (main)
+    hash = "sha256-9tawklXlF98yolRTVgeonVcyrob8HiNG3xSQ7V5v+94=";
   },
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -96,7 +96,7 @@
 }:
 
 let
-  version = "0.1.35";
+  version = "0.1.38";
 
   meta = with lib; {
     description =

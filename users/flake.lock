@@ -46,16 +46,16 @@
     "forksStrata": {
       "flake": false,
       "locked": {
-        "lastModified": 1790936958,
-        "narHash": "sha256-DZonxXdJZTdYO7eG2csMXf2d5PzLTynwba6F3aiBztg=",
-        "ref": "refs/heads/perf/am47",
-        "rev": "f78b93108237c88d930b7938a95056c767c33e8c",
-        "revCount": 552,
+        "lastModified": 1791007084,
+        "narHash": "sha256-EZFg/fL39y+g6QQFcvqAXY6e+7JLDUU/VCPGGJ72S/w=",
+        "ref": "refs/heads/release/0.1.38",
+        "rev": "ef608cf0168ec4826d2f4297caf78420451ccbec",
+        "revCount": 636,
         "type": "git",
         "url": "ssh://git@github.com/yannickloth/forks-Strata.git"
       },
       "original": {
-        "ref": "refs/heads/perf/am47",
+        "ref": "refs/heads/release/0.1.38",
         "type": "git",
         "url": "ssh://git@github.com/yannickloth/forks-Strata.git"
       }
