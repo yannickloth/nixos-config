@@ -370,6 +370,42 @@ in
     fi
   '');
 
+  # Install Unsloth Desktop (the native Tauri front-end) on laptop-p16.
+  # Additive and independent of Studio above: the desktop app reuses the SAME
+  # backend/venv/HF-cache (`~/.unsloth/studio`) and, at runtime, attaches to (or
+  # starts) that backend - so the studio service/launcher/updater and the
+  # opencode provider are all left untouched. It ships only as a ~180 MB
+  # AppImage (the .deb adds nothing but webkit/gtk deps, which the AppImage
+  # bundles); like the Studio install it is not in nixpkgs, so fetch the rolling
+  # "latest" release asset imperatively. The app self-updates afterwards, so
+  # this only downloads when the file is missing - delete it to force a
+  # refresh. The menu icon is extracted once from the AppImage.
+  home.activation.installUnslothDesktop = lib.mkIf isP16 (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    if [ "$(hostname)" = "laptop-p16" ]; then
+      desktop_dir="$HOME/.local/share/unsloth-desktop"
+      app="$desktop_dir/Unsloth-Desktop.AppImage"
+      icon="$HOME/.local/share/icons/hicolor/512x512/apps/unsloth-studio.png"
+      $DRY_RUN_CMD mkdir -p "$desktop_dir" "$(dirname "$icon")"
+      if [ ! -x "$app" ]; then
+        echo "Installing Unsloth Desktop..."
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/timeout 1800 \
+          ${pkgs.curl}/bin/curl -fL --retry 3 -o "$app" \
+          https://github.com/unslothai/unsloth/releases/latest/download/Unsloth-Desktop-Linux.AppImage
+        $DRY_RUN_CMD chmod +x "$app"
+      fi
+      if [ ! -f "$icon" ] && [ -x "$app" ]; then
+        tmp="$(${pkgs.coreutils}/bin/mktemp -d)"
+        if ( cd "$tmp" && "$app" --appimage-extract \
+             usr/share/icons/hicolor/512x512/apps/unsloth-studio.png >/dev/null 2>&1 ); then
+          $DRY_RUN_CMD cp -f \
+            "$tmp/squashfs-root/usr/share/icons/hicolor/512x512/apps/unsloth-studio.png" \
+            "$icon"
+        fi
+        $DRY_RUN_CMD rm -rf "$tmp"
+      fi
+    fi
+  '');
+
   # CachyOS: the Strata engine needs a 2 MiB hugetlb pool covering its whole
   # ~40 GiB arena, and an unlimited RLIMIT_MEMLOCK for the systemd user manager
   # (the strata unit's LimitMEMLOCK=infinity is capped at the manager's 8 MiB
@@ -435,6 +471,24 @@ in
         exec "$HOME/.local/bin/unsloth" studio update
       '';
     };
+  };
+
+  # Desktop launcher for Unsloth Desktop (AppImage installed by
+  # installUnslothDesktop above). P16-only, like the rest of the Unsloth
+  # setup. The activation drops the icon at
+  # ~/.local/share/icons/hicolor/512x512/apps/unsloth-studio.png, and
+  # StartupWMClass matches the Tauri window so the launcher follows the app.
+  xdg.desktopEntries.unsloth-desktop = lib.mkIf isP16 {
+    name = "Unsloth";
+    genericName = "Local AI models";
+    comment = "Run and train AI models locally (Unsloth Desktop)";
+    exec = "${config.home.homeDirectory}/.local/share/unsloth-desktop/Unsloth-Desktop.AppImage %u";
+    icon = "unsloth-studio";
+    terminal = false;
+    type = "Application";
+    categories = [ "Utility" "Development" ];
+    mimeType = [ "x-scheme-handler/unsloth" ];
+    settings.StartupWMClass = "unsloth-studio";
   };
 
   # Home Manager can also manage your environment variables through
