@@ -65,6 +65,10 @@
   , specMinP ? null
   , poolWorkers ? null
   , poolAffinity ? null
+  # Adaptive expert-cache exchange interval (`--adapt-every`, engine default 4).
+  # Lower learns a conversation's hot experts faster (a cold-start win, P8);
+  # null leaves the engine's default.
+  , adaptEvery ? null
   # Source: the `forksStrata` flake input (github.com/yannickloth/forks-Strata,
   # branch perf/am47) - upstream 0.1.35 (d9ab843) plus the sm_86 work: the
   # native-embedding error report and the A3000 bench harness. (The Q4_K/Q5_K/
@@ -108,11 +112,11 @@ let
     name = "strata-patch-config";
     runtimeInputs = [ python3 ];
     text = ''
-      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} <<'PY'
+      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} <<'PY'
       import glob, json, os, sys
-      ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity = (
+      ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt = (
           int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5]),
-          sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9])
+          sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10])
       home = os.environ.get("STRATA_HOME") or os.path.expanduser("~/.local/share/strata")
 
       def set_opt(args, flag, value):
@@ -167,6 +171,8 @@ let
                   a = set_opt(a, "--pool-workers", workers)
               if affinity != "none":
                   a = set_opt(a, "--pool-affinity", affinity)
+              if adapt != "none":
+                  a = set_opt(a, "--adapt-every", adapt)
               c["args"] = a
               with open(p, "w", encoding="utf-8") as f:
                   json.dump(c, f, indent=1)
