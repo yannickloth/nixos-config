@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, ... }:
 
 {
   services.tor = {
@@ -20,17 +20,22 @@
   };
 
   # Kids must not be able to route around the family DNS filter through the
-  # local Tor SOCKS proxy (or a Tor Browser's port). Block their UIDs from the
-  # Tor ports; parents are unaffected. Runs after user accounts are created.
-  system.activationScripts.tor-block-kids = {
-    deps = [ "users" ];
-    text = ''
-      for u in sven aaron; do
-        if uid=$(${pkgs.coreutils}/bin/id -u "$u" 2>/dev/null); then
-          ${pkgs.iptables}/bin/iptables -C OUTPUT -m owner --uid-owner "$uid" -d 127.0.0.1 -p tcp -m multiport --dports 9050,9051,9150 -j REJECT 2>/dev/null \
-            || ${pkgs.iptables}/bin/iptables -A OUTPUT -m owner --uid-owner "$uid" -d 127.0.0.1 -p tcp -m multiport --dports 9050,9051,9150 -j REJECT
-        fi
-      done
-    '';
-  };
+  # local Tor SOCKS proxy (or a Tor Browser's port). Declarative nftables output
+  # chain; `reject` is a final verdict, so a later chain cannot re-allow it.
+  # This keys on the kids' numeric UIDs, so users/{sven,aaron}.nix pin explicit
+  # stable uids (an auto-allocated uid would be null at build time).
+  networking.nftables.tables."nixos-fw".content =
+    let
+      kidNames = [ "sven" "aaron" ];
+      kidUsers = lib.filter
+        (u: builtins.hasAttr u config.users.users && config.users.users.${u}.uid != null)
+        kidNames;
+      kidUids = lib.map (u: toString config.users.users.${u}.uid) kidUsers;
+    in
+    lib.mkAfter (lib.optionalString (kidUids != [ ]) ''
+      chain tor-block-kids {
+        type filter hook output priority 0; policy accept;
+        meta skuid { ${lib.concatStringsSep ", " kidUids} } ip daddr 127.0.0.1 tcp dport { 9050, 9051, 9150 } reject with tcp reset
+      }
+    '');
 }

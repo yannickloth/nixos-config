@@ -1,11 +1,11 @@
 # Syncthing folder/device pool — the single source of truth for what every host
 # syncs. Imported by services/syncthing/default.nix.
 #
-# The 36 folders + 9 devices below are the exact set exported from the live
+# The 37 folders + 11 devices below are the exact set exported from the live
 # host (laptop-p16, CachyOS) at `~/.local/state/syncthing/config.xml`, plus the
-# new laptop-xps device (whose cert was pre-generated). Every NixOS host built
-# from this flake syncs all of these folders, replicating each to nestor and the
-# two other laptops as the closest-to-backup copy.
+# new laptop-xps and laptop-travelmate devices (whose certs were pre-generated).
+# Every NixOS host built from this flake syncs all of these folders, replicating
+# each to nestor and the other laptops as the closest-to-backup copy.
 #
 # A host only needs to set `services.syncthing.self` to its device name; the
 # module derives its folders/devices from this pool.
@@ -55,7 +55,7 @@
     };
   };
 
-  # All 34 folders. Keyed by their stable folder ID (must match across devices).
+  # All 37 folders. Keyed by their stable folder ID (must match across devices).
   # `devices` lists the peer device names sharing this folder. The module
   # enables a folder on a host iff `self` is in its device list, and declares
   # that folder as shared with exactly those peers.

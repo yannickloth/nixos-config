@@ -1,0 +1,7 @@
+# Age-encrypted secrets are binary; never apply text normalization (CRLF
+# conversion, diff as text) — that could corrupt an encrypted file on checkout.
+*.age binary
+
+# Signed/encrypted archives should also never be text-normalized.
+*.tar.gz binary
+*.zip binary

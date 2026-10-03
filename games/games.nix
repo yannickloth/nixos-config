@@ -46,7 +46,6 @@ with lib;
     duperemove # A simple tool for finding duplicated extents and submitting them for deduplication
     endless-sky
     gamemode # Optimise Linux system performance on demand. CLI app.
-    gcompris
     gogdl # GOG Downloading module for Heroic Games Launcher
     # handheld-daemon # Linux support for handheld gaming devices like the Legion Go, ROG Ally, and GPD Win
     #hedgewars # caution, is compiled for install

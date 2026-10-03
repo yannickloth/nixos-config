@@ -50,6 +50,7 @@
       pi-coding-agent
       hermes-agent
       magpie
+      deepseek-harness
       #jellyfin-media-player
       #joplin-desktop
       kdePackages.dolphin

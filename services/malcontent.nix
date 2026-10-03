@@ -18,9 +18,9 @@ let
     "${toString h}:${mm}";
 
   # Kid-safe flatpak app IDs sven and aaron may run. Malcontent only enforces app
-  # filtering for flatpak apps. Native binaries are gated by per-user home-manager
-  # package installation (the AppArmor LSM is enabled but defines no per-user
-  # native-binary profiles in this repo).
+  # filtering for flatpak apps. Native kid games are gated by per-binary
+  # AppArmor profiles (security/apparmor.nix: `kid-<pkg>-<bin>`), and the rest
+  # of the native tooling is scoped by per-user home-manager package lists.
   # Keep in sync with apps.flatpak.apps (roles/base.nix). The KDE mini-games
   # are flatpak for kids, native home-manager for adults; GNOME Sudoku,
   # Quadrapassel and Mines were removed because they duplicate the KDE games

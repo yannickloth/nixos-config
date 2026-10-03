@@ -51,6 +51,12 @@ let
   # config.networking.hostName is NOT reachable inside home-manager modules
   # (they expose their own config namespace), so it cannot be used here.
   isP16 = config.commonHm.hostName == "laptop-p16";
+  # True when this config is built by the standalone CachyOS flake
+  # (users/flake.nix). On CachyOS the engine's host tuning lives in /etc
+  # (hosts/laptop-p16/cachyos/), because no NixOS system module runs there; on
+  # the NixOS host it is provided by hosts/laptop-p16/ instead. Gating keeps
+  # the CachyOS-only activation out of a future NixOS install.
+  isCachyOS = config.commonHm.isCachyOS;
   # Runtime path of nicky's agenix-decrypted AI-chat API keys (see age.secrets).
   nickyApiKeysPath = config.age.secrets."nicky.nix".path;
 in
@@ -94,7 +100,30 @@ in
   # Studio's HF cache and are symlinked into ~/.local/share/strata/models/,
   # so both tools read the same bytes (no duplicate disk). See
   # packages/strata/engine.nix for the full measurement matrix.
-  strata.enable = isP16;
+  # Hardware tuning measured on this laptop by tools/calibrate.py (see the
+  # bench/results/2026-10-02-rtx-a3000-i7-12850hx entry in forks-Strata):
+  #   --pcie-frac 0.35  beats the 0.55 default and the probe's 0.12-0.15
+  #                     (32.7 vs 27.0 tok/s for the 0.12 the probe picks)
+  #   --spec-min-p 0.70 beats 0.5 (34.0 vs 31.5 tok/s; slower CPU, no AVX-512)
+  #   --pool-workers 15 (the engine default) beats 8 on the fresh path: the
+  #                     E-cores add pool capacity here, they are not a tail
+  #                     (P2 re-measure, ops/p2-pool-affinity-results.md)
+  #   --kv-resident 20480 (was 32768): frees ~90 expert-cache slots; P8 measured
+  #                     the warm hit rate 0.618 -> 0.632 and fewer refusals,
+  #                     costing extra pinned-RAM KV reads only past ~20k context
+  #   --adapt-every 1   (was 4): learns a cold conversation's hot experts faster
+  #                     (fresh hit 0.468 -> 0.539 at a small warm-turn trade)
+  #                     (P8, ops/issues/p8-reduce-misses.md)
+  # Enforced on every config the package writes, so setup cannot undo them.
+  # enable stays gated on laptop-p16 (isP16).
+  strata = lib.mkIf isP16 {
+    enable = true;
+    pcieFrac = 0.35;
+    specMinP = 0.70;
+    poolWorkers = 15;
+    kvResident = 20480;
+    adaptEvery = 1;
+  };
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
@@ -146,71 +175,21 @@ in
     git-lfs
     gh
 
-    (masterpdfeditor.overrideAttrs (old: rec {
-      pname = "masterpdfeditor";
-      version = "5.8.70";
-      src = fetchurl {
-        url = "https://code-industry.net/public/master-pdf-editor-${version}-qt5.x86_64.tar.gz";
-        sha256 = "sha256-mheHvHU7Z1jUxFWEEfXv2kVO51t/edTK3xV82iteUXM=";
-      };
-      # Disable fixup phase to avoid build errors with custom binary location
-      dontFixup = true;
-      # Disable Qt wrapper to manually control Qt environment variables
-      dontWrapQtApps = true;
-      nativeBuildInputs = [ pkgs.makeWrapper ];
-      # I don't know why the installPhase must be overridden, but without it, the script does not find license_en.txt (which it shouldn't even try to use...) and fails.
-      installPhase = ''
-        runHook preInstall
-
-        p=$out/opt/masterpdfeditor
-        mkdir -p $out/bin
-
-        substituteInPlace masterpdfeditor5.desktop \
-          --replace 'Exec=/opt/master-pdf-editor-5' "Exec=$out/bin" \
-          --replace 'Path=/opt/master-pdf-editor-5' "Path=$out/bin" \
-          --replace 'Icon=/opt/master-pdf-editor-5' "Icon=$out/share/pixmaps"
-
-        install -Dm644 -t $out/share/pixmaps      masterpdfeditor5.png
-        echo -e '\nStartupWMClass=net.code-industry.masterpdfeditor5' >> masterpdfeditor5.desktop
-        install -Dm644 -t $out/share/applications masterpdfeditor5.desktop
-        install -Dm755 -t $p                      masterpdfeditor5
-        install -Dm644 license.txt $out/share/licenses/$pname/LICENSE
-        ln -s $p/masterpdfeditor5 $out/bin/masterpdfeditor5
-        cp -v -r stamps templates lang fonts $p
-
-        runHook postInstall
-
-        # Create a wrapper script that sets Qt environment variables to fix popup rendering issues
-        mv $out/bin/masterpdfeditor5 $out/bin/.masterpdfeditor5-unwrapped
-        makeWrapper $out/bin/.masterpdfeditor5-unwrapped $out/bin/masterpdfeditor5 \
-          --set QT_QPA_PLATFORM xcb \
-          --set QT_XCB_GL_INTEGRATION none \
-          --prefix LD_LIBRARY_PATH : ${
-            pkgs.lib.makeLibraryPath [
-              pkgs.libx11
-              pkgs.libxrandr
-              pkgs.libGL
-            ]
-          }
-        # QT_QPA_PLATFORM=xcb: Force Qt to use X11/XCB backend
-        # QT_XCB_GL_INTEGRATION=none: Disable OpenGL integration to prevent rendering issues  
-        # LD_LIBRARY_PATH: Add required X11 and OpenGL libraries
-      '';
-    }))
+    (pkgs.callPackage ../../packages/masterpdfeditor { })
     obsidian
 
-    nodejs
     languagetool
     opencode
     pi-coding-agent
     hermes-agent
     magpie
+    deepseek-harness
 
     jdk25 # Java 25
     elan # Lean theorem prover version manager
 
     rclone # Used to mount nestor shares
-    # fuse3 # Already installed as a CachyOS package.
+    fuse3 # provides fusermount3, used by the nestor-mount unit below
 
     quarto
     # panache
@@ -391,6 +370,27 @@ in
     fi
   '');
 
+  # CachyOS: the Strata engine needs a 2 MiB hugetlb pool covering its whole
+  # ~40 GiB arena, and an unlimited RLIMIT_MEMLOCK for the systemd user manager
+  # (the strata unit's LimitMEMLOCK=infinity is capped at the manager's 8 MiB
+  # otherwise). Both live in /etc, which home-manager cannot write. Apply the
+  # bundled installer, but only non-interactively (`sudo -n`) so `home-manager
+  # switch` never blocks: run `sudo -v` beforehand to have it applied, else it
+  # prints the one command. The future NixOS install uses hosts/laptop-p16/
+  # instead and never runs this (isCachyOS is false there).
+  home.activation.strataHostTuning = lib.mkIf (isP16 && isCachyOS)
+    (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      setup=${../../hosts/laptop-p16/cachyos}
+      if [ "$(cat /proc/sys/vm/nr_hugepages 2>/dev/null || echo 0)" -lt 20480 ] \
+         || [ ! -e /etc/systemd/system/user@.service.d/99-strata-memlock.conf ]; then
+        if sudo -n true 2>/dev/null; then
+          $DRY_RUN_CMD sudo "$setup/install.sh"
+        else
+          echo "strata: host tuning not installed; run once: sudo $setup/install.sh" >&2
+        fi
+      fi
+    '');
+
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
   # plain files is through 'home.file'.
   home.file = {
@@ -545,8 +545,8 @@ in
           --allow-other \
           --network-mode
         '';
-        # CachyOS/Arch uses fusermount3
-        ExecStop = "/usr/bin/fusermount3 -u %h/nestor";
+        # fusermount3 from the Nix closure (not /usr/bin: wrong on NixOS).
+        ExecStop = "${pkgs.fuse3}/bin/fusermount3 -u %h/nestor";
         Restart = "on-failure";
         RestartSec = "15s";
       };

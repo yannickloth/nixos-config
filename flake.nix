@@ -13,6 +13,16 @@
     # agenix: age-encrypted secrets managed in git. Encrypted .age files are
     # committed; private keys stay in the gitignored age-keys/ and on each host.
     agenix.url = "github:ryantm/agenix";
+    # Strata fork (github.com/yannickloth/forks-Strata), branch perf/am47:
+    # upstream 0.1.38 (99f3dbd) - the latest release - merged into the branch,
+    # plus the native-embedding error report and the A3000 bench harness. A flake
+    # input (rather than an inline builtins.fetchGit rev) so `nix flake update
+    # forksStrata` moves it to the branch head; flake.lock pins the exact rev
+    # between updates. The repo ships no flake.nix, so it is consumed as a plain
+    # source (`flake = false`). Private repo: fetched over ssh with the invoking
+    # user's key. Passed to packages/strata as `strataSrc`.
+    forksStrata.url = "git+ssh://git@github.com/yannickloth/forks-Strata.git?ref=refs/heads/perf/am47";
+    forksStrata.flake = false;
     # hermes-agent packaging (packages/hermes-agent): builds the upstream
     # uv.lock into a Python virtualenv. Pin all three to this repo's
     # nixpkgs-unstable so there is a single evaluation of nixpkgs.
@@ -27,7 +37,7 @@
     uv2nix.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, agenix, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
+  outputs = { nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, agenix, uv2nix, pyproject-nix, pyproject-build-systems, forksStrata, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -55,7 +65,10 @@
     {
       devShells.${system}.default = pkgs.mkShell {
         packages = with pkgs; [
-          nixpkgs-fmt
+          nixpkgs-fmt # legacy formatter; nixfmt (RFC style) is the target (see plan)
+          nixfmt # RFC-style formatter: `nix fmt`
+          deadnix # dead-code detection for Nix
+          statix # Nix lint/anti-pattern checks
           nil
           nix-output-monitor
           nvd
@@ -74,6 +87,10 @@
         ];
       };
 
+      # `nix fmt` target (RFC-style). Bulk reformat is deferred until the
+      # Phase 0/2 cleanups land, so CI does not enforce formatting yet.
+      formatter.${system} = pkgs.nixfmt;
+
       # System 1 decision engines. Scope wrappers live beside them:
       # packages/laya/{home,nixos}.nix and packages/clm/home.nix. (One
       # packages.${system} assignment: flake outputs do not merge repeated
@@ -84,116 +101,64 @@
         # Strata (packages/strata): CUDA inference engine for the A3000
         # (sm_86) + runtime wrappers; consumed via home-manager
         # (packages/strata/home.nix, `strata.enable`).
-        strata = pkgs.callPackage ./packages/strata { };
+        strata = pkgs.callPackage ./packages/strata { strataSrc = forksStrata; };
       };
 
       nixosConfigurations =
         let
-          # Per-host kernel choice. All hosts use the nixpkgs zen kernel
-          # (BORE-ish interactive tuning, MQSS/BFQ): Hydra builds it without
-          # LTO, so cache.nixos.org has the binary for the exact pinned nixpkgs
-          # rev and `nix flake update` costs a download.
+          # All hosts run the nixpkgs zen kernel (BORE-ish interactive tuning).
+          # Hydra builds it, so `nix flake update` is a download. The CachyOS LTO
+          # kernels were dropped: their cache lagged each pin and could trigger a
+          # multi-hour local LTO build. See git history to reintroduce.
           #
-          # The CachyOS LTO kernels (nix-cachyos-kernel flake) are gone: their
-          # Attic cache only contains the versions that flake has already
-          # compiled, so every `nix flake update` that advanced the pin could
-          # mean a full local LTO kernel build (hours) before the cache caught
-          # up. To go back, re-add the `nix-cachyos-kernel` input, its Attic
-          # cache (nixConfig here + roles/nix.nix), and a module with
-          #   nixpkgs.overlays = [ nix-cachyos-kernel.overlays.pinned ];
-          #   boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-bore-lto-x86_64-v3;
-          kernels = {
-            linux-zen = { pkgs, ... }: {
+          # Home-manager + shared-module wiring common to every host.
+          commonModules = [
+            home-manager.nixosModules.home-manager
+            agenix.nixosModules.default
+            # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
+            # jetbrains-toolbox, vscode, hermes-agent, magpie,
+            # deepseek-harness); sven/aaron keep plain stable pkgs.
+            ./users/ai-pkgs.nix
+            # Inject the agenix home-manager module so home-manager users can
+            # use `age.secrets` (nicky does for API keys).
+            { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
+              # from zsh-newuser-install) instead of failing activation.
+              home-manager.backupFileExtension = "backup";
+              # Pass the Strata fork source (the flake input) to the users'
+              # home modules; packages/strata/home.nix takes it as `strataSrc`.
+              home-manager.extraSpecialArgs = { strataSrc = forksStrata; };
+            }
+            # nixpkgs zen kernel on every host (see the note above).
+            ({ pkgs, ... }: {
               boot.kernelPackages = pkgs.linuxKernel.packages.linux_zen;
+            })
+          ];
+
+          # One host: its configuration module + any host-only modules, on top
+          # of commonModules.
+          mkHost = configModule: extraModules:
+            nixpkgs.lib.nixosSystem {
+              system = "x86_64-linux";
+              specialArgs = { inherit aiOverlay; };
+              modules = [ configModule ] ++ extraModules ++ commonModules;
             };
-          };
         in
         {
-          laptop-hera = nixpkgs.lib.nixosSystem {
-            system = "x86_64-linux";
-            specialArgs = { inherit aiOverlay; };
-            modules = [
-              ./hosts/laptop-hera/laptop-hera-configuration.nix
-              home-manager.nixosModules.home-manager
-              agenix.nixosModules.default
-              # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
-              # jetbrains-toolbox, vscode); sven/aaron keep plain stable pkgs.
-              ./users/ai-pkgs.nix
-              # Inject the agenix home-manager module so home-manager users can
-              # use `age.secrets` (nicky does for API keys).
-              { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
-              {
-                home-manager.useGlobalPkgs = true;
-                home-manager.useUserPackages = true;
-                # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
-                # from zsh-newuser-install) instead of failing activation.
-                home-manager.backupFileExtension = "backup";
-                #home-manager.users.jdoe = import ./home.nix;
+          laptop-hera = mkHost ./hosts/laptop-hera/laptop-hera-configuration.nix [ ];
 
-                # Optionally, use home-manager.extraSpecialArgs to pass
-                # arguments to home.nix
-              }
-              # TODO: enable a specific Dell XPS module once the exact model is
-              # confirmed on the physical machine (e.g. `sudo dmidecode -s system-product-name`).
-              # Likely candidates: dell-xps-13-9360 (same as laptop-xps), 9300, 9310.
-              #           nixos-hardware.nixosModules.dell-xps-13-9360
-              kernels.linux-zen
-            ];
-          };
-          laptop-p16 = nixpkgs.lib.nixosSystem {
-            system = "x86_64-linux";
-            specialArgs = { inherit aiOverlay; };
-            modules = [
-              ./hosts/laptop-p16/laptop-p16-configuration.nix
-              home-manager.nixosModules.home-manager
-              agenix.nixosModules.default
-              # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
-              # jetbrains-toolbox, vscode); sven/aaron keep plain stable pkgs.
-              ./users/ai-pkgs.nix
-              { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
-              {
-                home-manager.useGlobalPkgs = true;
-                home-manager.useUserPackages = true;
-                # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
-                # from zsh-newuser-install) instead of failing activation.
-                home-manager.backupFileExtension = "backup";
-                #home-manager.users.jdoe = import ./home.nix;
+          # generic ThinkPad base; a model-specific module (e.g. thinkpad/p16s)
+          # may be added once confirmed via dmidecode.
+          laptop-p16 = mkHost ./hosts/laptop-p16/laptop-p16-configuration.nix [
+            nixos-hardware.nixosModules.lenovo-thinkpad
+          ];
 
-                # Optionally, use home-manager.extraSpecialArgs to pass
-                # arguments to home.nix
-              }
-              nixos-hardware.nixosModules.lenovo-thinkpad # generic ThinkPad base; a model-specific module (e.g. thinkpad/p16s) may be added once confirmed via dmidecode
-              kernels.linux-zen
-            ];
-          };
-          laptop-xps = nixpkgs.lib.nixosSystem {
-            system = "x86_64-linux";
-            specialArgs = { inherit aiOverlay; };
-            modules = [
-              ./hosts/laptop-xps/laptop-xps-configuration.nix
-              home-manager.nixosModules.home-manager
-              agenix.nixosModules.default
-              # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
-              # jetbrains-toolbox, vscode); sven/aaron keep plain stable pkgs.
-              ./users/ai-pkgs.nix
-              { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
-              {
-                home-manager.useGlobalPkgs = true;
-                home-manager.useUserPackages = true;
-                # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
-                # from zsh-newuser-install) instead of failing activation.
-                home-manager.backupFileExtension = "backup";
-                #home-manager.users.jdoe = import ./home.nix;
-
-                # Optionally, use home-manager.extraSpecialArgs to pass
-                # arguments to home.nix
-              }
-
-              nixos-hardware.nixosModules.dell-xps-13-9360
-
-              kernels.linux-zen
-            ];
-          };
+          laptop-xps = mkHost ./hosts/laptop-xps/laptop-xps-configuration.nix [
+            nixos-hardware.nixosModules.dell-xps-13-9360
+          ];
         };
     };
 }

@@ -6,15 +6,19 @@
 # Installs `strata` (first-run setup + foreground start), `strata-chat` and
 # `strata-server`. The first `strata` run asks the model/size/context questions
 # and downloads the ~70-84 GB model into ~/.local/share/strata (override the
-# directory with STRATA_HOME).
+# directory with STRATA_HOME). The engine policy below (context, KV format, rope
+# scaling, VRAM reserve) overrides whatever setup answered, whenever a config is
+# written or served.
 #
-# `strata-server` is the always-on, ENGINE-OPTIONAL server behind the Unsloth
-# Studio integration: it holds no model until a request arrives (Studio's
-# Custom provider points at http://127.0.0.1:8080/v1), and frees the engine's
-# ~55 GB of RAM and most of the 12 GB card again after STRATA_IDLE_UNLOAD
-# seconds (default 300) without a request. Runs as a user service so Studio
-# can reach it whenever; Studio's own models keep the GPU the rest of the time.
-{ config, lib, pkgs, ... }:
+# `strata-server` is the always-on, engine-optional server behind the Unsloth
+# Studio integration (Studio's Custom provider points at
+# http://127.0.0.1:8080/v1). It passes `--lazy` (upstream's replacement for the
+# fork's removed `--no-preload`): it holds no model until a request arrives, then
+# frees the ~55 GB of RAM and most of the 12 GB card again after
+# STRATA_IDLE_UNLOAD seconds (default 300) without a request, reloading on the
+# next one. Runs as a user service so Studio can reach it whenever; Studio's own
+# models keep the GPU the rest of the time.
+{ config, lib, pkgs, strataSrc, ... }:
 with lib;
 let
   cfg = config.strata;
@@ -25,9 +29,102 @@ in
 
     package = mkOption {
       type = types.package;
-      default = pkgs.callPackage ./default.nix { };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { }";
+      default = pkgs.callPackage ./default.nix {
+        inherit strataSrc;
+        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery;
+        # CachyOS needs the /usr/lib/libcuda shim; NixOS uses the driver runpath
+        # (set by the standalone CachyOS flake / left false on NixOS).
+        inherit (config.commonHm) isCachyOS;
+      };
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit strataSrc; inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery; inherit (config.commonHm) isCachyOS; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
+    };
+
+    context = mkOption {
+      type = types.ints.positive;
+      default = 524288;
+      description = ''
+        Engine KV/state capacity (`--max-context`). Past the model's trained
+        262144 this also enables yarn rope scaling with factor
+        `context / 262144` (524288 -> factor 2). Enforced on every Strata config
+        the package writes or serves, so `strata --setup` cannot leave it at a
+        different value.
+      '';
+    };
+
+    kv = mkOption {
+      type = types.enum [ "int8" "q4_0" "k8v4" "fp16" ];
+      default = "int8";
+      description = ''
+        KV cache format (`--kv`). `k8v4` is the lowest-memory hybrid but cannot
+        stream its KV, so `kvResident` is dropped for it.
+      '';
+    };
+
+    kvResident = mkOption {
+      type = types.ints.unsigned;
+      default = 32768;
+      description = ''
+        Cells of each attention layer kept in VRAM; the rest of the KV cache
+        lives in pinned RAM (`--kv-resident`, engine minimum 20480). 0 keeps the
+        whole KV in VRAM. Costs ~13.7 KB of RAM per context token at 8-bit.
+      '';
+    };
+
+    ropeScaling = mkOption {
+      type = types.enum [ "yarn" "linear" "none" ];
+      default = "yarn";
+      description = "RoPE extension method used only when context > 262144 (`--rope-scaling`).";
+    };
+
+    pcieFrac = mkOption {
+      type = types.nullOr types.float;
+      default = null;
+      description = ''
+        Share of the experts missing from VRAM copied over PCIe and computed on
+        the GPU instead of the CPU (`--pcie-frac`, 0..1). null keeps the engine's
+        one-shot probe, which can read a busy or not-yet-ramped link several
+        times low; run `tools/calibrate.py` and pin the measured value here.
+      '';
+    };
+
+    specMinP = mkOption {
+      type = types.nullOr types.float;
+      default = null;
+      description = ''
+        Draft confidence below which the verify window is not extended by another
+        guess (`--spec-min-p`, 0..1). null keeps the engine's 0.5; a slower CPU
+        wants a higher floor.
+      '';
+    };
+
+    poolWorkers = mkOption {
+      type = types.nullOr types.ints.unsigned;
+      default = null;
+      description = ''
+        CPU expert-pool worker threads (`--pool-workers`). null keeps the engine's
+        default (every physical core minus the host's); on a hybrid CPU the
+        E-cores can make every window wait for them, so calibration often picks
+        fewer.
+      '';
+    };
+
+    poolAffinity = mkOption {
+      type = types.nullOr (types.enum [ "all" "auto" "p-cores" ]);
+      default = null;
+      description = "CPU affinity mode for the expert pool (`--pool-affinity`). null keeps the engine's `all`.";
+    };
+
+    adaptEvery = mkOption {
+      type = types.nullOr types.ints.positive;
+      default = null;
+      description = ''
+        Adaptive expert-cache exchange interval (`--adapt-every`, engine default
+        4). A lower value lets the cache learn a conversation's hot experts
+        sooner, which helps the first request of a cold session (P8 measured the
+        fresh hit rate 0.468 -> 0.539 at 1); it trades a small warm-turn hit
+        rate. null keeps the engine's default 4.
+      '';
     };
 
     autoStart = mkOption {
@@ -69,6 +166,17 @@ in
   };
 
   config = mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = cfg.ropeScaling != "none" || cfg.context <= 262144;
+        message = "strata.ropeScaling = \"none\" needs strata.context <= 262144: the engine refuses --rope-scale with no scaling past the trained context.";
+      }
+      {
+        assertion = cfg.kvResident == 0 || cfg.kvResident >= 20480;
+        message = "strata.kvResident must be 0 (whole KV in VRAM) or at least 20480 (the engine's --kv-resident minimum).";
+      }
+    ];
+
     home.packages = [ cfg.package ];
 
     systemd.user.services.strata = {
@@ -85,6 +193,8 @@ in
           "STRATA_PORT=${toString cfg.port}"
           "STRATA_IDLE_UNLOAD=${toString cfg.idleUnloadSeconds}"
         ] ++ optional (cfg.defaultConfig != "") "STRATA_CONFIG=${cfg.defaultConfig}";
+        # MAP_HUGETLB for the expert arena is charged to RLIMIT_MEMLOCK.
+        LimitMEMLOCK = "infinity";
         # No setup yet (no venv/config): exit cleanly with guidance instead of
         # restart-looping. startLimit* keeps a broken config from spinning.
         Restart = "on-failure";

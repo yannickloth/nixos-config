@@ -43,6 +43,23 @@
         "type": "github"
       }
     },
+    "forksStrata": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791007284,
+        "narHash": "sha256-EZFg/fL39y+g6QQFcvqAXY6e+7JLDUU/VCPGGJ72S/w=",
+        "ref": "refs/heads/perf/am47",
+        "rev": "0605f8a11eeebce0da54bdf702f05e1a2dd6f1b2",
+        "revCount": 637,
+        "type": "git",
+        "url": "ssh://git@github.com/yannickloth/forks-Strata.git"
+      },
+      "original": {
+        "ref": "refs/heads/perf/am47",
+        "type": "git",
+        "url": "ssh://git@github.com/yannickloth/forks-Strata.git"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -180,6 +197,7 @@
     "root": {
       "inputs": {
         "agenix": "agenix",
+        "forksStrata": "forksStrata",
         "home-manager": "home-manager_2",
         "nixpkgs": "nixpkgs_2",
         "nixpkgs-unstable": "nixpkgs-unstable",

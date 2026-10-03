@@ -3,6 +3,14 @@ tmp/
 result
 result-*
 .agentmem/
+# JetBrains IDE project state (kept locally, not in git).
+.idea/
+# Tinymist (Typst LSP) compilation cache: auto-generated, indexes absolute
+# store paths under result/, machine-specific.
+tinymist.lock
+
+# Vendor driver archive (kept locally; not needed in git, ~18 MB).
+displaylink-*.zip
 
 # Plaintext secrets. The committed forms are the agenix-encrypted .age files.
 secrets/cifs/
@@ -14,8 +22,8 @@ secrets/syncthing-gui-password
 # KeePassXC and distributed to each host/user. NEVER commit these (see
 # secrets-structure/README.md).
 ssh-keys/**
-# Backup archive of the private keys (same secret content).
-ssh-keys-backup-*.tar.gz
+# Backup archive of the private keys (same secret content), now passphrase-encrypted.
+ssh-keys-backup-*.tar.gz*
 # Imported syncthing config dumps from physical hosts (plaintext cert/key).
 laptop-*-dotconfig-syncthing/
 laptop-*-dotconfig-syncthing.zip

@@ -61,9 +61,10 @@
 # under RLIMIT_MEMLOCK=8M: the open kernel module does not enforce it.
 #
 # The native-embedding error report (the real cudaError instead of upstream's
-# bare "cannot pin N MiB") and the serve lifecycle API (/api/inference/*,
-# --no-preload, --idle-unload) live in the fork (github.com/yannickloth/
-# forks-Strata, branch local/lifecycle), not as patches here.
+# bare "cannot pin N MiB") and the bench harness live in the fork
+# (github.com/yannickloth/forks-Strata, branch perf/am47), not as patches
+# here. The engine-lifecycle API this comment used to mention is upstream as of
+# 0.1.31 (--idle-unload); upstream main is 0.1.38.
 {
   lib,
   stdenv,
@@ -74,11 +75,16 @@
   symlinkJoin,
   cudaArch ? "86", # laptop-p16: RTX A3000 12GB Laptop GPU (compute capability 8.6)
   withVision ? false, # also build the strata-vision image encoder
+  # Host family. CachyOS needs the /usr/lib/libcuda.so.1 RUNPATH shim (its
+  # NVIDIA driver is not in the Nix store); NixOS finds the driver at
+  # /run/opengl-driver/lib via autoAddDriverRunpath, so the shim is skipped.
+  # Passed from packages/strata/home.nix via config.commonHm.isCachyOS.
+  isCachyOS ? false,
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "a9047fdb79acf9382fa6623a89290327e29235f4";
-    hash = "sha256-qeDI9D12WuWs/+6MOIwtWqqeqeWRt4sQ/sEwj/lo6Uk=";
+    rev = "99f3dbd0b21d1401b3769e0c0d963913607f380b";  # 0.1.38 (main)
+    hash = "sha256-9tawklXlF98yolRTVgeonVcyrob8HiNG3xSQ7V5v+94=";
   },
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -90,15 +96,15 @@
 }:
 
 let
-  version = "0.1.0-unstable-2026-09-27";
+  version = "0.1.38";
 
   meta = with lib; {
     description =
       "Strata inference engine: Qwen3.8-Flash-Next (125B MoE) on a 12 GB NVIDIA GPU + system RAM";
     homepage = "https://github.com/Niko1221/Strata";
-    # Upstream ships no LICENSE file (the README says "free and open source");
-    # treated as unfree until one is added.
-    license = licenses.unfree;
+    # The repo carries an MIT LICENSE (upstream added it after this package was
+    # written; the model weights are a separate matter).
+    license = licenses.mit;
     platforms = platforms.linux;
   };
 
@@ -130,6 +136,11 @@ let
     (lib.cmakeBool "STRATA_ENABLE_CUDA" true)
     (lib.cmakeBool "STRATA_BUILD_TESTS" false)
     (lib.cmakeBool "STRATA_PORTABLE" true)
+    # Upstream 0.1.32 gates the Q4_K/Q5_K/Q5_1 MMQ prompt kernels behind this
+    # option (OFF by default). With it, the UD-Q4_K_XL GGUF experts use int8
+    # tensor cores instead of dequant + cuBLAS; the IQ3_XXS native pack is
+    # unaffected. This is the fork's perf/am47 work, merged upstream.
+    (lib.cmakeBool "STRATA_MMQ_KQUANTS" true)
     (lib.cmakeFeature "STRATA_GGML_DIR" "${llamaCpp}")
     (lib.cmakeFeature "CMAKE_CUDA_ARCHITECTURES" cudaArch)
     # Experiment 2026-09-27 (see matrix in the header): global --use_fast_math
@@ -147,11 +158,13 @@ let
   # /usr/lib, which the nix loader does not search, and cudart dlopens it at
   # run time. Expose it through a symlink dir referenced from the binary's
   # RUNPATH (added post-fixup so RPATH shrinking does not strip it) and the
-  # wrapper's LD_LIBRARY_PATH. The dir contains only libcuda, so it cannot
-  # shadow nix libraries.
+  # wrapper's LD_LIBRARY_PATH. On NixOS the driver is at /run/opengl-driver/lib
+  # (autoAddDriverRunpath puts it on the RUNPATH), so the shim is omitted.
   postFixup = ''
     mkdir -p $out/lib-driver
-    ln -sf /usr/lib/libcuda.so.1 $out/lib-driver/libcuda.so.1
+    ${lib.optionalString isCachyOS ''
+      ln -sf /usr/lib/libcuda.so.1 $out/lib-driver/libcuda.so.1
+    ''}
     patchelf --add-rpath $out/lib-driver $out/bin/strata
   '';
 
@@ -192,11 +205,13 @@ let
       runHook postInstall
     '';
 
-    # ggml-cuda links libcuda.so.1 (the host driver) directly; see the
-    # engine's postFixup for why the symlink dir is needed on CachyOS.
+    # ggml-cuda links libcuda.so.1 (the host driver) directly; the /usr/lib
+    # shim is CachyOS-only (see the engine's postFixup).
     postFixup = ''
       mkdir -p $out/lib-driver
-      ln -sf /usr/lib/libcuda.so.1 $out/lib-driver/libcuda.so.1
+      ${lib.optionalString isCachyOS ''
+        ln -sf /usr/lib/libcuda.so.1 $out/lib-driver/libcuda.so.1
+      ''}
       patchelf --add-rpath $out/lib-driver $out/bin/strata-vision
     '';
 

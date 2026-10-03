@@ -37,6 +37,17 @@
     description = "Host this home-manager config is built for.";
   };
 
+  # True when this config is built by the standalone flake (users/flake.nix,
+  # used on CachyOS) rather than the NixOS host. CachyOS-specific behaviour
+  # (host tuning in /etc, which no NixOS system module provides) must be gated
+  # on it, so a future NixOS install of this laptop is unaffected. The NixOS
+  # host never sets it, so it stays false there.
+  options.commonHm.isCachyOS = lib.mkOption {
+    type = lib.types.bool;
+    default = false;
+    description = "True when built by the standalone CachyOS home-manager flake.";
+  };
+
   config = {
     home.stateVersion = "26.05";
 

@@ -3,8 +3,9 @@
 # Base is stable nixpkgs (nixos-26.05, matching the NixOS hosts' root
 # flake.nix). The adults (nicky, aeiuno) additionally get opencode,
 # pi-coding-agent, jetbrains-toolbox and vscode overlaid from unstable
-# nixpkgs because those move fast (built-in AI features). Kids (sven, aaron)
-# stay entirely on stable. See ../overlays/ai-unstable.nix.
+# nixpkgs because those move fast (built-in AI features), plus the in-tree
+# hermes-agent, magpie and deepseek-harness packages. Kids (sven, aaron) stay
+# entirely on stable. See ../overlays/ai-unstable.nix.
 {
   description = "Standalone home-manager configs for each family user";
 
@@ -16,6 +17,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     agenix.url = "github:ryantm/agenix";
+    # Strata fork source (same as the root flake's `forksStrata`): upstream
+    # 0.1.38 merged into branch perf/am47, plus the sm_86 work. Tracked so `nix
+    # flake update forksStrata` moves it; the lock pins the rev between updates.
+    # Private repo, fetched over ssh; flake = false (the repo ships no flake.nix).
+    forksStrata.url = "git+ssh://git@github.com/yannickloth/forks-Strata.git?ref=refs/heads/perf/am47";
+    forksStrata.flake = false;
     # Same hermes-agent packaging inputs as the root flake (see
     # packages/hermes-agent).
     pyproject-nix.url = "github:nix-community/pyproject.nix";
@@ -28,7 +35,7 @@
     uv2nix.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, agenix, uv2nix, pyproject-nix, pyproject-build-systems }:
+  outputs = { nixpkgs, nixpkgs-unstable, home-manager, agenix, uv2nix, pyproject-nix, pyproject-build-systems, forksStrata, ... }:
     let
       system = "x86_64-linux";
       stablePkgs = import nixpkgs {
@@ -53,10 +60,15 @@
       # does not exist in standalone home-manager). See nicky-hm.nix isP16.
       mkHome = user: hostName: userPkgs: home-manager.lib.homeManagerConfiguration {
         pkgs = userPkgs;
+        # The Strata fork source (packages/strata/home.nix takes it as
+        # `strataSrc`); same value the root flake passes via extraSpecialArgs.
+        extraSpecialArgs = { strataSrc = forksStrata; };
         modules = [
           agenix.homeManagerModules.default
           ./${user}/${user}-hm.nix
-          { commonHm.hostName = hostName; }
+          # isCachyOS gates the CachyOS-only host tuning (see common-hm.nix and
+          # hosts/laptop-p16/cachyos/); the NixOS host leaves it false.
+          { commonHm.hostName = hostName; commonHm.isCachyOS = true; }
         ];
       };
     in
