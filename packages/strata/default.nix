@@ -70,15 +70,16 @@
   # null leaves the engine's default.
   , adaptEvery ? null
   # Source: the `forksStrata` flake input (github.com/yannickloth/forks-Strata,
-  # branch perf/am47) - upstream 0.1.38 (99f3dbd, the latest release) merged into
-  # the branch, plus the sm_86 work: the native-embedding error report and the
-  # A3000 bench harness. (The Q4_K/Q5_K/Q5_1 MMQ instances this branch used to carry are
-  # upstream as of 0.1.32, behind STRATA_MMQ_KQUANTS.) Passed in from flake.nix
-  # and home.nix; `nix flake update forksStrata` moves it to the branch head. The
-  # private repo is fetched over ssh with the invoking user's key - a
-  # fetchFromGitHub/fetchgit derivation cannot authenticate to it (the nix daemon
-  # runs as root without that key), which is why it is a flake input, not a
-  # fetcher derivation.
+  # branch perf/iq-gateup) - perf/am47 (upstream 0.1.38, 99f3dbd, the latest
+  # release, merged in; plus the sm_86 work: the native-embedding error report
+  # and the A3000 bench harness) with the AVX2 IQ3 codebook gather on top
+  # (`STRATA_IQ256_GATHER`, upstream PR #622). (The Q4_K/Q5_K/Q5_1 MMQ
+  # instances this branch used to carry are upstream as of 0.1.32, behind
+  # STRATA_MMQ_KQUANTS.) Passed in from flake.nix and home.nix; `nix flake
+  # update forksStrata` moves it to the branch head. The private repo is fetched
+  # over ssh with the invoking user's key - a fetchFromGitHub/fetchgit
+  # derivation cannot authenticate to it (the nix daemon runs as root without
+  # that key), which is why it is a flake input, not a fetcher derivation.
   , strataSrc
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -230,6 +231,12 @@ let
     if [ -e /run/opengl-driver/lib/libcuda.so.1 ]; then
       export LD_LIBRARY_PATH="/run/opengl-driver/lib:$LD_LIBRARY_PATH"
     fi
+    # P7: the AVX2 IQ3 codebook gather (fork branch perf/iq-gateup, upstream
+    # PR #622), a bit-exact per-core win measured +1% decode on this host -
+    # whose i7-12850HX has no AVX-512, so the AVX2 kernel decodes every expert
+    # row. Opt-in upstream (AVX2 gather throughput is core-dependent); on by
+    # default here, set STRATA_IQ256_GATHER=0 to disable.
+    export STRATA_IQ256_GATHER="''${STRATA_IQ256_GATHER:-1}"
   '';
 
   strata = writeShellApplication {
