@@ -320,8 +320,9 @@ right analogue: declarative, no always-on dependency, rotation via rebuild.
   reject with tcp reset`). **Caveat:** NixOS never changes an existing user's
   uid (`update-users-groups.pl` keeps the old one and warns), so on
   already-installed hosts verify `getent passwd sven aaron` returns 1002/1003;
-  if not, either set the config to the actual uids or migrate with `chown`,
-  else the rule keys on the wrong uid.
+  if not, either set the config to the actual uids or run the one-time
+  migration `scripts/migrate-uid.sh` (usermod + chown of everything the old uid
+  owned), else the rule keys on the wrong uid.
 - **B9:** `packages/strata/engine.nix` gained an `isCachyOS` argument (fed from
   `commonHm.isCachyOS` via `packages/strata/home.nix`); the
   `/usr/lib/libcuda.so.1` shim is now CachyOS-only. NixOS uses
