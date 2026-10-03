@@ -62,7 +62,7 @@
 #
 # The native-embedding error report (the real cudaError instead of upstream's
 # bare "cannot pin N MiB") and the bench harness live in the fork
-# (github.com/yannickloth/forks-Strata, branch release/0.1.38), not as patches
+# (github.com/yannickloth/forks-Strata, branch perf/am47), not as patches
 # here. The engine-lifecycle API this comment used to mention is upstream as of
 # 0.1.31 (--idle-unload); upstream main is 0.1.38.
 {

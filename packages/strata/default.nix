@@ -70,9 +70,9 @@
   # null leaves the engine's default.
   , adaptEvery ? null
   # Source: the `forksStrata` flake input (github.com/yannickloth/forks-Strata,
-  # branch release/0.1.38) - upstream 0.1.38 (99f3dbd, the latest release) plus
-  # the sm_86 work: the native-embedding error report and the A3000 bench
-  # harness. (The Q4_K/Q5_K/Q5_1 MMQ instances this branch used to carry are
+  # branch perf/am47) - upstream 0.1.38 (99f3dbd, the latest release) merged into
+  # the branch, plus the sm_86 work: the native-embedding error report and the
+  # A3000 bench harness. (The Q4_K/Q5_K/Q5_1 MMQ instances this branch used to carry are
   # upstream as of 0.1.32, behind STRATA_MMQ_KQUANTS.) Passed in from flake.nix
   # and home.nix; `nix flake update forksStrata` moves it to the branch head. The
   # private repo is fetched over ssh with the invoking user's key - a

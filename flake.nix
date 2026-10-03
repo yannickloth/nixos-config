@@ -13,15 +13,15 @@
     # agenix: age-encrypted secrets managed in git. Encrypted .age files are
     # committed; private keys stay in the gitignored age-keys/ and on each host.
     agenix.url = "github:ryantm/agenix";
-    # Strata fork (github.com/yannickloth/forks-Strata), branch release/0.1.38:
-    # upstream 0.1.38 (99f3dbd) - the latest release - plus the native-embedding
-    # error report and the A3000 bench harness. A flake input (rather than an
-    # inline builtins.fetchGit rev) so `nix flake update forksStrata` moves it to
-    # the branch head; flake.lock pins the exact rev between updates. The repo
-    # ships no flake.nix, so it is consumed as a plain source (`flake = false`).
-    # Private repo: fetched over ssh with the invoking user's key. Passed to
-    # packages/strata as `strataSrc`.
-    forksStrata.url = "git+ssh://git@github.com/yannickloth/forks-Strata.git?ref=refs/heads/release/0.1.38";
+    # Strata fork (github.com/yannickloth/forks-Strata), branch perf/am47:
+    # upstream 0.1.38 (99f3dbd) - the latest release - merged into the branch,
+    # plus the native-embedding error report and the A3000 bench harness. A flake
+    # input (rather than an inline builtins.fetchGit rev) so `nix flake update
+    # forksStrata` moves it to the branch head; flake.lock pins the exact rev
+    # between updates. The repo ships no flake.nix, so it is consumed as a plain
+    # source (`flake = false`). Private repo: fetched over ssh with the invoking
+    # user's key. Passed to packages/strata as `strataSrc`.
+    forksStrata.url = "git+ssh://git@github.com/yannickloth/forks-Strata.git?ref=refs/heads/perf/am47";
     forksStrata.flake = false;
     # hermes-agent packaging (packages/hermes-agent): builds the upstream
     # uv.lock into a Python virtualenv. Pin all three to this repo's
