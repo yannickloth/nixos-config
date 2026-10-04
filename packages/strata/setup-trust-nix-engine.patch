@@ -1,0 +1,16 @@
+--- a/setup.py
++++ b/setup.py
+@@ -1970,6 +1970,13 @@
+     stamp = eng / "BUILD.json"
+     meta = json.loads(stamp.read_text()) if stamp.exists() else {}
+     want_vision = vision != "none"
++    if meta.get("source") == "local" and not (ROOT / "CMakeLists.txt").exists() \
++            and (not want_vision or (eng / VEXE).exists()):
++        # The Nix package ships a prebuilt engine in a runtime directory that
++        # carries no source tree to recompile from: trust it as-is instead of
++        # trying (and failing) to rebuild it from ROOT.
++        ok("engine already built for this PC")
++        return eng
+     local = meta.get("source") == "local"
+     src, vsrc = source_hash(ENGINE_SOURCES), source_hash(VISION_SOURCES)
+     archs = sorted({int(x) for x in gpu.get("archs", [gpu["arch"]])})    # every card the model runs on

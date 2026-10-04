@@ -16,8 +16,10 @@
 # fork's removed `--no-preload`): it holds no model until a request arrives, then
 # frees the ~55 GB of RAM and most of the 12 GB card again after
 # STRATA_IDLE_UNLOAD seconds (default 300) without a request, reloading on the
-# next one. Runs as a user service so Studio can reach it whenever; Studio's own
-# models keep the GPU the rest of the time.
+# next one. With `vision` on (the default) the engine is preloaded instead:
+# `--lazy` is dropped so the image encoder is ready. Runs as a user service so
+# Studio can reach it whenever; Studio's own models keep the GPU the rest of the
+# time.
 { config, lib, pkgs, strataSrc, ... }:
 with lib;
 let
@@ -31,13 +33,26 @@ in
       type = types.package;
       default = pkgs.callPackage ./default.nix {
         inherit strataSrc;
-        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery;
+        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery vision;
         # CachyOS needs the /usr/lib/libcuda shim; NixOS uses the driver runpath
         # (set by the standalone CachyOS flake / left false on NixOS).
         inherit (config.commonHm) isCachyOS;
       };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit strataSrc; inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery; inherit (config.commonHm) isCachyOS; }";
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit strataSrc; inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery vision; inherit (config.commonHm) isCachyOS; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
+    };
+
+    vision = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Build and enable the strata-vision image encoder (`--vision gpu`), so
+        the served model reads images (screenshots, photos, scanned pages) in
+        addition to text. Costs ~1.2 GB of VRAM for the encoder, a few % of
+        text speed, and a ~0.9 GB mmproj download on first setup. The wrapper
+        passes `--vision yes` to setup; `strata --setup --vision no` overrides
+        it for one run.
+      '';
     };
 
     context = mkOption {
@@ -181,7 +196,7 @@ in
 
     systemd.user.services.strata = {
       Unit = {
-        Description = "Strata server (engine loads on demand; Unsloth Studio's 125B endpoint)";
+        Description = "Strata server (${if cfg.vision then "image encoder preloaded" else "engine loads on demand"}; Unsloth Studio's 125B endpoint)";
         After = [ "network-online.target" ];
       };
       Install = mkIf cfg.autoStart { WantedBy = [ "default.target" ]; };

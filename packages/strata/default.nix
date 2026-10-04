@@ -13,8 +13,10 @@
 # CUDA toolchain. The engine is linked against nixpkgs' CUDA libraries, so no
 # NVIDIA pip wheels are needed either.
 #
-# Images (the strata-vision encoder) are opt-in via the `vision` argument
-# (off by default: the encoder costs ~1.2 GB of VRAM and a few % of speed).
+# Images (the strata-vision encoder) are chosen by the `vision` argument; the
+# home-manager module (./home.nix) turns it on by default. The encoder costs
+# ~1.2 GB of VRAM and a few % of text speed, and setup downloads ~0.9 GB more
+# (the mmproj vision weights).
 # Runtime notes (laptop-p16, established 2026-09-27 - see also engine.nix):
 # - The wrapper and `strata-server` enforce a declarative engine policy on
 #   every config (the module options, see home.nix): --max-context (default
@@ -70,15 +72,16 @@
   # null leaves the engine's default.
   , adaptEvery ? null
   # Source: the `forksStrata` flake input (github.com/yannickloth/forks-Strata,
-  # branch perf/am47) - upstream 0.1.38 (99f3dbd, the latest release) merged into
-  # the branch, plus the sm_86 work: the native-embedding error report and the
-  # A3000 bench harness. (The Q4_K/Q5_K/Q5_1 MMQ instances this branch used to carry are
-  # upstream as of 0.1.32, behind STRATA_MMQ_KQUANTS.) Passed in from flake.nix
-  # and home.nix; `nix flake update forksStrata` moves it to the branch head. The
-  # private repo is fetched over ssh with the invoking user's key - a
-  # fetchFromGitHub/fetchgit derivation cannot authenticate to it (the nix daemon
-  # runs as root without that key), which is why it is a flake input, not a
-  # fetcher derivation.
+  # branch perf/iq-gateup) - perf/am47 (upstream 0.1.38, 99f3dbd, the latest
+  # release, merged in; plus the sm_86 work: the native-embedding error report
+  # and the A3000 bench harness) with the AVX2 IQ3 codebook gather on top
+  # (`STRATA_IQ256_GATHER`, upstream PR #622). (The Q4_K/Q5_K/Q5_1 MMQ
+  # instances this branch used to carry are upstream as of 0.1.32, behind
+  # STRATA_MMQ_KQUANTS.) Passed in from flake.nix and home.nix; `nix flake
+  # update forksStrata` moves it to the branch head. The private repo is fetched
+  # over ssh with the invoking user's key - a fetchFromGitHub/fetchgit
+  # derivation cannot authenticate to it (the nix daemon runs as root without
+  # that key), which is why it is a flake input, not a fetcher derivation.
   , strataSrc
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -197,6 +200,12 @@ let
     inherit version;
     src = strataSrc;
     dontBuild = true;
+    # setup.py fingerprints a "source": "local" engine from the files it was
+    # compiled from (engine/BUILD.json src/vision_src) and rebuilds it when they
+    # do not match. The store-built engine has no source tree beside it, so
+    # `strata --setup` tried to recompile it from STRATA_HOME and died with
+    # "does not appear to contain CMakeLists.txt" (see the patch).
+    patches = [ ./setup-trust-nix-engine.patch ];
     installPhase = ''
       runHook preInstall
       mkdir -p $out/share/strata
@@ -230,6 +239,12 @@ let
     if [ -e /run/opengl-driver/lib/libcuda.so.1 ]; then
       export LD_LIBRARY_PATH="/run/opengl-driver/lib:$LD_LIBRARY_PATH"
     fi
+    # P7: the AVX2 IQ3 codebook gather (fork branch perf/iq-gateup, upstream
+    # PR #622), a bit-exact per-core win measured +1% decode on this host -
+    # whose i7-12850HX has no AVX-512, so the AVX2 kernel decodes every expert
+    # row. Opt-in upstream (AVX2 gather throughput is core-dependent); on by
+    # default here, set STRATA_IQ256_GATHER=0 to disable.
+    export STRATA_IQ256_GATHER="''${STRATA_IQ256_GATHER:-1}"
   '';
 
   strata = writeShellApplication {

@@ -62,9 +62,11 @@
 #
 # The native-embedding error report (the real cudaError instead of upstream's
 # bare "cannot pin N MiB") and the bench harness live in the fork
-# (github.com/yannickloth/forks-Strata, branch perf/am47), not as patches
-# here. The engine-lifecycle API this comment used to mention is upstream as of
-# 0.1.31 (--idle-unload); upstream main is 0.1.38.
+# (github.com/yannickloth/forks-Strata, branch perf/iq-gateup), not as patches
+# here; that branch also carries the AVX2 IQ3 codebook gather
+# (STRATA_IQ256_GATHER, upstream PR #622; see packages/strata/default.nix). The
+# engine-lifecycle API this comment used to mention is upstream as of 0.1.31
+# (--idle-unload); upstream main is 0.1.38.
 {
   lib,
   stdenv,

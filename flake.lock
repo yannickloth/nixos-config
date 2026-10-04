@@ -46,16 +46,16 @@
     "forksStrata": {
       "flake": false,
       "locked": {
-        "lastModified": 1791007284,
-        "narHash": "sha256-EZFg/fL39y+g6QQFcvqAXY6e+7JLDUU/VCPGGJ72S/w=",
-        "ref": "refs/heads/perf/am47",
-        "rev": "0605f8a11eeebce0da54bdf702f05e1a2dd6f1b2",
-        "revCount": 637,
+        "lastModified": 1791030344,
+        "narHash": "sha256-nZVj1Dy9gYM/Av2FrpCPwNjqZIqJi9yM0DmeJ/c6nss=",
+        "ref": "refs/heads/perf/iq-gateup",
+        "rev": "f9371cfd98a1ecaaf6cdbed6f63ff4dec8f15ec7",
+        "revCount": 638,
         "type": "git",
         "url": "ssh://git@github.com/yannickloth/forks-Strata.git"
       },
       "original": {
-        "ref": "refs/heads/perf/am47",
+        "ref": "refs/heads/perf/iq-gateup",
         "type": "git",
         "url": "ssh://git@github.com/yannickloth/forks-Strata.git"
       }
