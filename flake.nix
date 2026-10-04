@@ -102,16 +102,23 @@
         clm = pkgs.callPackage ./packages/clm { };
         # Strata (packages/strata): CUDA inference engine for the A3000
         # (sm_86) + runtime wrappers; consumed via home-manager
-        # (packages/strata/home.nix, `strata.enable`).
-        strata = pkgs.callPackage ./packages/strata { strataSrc = forksStrata; };
+        # (packages/strata/home.nix, `strata.enable`). Built with the
+        # strata-vision image encoder, matching the module default.
+        strata = pkgs.callPackage ./packages/strata { strataSrc = forksStrata; vision = true; };
       };
 
       nixosConfigurations =
         let
-          # All hosts run the nixpkgs zen kernel (BORE-ish interactive tuning).
-          # Hydra builds it, so `nix flake update` is a download. The CachyOS LTO
-          # kernels were dropped: their cache lagged each pin and could trigger a
-          # multi-hour local LTO build. See git history to reintroduce.
+          # Default kernel: nixpkgs zen (BORE-ish interactive tuning); Hydra
+          # builds it, so `nix flake update` is a download. The CachyOS LTO
+          # kernels were dropped: their cache lagged each pin and could trigger
+          # a multi-hour local LTO build. See git history to reintroduce.
+          #
+          # NVIDIA caveat: linux_zen is on 7.2, whose DRM atomic-state rename
+          # (`drm_atomic_state` -> `drm_atomic_commit`) and strncpy removal are
+          # only handled by NVIDIA >= 595.99.02 (nixpkgs-unstable). Stable's
+          # 595.71.05 does not compile against 7.2, so the NVIDIA hosts (hera,
+          # p16) pin the desktop-tuned XanMod 6.18 LTS instead (see mkHost).
           #
           # Home-manager + shared-module wiring common to every host.
           commonModules = [
@@ -134,33 +141,46 @@
               # home modules; packages/strata/home.nix takes it as `strataSrc`.
               home-manager.extraSpecialArgs = { strataSrc = forksStrata; };
             }
-            # nixpkgs zen kernel on every host (see the note above).
-            ({ pkgs, ... }: {
-              boot.kernelPackages = pkgs.linuxKernel.packages.linux_zen;
-            })
           ];
 
           # One host: its configuration module + any host-only modules, on top
-          # of commonModules.
-          mkHost = configModule: extraModules:
+          # of commonModules. `kernelPackages` defaults to the nixpkgs zen
+          # kernel; the NVIDIA hosts override it to XanMod 6.18 LTS because the
+          # stable NVIDIA driver cannot build against zen's 7.2 (see above).
+          mkHost =
+            {
+              configModule,
+              extraModules ? [ ],
+              kernelPackages ? pkgs.linuxKernel.packages.linux_zen,
+            }:
             nixpkgs.lib.nixosSystem {
               system = "x86_64-linux";
               specialArgs = { inherit aiOverlay; };
-              modules = [ configModule ] ++ extraModules ++ commonModules;
+              modules = [ configModule ] ++ extraModules ++ commonModules ++ [
+                { boot.kernelPackages = kernelPackages; }
+              ];
             };
         in
         {
-          laptop-hera = mkHost ./hosts/laptop-hera/laptop-hera-configuration.nix [ ];
+          # GTX 1050 Ti (proprietary modules).
+          laptop-hera = mkHost {
+            configModule = ./hosts/laptop-hera/laptop-hera-configuration.nix;
+            kernelPackages = pkgs.linuxKernel.packages.linux_xanmod;
+          };
 
           # generic ThinkPad base; a model-specific module (e.g. thinkpad/p16s)
           # may be added once confirmed via dmidecode.
-          laptop-p16 = mkHost ./hosts/laptop-p16/laptop-p16-configuration.nix [
-            nixos-hardware.nixosModules.lenovo-thinkpad
-          ];
+          # RTX A3000 (open modules).
+          laptop-p16 = mkHost {
+            configModule = ./hosts/laptop-p16/laptop-p16-configuration.nix;
+            extraModules = [ nixos-hardware.nixosModules.lenovo-thinkpad ];
+            kernelPackages = pkgs.linuxKernel.packages.linux_xanmod;
+          };
 
-          laptop-xps = mkHost ./hosts/laptop-xps/laptop-xps-configuration.nix [
-            nixos-hardware.nixosModules.dell-xps-13-9360
-          ];
+          laptop-xps = mkHost {
+            configModule = ./hosts/laptop-xps/laptop-xps-configuration.nix;
+            extraModules = [ nixos-hardware.nixosModules.dell-xps-13-9360 ];
+          };
         };
     };
 }
