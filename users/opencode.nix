@@ -255,10 +255,11 @@ in
               # "strata"), so no key file is needed. Context is advisory (opencode
               # uses it for compaction thresholds) and must track the single
               # server context: packages/strata defaults to 524288 (yarn factor 2,
-              # 8-bit KV streamed from pinned RAM; see strata.context). Images are
-              # enabled in the strata package (vision = true, the strata-vision
-              # encoder), so both models accept attachments. reasoning=true: the
-              # model thinks before answering; tune via reasoning effort.
+              # 8-bit KV streamed from pinned RAM; see strata.context). Vision is
+              # OFF (vision = false): the strata-vision encoder drops throughput
+              # from ~35 to ~22 tok/s, so attachments are disabled on both models.
+              # reasoning=true: the model thinks before answering; tune via
+              # reasoning effort.
               strata-local = {
                 npm = "@ai-sdk/openai-compatible";
                 options = {
@@ -269,7 +270,7 @@ in
                   "qwen3.8-flash-next-125b" = {
                     name = "Strata Qwen3.8-Flash-Next 125B (local)";
                     reasoning = true;
-                    attachment = true;
+                    attachment = false;
                     limit = {
                       context = 524288;
                       output = 65536;
@@ -277,7 +278,7 @@ in
                   };
                   "swift-1.5-iq3_xxs" = {
                     name = "Strata swift 1.5 IQ3_XXS (local)";
-                    attachment = true;
+                    attachment = false;
                     limit = {
                       context = 524288;
                       output = 65536;
