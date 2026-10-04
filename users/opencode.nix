@@ -256,9 +256,9 @@ in
               # uses it for compaction thresholds) and must track the single
               # server context: packages/strata defaults to 524288 (yarn factor 2,
               # 8-bit KV streamed from pinned RAM; see strata.context). Images are
-              # not enabled in the strata package (vision = false), so no
-              # attachment flag. reasoning=true: the model thinks before
-              # answering; tune via reasoning effort.
+              # enabled in the strata package (vision = true, the strata-vision
+              # encoder), so both models accept attachments. reasoning=true: the
+              # model thinks before answering; tune via reasoning effort.
               strata-local = {
                 npm = "@ai-sdk/openai-compatible";
                 options = {
@@ -269,6 +269,7 @@ in
                   "qwen3.8-flash-next-125b" = {
                     name = "Strata Qwen3.8-Flash-Next 125B (local)";
                     reasoning = true;
+                    attachment = true;
                     limit = {
                       context = 524288;
                       output = 65536;
@@ -276,6 +277,7 @@ in
                   };
                   "swift-1.5-iq3_xxs" = {
                     name = "Strata swift 1.5 IQ3_XXS (local)";
+                    attachment = true;
                     limit = {
                       context = 524288;
                       output = 65536;

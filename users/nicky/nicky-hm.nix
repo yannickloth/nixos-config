@@ -118,6 +118,7 @@ in
   # enable stays gated on laptop-p16 (isP16).
   strata = lib.mkIf isP16 {
     enable = true;
+    vision = true;
     pcieFrac = 0.35;
     specMinP = 0.70;
     poolWorkers = 15;

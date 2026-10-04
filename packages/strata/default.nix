@@ -13,8 +13,10 @@
 # CUDA toolchain. The engine is linked against nixpkgs' CUDA libraries, so no
 # NVIDIA pip wheels are needed either.
 #
-# Images (the strata-vision encoder) are opt-in via the `vision` argument
-# (off by default: the encoder costs ~1.2 GB of VRAM and a few % of speed).
+# Images (the strata-vision encoder) are chosen by the `vision` argument; the
+# home-manager module (./home.nix) turns it on by default. The encoder costs
+# ~1.2 GB of VRAM and a few % of text speed, and setup downloads ~0.9 GB more
+# (the mmproj vision weights).
 # Runtime notes (laptop-p16, established 2026-09-27 - see also engine.nix):
 # - The wrapper and `strata-server` enforce a declarative engine policy on
 #   every config (the module options, see home.nix): --max-context (default
@@ -198,6 +200,12 @@ let
     inherit version;
     src = strataSrc;
     dontBuild = true;
+    # setup.py fingerprints a "source": "local" engine from the files it was
+    # compiled from (engine/BUILD.json src/vision_src) and rebuilds it when they
+    # do not match. The store-built engine has no source tree beside it, so
+    # `strata --setup` tried to recompile it from STRATA_HOME and died with
+    # "does not appear to contain CMakeLists.txt" (see the patch).
+    patches = [ ./setup-trust-nix-engine.patch ];
     installPhase = ''
       runHook preInstall
       mkdir -p $out/share/strata
