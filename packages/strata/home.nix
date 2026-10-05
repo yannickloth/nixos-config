@@ -16,8 +16,9 @@
 # fork's removed `--no-preload`): it holds no model until a request arrives, then
 # frees the ~55 GB of RAM and most of the 12 GB card again after
 # STRATA_IDLE_UNLOAD seconds (default 300) without a request, reloading on the
-# next one. With `vision` on (the default) the engine is preloaded instead:
-# `--lazy` is dropped so the image encoder is ready. Runs as a user service so
+# next one. With `vision` on the engine is preloaded instead:
+# `--lazy` is dropped so the image encoder is ready. Vision is off by default
+# (the encoder costs ~35 -> ~22 tok/s), so the server runs `--lazy`. Runs as a user service so
 # Studio can reach it whenever; Studio's own models keep the GPU the rest of the
 # time.
 { config, lib, pkgs, strataSrc, ... }:
@@ -44,14 +45,14 @@ in
 
     vision = mkOption {
       type = types.bool;
-      default = true;
+      default = false;
       description = ''
         Build and enable the strata-vision image encoder (`--vision gpu`), so
         the served model reads images (screenshots, photos, scanned pages) in
-        addition to text. Costs ~1.2 GB of VRAM for the encoder, a few % of
-        text speed, and a ~0.9 GB mmproj download on first setup. The wrapper
-        passes `--vision yes` to setup; `strata --setup --vision no` overrides
-        it for one run.
+        addition to text. Off by default: it drops throughput from ~35 to ~22
+        tok/s. Costs ~1.2 GB of VRAM for the encoder and a ~0.9 GB mmproj
+        download on first setup. The wrapper passes `--vision yes` to setup
+        when enabled; `strata --setup --vision no` overrides it for one run.
       '';
     };
 

@@ -125,7 +125,10 @@
 
     dynamicBoost.enable = false; # The NVIDIA GeForce GTX 1050 Ti does not have the Ampere (2020) architecture. # Whether to enable dynamic Boost balances power between the CPU and the GPU for improved performance on supported laptops using the nvidia-powerd daemon. For more information, see the NVIDIA docs, on Chapter 23. Dynamic Boost on Linux. https://download.nvidia.com/XFree86/Linux-x86_64/510.73.05/README/dynamicboost.html
 
-    gsp.enable = true; # Whether to enable the GPU System Processor (GSP) on the video card. The NVIDIA GPU System Processor (GSP) is a specialized co-processor embedded within certain NVIDIA GPUs. Its primary function is to offload tasks traditionally handled by the CPU, such as GPU initialization and management, directly onto the GPU. By handling low-level tasks, the GSP allows for more efficient communication between the CPU and GPU, which can be particularly beneficial in data-centric applications and gaming.
+    # GSP is Turing (2018)+ only; the GTX 1050 Ti is Pascal (2016) and has no GSP,
+    # so this must be false. (R595 dropped Pascal/Maxwell/Volta because its new
+    # open module requires GSP -- requesting it here asks the impossible.)
+    gsp.enable = false; # Whether to enable the GPU System Processor (GSP) on the video card. The NVIDIA GPU System Processor (GSP) is a specialized co-processor embedded within certain NVIDIA GPUs. Its primary function is to offload tasks traditionally handled by the CPU, such as GPU initialization and management, directly onto the GPU. By handling low-level tasks, the GSP allows for more efficient communication between the CPU and GPU, which can be particularly beneficial in data-centric applications and gaming.
 
     modesetting.enable = true; # Modesetting is required. # Whether to enable kernel modesetting when using the NVIDIA proprietary driver. Enabling this and using version 545 or newer of the proprietary NVIDIA driver causes it to provide its own framebuffer device, which can cause Wayland compositors to work when they otherwise wouldn’t.
 
@@ -141,8 +144,11 @@
     # Currently alpha-quality/buggy, so false is currently the recommended setting.
     open = false; # The NVIDIA GeForce GTX 1050 Ti does not have the Turing architecture (2018) or later. It has the Pascal architecture, from 2016.
 
-    # Optionally, you may need to select the appropriate driver version for your specific GPU.
-    package = config.boot.kernelPackages.nvidiaPackages.stable;
+    # The GTX 1050 Ti is Pascal. NVIDIA's 580 branch is the last to support
+    # Maxwell/Pascal/Volta (nixpkgs marks it `legacy_580`, LTSB until Aug 2028);
+    # nixpkgs `stable` is 595.x, which dropped these architectures because its
+    # open kernel module requires GSP, which Pascal lacks. Pin the legacy branch.
+    package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
 
     powerManagement.enable = false; # Nvidia power management. Experimental, and can cause sleep/suspend to fail.
 

@@ -102,9 +102,10 @@
         clm = pkgs.callPackage ./packages/clm { };
         # Strata (packages/strata): CUDA inference engine for the A3000
         # (sm_86) + runtime wrappers; consumed via home-manager
-        # (packages/strata/home.nix, `strata.enable`). Built with the
-        # strata-vision image encoder, matching the module default.
-        strata = pkgs.callPackage ./packages/strata { strataSrc = forksStrata; vision = true; };
+        # (packages/strata/home.nix, `strata.enable`). Built WITHOUT the
+        # strata-vision image encoder: image support drops throughput from
+        # ~35 to ~22 tok/s, so vision stays off.
+        strata = pkgs.callPackage ./packages/strata { strataSrc = forksStrata; vision = false; };
       };
 
       nixosConfigurations =

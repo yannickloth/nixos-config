@@ -133,6 +133,29 @@
 
   # Keybase not enabled: kbfs.enable and keybase.enable are intentionally left off.
 
+  # TEMPORARY recovery instance. The per-user syncthing was dropped when the
+  # family moved to the system-wide services/syncthing (commit 5b37c24); this
+  # re-enables it briefly to finish pushing aeiuno's pre-existing, possibly
+  # not-fully-synced tree (/home/aeiuno/syncthing or /data/aeiuno/syncthing) to
+  # the peers. It reuses the old ~/.config/syncthing (device identity, folders,
+  # index DB), hence overrideDevices/overrideFolders = false so the module does
+  # NOT wipe that config. Alternate ports let it coexist with the system
+  # service (8384/22000/21027); remove this whole block once caught up.
+  services.syncthing = {
+    enable = true;
+    guiAddress = "127.0.0.1:8385";
+    overrideDevices = false;
+    overrideFolders = false;
+    settings.options = {
+      listenAddresses = [
+        "tcp://0.0.0.0:22001"
+        "quic://0.0.0.0:22001"
+        "dynamic+https://relays.syncthing.net/endpoint"
+      ];
+      localAnnouncePort = 21028;
+    };
+  };
+
   xdg.configFile."user-dirs.dirs".force = true;
 
   xdg.userDirs = {

@@ -47,6 +47,33 @@ with lib;
   # Syncthing web-UI login username (the password comes from the agenix secret).
   services.syncthing.guiUser = "syncthing";
 
+  # The root volume has no room for the syncthing tree, so it lives on the
+  # second disk. Keep the canonical /sync path used by
+  # services/syncthing/default.nix identical on every host by making /sync a
+  # symlink to /data/syncthing here; only the backing store differs. The
+  # module's /sync tmpfiles/ACL rules and the ~/sync symlinks follow the
+  # symlink, so they need no changes. Re-asserted every activation (runs at
+  # boot too), and never removes a non-empty /sync — the one-time migration
+  # below must move the data first.
+  system.activationScripts.syncthing-hera-data = {
+    deps = [ "users" "groups" ];
+    text = ''
+      # Only act when the data disk is actually mounted; otherwise leave /sync
+      # alone rather than creating a stray dir on the root volume.
+      if mountpoint -q /data; then
+        mkdir -p /data/syncthing
+        chown syncthing:syncthing /data/syncthing
+        chmod 2770 /data/syncthing
+        if [ ! -L /sync ]; then
+          rmdir /sync 2>/dev/null || true
+          ln -sfn /data/syncthing /sync
+        fi
+      else
+        echo "syncthing-hera-data: /data not mounted; leaving /sync untouched" >&2
+      fi
+    '';
+  };
+
   # 64 GiB RAM -> run browser profiles in RAM.
   roles.psd.enable = true;
 

@@ -118,7 +118,9 @@ in
   # enable stays gated on laptop-p16 (isP16).
   strata = lib.mkIf isP16 {
     enable = true;
-    vision = true;
+    # Vision stays off: the strata-vision image encoder drops throughput from
+    # ~35 to ~22 tok/s.
+    vision = false;
     pcieFrac = 0.35;
     specMinP = 0.70;
     poolWorkers = 15;
