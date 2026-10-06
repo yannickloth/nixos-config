@@ -106,6 +106,11 @@
         # strata-vision image encoder: image support drops throughput from
         # ~35 to ~22 tok/s, so vision stays off.
         strata = pkgs.callPackage ./packages/strata { strataSrc = forksStrata; vision = false; };
+        # Orca (packages/orca): the released Electron AppImage wrapped as a
+        # normal derivation (appimageTools.wrapType2). Consumed via home-manager
+        # (packages/orca/home.nix) and also exposed here for `nix build .#orca`
+        # / `nix-update`.
+        orca = pkgs.callPackage ./packages/orca { };
       };
 
       nixosConfigurations =

@@ -69,10 +69,21 @@ in
     ../../packages/strata/home.nix
     ../natural-scroll.nix
     ../opencode.nix
+    ../../packages/orca/home.nix
   ];
 
   # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
   opencode.enable = true;
+
+  # Orca (agent development environment): the desktop client on every host, and
+  # on laptop-p16 the single always-on runtime server (`orca-ide serve`) that
+  # other clients pair to over Tailscale. Per-user: it runs as nicky, so the
+  # agent CLIs it drives use nicky's PATH and credentials.
+  orca.enable = true;
+  orca.server = lib.mkIf isP16 {
+    enable = true;
+    # No Tailscale address pinned: the launcher derives it at start.
+  };
 
   # Laya (System 1 decision engine) + its MCP server, from the reusable
   # packages/laya package/module. DISABLED 2026-09-28: laya is not in use, so

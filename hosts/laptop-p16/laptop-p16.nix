@@ -90,4 +90,9 @@ with lib;
   # system instance and systemd.user.extraConfig for the user instance.
   systemd.settings.Manager.DefaultLimitMEMLOCK = "infinity";
   systemd.user.extraConfig = "DefaultLimitMEMLOCK=infinity";
+
+  # nicky's always-on Orca runtime server (packages/orca/home.nix,
+  # orca.server.enable) must survive logout, which needs lingering. The
+  # standalone CachyOS deployment enables this in activation instead.
+  users.users.nicky.linger = true;
 }
