@@ -69,6 +69,7 @@ in
     ../../packages/strata/home.nix
     ../natural-scroll.nix
     ../opencode.nix
+    ../hyprland.nix
     ../../packages/orca/home.nix
   ];
 
@@ -141,6 +142,12 @@ in
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
+
+  # Omarchy-style Hyprland session (users/hyprland.nix). The adults get the
+  # full config; the session itself is registered system-wide in
+  # desktop/hyprland.nix, so Plasma stays the default at the login screen.
+  hyprland.enable = true;
+  hyprland.omarchy = true;
 
   # Home Manager needs a bit of information about you and the paths it should
   # manage.

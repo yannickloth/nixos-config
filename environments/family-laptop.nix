@@ -33,6 +33,7 @@
 
     # Desktop / display / audio.
     ../desktop/console.nix
+    ../desktop/hyprland.nix
     ../desktop/pipewire.nix
     ../desktop/xserver.nix
     ../desktop/xwayland.nix

@@ -6,7 +6,12 @@
     ../emacs-kid.nix
     ../kid-firefox-policies.nix
     ../natural-scroll.nix
+    ../hyprland.nix
   ];
+
+  # Base Omarchy-style Hyprland session (users/hyprland.nix); the session is
+  # registered system-wide in desktop/hyprland.nix. Plasma stays the default.
+  hyprland.enable = true;
 
   home = {
     username = "aaron";
