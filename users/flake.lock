@@ -46,11 +46,11 @@
     "forksStrata": {
       "flake": false,
       "locked": {
-        "lastModified": 1791030344,
-        "narHash": "sha256-nZVj1Dy9gYM/Av2FrpCPwNjqZIqJi9yM0DmeJ/c6nss=",
+        "lastModified": 1791311835,
+        "narHash": "sha256-eKQwCQVO8+jvevJ0dSqloKpSwgpiiBm9dF16/OR/pZo=",
         "ref": "refs/heads/perf/iq-gateup",
-        "rev": "f9371cfd98a1ecaaf6cdbed6f63ff4dec8f15ec7",
-        "revCount": 638,
+        "rev": "b257a94c3e5c6e2bef5c418a23127348ba159dfc",
+        "revCount": 1160,
         "type": "git",
         "url": "ssh://git@github.com/yannickloth/forks-Strata.git"
       },

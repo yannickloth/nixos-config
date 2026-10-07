@@ -14,15 +14,15 @@
     # committed; private keys stay in the gitignored age-keys/ and on each host.
     agenix.url = "github:ryantm/agenix";
     # Strata fork (github.com/yannickloth/forks-Strata), branch perf/iq-gateup:
-    # perf/am47 (upstream 0.1.38 99f3dbd - the latest release - plus the
-    # native-embedding error report and the A3000 bench harness) with the AVX2
-    # IQ3 codebook gather on top (`STRATA_IQ256_GATHER`, upstream PR #622),
-    # which packages/strata enables by default. A flake input (rather than an
-    # inline builtins.fetchGit rev) so `nix flake update forksStrata` moves it
-    # to the branch head; flake.lock pins the exact rev between updates. The
-    # repo ships no flake.nix, so it is consumed as a plain source
-    # (`flake = false`). Private repo: fetched over ssh with the invoking user's
-    # key. Passed to packages/strata as `strataSrc`.
+    # upstream 0.1.40.1 (82f46a8) plus the sm_86 work - the native-embedding
+    # error report (the real cudaError) and the A3000 bench harness. (The AVX2
+    # IQ3 codebook gather it used to carry, `STRATA_IQ256_GATHER`, upstream PR
+    # #622, is upstream as of 0.1.40; packages/strata still enables it by
+    # default.) A flake input (rather than an inline builtins.fetchGit rev) so
+    # `nix flake update forksStrata` moves it to the branch head; flake.lock
+    # pins the exact rev between updates. The repo ships no flake.nix, so it is
+    # consumed as a plain source (`flake = false`). Private repo: fetched over
+    # ssh with the invoking user's key. Passed to packages/strata as `strataSrc`.
     forksStrata.url = "git+ssh://git@github.com/yannickloth/forks-Strata.git?ref=refs/heads/perf/iq-gateup";
     forksStrata.flake = false;
     # hermes-agent packaging (packages/hermes-agent): builds the upstream

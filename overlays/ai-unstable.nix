@@ -35,6 +35,30 @@ final: prev: {
   # wrapped as a normal derivation in packages/orca. Exposed here so the adults
   # (nicky, aeiuno) get `pkgs.orca` on every host.
   orca = unstablePkgs.callPackage ../packages/orca { };
-  jetbrains-toolbox = unstablePkgs.jetbrains-toolbox;
+  # JetBrains moved the Toolbox tarball from download-cdn.jetbrains.com to
+  # download.jetbrains.com (2026-10); nixpkgs-unstable still fetches the dead
+  # CDN host, so the fixed-output source derivation 404s and the whole switch
+  # fails. The same version still 200s at the new host with byte-identical
+  # contents (same output hash), so re-point the source — and the runScript /
+  # install commands, which embed its store path — at the working host. Drop
+  # this override once nixpkgs updates the URL upstream.
+  jetbrains-toolbox =
+    let
+      fixedSrc = unstablePkgs.fetchzip {
+        url = "https://download.jetbrains.com/toolbox/jetbrains-toolbox-3.8.1.88030.tar.gz";
+        hash = "sha256-OsuSgC22E2hurQCEnev8GA8hQWLaxg6hclPYHm8crWc=";
+      };
+      base = unstablePkgs.jetbrains-toolbox;
+    in
+    base.overrideAttrs (old: {
+      runScript = "${fixedSrc}/bin/jetbrains-toolbox --update-failed";
+      extraInstallCommands = ''
+        install -Dm0644 ${fixedSrc}/bin/jetbrains-toolbox.desktop -t $out/share/applications
+        install -Dm0644 ${fixedSrc}/bin/toolbox-tray-color.png -t $out/share/icons/hicolor/32x32/apps/jetbrains-toolbox.png
+      '';
+      passthru = (old.passthru or { }) // {
+        src = fixedSrc;
+      };
+    });
   vscode = unstablePkgs.vscode;
 }

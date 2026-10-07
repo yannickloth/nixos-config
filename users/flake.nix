@@ -17,12 +17,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     agenix.url = "github:ryantm/agenix";
-    # Strata fork source (same as the root flake's `forksStrata`): perf/am47
-    # (upstream 0.1.38 + the sm_86 work) plus the AVX2 IQ3 codebook gather
-    # (`STRATA_IQ256_GATHER`, upstream PR #622), which packages/strata enables.
-    # Tracked so `nix flake update forksStrata` moves it; the lock pins the rev
-    # between updates. Private repo, fetched over ssh; flake = false (the repo
-    # ships no flake.nix).
+    # Strata fork source (same as the root flake's `forksStrata`): upstream
+    # 0.1.40.1 plus the sm_86 work (native-embedding error report, A3000 bench
+    # harness). Tracked so `nix flake update forksStrata` moves it; the lock
+    # pins the rev between updates. Private repo, fetched over ssh; flake =
+    # false (the repo ships no flake.nix).
     forksStrata.url = "git+ssh://git@github.com/yannickloth/forks-Strata.git?ref=refs/heads/perf/iq-gateup";
     forksStrata.flake = false;
     # Same hermes-agent packaging inputs as the root flake (see

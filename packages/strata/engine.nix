@@ -63,10 +63,11 @@
 # The native-embedding error report (the real cudaError instead of upstream's
 # bare "cannot pin N MiB") and the bench harness live in the fork
 # (github.com/yannickloth/forks-Strata, branch perf/iq-gateup), not as patches
-# here; that branch also carries the AVX2 IQ3 codebook gather
-# (STRATA_IQ256_GATHER, upstream PR #622; see packages/strata/default.nix). The
-# engine-lifecycle API this comment used to mention is upstream as of 0.1.31
-# (--idle-unload); upstream main is 0.1.38.
+# here. The AVX2 IQ3 codebook gather that branch used to carry
+# (STRATA_IQ256_GATHER, upstream PR #622) is upstream as of 0.1.40, behind
+# per-thread selection (see packages/strata/default.nix). The engine-lifecycle
+# API this comment used to mention is upstream as of 0.1.31 (--idle-unload);
+# upstream main is 0.1.40.1.
 {
   lib,
   stdenv,
@@ -85,8 +86,8 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "99f3dbd0b21d1401b3769e0c0d963913607f380b";  # 0.1.38 (main)
-    hash = "sha256-9tawklXlF98yolRTVgeonVcyrob8HiNG3xSQ7V5v+94=";
+    rev = "82f46a8c8f475f001ad76d92f58f4a4f8ffb0253";  # v0.1.40.1 (main)
+    hash = "sha256-y+0Qn2KhyVFfQrZi1L9BzR7iqQoRHjkXO9W48VJO2QQ=";
   },
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -98,7 +99,7 @@
 }:
 
 let
-  version = "0.1.38";
+  version = "0.1.40";
 
   meta = with lib; {
     description =
