@@ -95,4 +95,13 @@ with lib;
   # orca.server.enable) must survive logout, which needs lingering. The
   # standalone CachyOS deployment enables this in activation instead.
   users.users.nicky.linger = true;
+
+  # The Orca runtime server listens on TCP 6768 and is meant to be reached only
+  # by Tailscale peers (other laptops pair to it over the mesh), same CGNAT gate
+  # as nix-serve in environments/laptop-firewall.nix. Kept in the host rather
+  # than the HM module because orca.server is a home-manager option and cannot
+  # touch networking.firewall.
+  networking.firewall.extraInputRules = ''
+    tcp dport 6768 ip saddr 100.64.0.0/10 accept
+  '';
 }
