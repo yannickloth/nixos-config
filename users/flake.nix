@@ -17,13 +17,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     agenix.url = "github:ryantm/agenix";
-    # Strata fork source (same as the root flake's `forksStrata`): upstream
-    # 0.1.40.1 plus the sm_86 work (native-embedding error report, A3000 bench
-    # harness). Tracked so `nix flake update forksStrata` moves it; the lock
-    # pins the rev between updates. Private repo, fetched over ssh; flake =
-    # false (the repo ships no flake.nix).
-    forksStrata.url = "git+ssh://git@github.com/yannickloth/forks-Strata.git?ref=refs/heads/perf/iq-gateup";
-    forksStrata.flake = false;
+    # Strata (github.com/Niko1221/Strata) is not a flake input: packages/strata
+    # fetches it directly with fetchFromGitHub, pinned to v0.1.40.3.
     # Same hermes-agent packaging inputs as the root flake (see
     # packages/hermes-agent).
     pyproject-nix.url = "github:nix-community/pyproject.nix";
@@ -36,7 +31,7 @@
     uv2nix.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = { nixpkgs, nixpkgs-unstable, home-manager, agenix, uv2nix, pyproject-nix, pyproject-build-systems, forksStrata, ... }:
+  outputs = { nixpkgs, nixpkgs-unstable, home-manager, agenix, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
     let
       system = "x86_64-linux";
       stablePkgs = import nixpkgs {
@@ -61,9 +56,6 @@
       # does not exist in standalone home-manager). See nicky-hm.nix isP16.
       mkHome = user: hostName: userPkgs: home-manager.lib.homeManagerConfiguration {
         pkgs = userPkgs;
-        # The Strata fork source (packages/strata/home.nix takes it as
-        # `strataSrc`); same value the root flake passes via extraSpecialArgs.
-        extraSpecialArgs = { strataSrc = forksStrata; };
         modules = [
           agenix.homeManagerModules.default
           ./${user}/${user}-hm.nix

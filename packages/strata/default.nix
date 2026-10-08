@@ -59,10 +59,10 @@
   , kv ? "int8"
   , kvResident ? 32768
   , ropeScaling ? "yarn"
-  # Measured hardware tuning from tools/calibrate.py (see the bench/results
-  # entry for this host in the fork). null leaves the engine's own default: the
-  # PCIe probe for --pcie-frac, 0.5 for --spec-min-p, and every physical core
-  # minus the host's for --pool-workers.
+  # Measured hardware tuning from tools/calibrate.py (see the A3000 bench
+  # harness in the yannickloth/forks-Strata repo). null leaves the engine's own
+  # default: the PCIe probe for --pcie-frac, 0.5 for --spec-min-p, and every
+  # physical core minus the host's for --pool-workers.
   , pcieFrac ? null
   , specMinP ? null
   , poolWorkers ? null
@@ -71,18 +71,19 @@
   # Lower learns a conversation's hot experts faster (a cold-start win, P8);
   # null leaves the engine's default.
   , adaptEvery ? null
-  # Source: the `forksStrata` flake input (github.com/yannickloth/forks-Strata,
-  # branch perf/iq-gateup) - upstream 0.1.40.1 (82f46a8) plus the sm_86 work:
-  # the native-embedding error report (the real cudaError) and the A3000 bench
-  # harness. (The AVX2 IQ3 codebook gather this branch used to carry is upstream
-  # as of 0.1.40, `STRATA_IQ256_GATHER`, upstream PR #622; the Q4_K/Q5_K/Q5_1
-  # MMQ instances it used to carry are upstream as of 0.1.32, behind
-  # STRATA_MMQ_KQUANTS.) Passed in from flake.nix and home.nix; `nix flake
-  # update forksStrata` moves it to the branch head. The private repo is fetched
-  # over ssh with the invoking user's key - a fetchFromGitHub/fetchgit
-  # derivation cannot authenticate to it (the nix daemon runs as root without
-  # that key), which is why it is a flake input, not a fetcher derivation.
-  , strataSrc
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.40.3 (d5ea713).
+  # The AVX2 IQ3 codebook gather (`STRATA_IQ256_GATHER`, upstream PR #622) is
+  # upstream as of 0.1.40 and still enabled by default below; the native-
+  # embedding cudaHostAlloc error report is upstream as of 0.1.40.3. (This used
+  # to build the private yannickloth/forks-Strata fork's sm_86 branch; upstream
+  # 0.1.40.3 carries every engine change it had.) Overridable for a local test
+  # build; callers normally leave it at the default.
+  , strataSrc ? fetchFromGitHub {
+    owner = "Niko1221";
+    repo = "Strata";
+    rev = "d5ea7133741e67743c0e886bb426c0ce8d69cf6c";  # v0.1.40.3 (main)
+    hash = "sha256-DWjDxgvIkwNDGyl+bN/UOoAtPtKtveVQVTcNaOVvTOk=";
+  }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
     repo = "llama.cpp";
@@ -93,7 +94,7 @@
 }:
 
 let
-  version = "0.1.40";
+  version = "0.1.40.3";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
