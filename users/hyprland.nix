@@ -16,6 +16,12 @@ let
 
   mod = "SUPER";
 
+  # The running compositor's own hyprctl must be used; calling another
+  # version's binary over IPC is fragile. On NixOS that is the system
+  # programs.hyprland build; on CachyOS it is the pacman one, which is on PATH
+  # (home-manager no longer installs Hyprland there, see `package` below).
+  hyprctl = if config.commonHm.isCachyOS then "hyprctl" else "${pkgs.hyprland}/bin/hyprctl";
+
   # Hyprspace (workspace overview) is a native Hyprland plugin, so it must be
   # built against the exact Hyprland it loads into. On NixOS that is the same
   # nixpkgs Hyprland that provides the session, so it works. On CachyOS the
@@ -90,10 +96,10 @@ let
   '';
 
   # Regenerate themes from a wallpaper (default: the bundled one) into
-  # colors.json (Quickshell) and hypr-colors.conf (Hyprland). Falls back to a
+  # colors.json (Quickshell) and hypr-colors.lua (Hyprland). Falls back to a
   # Catppuccin palette if matugen/jq yield nothing, so a bad run never leaves
   # the desktop unstyled.
-  theme = pkgs.writeShellScript "omarchy-theme" ''
+  theme = pkgs.writeShellScriptBin "omarchy-theme" ''
     set -eu
     wall="''${1:-${defaultWallpaper}/wallpaper.png}"
     dir="''${XDG_CONFIG_HOME:-$HOME/.config}/omarchy"
@@ -130,9 +136,8 @@ let
     }
     EOF
 
-    cat > "$dir/hypr-colors.conf" <<EOF
-    \$accent = $(hexff "$accent")
-    \$inactive = rgba(595959aa)
+    cat > "$dir/hypr-colors.lua" <<EOF
+    return { accent = "$(hexff "$accent")", inactive = "rgba(595959aa)" }
     EOF
 
     if ${pkgs.procps}/bin/pgrep -x Hyprland >/dev/null 2>&1; then
@@ -141,78 +146,116 @@ let
   '';
 
   # Window/workspace management, modelled on Omarchy's defaults.
+  # --- Lua config helpers ---------------------------------------------------
+  # home-manager's Lua generator (configType = "lua") turns each attribute of
+  # `settings` into an `hl.<attr>(...)` call. Dispatchers are opaque objects
+  # (hl.dsp.*) that cannot be built from Nix data, so they are emitted verbatim
+  # with lib.generators.mkLuaInline.
+  lua = lib.generators.mkLuaInline;
+
+  # hl.bind("<keys>", <dispatcher>[, <opts>]).
+  luaBind = keys: dispatcher: opts: {
+    _args = [ keys (lua dispatcher) ] ++ lib.optional (opts != null) opts;
+  };
+  # A `exec` bind (the common case): hl.dsp.exec_cmd("<cmd>").
+  execBind = keys: cmd: luaBind keys "hl.dsp.exec_cmd(${builtins.toJSON cmd})" null;
+
+  # Runtime matugen palette (see omarchy-theme). pcall + Catppuccin fallback so
+  # a missing or partial hypr-colors.lua never breaks config parsing.
+  themeColors = "${config.xdg.configHome}/omarchy/hypr-colors.lua";
+  color = key: fallback: lua ''
+    (function()
+      local ok, c = pcall(dofile, "${themeColors}")
+      if ok and type(c) == "table" and c.${key} then return c.${key} end
+      return "${fallback}"
+    end)()
+  '';
+  colors = {
+    accent = color "accent" "rgba(89b4faff)";
+    inactive = color "inactive" "rgba(595959aa)";
+  };
+
+  # Window/workspace management, modelled on Omarchy's defaults.
   coreBinds = [
-    "${mod}, RETURN, exec, ${pkgs.alacritty}/bin/alacritty"
-    "${mod}, Q, killactive, "
-    "${mod}, W, killactive, "
-    "${mod}, F, fullscreen, 0"
-    "${mod} CTRL, F, fullscreen, 1"
-    "${mod}, T, togglefloating, "
-    "${mod}, P, pseudo, "
-    "${mod}, J, layoutmsg, togglesplit"
-    "${mod}, M, exit, "
+    (execBind "${mod} + RETURN" "${pkgs.alacritty}/bin/alacritty")
+    (luaBind "${mod} + Q" "hl.dsp.window.close()" null)
+    (luaBind "${mod} + W" "hl.dsp.window.close()" null)
+    (luaBind "${mod} + F" "hl.dsp.window.fullscreen({ mode = 0 })" null)
+    (luaBind "${mod} + CTRL + F" "hl.dsp.window.fullscreen({ mode = 1 })" null)
+    (luaBind "${mod} + T" "hl.dsp.window.float({ action = 'toggle' })" null)
+    (luaBind "${mod} + P" "hl.dsp.window.pseudo()" null)
+    (luaBind "${mod} + J" "hl.dsp.layout('togglesplit')" null)
+    (luaBind "${mod} + M" "hl.dsp.exit()" null)
 
-    "${mod}, left, movefocus, l"
-    "${mod}, right, movefocus, r"
-    "${mod}, up, movefocus, u"
-    "${mod}, down, movefocus, d"
-    "${mod} SHIFT, left, swapwindow, l"
-    "${mod} SHIFT, right, swapwindow, r"
-    "${mod} SHIFT, up, swapwindow, u"
-    "${mod} SHIFT, down, swapwindow, d"
+    (luaBind "${mod} + left" "hl.dsp.focus({ direction = 'l' })" null)
+    (luaBind "${mod} + right" "hl.dsp.focus({ direction = 'r' })" null)
+    (luaBind "${mod} + up" "hl.dsp.focus({ direction = 'u' })" null)
+    (luaBind "${mod} + down" "hl.dsp.focus({ direction = 'd' })" null)
+    (luaBind "${mod} + SHIFT + left" "hl.dsp.window.swap({ direction = 'l' })" null)
+    (luaBind "${mod} + SHIFT + right" "hl.dsp.window.swap({ direction = 'r' })" null)
+    (luaBind "${mod} + SHIFT + up" "hl.dsp.window.swap({ direction = 'u' })" null)
+    (luaBind "${mod} + SHIFT + down" "hl.dsp.window.swap({ direction = 'd' })" null)
 
-    "${mod} CTRL, left, resizeactive, -100 0"
-    "${mod} CTRL, right, resizeactive, 100 0"
-    "${mod} CTRL, up, resizeactive, 0 -100"
-    "${mod} CTRL, down, resizeactive, 0 100"
-    "${mod} ALT, left, resizeactive, -25 0"
-    "${mod} ALT, right, resizeactive, 25 0"
-    "${mod} ALT, up, resizeactive, 0 -25"
-    "${mod} ALT, down, resizeactive, 0 25"
+    (luaBind "${mod} + CTRL + left" "hl.dsp.window.resize({ x = -100, y = 0, relative = true })" null)
+    (luaBind "${mod} + CTRL + right" "hl.dsp.window.resize({ x = 100, y = 0, relative = true })" null)
+    (luaBind "${mod} + CTRL + up" "hl.dsp.window.resize({ x = 0, y = -100, relative = true })" null)
+    (luaBind "${mod} + CTRL + down" "hl.dsp.window.resize({ x = 0, y = 100, relative = true })" null)
+    (luaBind "${mod} + ALT + left" "hl.dsp.window.resize({ x = -25, y = 0, relative = true })" null)
+    (luaBind "${mod} + ALT + right" "hl.dsp.window.resize({ x = 25, y = 0, relative = true })" null)
+    (luaBind "${mod} + ALT + up" "hl.dsp.window.resize({ x = 0, y = -25, relative = true })" null)
+    (luaBind "${mod} + ALT + down" "hl.dsp.window.resize({ x = 0, y = 25, relative = true })" null)
 
-    "${mod}, S, togglespecialworkspace, scratchpad"
-    "${mod} SHIFT, S, movetoworkspacesilent, special:scratchpad"
-    "${mod}, TAB, workspace, e+1"
-    "${mod} SHIFT, TAB, workspace, e-1"
-    "${mod} CTRL, TAB, workspace, previous"
+    (luaBind "${mod} + S" "hl.dsp.workspace.toggle_special('scratchpad')" null)
+    (luaBind "${mod} + SHIFT + S" "hl.dsp.window.move({ workspace = 'special:scratchpad' })" null)
+    (luaBind "${mod} + TAB" "hl.dsp.focus({ workspace = 'e+1' })" null)
+    (luaBind "${mod} + SHIFT + TAB" "hl.dsp.focus({ workspace = 'e-1' })" null)
+    (luaBind "${mod} + CTRL + TAB" "hl.dsp.focus({ workspace = 'previous' })" null)
   ]
   # SUPER + 1..0 -> switch workspace; SUPER + SHIFT + 1..0 -> move window there.
   ++ (lib.concatMap
     (n: [
-      "${mod}, ${toString (lib.mod n 10)}, workspace, ${toString n}"
-      "${mod} SHIFT, ${toString (lib.mod n 10)}, movetoworkspace, ${toString n}"
+      (luaBind "${mod} + ${toString (lib.mod n 10)}" "hl.dsp.focus({ workspace = ${toString n} })" null)
+      (luaBind "${mod} + SHIFT + ${toString (lib.mod n 10)}" "hl.dsp.window.move({ workspace = ${toString n} })" null)
     ])
     (lib.range 1 10));
+
+  # Mouse move/resize binds; `{ mouse = true }` marks the bind as a mouse bind.
+  mouseBinds = [
+    (luaBind "${mod} + mouse:272" "hl.dsp.window.drag()" { mouse = true; })
+    (luaBind "${mod} + mouse:273" "hl.dsp.window.resize()" { mouse = true; })
+  ];
 
   # Hardware/media keys (no modifier). With the Omarchy profile these go
   # through swayosd-client so volume/brightness show Omarchy's on-screen
   # display; the base profile uses wpctl/brightnessctl (no OSD).
   mediaBinds =
     if cfg.omarchy then [
-      ", XF86AudioRaiseVolume, exec, ${pkgs.swayosd}/bin/swayosd-client --output-volume raise"
-      ", XF86AudioLowerVolume, exec, ${pkgs.swayosd}/bin/swayosd-client --output-volume lower"
-      ", XF86AudioMute, exec, ${pkgs.swayosd}/bin/swayosd-client --output-volume mute-toggle"
-      ", XF86AudioMicMute, exec, ${pkgs.swayosd}/bin/swayosd-client --input-volume mute-toggle"
-      ", XF86MonBrightnessUp, exec, ${pkgs.swayosd}/bin/swayosd-client --brightness raise"
-      ", XF86MonBrightnessDown, exec, ${pkgs.swayosd}/bin/swayosd-client --brightness lower"
-      ", XF86AudioPlay, exec, ${pkgs.playerctl}/bin/playerctl play-pause"
-      ", XF86AudioNext, exec, ${pkgs.playerctl}/bin/playerctl next"
-      ", XF86AudioPrev, exec, ${pkgs.playerctl}/bin/playerctl previous"
+      (execBind "XF86AudioRaiseVolume" "${pkgs.swayosd}/bin/swayosd-client --output-volume raise")
+      (execBind "XF86AudioLowerVolume" "${pkgs.swayosd}/bin/swayosd-client --output-volume lower")
+      (execBind "XF86AudioMute" "${pkgs.swayosd}/bin/swayosd-client --output-volume mute-toggle")
+      (execBind "XF86AudioMicMute" "${pkgs.swayosd}/bin/swayosd-client --input-volume mute-toggle")
+      (execBind "XF86MonBrightnessUp" "${pkgs.swayosd}/bin/swayosd-client --brightness raise")
+      (execBind "XF86MonBrightnessDown" "${pkgs.swayosd}/bin/swayosd-client --brightness lower")
+      (execBind "XF86AudioPlay" "${pkgs.playerctl}/bin/playerctl play-pause")
+      (execBind "XF86AudioNext" "${pkgs.playerctl}/bin/playerctl next")
+      (execBind "XF86AudioPrev" "${pkgs.playerctl}/bin/playerctl previous")
     ] else [
-      ", XF86AudioRaiseVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"
-      ", XF86AudioLowerVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
-      ", XF86AudioMute, exec, ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
-      ", XF86AudioMicMute, exec, ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
-      ", XF86AudioPlay, exec, ${pkgs.playerctl}/bin/playerctl play-pause"
-      ", XF86AudioNext, exec, ${pkgs.playerctl}/bin/playerctl next"
-      ", XF86AudioPrev, exec, ${pkgs.playerctl}/bin/playerctl previous"
-      ", XF86MonBrightnessUp, exec, ${pkgs.brightnessctl}/bin/brightnessctl set 5%+"
-      ", XF86MonBrightnessDown, exec, ${pkgs.brightnessctl}/bin/brightnessctl set 5%-"
+      (execBind "XF86AudioRaiseVolume" "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+")
+      (execBind "XF86AudioLowerVolume" "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-")
+      (execBind "XF86AudioMute" "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle")
+      (execBind "XF86AudioMicMute" "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle")
+      (execBind "XF86AudioPlay" "${pkgs.playerctl}/bin/playerctl play-pause")
+      (execBind "XF86AudioNext" "${pkgs.playerctl}/bin/playerctl next")
+      (execBind "XF86AudioPrev" "${pkgs.playerctl}/bin/playerctl previous")
+      (execBind "XF86MonBrightnessUp" "${pkgs.brightnessctl}/bin/brightnessctl set 5%+")
+      (execBind "XF86MonBrightnessDown" "${pkgs.brightnessctl}/bin/brightnessctl set 5%-")
     ];
 
   # Overview (GNOME Activities equivalent), only where the plugin can load.
+  # hyprspace registers a dispatcher, invoked here through hyprctl so the bind
+  # works regardless of the Lua plugin-dispatcher API.
   overviewBinds = [
-    "${mod}, grave, overview:toggle"
+    (execBind "${mod} + grave" "${hyprctl} dispatch overview:toggle")
   ];
 
   # Omarchy extras: launcher, app launchers, screenshots, clipboard, lock,
@@ -220,31 +263,31 @@ let
   # the utilities. Apps go through xdg-open so they work regardless of which
   # browser/editor a user has.
   omarchyBinds = [
-    "${mod}, SPACE, exec, ${pkgs.walker}/bin/walker"
-    "${mod} SHIFT, RETURN, exec, xdg-open https://"
-    "${mod} SHIFT, B, exec, xdg-open https://"
-    "${mod} SHIFT, F, exec, xdg-open ~"
-    "${mod} SHIFT, N, exec, xdg-open ."
-    ", PRINT, exec, ${screenshotOutput}"
-    "${mod}, PRINT, exec, ${pkgs.hyprpicker}/bin/hyprpicker -a"
-    "${mod} SHIFT, PRINT, exec, ${screenshotRegion}"
-    "${mod} ALT, PRINT, exec, ${screenrecord}"
-    "${mod} CTRL, V, exec, ${pkgs.cliphist}/bin/cliphist list | ${pkgs.fuzzel}/bin/fuzzel --dmenu | ${pkgs.cliphist}/bin/cliphist decode | ${pkgs.wl-clipboard}/bin/wl-copy"
-    "${mod} CTRL, L, exec, ${pkgs.hyprlock}/bin/hyprlock"
+    (execBind "${mod} + SPACE" "${pkgs.walker}/bin/walker")
+    (execBind "${mod} + SHIFT + RETURN" "xdg-open https://")
+    (execBind "${mod} + SHIFT + B" "xdg-open https://")
+    (execBind "${mod} + SHIFT + F" "xdg-open ~")
+    (execBind "${mod} + SHIFT + N" "xdg-open .")
+    (execBind "PRINT" "${screenshotOutput}")
+    (execBind "${mod} + PRINT" "${pkgs.hyprpicker}/bin/hyprpicker -a")
+    (execBind "${mod} + SHIFT + PRINT" "${screenshotRegion}")
+    (execBind "${mod} + ALT + PRINT" "${screenrecord}")
+    (execBind "${mod} + CTRL + V" "${pkgs.cliphist}/bin/cliphist list | ${pkgs.fuzzel}/bin/fuzzel --dmenu | ${pkgs.cliphist}/bin/cliphist decode | ${pkgs.wl-clipboard}/bin/wl-copy")
+    (execBind "${mod} + CTRL + L" "${pkgs.hyprlock}/bin/hyprlock")
     # Night light: gammastep runs on a schedule; SIGUSR1 toggles it.
-    "${mod} CTRL, N, exec, ${pkgs.procps}/bin/pkill -USR1 gammastep"
+    (execBind "${mod} + CTRL + N" "${pkgs.procps}/bin/pkill -USR1 gammastep")
     # Display arrangement (like Plasma's display settings) and keybindings help.
-    "${mod} CTRL, D, exec, ${pkgs.nwg-displays}/bin/nwg-displays"
-    "${mod}, K, exec, ${keybindings}"
+    (execBind "${mod} + CTRL + D" "${pkgs.nwg-displays}/bin/nwg-displays")
+    (execBind "${mod} + K" "${keybindings}")
     # OCR a screen region to the clipboard.
-    "${mod} CTRL, PRINT, exec, ${screenocr}"
+    (execBind "${mod} + CTRL + PRINT" "${screenocr}")
     # Emoji picker and calculator.
-    "${mod} CTRL, E, exec, ${pkgs.rofimoji}/bin/rofimoji --selector fuzzel --clipboard"
-    "${mod} CTRL, Q, exec, ${pkgs.qalculate-qt}/bin/qalculate-qt"
+    (execBind "${mod} + CTRL + E" "${pkgs.rofimoji}/bin/rofimoji --selector fuzzel --clipboard")
+    (execBind "${mod} + CTRL + Q" "${pkgs.qalculate-qt}/bin/qalculate-qt")
     # Notifications / Do Not Disturb, matching Omarchy's SUPER+, binds.
-    "${mod}, comma, exec, ${pkgs.mako}/bin/makoctl dismiss"
-    "${mod} SHIFT, comma, exec, ${pkgs.mako}/bin/makoctl dismiss --all"
-    "${mod} CTRL, comma, exec, ${pkgs.mako}/bin/makoctl mode -t do-not-disturb"
+    (execBind "${mod} + comma" "${pkgs.mako}/bin/makoctl dismiss")
+    (execBind "${mod} + SHIFT + comma" "${pkgs.mako}/bin/makoctl dismiss --all")
+    (execBind "${mod} + CTRL + comma" "${pkgs.mako}/bin/makoctl mode -t do-not-disturb")
   ];
 in
 {
@@ -265,228 +308,245 @@ in
   config = lib.mkIf cfg.enable {
     wayland.windowManager.hyprland = {
       enable = true;
-      # The settings below are written in the classic hyprlang syntax, so pin
-      # the generator to it (newer home-manager defaults to the Lua config).
-      configType = "hyprlang";
-      # On NixOS the compositor comes from programs.hyprland (desktop/hyprland.nix);
-      # on CachyOS there is no NixOS layer, so home-manager provides the binary.
-      package = lib.mkIf (!config.commonHm.isCachyOS) null;
+      # Lua is the current Hyprland config format (hyprlang is deprecated since
+      # 0.55); home-manager generates $XDG_CONFIG_HOME/hypr/hyprland.lua.
+      configType = "lua";
+      # The compositor is always installed by the system, never by home-manager:
+      # on NixOS by programs.hyprland (desktop/hyprland.nix), on CachyOS by the
+      # pacman `hyprland` package (which also drops the SDDM session entry into
+      # /usr/share/wayland-sessions). Home Manager only writes the config here,
+      # so it must not pull in a second Hyprland from the Nix profile.
+      package = null;
+      # Same reasoning for the portal: on CachyOS the pacman
+      # xdg-desktop-portal-hyprland is built against the same compositor, so
+      # home-manager must not install the nixpkgs one alongside it (nor point
+      # xdg-desktop-portal at the Nix profile). On NixOS home-manager's portal
+      # is used as before.
+      portalPackage = lib.mkIf config.commonHm.isCachyOS null;
       systemd.enable = true;
 
       # Hyprspace workspace overview (SUPER+`), where the plugin ABI matches.
       plugins = lib.optionals hasOverview [ pkgs.hyprlandPlugins.hyprspace ];
 
       settings = {
-        # $mod is the Omarchy SUPER key.
-        "$mod" = mod;
-
-        # Generated by the omarchy-theme activation from the wallpaper; defines
-        # $accent / $inactive. sourceFirst puts this before the colours are used.
-        source = [ "${config.xdg.configHome}/omarchy/hypr-colors.conf" ];
-
-        monitor = ", preferred, auto, auto";
-
-        # Omarchy default/hypr/looknfeel.lua: flat, no rounding, no blur or
-        # shadows. The accent border comes from the generated theme ($accent).
-        general = {
-          gaps_in = 5;
-          gaps_out = 10;
-          border_size = 2;
-          "col.active_border" = "$accent";
-          "col.inactive_border" = "$inactive";
-          layout = "dwindle";
-          resize_on_border = false;
-          allow_tearing = false;
-        };
-
-        decoration = {
-          rounding = 0;
-          shadow.enabled = false;
-          blur.enabled = false;
-        };
-
-        group = {
-          "col.border_active" = "$accent";
-          "col.border_inactive" = "$inactive";
-          groupbar = {
-            font_size = 12;
-            font_family = "monospace";
-            font_weight_active = "ultraheavy";
-            font_weight_inactive = "normal";
-            indicator_height = 1;
-            indicator_gap = 5;
-            height = 22;
+        # Option blocks are written under `config` (-> hl.config({...})); the
+        # rest map to their hl.* call (hl.monitor, hl.env, hl.curve, ...).
+        config = {
+          # Omarchy default/hypr/looknfeel.lua: flat, no rounding, no blur or
+          # shadows. The accent border comes from the generated theme.
+          general = {
             gaps_in = 5;
-            gaps_out = 0;
-            text_color = "rgb(ffffff)";
-            text_color_inactive = "rgba(ffffff90)";
-            "col.active" = "rgba(00000040)";
-            "col.inactive" = "rgba(00000020)";
-            gradients = true;
-            gradient_rounding = 0;
-            gradient_round_only_edges = false;
+            gaps_out = 10;
+            border_size = 2;
+            col = {
+              active_border = colors.accent;
+              inactive_border = colors.inactive;
+            };
+            layout = "dwindle";
+            resize_on_border = false;
+            allow_tearing = false;
+          };
+
+          decoration = {
+            rounding = 0;
+            shadow = { enabled = false; };
+            blur = { enabled = false; };
+          };
+
+          group = {
+            col = {
+              border_active = colors.accent;
+              border_inactive = colors.inactive;
+            };
+            groupbar = {
+              font_size = 12;
+              font_family = "monospace";
+              font_weight_active = "ultraheavy";
+              font_weight_inactive = "normal";
+              indicator_height = 1;
+              indicator_gap = 5;
+              height = 22;
+              gaps_in = 5;
+              gaps_out = 0;
+              text_color = "rgb(ffffff)";
+              text_color_inactive = "rgba(ffffff90)";
+              col = {
+                active = "rgba(00000040)";
+                inactive = "rgba(00000020)";
+              };
+              gradients = true;
+              gradient_rounding = 0;
+              gradient_round_only_edges = false;
+            };
+          };
+
+          animations = { enabled = true; };
+
+          dwindle = {
+            preserve_split = true;
+            force_split = 2;
+          };
+
+          scrolling = { column_width = 0.49; };
+
+          master = { new_status = "master"; };
+
+          misc = {
+            disable_hyprland_logo = true;
+            disable_splash_rendering = true;
+            disable_scale_notification = true;
+            focus_on_activate = true;
+            anr_missed_pings = 3;
+            on_focus_under_fullscreen = 1;
+            initial_workspace_tracking = 0;
+            allow_session_lock_restore = true;
+            key_press_enables_dpms = true;
+            mouse_move_enables_dpms = true;
+          };
+
+          cursor = {
+            hide_on_key_press = true;
+            warp_on_change_workspace = 1;
+          };
+
+          binds = { hide_special_on_workspace_change = true; };
+
+          xwayland = { force_zero_scaling = true; };
+
+          # Omarchy default/hypr/input.lua. Layout is the household's Belgian
+          # (be) rather than Omarchy's us, matching desktop/xserver.nix.
+          input = {
+            kb_layout = "be";
+            kb_options = "compose:caps,shift:both_capslock_cancel";
+            follow_mouse = 1;
+            sensitivity = 0;
+            repeat_rate = 40;
+            repeat_delay = 250;
+            numlock_by_default = true;
+            touchpad = {
+              # Omarchy defaults this off; the household uses natural scrolling
+              # (users/natural-scroll.nix, KDE), kept consistent here.
+              natural_scroll = true;
+              clickfinger_behavior = true;
+              scroll_factor = 0.4;
+            };
+          };
+
+          ecosystem = { no_update_news = true; };
+        }
+        // lib.optionalAttrs hasOverview {
+          # Hyprspace overview styling (Omarchy-ish dark panel, Catppuccin).
+          plugin.overview = {
+            panelColor = "rgba(1e1e2eee)";
+            panelBorderColor = "rgba(89b4faff)";
+            panelBorderWidth = 2;
+            workspaceActiveBackground = "rgba(49,50,68,0.85)";
+            workspaceInactiveBackground = "rgba(24,24,37,0.65)";
+            workspaceActiveBorder = "rgb(89b4fa)";
+            workspaceInactiveBorder = "rgb(69,71,90)";
+            centerAligned = true;
+            autoDrag = true;
+            exitOnClick = true;
+            switchOnDrop = true;
+            showNewWorkspace = true;
           };
         };
 
-        # Omarchy's default animation curves and per-leaf timings.
-        animations = {
-          enabled = true;
-          bezier = [
-            "easeOutQuint, 0.23, 1, 0.32, 1"
-            "easeInOutCubic, 0.65, 0.05, 0.36, 1"
-            "linear, 0, 0, 1, 1"
-            "almostLinear, 0.5, 0.5, 0.75, 1"
-            "quick, 0.15, 0, 0.1, 1"
-          ];
-          animation = [
-            "global, 1, 10, default"
-            "border, 1, 5.39, easeOutQuint"
-            "windows, 1, 3.79, easeOutQuint"
-            "windowsIn, 1, 4.1, easeOutQuint, popin 87%"
-            "windowsOut, 1, 1.49, linear, popin 87%"
-            "fadeIn, 1, 1.73, almostLinear"
-            "fadeOut, 1, 1.46, almostLinear"
-            "fade, 1, 3.03, quick"
-            "fadeSwitch, 0"
-            "layers, 1, 3.81, easeOutQuint"
-            "layersIn, 1, 4, easeOutQuint, fade"
-            "layersOut, 1, 1.5, linear, fade"
-            "fadeLayersIn, 1, 1.79, almostLinear"
-            "fadeLayersOut, 1, 1.39, almostLinear"
-            "workspaces, 0"
-          ];
-        };
-
-        dwindle = {
-          preserve_split = true;
-          force_split = 2;
-        };
-
-        scrolling.column_width = 0.49;
-
-        master.new_status = "master";
-
-        misc = {
-          disable_hyprland_logo = true;
-          disable_splash_rendering = true;
-          disable_scale_notification = true;
-          focus_on_activate = true;
-          anr_missed_pings = 3;
-          on_focus_under_fullscreen = 1;
-          initial_workspace_tracking = 0;
-          allow_session_lock_restore = true;
-          key_press_enables_dpms = true;
-          mouse_move_enables_dpms = true;
-        };
-
-        cursor = {
-          hide_on_key_press = true;
-          warp_on_change_workspace = 1;
-        };
-
-        binds.hide_special_on_workspace_change = true;
-
-        xwayland.force_zero_scaling = true;
-
-        # Omarchy default/hypr/input.lua. Layout is the household's Belgian
-        # (be) rather than Omarchy's us, matching desktop/xserver.nix.
-        input = {
-          kb_layout = "be";
-          kb_options = "compose:caps,shift:both_capslock_cancel";
-          follow_mouse = 1;
-          sensitivity = 0;
-          repeat_rate = 40;
-          repeat_delay = 250;
-          numlock_by_default = true;
-          touchpad = {
-            # Omarchy defaults this off; the household uses natural scrolling
-            # (users/natural-scroll.nix, KDE), kept consistent here.
-            natural_scroll = true;
-            clickfinger_behavior = true;
-            scroll_factor = 0.4;
-          };
-        };
-
-        ecosystem.no_update_news = true;
+        monitor = [{
+          output = "";
+          mode = "preferred";
+          position = "auto";
+          scale = "auto";
+        }];
 
         # Omarchy default/hypr/envs.lua.
         env = [
-          "XCURSOR_SIZE,24"
-          "HYPRCURSOR_SIZE,24"
-          "GDK_BACKEND,wayland,x11,*"
-          "QT_QPA_PLATFORM,wayland;xcb"
-          "QT_QPA_PLATFORMTHEME,gtk3"
-          "MOZ_ENABLE_WAYLAND,1"
-          "ELECTRON_OZONE_PLATFORM_HINT,wayland"
-          "OZONE_PLATFORM,wayland"
-          "GTK_USE_PORTAL,1"
-          "XDG_SESSION_TYPE,wayland"
-          "XDG_CURRENT_DESKTOP,Hyprland"
-          "XDG_SESSION_DESKTOP,Hyprland"
+          { _args = [ "XCURSOR_SIZE" "24" ]; }
+          { _args = [ "HYPRCURSOR_SIZE" "24" ]; }
+          { _args = [ "GDK_BACKEND" "wayland,x11,*" ]; }
+          { _args = [ "QT_QPA_PLATFORM" "wayland;xcb" ]; }
+          { _args = [ "QT_QPA_PLATFORMTHEME" "gtk3" ]; }
+          { _args = [ "MOZ_ENABLE_WAYLAND" "1" ]; }
+          { _args = [ "ELECTRON_OZONE_PLATFORM_HINT" "wayland" ]; }
+          { _args = [ "OZONE_PLATFORM" "wayland" ]; }
+          { _args = [ "GTK_USE_PORTAL" "1" ]; }
+          { _args = [ "XDG_SESSION_TYPE" "wayland" ]; }
+          { _args = [ "XDG_CURRENT_DESKTOP" "Hyprland" ]; }
+          { _args = [ "XDG_SESSION_DESKTOP" "Hyprland" ]; }
+        ];
+
+        # Omarchy's default animation curves and per-leaf timings.
+        curve = [
+          { _args = [ "easeOutQuint" { type = "bezier"; points = [ [ 0.23 1 ] [ 0.32 1 ] ]; } ]; }
+          { _args = [ "easeInOutCubic" { type = "bezier"; points = [ [ 0.65 0.05 ] [ 0.36 1 ] ]; } ]; }
+          { _args = [ "linear" { type = "bezier"; points = [ [ 0 0 ] [ 1 1 ] ]; } ]; }
+          { _args = [ "almostLinear" { type = "bezier"; points = [ [ 0.5 0.5 ] [ 0.75 1 ] ]; } ]; }
+          { _args = [ "quick" { type = "bezier"; points = [ [ 0.15 0 ] [ 0.1 1 ] ]; } ]; }
+        ];
+
+        animation = [
+          { leaf = "global"; enabled = true; speed = 10; bezier = "default"; }
+          { leaf = "border"; enabled = true; speed = 5.39; bezier = "easeOutQuint"; }
+          { leaf = "windows"; enabled = true; speed = 3.79; bezier = "easeOutQuint"; }
+          { leaf = "windowsIn"; enabled = true; speed = 4.1; bezier = "easeOutQuint"; style = "popin 87%"; }
+          { leaf = "windowsOut"; enabled = true; speed = 1.49; bezier = "linear"; style = "popin 87%"; }
+          { leaf = "fadeIn"; enabled = true; speed = 1.73; bezier = "almostLinear"; }
+          { leaf = "fadeOut"; enabled = true; speed = 1.46; bezier = "almostLinear"; }
+          { leaf = "fade"; enabled = true; speed = 3.03; bezier = "quick"; }
+          { leaf = "fadeSwitch"; enabled = false; }
+          { leaf = "layers"; enabled = true; speed = 3.81; bezier = "easeOutQuint"; }
+          { leaf = "layersIn"; enabled = true; speed = 4; bezier = "easeOutQuint"; style = "fade"; }
+          { leaf = "layersOut"; enabled = true; speed = 1.5; bezier = "linear"; style = "fade"; }
+          { leaf = "fadeLayersIn"; enabled = true; speed = 1.79; bezier = "almostLinear"; }
+          { leaf = "fadeLayersOut"; enabled = true; speed = 1.39; bezier = "almostLinear"; }
+          { leaf = "workspaces"; enabled = false; }
         ];
 
         # Three-finger horizontal touchpad swipe switches workspaces.
         gesture = [
-          "3, horizontal, workspace"
+          { fingers = 3; direction = "horizontal"; action = "workspace"; }
         ];
 
         # Omarchy default/hypr/windows.lua + input.lua's per-app touchpad
         # scroll factors. Terminals get Omarchy's transparency treatment.
-        windowrulev2 = [
-          "suppressevent maximize, class:.*"
-          "scroll_touchpad 1.5, class:^(Alacritty|kitty)$"
-          "scroll_touchpad 2.0, class:^foot$"
-          "scroll_touchpad 0.2, class:^com\\.mitchellh\\.ghostty$"
-          "opacity 0.97 0.90, class:^(Alacritty|kitty|foot)$"
+        # Hyprland >= 0.53 window rules: `windowrule = <rule>, match:<field> <value>`
+        # (the old `windowrulev2`/`class:` form is deprecated in 0.56).
+        window_rule = [
+          { name = "suppress-maximize"; match = { class = ".*"; }; suppress_event = "maximize"; }
+          { match = { class = "^(Alacritty|kitty)$"; }; scroll_touchpad = 1.5; }
+          { match = { class = "^foot$"; }; scroll_touchpad = 2.0; }
+          { match = { class = "^com\\.mitchellh\\.ghostty$"; }; scroll_touchpad = 0.2; }
+          { match = { class = "^(Alacritty|kitty|foot)$"; }; opacity = "0.97 0.90"; }
         ];
 
-        bind = coreBinds ++ mediaBinds
+        bind = coreBinds ++ mouseBinds ++ mediaBinds
           ++ lib.optionals hasOverview overviewBinds
           ++ lib.optionals cfg.omarchy omarchyBinds;
-
-        bindm = [
-          "${mod}, mouse:272, movewindow"
-          "${mod}, mouse:273, resizewindow"
-        ];
-      } // lib.optionalAttrs hasOverview {
-        # Hyprspace overview styling (Omarchy-ish dark panel, Catppuccin accent).
-        plugin.overview = {
-          panelColor = "rgba(1e1e2eee)";
-          panelBorderColor = "rgba(89b4faff)";
-          panelBorderWidth = 2;
-          workspaceActiveBackground = "rgba(49,50,68,0.85)";
-          workspaceInactiveBackground = "rgba(24,24,37,0.65)";
-          workspaceActiveBorder = "rgb(89b4fa)";
-          workspaceInactiveBorder = "rgb(69,71,90)";
-          centerAligned = true;
-          autoDrag = true;
-          exitOnClick = true;
-          switchOnDrop = true;
-          showNewWorkspace = true;
-        };
       };
 
-      # Autostart the session extras. The Quickshell bar is started by its own
-      # home-manager systemd service (programs.quickshell below).
-      extraConfig = ''
-        exec-once = ${pkgs.hyprpolkitagent}/bin/hyprpolkitagent
+      # Autostart the session extras (Lua: one hl.on("hyprland.start") hook).
+      # The Quickshell bar is started by its own home-manager systemd service
+      # (programs.quickshell below).
+      extraConfig = lib.concatStringsSep "\n" ([
+        ''hl.on("hyprland.start", function()''
+        ''  hl.exec_cmd("${pkgs.hyprpolkitagent}/bin/hyprpolkitagent")''
         # Screen blank + lock on idle (see hypr/hypridle.conf below); on by
         # default for every user, not just the omarchy profile.
-        exec-once = ${pkgs.hypridle}/bin/hypridle
-      '' + lib.optionalString cfg.omarchy ''
-        exec-once = ${pkgs.mako}/bin/mako
-        exec-once = ${pkgs.swayosd}/bin/swayosd-server
-        exec-once = ${pkgs.hyprpaper}/bin/hyprpaper
+        ''  hl.exec_cmd("${pkgs.hypridle}/bin/hypridle")''
+      ] ++ lib.optionals cfg.omarchy [
+        ''  hl.exec_cmd("${pkgs.mako}/bin/mako")''
+        ''  hl.exec_cmd("${pkgs.swayosd}/bin/swayosd-server")''
+        ''  hl.exec_cmd("${pkgs.hyprpaper}/bin/hyprpaper")''
         # Record clipboard history for the cliphist picker bound to SUPER+CTRL+V.
-        exec-once = ${pkgs.wl-clipboard}/bin/wl-paste --watch ${pkgs.cliphist}/bin/cliphist store
+        ''  hl.exec_cmd("${pkgs.wl-clipboard}/bin/wl-paste --watch ${pkgs.cliphist}/bin/cliphist store")''
         # Removable-drive automount and the network/bluetooth tray applets that
         # Plasma otherwise provides itself. They surface in the Quickshell bar.
-        exec-once = ${pkgs.udiskie}/bin/udiskie --automount --notify
-        exec-once = ${pkgs.networkmanagerapplet}/bin/nm-applet --indicator
-        exec-once = ${pkgs.blueman}/bin/blueman-applet
+        ''  hl.exec_cmd("${pkgs.udiskie}/bin/udiskie --automount --notify")''
+        ''  hl.exec_cmd("${pkgs.networkmanagerapplet}/bin/nm-applet --indicator")''
+        ''  hl.exec_cmd("${pkgs.blueman}/bin/blueman-applet")''
         # KWallet daemon (same secret service KDE uses; unlocked via PAM).
-        exec-once = ${pkgs.kdePackages.kwallet}/bin/kwalletd6
-      '';
+        ''  hl.exec_cmd("${pkgs.kdePackages.kwallet}/bin/kwalletd6")''
+      ] ++ [ ''end)'' ]);
     };
 
     # Automatic night light: gammastep shifts the colour temperature at sunset
@@ -505,13 +565,13 @@ in
       Install.WantedBy = [ "hyprland-session.target" ];
     };
 
-    # Generate the matugen theme (colours.json + hypr-colors.conf) on first
+    # Generate the matugen theme (colors.json + hypr-colors.lua) on first
     # switch only, so a user's own re-theme (`omarchy-theme <image>`) survives
     # later switches. Delete the file to regenerate the default.
     home.activation.omarchyTheme =
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         if [ ! -e "${config.xdg.configHome}/omarchy/colors.json" ]; then
-          $DRY_RUN_CMD ${theme}
+          $DRY_RUN_CMD ${theme}/bin/omarchy-theme
         fi
       '';
 
@@ -525,7 +585,10 @@ in
       systemd.target = "hyprland-session.target";
     };
 
-    xdg.portal.enable = true;
+    # On CachyOS the system/pacman portal stack is used instead of home-manager
+    # managing it (see portalPackage above); xdg.portal.enable must match the
+    # module's own `finalPortalPackage != null`, so gate it the same way.
+    xdg.portal.enable = !config.commonHm.isCachyOS;
     xdg.portal.extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
 
     # GNOME/GTK theming so libadwaita and GTK apps follow the Omarchy dark look

@@ -125,6 +125,16 @@
             ignoreAllDups = true;
             ignoreSpace = true;
           };
+          # The CachyOS SDDM Wayland (KWin) greeter leaves WAYLAND_DISPLAY in
+          # the session environment. Plasma's launcher (startplasma-wayland)
+          # unsets it so KWin takes DRM, but Hyprland's start-hyprland does not,
+          # and aquamarine then runs nested (black screen). SDDM starts the
+          # session via `$SHELL --login`, which sources ~/.zprofile, so clearing
+          # it here makes the Hyprland session behave like Plasma. Only needed
+          # on CachyOS (the NixOS config does not leak the variable).
+          profileExtra = lib.mkIf config.commonHm.isCachyOS ''
+            unset WAYLAND_DISPLAY
+          '';
         };
         command-not-found.enable = true;
       }
