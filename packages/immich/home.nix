@@ -117,7 +117,10 @@ let
     pkgs.coreutils
   ];
 
-  compose = "${pkgs.podman-compose}/bin/podman-compose --project-directory ${configDir} --file ${configDir}/docker-compose.yml";
+  # podman-compose 1.x has no --project-directory flag (it would be parsed as
+  # the subcommand); the project directory is the unit's WorkingDirectory, and
+  # -p names the project so containers/volumes are stable across restarts.
+  compose = "${pkgs.podman-compose}/bin/podman-compose -p immich --file ${configDir}/docker-compose.yml";
 in
 {
   options.immich = {
@@ -241,6 +244,10 @@ in
         Description = "Immich server stack (rootless podman-compose)";
         After = [ "network-online.target" ];
         Wants = [ "network-online.target" ];
+        # Cap restarts so a persistent failure (e.g. missing subuid range)
+        # cannot spin the unit every RestartSec forever.
+        StartLimitIntervalSec = 300;
+        StartLimitBurst = 5;
       };
       Install = {
         WantedBy = [ "default.target" ];
