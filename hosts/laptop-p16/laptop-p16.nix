@@ -13,6 +13,12 @@ with lib;
     ../../apps/benchmark.nix
     ../../apps/obs-studio.nix
     ../../apps/wine.nix
+    # Immich server + AI machine learning (web UI at :2283, LAN + Tailscale).
+    # Commented out: p16 currently runs CachyOS, not NixOS, so this NixOS
+    # module only takes effect on a future NixOS install. On CachyOS the
+    # server runs via home-manager instead (packages/immich/home.nix, enabled
+    # for nicky in users/nicky/nicky-hm.nix).
+    # ../../services/immich.nix
 
     # commonHm.hostName: home-manager modules cannot reach
     # config.networking.hostName, so the host name is passed explicitly. It

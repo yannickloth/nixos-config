@@ -104,6 +104,11 @@
         # (packages/orca/home.nix) and also exposed here for `nix build .#orca`
         # / `nix-update`.
         orca = pkgs.callPackage ./packages/orca { };
+        # PhotoCraft (packages/photocraft): clean-room Photoshop
+        # reimplementation, packaged from the upstream AppImage. Installed for
+        # every user via users/common-hm.nix; exposed here for `nix build
+        # .#photocraft` / `nix-update`.
+        photocraft = pkgs.callPackage ./packages/photocraft { };
       };
 
       nixosConfigurations =

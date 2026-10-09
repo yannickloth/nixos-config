@@ -55,7 +55,15 @@
     # zoxide must exist in every user's PATH. On NixOS hosts it also comes
     # from roles/system.nix; listing it here keeps the standalone
     # home-manager deployment (users/flake.nix, CachyOS hosts) working.
-    home.packages = [ pkgs.zoxide ];
+    #
+    # PhotoCraft (packages/photocraft), the clean-room Photoshop
+    # reimplementation, is installed for all users. callPackage is used
+    # directly (rather than an overlay) so it lands for everyone regardless of
+    # whether the ai-unstable overlay is applied to this user's pkgs.
+    home.packages = [
+      pkgs.zoxide
+      (pkgs.callPackage ../packages/photocraft { })
+    ];
 
     # Let home-manager take over an existing plain ~/.zshrc (e.g. one created
     # by zsh-newuser-install); otherwise the zsh module's .zshrc would be a
@@ -66,6 +74,15 @@
     home.file."./.zshrc" = lib.mkIf config.programs.zsh.enable {
       force = true;
     };
+
+    # GTK apps on this machine rewrite their config files in place (a real
+    # ~/.gtkrc-2.0 reappears after a switch), so home-manager would try to back
+    # them up on every switch — and a leftover *.backup then blocks activation:
+    # "Existing file '~/.gtkrc-2.0.backup' would be clobbered by backing up
+    # '~/.gtkrc-2.0'". Overwrite without a backup, like ./.zshrc above.
+    gtk.gtk2.force = true;
+    xdg.configFile."gtk-3.0/settings.ini".force = true;
+    xdg.configFile."gtk-4.0/settings.ini".force = true;
 
     # Symlink ~/sync to the shared syncthing data directory (/sync is created by the
     # system services.syncthing module, so create the symlink at activation time).
@@ -84,7 +101,19 @@
     # the system default. LANG is exported so shells/new processes pick up
     # British English too, while the fr_BE LC_* categories (time, numbers,
     # EUR, ...) keep coming from the system locale.
-    home.sessionVariables.LANG = "en_GB.UTF-8";
+    home.sessionVariables = lib.mkMerge [
+      { LANG = "en_GB.UTF-8"; }
+      # zsh reads its locale before ~/.zshenv runs, so the LOCALE_ARCHIVE that
+      # home-manager exports (in hm-session-vars.sh, sourced from .zshenv) lands
+      # too late on CachyOS: nix's glibc then finds no locale archive and the
+      # shell comes up in the C locale. There zsh measures starship's multibyte
+      # prompt (the "❯" and git-branch glyphs) in bytes, and ALWAYS_LAST_PROMPT's
+      # redraw lands ~2 columns off, so the first two characters of the command
+      # look duplicated when Tab completion redraws the line. Assigning LC_CTYPE
+      # to glibc's built-in C.UTF-8 (no archive needed) makes zsh re-read the
+      # locale as UTF-8. CachyOS-only: NixOS ships its archive session-wide.
+      (lib.mkIf config.commonHm.isCachyOS { LC_CTYPE = "C.UTF-8"; })
+    ];
 
     xdg.configFile."plasma-localerc" = {
       force = true; # Plasma may have written a real file; HM installs a symlink.
