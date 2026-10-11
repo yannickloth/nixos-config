@@ -71,7 +71,8 @@ in
     ../opencode.nix
     ../hyprland.nix
     ../../packages/orca/home.nix
-    ../../packages/immich/home.nix
+    # Immich disabled 2026-10-10 (not in use); see the immich block below.
+    # ../../packages/immich/home.nix
   ];
 
   # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
@@ -89,11 +90,10 @@ in
 
   # Immich (self-hosted photo/video library with local AI: smart search, faces,
   # duplicates) as rootless Podman containers under a systemd user service
-  # (packages/immich/home.nix). Gated to laptop-p16 — the A3000 host, and where
-  # aeiuno logs in to reach the same instance. Web UI on :2283, published on the
-  # LAN + Tailscale. aeiuno uses it from a browser; do NOT enable immich there
-  # or a second stack would fight over port 2283.
-  immich.enable = isP16;
+  # (packages/immich/home.nix). DISABLED 2026-10-10: not in use now. The module
+  # and its systemd unit are kept in-tree but not installed; re-enable by
+  # uncommenting the import above and the line below.
+  # immich.enable = isP16;
 
   # Laya (System 1 decision engine) + its MCP server, from the reusable
   # packages/laya package/module. DISABLED 2026-09-28: laya is not in use, so
