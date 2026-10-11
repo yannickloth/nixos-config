@@ -8,7 +8,7 @@
 # of built-in AI features, so they are pulled from nixos-unstable. hermes-agent,
 # magpie and deepseek-harness are not in nixpkgs at all and are packaged in-tree
 # (packages/hermes-agent, packages/magpie, packages/deepseek-harness).
-{ unstablePkgs, hermesAgent }:
+{ unstablePkgs, hermesAgent, browseros }:
 
 final: prev: {
   # opencode 1.18.30/1.18.31 crashed on every prompt when the config declared
@@ -35,6 +35,9 @@ final: prev: {
   # wrapped as a normal derivation in packages/orca. Exposed here so the adults
   # (nicky, aeiuno) get `pkgs.orca` on every host.
   orca = unstablePkgs.callPackage ../packages/orca { };
+  # BrowserOS neo: agent-driven browser that AI assistants drive over MCP with
+  # the user's real logins. Packaged in-tree from the upstream AppImage.
+  browseros = browseros;
   # JetBrains moved the Toolbox tarball from download-cdn.jetbrains.com to
   # download.jetbrains.com (2026-10); nixpkgs-unstable still fetches the dead
   # CDN host, so the fixed-output source derivation 404s and the whole switch

@@ -45,9 +45,10 @@
       hermesAgent = unstablePkgs.callPackage ../packages/hermes-agent {
         inherit uv2nix pyproject-nix pyproject-build-systems;
       };
+      browseros = stablePkgs.callPackage ../packages/browseros { };
       aiOverlay = import ../overlays/ai-unstable.nix {
         inherit unstablePkgs;
-        inherit hermesAgent;
+        inherit hermesAgent browseros;
       };
       # Adults: stable base with the fast-moving AI tooling pulled from unstable.
       adultPkgs = stablePkgs.extend aiOverlay;

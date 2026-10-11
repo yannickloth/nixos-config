@@ -7,6 +7,7 @@
     ../opencode.nix
     ../hyprland.nix
     ../../packages/orca/home.nix
+    ../../packages/browseros/home.nix
     # Unsloth Studio is deliberately NOT enabled for aeiuno (packages/
     # unsloth-studio/home.nix) — see the block after opencode.enable below.
     # ../../packages/unsloth-studio/home.nix

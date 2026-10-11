@@ -52,9 +52,10 @@
         pyproject-nix = pyproject-nix;
         pyproject-build-systems = pyproject-build-systems;
       };
+      browseros = pkgs.callPackage ./packages/browseros { };
       aiOverlay = import ./overlays/ai-unstable.nix {
         inherit unstablePkgs;
-        inherit hermesAgent;
+        inherit hermesAgent browseros;
       };
     in
     {
@@ -104,6 +105,9 @@
         # (packages/orca/home.nix) and also exposed here for `nix build .#orca`
         # / `nix-update`.
         orca = pkgs.callPackage ./packages/orca { };
+        # BrowserOS neo (packages/browseros): agent-driven browser for AI
+        # assistants, packaged from the upstream AppImage.
+        browseros = pkgs.callPackage ./packages/browseros { };
         # PhotoCraft (packages/photocraft): clean-room Photoshop
         # reimplementation, packaged from the upstream AppImage. Installed for
         # every user via users/common-hm.nix; exposed here for `nix build
