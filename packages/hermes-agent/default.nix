@@ -63,6 +63,15 @@ let
     sherpa-onnx = prev.sherpa-onnx.overrideAttrs (old: {
       buildInputs = (old.buildInputs or [ ]) ++ [ onnxruntime ];
     });
+    # Several upstream sdists use setuptools as their build backend but omit it
+    # from build-system.requires, so uv2nix's build environment lacks it. Provide
+    # it explicitly for the affected packages.
+    pilk = prev.pilk.overrideAttrs (old: {
+      nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ (final.resolveBuildSystem { setuptools = [ ]; });
+    });
+    python-olm = prev.python-olm.overrideAttrs (old: {
+      nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ (final.resolveBuildSystem { setuptools = [ ]; });
+    });
   };
 
   # requires-python = ">=3.11,<3.15", but v0.21.6's uv.lock narrows the
