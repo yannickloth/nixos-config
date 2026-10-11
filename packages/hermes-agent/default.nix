@@ -7,6 +7,17 @@
 # against the read-only Nix store). The Chinese enterprise-messaging extras
 # (dingtalk, feishu) are excluded deliberately — everything general-purpose
 # (MCP, dashboard, google, messaging, voice, wake, ...) is in.
+#
+# kittentts is excluded too: it is the only extra that reaches the GPU stack
+# (kittentts -> spacy -> spacy-curated-transformers -> torch -> triton ->
+# nvidia-*), and those PyPI CUDA wheels (a CUDA-12/13 mix whose libs live in
+# non-standard site-packages/nvidia/*/lib dirs) fail uv2nix's auto-patchelf
+# ("could not satisfy libcublas.so.13"). The previous pin (2026.9.14) had no
+# kittentts and no torch at all, so dropping it restores that dependency
+# surface and keeps the closure ~6 GiB smaller. Re-include it only together
+# with CUDA overrides that add nixpkgs cudaPackages.libcublas/libcusparse/
+# libnvjitlink to the corresponding nvidia-* wheels' nativeBuildInputs.
+# See https://discourse.nixos.org/t/72028.
 {
   lib,
   stdenv,
@@ -69,7 +80,7 @@ let
     );
 
   depsSelection = workspace.deps.all // {
-    hermes-agent = lib.subtractLists [ "dingtalk" "feishu" ] workspace.deps.all.hermes-agent;
+    hermes-agent = lib.subtractLists [ "dingtalk" "feishu" "kittentts" ] workspace.deps.all.hermes-agent;
   };
 
   virtualenv = pythonSet.mkVirtualEnv "hermes-agent-env" depsSelection;
