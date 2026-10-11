@@ -18,7 +18,7 @@
     };
     agenix.url = "github:ryantm/agenix";
     # Strata (github.com/Niko1221/Strata) is not a flake input: packages/strata
-    # fetches it directly with fetchFromGitHub, pinned to v0.1.42.
+    # fetches it directly with fetchFromGitHub, pinned to v0.1.43.
     # Same hermes-agent packaging inputs as the root flake (see
     # packages/hermes-agent).
     pyproject-nix.url = "github:nix-community/pyproject.nix";
