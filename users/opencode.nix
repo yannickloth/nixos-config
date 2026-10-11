@@ -336,6 +336,15 @@ in
                 command = [ "${pkgs.rea}/bin/rea" "mcp" ];
                 enabled = true;
               };
+            } // optionalAttrs (config.browseros.enable or false) {
+              # BrowserOS neo: agent-driven browser exposing a local MCP server
+              # (claw-server) on :9200. Agents drive the real browser (with the
+              # user's imported Chrome logins) over typed MCP tool calls.
+              browseros-neo = {
+                type = "remote";
+                url = "http://127.0.0.1:9200/mcp";
+                enabled = true;
+              };
             };
           };
         in
