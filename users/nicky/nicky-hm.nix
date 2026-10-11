@@ -67,10 +67,12 @@ in
     ../../packages/laya/home.nix
     ../../packages/clm/home.nix
     ../../packages/strata/home.nix
+    ../../packages/unsloth-studio/home.nix
     ../natural-scroll.nix
     ../opencode.nix
     ../hyprland.nix
     ../../packages/orca/home.nix
+    ../../packages/browseros/home.nix
     # Immich disabled 2026-10-10 (not in use); see the immich block below.
     # ../../packages/immich/home.nix
   ];
@@ -83,6 +85,10 @@ in
   # other clients pair to over Tailscale. Per-user: it runs as nicky, so the
   # agent CLIs it drives use nicky's PATH and credentials.
   orca.enable = true;
+
+  # BrowserOS neo: agent-driven browser for AI assistants (MCP), runs with the
+  # user's real logins in its own profile.
+  browseros.enable = true;
   orca.server = lib.mkIf isP16 {
     enable = true;
     # No Tailscale address pinned: the launcher derives it at start.
@@ -105,8 +111,18 @@ in
   # the reusable packages/clm package/module. Same GPU gating as laya: the
   # Qwen3-8B encoder wants ~17 GB VRAM on top of what laya/unsloth hold. If
   # VRAM gets tight, keep the service but set clm.enableEncoder = false and
-  # point clm.embUrl at another host's encoder.
+  #   point clm.embUrl at another host's encoder.
   clm.enable = isP16;
+
+  # Unsloth Studio on every host (packages/unsloth-studio/home.nix): the
+  # local inference UI/API and — the reason it left its laptop-p16-only gate
+  # — the Decision API, which serves open System One models (Laya, ...) on a
+  # TypeSafe-compatible /v1/systemone that the opencode `jev` MCP calls.
+  # ONE instance per host: Studio installs per-user into $HOME and binds
+  # :8888, so aeiuno does not enable it — her opencode reaches the same
+  # localhost endpoint. Hosts set users.users.nicky.linger = true so the API
+  # survives logout.
+  unsloth-studio.enable = true;
 
   # Strata (Qwen3.8-Flash-Next 125B MoE inference, OpenAI/Anthropic API on
   # localhost). Same GPU gating as laya/clm: the engine is built for the
@@ -374,68 +390,6 @@ in
     EOF
   '';
 
-  # Install Unsloth Studio (browser-based LLM inference web UI + API server)
-  # on laptop-p16 only. Not packaged in nixpkgs, so install imperatively from
-  # the official installer script (same pattern as Tresorit above). The
-  # resulting `unsloth` CLI + Studio UI live under ~/.unsloth.
-  #
-  # Gated at build time by `isP16` (see let). The extra runtime `hostname`
-  # guard is belt-and-suspenders so a mis-targeted build can never install on
-  # the wrong machine.
-  home.activation.installUnsloth = lib.mkIf isP16 (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    if [ "$(hostname)" = "laptop-p16" ]; then
-      # install.sh puts the CLI at ~/.local/bin/unsloth, the venv under
-      # ~/.unsloth/studio/unsloth_studio and data under ~/.local/share/unsloth.
-      # UNSLOTH_SKIP_AUTOSTART=1 is the installer's documented non-interactive
-      # switch for piped installs (the "Start now?" prompt also only appears on
-      # a tty, so hm activation is non-interactive either way); the service
-      # below starts studio instead. timeout prevents a hung switch.
-      if [ ! -x "$HOME/.local/bin/unsloth" ] || [ ! -x "$HOME/.unsloth/studio/unsloth_studio/bin/unsloth" ]; then
-        echo "Installing Unsloth Studio..."
-        $DRY_RUN_CMD ${pkgs.coreutils}/bin/timeout 1800 env \
-          UNSLOTH_SKIP_AUTOSTART=1 NO_COLOR=1 \
-          ${pkgs.curl}/bin/curl -fsSL https://unsloth.ai/install.sh \
-          | ${pkgs.bash}/bin/sh </dev/null
-      fi
-    fi
-  '');
-
-  # Install Unsloth Desktop (the native Tauri front-end) on laptop-p16.
-  # Additive and independent of Studio above: the desktop app reuses the SAME
-  # backend/venv/HF-cache (`~/.unsloth/studio`) and, at runtime, attaches to (or
-  # starts) that backend - so the studio service/launcher/updater and the
-  # opencode provider are all left untouched. It ships only as a ~180 MB
-  # AppImage (the .deb adds nothing but webkit/gtk deps, which the AppImage
-  # bundles); like the Studio install it is not in nixpkgs, so fetch the rolling
-  # "latest" release asset imperatively. The app self-updates afterwards, so
-  # this only downloads when the file is missing - delete it to force a
-  # refresh. The menu icon is extracted once from the AppImage.
-  home.activation.installUnslothDesktop = lib.mkIf isP16 (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    if [ "$(hostname)" = "laptop-p16" ]; then
-      desktop_dir="$HOME/.local/share/unsloth-desktop"
-      app="$desktop_dir/Unsloth-Desktop.AppImage"
-      icon="$HOME/.local/share/icons/hicolor/512x512/apps/unsloth-studio.png"
-      $DRY_RUN_CMD mkdir -p "$desktop_dir" "$(dirname "$icon")"
-      if [ ! -x "$app" ]; then
-        echo "Installing Unsloth Desktop..."
-        $DRY_RUN_CMD ${pkgs.coreutils}/bin/timeout 1800 \
-          ${pkgs.curl}/bin/curl -fL --retry 3 -o "$app" \
-          https://github.com/unslothai/unsloth/releases/latest/download/Unsloth-Desktop-Linux.AppImage
-        $DRY_RUN_CMD chmod +x "$app"
-      fi
-      if [ ! -f "$icon" ] && [ -x "$app" ]; then
-        tmp="$(${pkgs.coreutils}/bin/mktemp -d)"
-        if ( cd "$tmp" && "$app" --appimage-extract \
-             usr/share/icons/hicolor/512x512/apps/unsloth-studio.png >/dev/null 2>&1 ); then
-          $DRY_RUN_CMD cp -f \
-            "$tmp/squashfs-root/usr/share/icons/hicolor/512x512/apps/unsloth-studio.png" \
-            "$icon"
-        fi
-        $DRY_RUN_CMD rm -rf "$tmp"
-      fi
-    fi
-  '');
-
   # CachyOS: the Strata engine needs a 2 MiB hugetlb pool covering its whole
   # ~40 GiB arena, and an unlimited RLIMIT_MEMLOCK for the systemd user manager
   # (the strata unit's LimitMEMLOCK=infinity is capped at the manager's 8 MiB
@@ -468,57 +422,6 @@ in
         ${tresoritFHS}/bin/tresorit-fhs -c "${config.home.homeDirectory}/.local/share/tresorit/tresorit --hidden" > ${config.home.homeDirectory}/.local/share/tresorit/fhs.log 2>&1 &
       '';
     };
-    # Unsloth Studio launcher (only defined on laptop-p16 builds; no-op guard).
-    ".local/bin/unsloth-studio-launcher.sh" = lib.mkIf isP16 {
-      executable = true;
-      text = ''
-        #!/usr/bin/env bash
-        if [ "$(hostname)" != "laptop-p16" ]; then
-          exit 0
-        fi
-        # Not installed yet -> exit cleanly instead of crash-looping the service.
-        if [ ! -x "$HOME/.local/bin/unsloth" ]; then
-          echo "unsloth CLI not installed; skipping" >&2
-          exit 0
-        fi
-        exec "$HOME/.local/bin/unsloth" studio -p 8888
-      '';
-    };
-    # Update wrapper for the systemd timer. The installer's own update path is
-    # `unsloth studio update` (install.sh runs exactly that), so updates go
-    # through the CLI, not a reinstall. Skips cleanly while not installed.
-    ".local/bin/unsloth-update.sh" = lib.mkIf isP16 {
-      executable = true;
-      text = ''
-        #!/usr/bin/env bash
-        if [ "$(hostname)" != "laptop-p16" ]; then
-          exit 0
-        fi
-        if [ ! -x "$HOME/.local/bin/unsloth" ]; then
-          echo "unsloth CLI not installed; skipping update" >&2
-          exit 0
-        fi
-        exec "$HOME/.local/bin/unsloth" studio update
-      '';
-    };
-  };
-
-  # Desktop launcher for Unsloth Desktop (AppImage installed by
-  # installUnslothDesktop above). P16-only, like the rest of the Unsloth
-  # setup. The activation drops the icon at
-  # ~/.local/share/icons/hicolor/512x512/apps/unsloth-studio.png, and
-  # StartupWMClass matches the Tauri window so the launcher follows the app.
-  xdg.desktopEntries.unsloth-desktop = lib.mkIf isP16 {
-    name = "Unsloth";
-    genericName = "Local AI models";
-    comment = "Run and train AI models locally (Unsloth Desktop)";
-    exec = "${config.home.homeDirectory}/.local/share/unsloth-desktop/Unsloth-Desktop.AppImage %u";
-    icon = "unsloth-studio";
-    terminal = false;
-    type = "Application";
-    categories = [ "Utility" "Development" ];
-    mimeType = [ "x-scheme-handler/unsloth" ];
-    settings.StartupWMClass = "unsloth-studio";
   };
 
   # Home Manager can also manage your environment variables through
@@ -636,62 +539,8 @@ in
       };
     };
 
-    # Run Unsloth Studio (LLM inference web UI + API) on laptop-p16 only,
-    # gated at build time by isP16. The launcher also no-ops if ever run on a
-    # non-p16 host.
-    unsloth-studio = lib.mkIf isP16 {
-      Unit = {
-        Description = "Unsloth Studio - local LLM inference web UI";
-        After = [ "network-online.target" ];
-      };
-      Install = {
-        WantedBy = [ "default.target" ];
-      };
-      Service = {
-        Type = "simple";
-        ExecStart = "${config.home.homeDirectory}/.local/bin/unsloth-studio-launcher.sh";
-        # Studio's models own the GPU while it runs: ask the Strata server (if
-        # up) to unload its 125B engine first - the same /api/inference contract
-        # Studio itself exposes. The '-' prefix tolerates "not running" and
-        # "already unloaded". (If a STRATA_API_KEY is ever set, the curl needs
-        # to send it.)
-        ExecStartPre = "-${pkgs.curl}/bin/curl -sS -m 150 -X POST http://127.0.0.1:8080/api/inference/unload -o /dev/null";
-        Restart = "on-failure";
-        RestartSec = "15s";
-      };
-    };
-
-    # Weekly update of Unsloth Studio. Updates run via `unsloth studio update`
-    # (the same command the official install.sh uses), so new releases are
-    # picked up without reinstalling.
-    unsloth-update = lib.mkIf isP16 {
-      Unit = {
-        Description = "Update Unsloth Studio (unsloth studio update)";
-      };
-      Service = {
-        Type = "oneshot";
-        ExecStart = "${config.home.homeDirectory}/.local/bin/unsloth-update.sh";
-        # Large torch/venv downloads can take a while.
-        TimeoutStartSec = "1h";
-      };
-    };
   };
 
-  systemd.user.timers = {
-    unsloth-update = lib.mkIf isP16 {
-      Unit = {
-        Description = "Weekly Unsloth Studio update";
-      };
-      Timer = {
-        OnCalendar = "Mon *-*-* 09:00:00";
-        Persistent = true;
-        RandomizedDelaySec = "30min";
-      };
-      Install = {
-        WantedBy = [ "timers.target" ];
-      };
-    };
-  };
   xdg.configFile."user-dirs.dirs".force = true;
 
   # XDG dirs live directly inside nicky's syncthing folder (/sync/yannick via

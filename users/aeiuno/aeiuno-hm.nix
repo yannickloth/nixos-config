@@ -7,6 +7,9 @@
     ../opencode.nix
     ../hyprland.nix
     ../../packages/orca/home.nix
+    # Unsloth Studio is deliberately NOT enabled for aeiuno (packages/
+    # unsloth-studio/home.nix) — see the block after opencode.enable below.
+    # ../../packages/unsloth-studio/home.nix
   ];
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
@@ -20,10 +23,22 @@
   # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
   opencode.enable = true;
 
+  # BrowserOS neo: agent-driven browser for AI assistants (MCP).
+  browseros.enable = true;
+
   # Orca (agent development environment): desktop client only. Runs locally per
   # user; pair it to a running `orca serve` (e.g. nicky's on laptop-p16) from
   # Settings only if you accept that its agents would run as THAT user.
   orca.enable = true;
+
+  # Unsloth Studio (packages/unsloth-studio/home.nix) is deliberately NOT
+  # enabled for aeiuno: it installs per-user into $HOME and binds :8888, so a
+  # second instance on the same laptop would collide with nicky's (which runs
+  # on every host, with linger) and double the multi-GB install. aeiuno's
+  # opencode still reaches the same local System One endpoint at
+  # 127.0.0.1:8888 as nicky's, so nothing is lost. On a host that is aeiuno's
+  # alone, uncomment the import above and the enable below:
+  # unsloth-studio.enable = true;
 
   home = {
     username = "aeiuno";
