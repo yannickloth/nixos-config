@@ -31,6 +31,9 @@ final: prev: {
   # DeepSeek Harness (dsh): agent harness published only on npm, packaged
   # in-tree from the registry tarball (packages/deepseek-harness).
   deepseek-harness = unstablePkgs.callPackage ../packages/deepseek-harness { };
+  # REA (rea-agents): MCP+CLI reverse-engineering toolkit, published only on
+  # npm, packaged in-tree from the registry tarball (packages/rea).
+  rea = unstablePkgs.callPackage ../packages/rea { };
   # Orca (ADE): not in nixpkgs and only shipped as a prebuilt Electron AppImage,
   # wrapped as a normal derivation in packages/orca. Exposed here so the adults
   # (nicky, aeiuno) get `pkgs.orca` on every host.

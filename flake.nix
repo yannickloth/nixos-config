@@ -113,6 +113,10 @@
         # every user via users/common-hm.nix; exposed here for `nix build
         # .#photocraft` / `nix-update`.
         photocraft = pkgs.callPackage ./packages/photocraft { };
+        # REA (packages/rea): npm-only MCP+CLI reverse-engineering toolkit,
+        # built from the registry tarball on unstable's Node (matches the
+        # overlay, so the installed users share this store path).
+        rea = unstablePkgs.callPackage ./packages/rea { };
       };
 
       nixosConfigurations =
