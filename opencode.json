@@ -8,7 +8,8 @@
     "../llm-harness-plugins/offpeak-nudge/opencode/index.ts",
     "../llm-harness-plugins/tier-router/opencode/index.ts",
     "../llm-harness-plugins/agentinsights/opencode/index.ts",
-    "../llm-harness-plugins/ivp/opencode/index.ts"
+    "../llm-harness-plugins/ivp/opencode/index.ts",
+    "../llm-harness-plugins/codify-first/opencode/index.ts"
   ],
   "agent": {
     "driver-identifier": {
