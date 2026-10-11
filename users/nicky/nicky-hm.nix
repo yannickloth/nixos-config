@@ -73,6 +73,7 @@ in
     ../hyprland.nix
     ../../packages/orca/home.nix
     ../../packages/browseros/home.nix
+    ../../packages/rea/home.nix
     # Immich disabled 2026-10-10 (not in use); see the immich block below.
     # ../../packages/immich/home.nix
   ];
@@ -89,6 +90,10 @@ in
   # BrowserOS neo: agent-driven browser for AI assistants (MCP), runs with the
   # user's real logins in its own profile.
   browseros.enable = true;
+
+  # REA: reverse-engineering MCP server + CLI (packages/rea/home.nix) and the
+  # "reverse-engineer-anything" agent skill.
+  rea.enable = true;
   orca.server = lib.mkIf isP16 {
     enable = true;
     # No Tailscale address pinned: the launcher derives it at start.
