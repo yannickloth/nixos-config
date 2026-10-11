@@ -325,6 +325,17 @@ in
                 };
                 enabled = true;
               };
+            } // optionalAttrs (pkgs ? rea) {
+              # REA (packages/rea): reverse-engineering toolkit (native binaries,
+              # JS/Electron, .NET, websites, ...) served over stdio MCP. Only
+              # registered where the AI-unstable overlay provides pkgs.rea
+              # (nicky, aeiuno). Set enabled = false to hide its large tool
+              # catalog from every session.
+              rea = {
+                type = "local";
+                command = [ "${pkgs.rea}/bin/rea" "mcp" ];
+                enabled = true;
+              };
             };
           };
         in
