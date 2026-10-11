@@ -12,7 +12,7 @@
   stdenv,
   makeWrapper,
   callPackage,
-  python311,
+  python314,
   fetchFromGitHub,
   git,
   ripgrep,
@@ -54,11 +54,13 @@ let
     });
   };
 
-  # requires-python = ">=3.11,<3.14"; also tflite-runtime only publishes
-  # cp311 wheels, so the base interpreter must stay on 3.11 (the project's
-  # floor) for the wake-word extra.
+  # requires-python = ">=3.11,<3.15", but v0.21.6's uv.lock narrows the
+  # resolution to supported-markers = ["python_full_version >= '3.14'"], and
+  # uv2nix asserts the build environment satisfies one of them — so the base
+  # interpreter must be 3.14. (The old 3.11 pin existed only for tflite-runtime's
+  # cp311-only wheels; upstream dropped tflite-runtime from the lock.)
   pythonSet =
-    (callPackage pyproject-nix.build.packages { python = python311; }).overrideScope (
+    (callPackage pyproject-nix.build.packages { python = python314; }).overrideScope (
       lib.composeManyExtensions [
         pyproject-build-systems.overlays.wheel
         pyprojectOverlay
