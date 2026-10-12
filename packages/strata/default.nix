@@ -77,9 +77,12 @@
   # costs ~2.7x decode on this host (Niko1221/Strata#2010, fixed upstream by
   # PR #2011). Empty by default; see packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.42 (61b3fb5).
-  # 0.1.43 regressed decode on this host (~2.7x, Niko1221/Strata#2010) and is
-  # more load-sensitive; re-pin once upstream resets the default (PR #2011).
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.43 (7695859).
+  # 0.1.43 defaults STRATA_ADAPT_OVERLAP on for Linux CUDA, which costs ~2.7x
+  # decode on this host (small expert cache, --adapt-every 1): Niko1221/Strata
+  # #2010, fix pending in PR #2011. It is turned off declaratively via the
+  # engineEnv option (packages/strata/home.nix); with it off 0.1.43 matches
+  # 0.1.42 (see users/nicky/nicky-hm.nix).
   # The AVX2 IQ3 codebook gather (`STRATA_IQ256_GATHER`, upstream PR #622) is
   # upstream as of 0.1.40 and still enabled by default below; the native-
   # embedding cudaHostAlloc error report is upstream as of 0.1.40.3. (This used
@@ -89,8 +92,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "61b3fb5dd3f1e8ec09cf7e4e05208bc6d3c46406";  # v0.1.42 (main)
-    hash = "sha256-FPwm4cuGTFiXgWkK5eTcfD9VIrH/OnVZiG6ToQFOfMQ=";
+    rev = "7695859aa13afb248bdb4d36f9b2e95707db079d";  # v0.1.43 (main)
+    hash = "sha256-SjhgL3wXV36a4AuDlrQH9E9PDAOAqDS6dXMuVM5/5yw=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -102,7 +105,7 @@
 }:
 
 let
-  version = "0.1.42";
+  version = "0.1.43";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer

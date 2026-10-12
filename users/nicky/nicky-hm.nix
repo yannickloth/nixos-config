@@ -168,10 +168,10 @@ in
     poolWorkers = 15;
     kvResident = 20480;
     adaptEvery = 1;
-    # We pin Strata back to 0.1.42 (packages/strata): 0.1.43 regressed decode on
-    # this rig (~2.7x with only STRATA_ADAPT_OVERLAP toggled, 13.9 vs 40.3 tok/s)
-    # and is more load-sensitive - Niko1221/Strata#2010. Keep the override so a
-    # re-pin to a fixed 0.1.43+ stays safe.
+    # 0.1.43 defaults STRATA_ADAPT_OVERLAP on for Linux CUDA. On this rig (small
+    # expert cache, --adapt-every 1) that costs ~2.7x decode - 13.9 vs 40.3 tok/s
+    # with only this flag changed - and with it off 0.1.43 matches 0.1.42 warm
+    # (medians ~43 tok/s at matched load). Niko1221/Strata#2010 / PR #2011.
     engineEnv.STRATA_ADAPT_OVERLAP = "0";
   };
 
