@@ -69,3 +69,24 @@ jobs:
           nix eval --accept-flake-config \
             --override-input forksStrata github:Niko1221/Strata \
             ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel.drvPath"
+
+  # Evaluate the standalone home-manager flake (users/) for every user: catches
+  # eval / option / type errors in the home configs, which the host eval above
+  # only reaches through home-manager.users and not for the standalone deploy.
+  eval-users:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        user: [nicky, aeiuno, sven, aaron]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v23
+
+      - name: Eval home config
+        run: |
+          nix eval --accept-flake-config \
+            --override-input forksStrata github:Niko1221/Strata \
+            "./users#homeConfigurations.${{ matrix.user }}.activationPackage.drvPath"

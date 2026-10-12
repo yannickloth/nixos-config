@@ -181,7 +181,9 @@
     };
     "music" = {
       id = "xkfuh-ep2th";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      # laptop-hera is deliberately excluded: its disks are too small for the
+      # music library (both 1 TB). Re-add only if the storage situation changes.
+      devices = [ "laptop-p16" "nestor" "laptop-xps" "laptop-travelmate" ];
     };
     "nixos" = {
       id = "yojhk-vh7km";

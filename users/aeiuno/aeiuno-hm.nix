@@ -5,13 +5,45 @@
     ../common-hm.nix
     ../emacs-adult.nix
     ../opencode.nix
+    ../hyprland.nix
+    ../../packages/orca/home.nix
+    ../../packages/browseros/home.nix
+    ../../packages/rea/home.nix
+    # Unsloth Studio is deliberately NOT enabled for aeiuno (packages/
+    # unsloth-studio/home.nix) — see the block after opencode.enable below.
+    # ../../packages/unsloth-studio/home.nix
   ];
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
 
+  # Omarchy-style Hyprland session (users/hyprland.nix), full config; the
+  # session is registered system-wide in desktop/hyprland.nix.
+  hyprland.enable = true;
+  hyprland.omarchy = true;
+
   # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
   opencode.enable = true;
+
+  # BrowserOS neo: agent-driven browser for AI assistants (MCP).
+  browseros.enable = true;
+
+  # REA: reverse-engineering MCP server + CLI (packages/rea/home.nix).
+  rea.enable = true;
+
+  # Orca (agent development environment): desktop client only. Runs locally per
+  # user; pair it to a running `orca serve` (e.g. nicky's on laptop-p16) from
+  # Settings only if you accept that its agents would run as THAT user.
+  orca.enable = true;
+
+  # Unsloth Studio (packages/unsloth-studio/home.nix) is deliberately NOT
+  # enabled for aeiuno: it installs per-user into $HOME and binds :8888, so a
+  # second instance on the same laptop would collide with nicky's (which runs
+  # on every host, with linger) and double the multi-GB install. aeiuno's
+  # opencode still reaches the same local System One endpoint at
+  # 127.0.0.1:8888 as nicky's, so nothing is lost. On a host that is aeiuno's
+  # alone, uncomment the import above and the enable below:
+  # unsloth-studio.enable = true;
 
   home = {
     username = "aeiuno";
@@ -132,29 +164,6 @@
   };
 
   # Keybase not enabled: kbfs.enable and keybase.enable are intentionally left off.
-
-  # TEMPORARY recovery instance. The per-user syncthing was dropped when the
-  # family moved to the system-wide services/syncthing (commit 5b37c24); this
-  # re-enables it briefly to finish pushing aeiuno's pre-existing, possibly
-  # not-fully-synced tree (/home/aeiuno/syncthing or /data/aeiuno/syncthing) to
-  # the peers. It reuses the old ~/.config/syncthing (device identity, folders,
-  # index DB), hence overrideDevices/overrideFolders = false so the module does
-  # NOT wipe that config. Alternate ports let it coexist with the system
-  # service (8384/22000/21027); remove this whole block once caught up.
-  services.syncthing = {
-    enable = true;
-    guiAddress = "127.0.0.1:8385";
-    overrideDevices = false;
-    overrideFolders = false;
-    settings.options = {
-      listenAddresses = [
-        "tcp://0.0.0.0:22001"
-        "quic://0.0.0.0:22001"
-        "dynamic+https://relays.syncthing.net/endpoint"
-      ];
-      localAnnouncePort = 21028;
-    };
-  };
 
   xdg.configFile."user-dirs.dirs".force = true;
 

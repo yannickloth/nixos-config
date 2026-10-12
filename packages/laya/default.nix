@@ -16,7 +16,7 @@
 }:
 
 let
-  version = "0.3.3";
+  version = "0.4.2";
 
   # The uv project (pyproject.toml + uv.lock) and the MCP server script, kept
   # read-only in the store; the venv is created outside it via

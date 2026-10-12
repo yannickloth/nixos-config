@@ -21,7 +21,7 @@
 # (the encoder costs ~35 -> ~22 tok/s), so the server runs `--lazy`. Runs as a user service so
 # Studio can reach it whenever; Studio's own models keep the GPU the rest of the
 # time.
-{ config, lib, pkgs, strataSrc, ... }:
+{ config, lib, pkgs, ... }:
 with lib;
 let
   cfg = config.strata;
@@ -33,13 +33,12 @@ in
     package = mkOption {
       type = types.package;
       default = pkgs.callPackage ./default.nix {
-        inherit strataSrc;
         inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery vision;
         # CachyOS needs the /usr/lib/libcuda shim; NixOS uses the driver runpath
         # (set by the standalone CachyOS flake / left false on NixOS).
         inherit (config.commonHm) isCachyOS;
       };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit strataSrc; inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery vision; inherit (config.commonHm) isCachyOS; }";
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery vision; inherit (config.commonHm) isCachyOS; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
     };
 

@@ -7,12 +7,23 @@
 # against the read-only Nix store). The Chinese enterprise-messaging extras
 # (dingtalk, feishu) are excluded deliberately — everything general-purpose
 # (MCP, dashboard, google, messaging, voice, wake, ...) is in.
+#
+# kittentts is excluded too: it is the only extra that reaches the GPU stack
+# (kittentts -> spacy -> spacy-curated-transformers -> torch -> triton ->
+# nvidia-*), and those PyPI CUDA wheels (a CUDA-12/13 mix whose libs live in
+# non-standard site-packages/nvidia/*/lib dirs) fail uv2nix's auto-patchelf
+# ("could not satisfy libcublas.so.13"). The previous pin (2026.9.14) had no
+# kittentts and no torch at all, so dropping it restores that dependency
+# surface and keeps the closure ~6 GiB smaller. Re-include it only together
+# with CUDA overrides that add nixpkgs cudaPackages.libcublas/libcusparse/
+# libnvjitlink to the corresponding nvidia-* wheels' nativeBuildInputs.
+# See https://discourse.nixos.org/t/72028.
 {
   lib,
   stdenv,
   makeWrapper,
   callPackage,
-  python311,
+  python314,
   fetchFromGitHub,
   git,
   ripgrep,
@@ -24,12 +35,12 @@
 }:
 
 let
-  # Pin: v2026.9.14 (2026-09-16).
+  # Pin: v0.21.6 (2026-10-08).
   src = fetchFromGitHub {
     owner = "NousResearch";
     repo = "hermes-agent";
-    rev = "4e9d3c713a3e3d47319ab18a8d8dfade5665270d";
-    hash = "sha256-WrBjTVGiNA9eud2EPK6SjDvsML0PO2PhhpqX4QloZm4=";
+    rev = "818c13be1dc4fd28987e1e881a9408224afd4535";
+    hash = "sha256-nET4+PalQSZ4xfhdg2Rb5NB40XxINAkSvpUYHf947Io=";
   };
 
   workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = src; };
@@ -52,13 +63,24 @@ let
     sherpa-onnx = prev.sherpa-onnx.overrideAttrs (old: {
       buildInputs = (old.buildInputs or [ ]) ++ [ onnxruntime ];
     });
+    # Several upstream sdists use setuptools as their build backend but omit it
+    # from build-system.requires, so uv2nix's build environment lacks it. Provide
+    # it explicitly for the affected packages.
+    pilk = prev.pilk.overrideAttrs (old: {
+      nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ (final.resolveBuildSystem { setuptools = [ ]; });
+    });
+    python-olm = prev.python-olm.overrideAttrs (old: {
+      nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ (final.resolveBuildSystem { setuptools = [ ]; });
+    });
   };
 
-  # requires-python = ">=3.11,<3.14"; also tflite-runtime only publishes
-  # cp311 wheels, so the base interpreter must stay on 3.11 (the project's
-  # floor) for the wake-word extra.
+  # requires-python = ">=3.11,<3.15", but v0.21.6's uv.lock narrows the
+  # resolution to supported-markers = ["python_full_version >= '3.14'"], and
+  # uv2nix asserts the build environment satisfies one of them — so the base
+  # interpreter must be 3.14. (The old 3.11 pin existed only for tflite-runtime's
+  # cp311-only wheels; upstream dropped tflite-runtime from the lock.)
   pythonSet =
-    (callPackage pyproject-nix.build.packages { python = python311; }).overrideScope (
+    (callPackage pyproject-nix.build.packages { python = python314; }).overrideScope (
       lib.composeManyExtensions [
         pyproject-build-systems.overlays.wheel
         pyprojectOverlay
@@ -67,14 +89,14 @@ let
     );
 
   depsSelection = workspace.deps.all // {
-    hermes-agent = lib.subtractLists [ "dingtalk" "feishu" ] workspace.deps.all.hermes-agent;
+    hermes-agent = lib.subtractLists [ "dingtalk" "feishu" "kittentts" ] workspace.deps.all.hermes-agent;
   };
 
   virtualenv = pythonSet.mkVirtualEnv "hermes-agent-env" depsSelection;
 in
 stdenv.mkDerivation {
   pname = "hermes-agent";
-  version = "0.21.3";
+  version = "0.21.6";
 
   dontUnpack = true;
   dontBuild = true;

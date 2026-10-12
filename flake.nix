@@ -13,18 +13,11 @@
     # agenix: age-encrypted secrets managed in git. Encrypted .age files are
     # committed; private keys stay in the gitignored age-keys/ and on each host.
     agenix.url = "github:ryantm/agenix";
-    # Strata fork (github.com/yannickloth/forks-Strata), branch perf/iq-gateup:
-    # perf/am47 (upstream 0.1.38 99f3dbd - the latest release - plus the
-    # native-embedding error report and the A3000 bench harness) with the AVX2
-    # IQ3 codebook gather on top (`STRATA_IQ256_GATHER`, upstream PR #622),
-    # which packages/strata enables by default. A flake input (rather than an
-    # inline builtins.fetchGit rev) so `nix flake update forksStrata` moves it
-    # to the branch head; flake.lock pins the exact rev between updates. The
-    # repo ships no flake.nix, so it is consumed as a plain source
-    # (`flake = false`). Private repo: fetched over ssh with the invoking user's
-    # key. Passed to packages/strata as `strataSrc`.
-    forksStrata.url = "git+ssh://git@github.com/yannickloth/forks-Strata.git?ref=refs/heads/perf/iq-gateup";
-    forksStrata.flake = false;
+    # Strata (github.com/Niko1221/Strata) is not a flake input: packages/strata
+    # fetches it directly with fetchFromGitHub, pinned to v0.1.43 in
+    # engine.nix/default.nix. (It used to be the private yannickloth/forks-Strata
+    # fork's sm_86 branch; upstream 0.1.40.3 now carries every engine change the
+    # fork had, so the fork only added a bench harness - see git history.)
     # hermes-agent packaging (packages/hermes-agent): builds the upstream
     # uv.lock into a Python virtualenv. Pin all three to this repo's
     # nixpkgs-unstable so there is a single evaluation of nixpkgs.
@@ -39,7 +32,7 @@
     uv2nix.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = { nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, agenix, uv2nix, pyproject-nix, pyproject-build-systems, forksStrata, ... }:
+  outputs = { nixpkgs, nixpkgs-unstable, home-manager, nixos-hardware, agenix, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -59,9 +52,10 @@
         pyproject-nix = pyproject-nix;
         pyproject-build-systems = pyproject-build-systems;
       };
+      browseros = pkgs.callPackage ./packages/browseros { };
       aiOverlay = import ./overlays/ai-unstable.nix {
         inherit unstablePkgs;
-        inherit hermesAgent;
+        inherit hermesAgent browseros;
       };
     in
     {
@@ -105,7 +99,24 @@
         # (packages/strata/home.nix, `strata.enable`). Built WITHOUT the
         # strata-vision image encoder: image support drops throughput from
         # ~35 to ~22 tok/s, so vision stays off.
-        strata = pkgs.callPackage ./packages/strata { strataSrc = forksStrata; vision = false; };
+        strata = pkgs.callPackage ./packages/strata { vision = false; };
+        # Orca (packages/orca): the released Electron AppImage wrapped as a
+        # normal derivation (appimageTools.wrapType2). Consumed via home-manager
+        # (packages/orca/home.nix) and also exposed here for `nix build .#orca`
+        # / `nix-update`.
+        orca = pkgs.callPackage ./packages/orca { };
+        # BrowserOS neo (packages/browseros): agent-driven browser for AI
+        # assistants, packaged from the upstream AppImage.
+        browseros = pkgs.callPackage ./packages/browseros { };
+        # PhotoCraft (packages/photocraft): clean-room Photoshop
+        # reimplementation, packaged from the upstream AppImage. Installed for
+        # every user via users/common-hm.nix; exposed here for `nix build
+        # .#photocraft` / `nix-update`.
+        photocraft = pkgs.callPackage ./packages/photocraft { };
+        # REA (packages/rea): npm-only MCP+CLI reverse-engineering toolkit,
+        # built from the registry tarball on unstable's Node (matches the
+        # overlay, so the installed users share this store path).
+        rea = unstablePkgs.callPackage ./packages/rea { };
       };
 
       nixosConfigurations =
@@ -138,9 +149,6 @@
               # Take over pre-existing unmanaged files (e.g. a plain ~/.zshrc
               # from zsh-newuser-install) instead of failing activation.
               home-manager.backupFileExtension = "backup";
-              # Pass the Strata fork source (the flake input) to the users'
-              # home modules; packages/strata/home.nix takes it as `strataSrc`.
-              home-manager.extraSpecialArgs = { strataSrc = forksStrata; };
             }
           ];
 

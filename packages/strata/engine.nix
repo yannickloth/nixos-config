@@ -59,14 +59,17 @@
 # insufficient for CUDA runtime version" (the message is misleading - it is
 # libcuda resolution, not memory). Pinned allocations otherwise work even
 # under RLIMIT_MEMLOCK=8M: the open kernel module does not enforce it.
+# libnvidia-ml.so.1 (NVML) is shimmed alongside it: serve/telemetry.py dlopens
+# it by soname for the Monitor tab, and without it the web app shows the GPU as
+# "not readable (NVML)" (the engine itself does not use NVML).
 #
 # The native-embedding error report (the real cudaError instead of upstream's
-# bare "cannot pin N MiB") and the bench harness live in the fork
-# (github.com/yannickloth/forks-Strata, branch perf/iq-gateup), not as patches
-# here; that branch also carries the AVX2 IQ3 codebook gather
-# (STRATA_IQ256_GATHER, upstream PR #622; see packages/strata/default.nix). The
-# engine-lifecycle API this comment used to mention is upstream as of 0.1.31
-# (--idle-unload); upstream main is 0.1.38.
+# bare "cannot pin N MiB") is upstream as of 0.1.40.3; historically it lived in
+# the fork (github.com/yannickloth/forks-Strata). The AVX2 IQ3 codebook gather
+# (STRATA_IQ256_GATHER, upstream PR #622) is upstream as of 0.1.40, behind
+# per-thread selection (see packages/strata/default.nix). The engine-lifecycle
+# API this comment used to mention is upstream as of 0.1.31 (--idle-unload);
+# upstream main is 0.1.43.
 {
   lib,
   stdenv,
@@ -85,8 +88,8 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "99f3dbd0b21d1401b3769e0c0d963913607f380b";  # 0.1.38 (main)
-    hash = "sha256-9tawklXlF98yolRTVgeonVcyrob8HiNG3xSQ7V5v+94=";
+    rev = "7695859aa13afb248bdb4d36f9b2e95707db079d";  # v0.1.43 (main)
+    hash = "sha256-SjhgL3wXV36a4AuDlrQH9E9PDAOAqDS6dXMuVM5/5yw=";
   },
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -98,7 +101,7 @@
 }:
 
 let
-  version = "0.1.38";
+  version = "0.1.43";
 
   meta = with lib; {
     description =
@@ -166,6 +169,7 @@ let
     mkdir -p $out/lib-driver
     ${lib.optionalString isCachyOS ''
       ln -sf /usr/lib/libcuda.so.1 $out/lib-driver/libcuda.so.1
+      ln -sf /usr/lib/libnvidia-ml.so.1 $out/lib-driver/libnvidia-ml.so.1
     ''}
     patchelf --add-rpath $out/lib-driver $out/bin/strata
   '';
@@ -213,6 +217,7 @@ let
       mkdir -p $out/lib-driver
       ${lib.optionalString isCachyOS ''
         ln -sf /usr/lib/libcuda.so.1 $out/lib-driver/libcuda.so.1
+        ln -sf /usr/lib/libnvidia-ml.so.1 $out/lib-driver/libnvidia-ml.so.1
       ''}
       patchelf --add-rpath $out/lib-driver $out/bin/strata-vision
     '';

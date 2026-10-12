@@ -304,14 +304,45 @@ in
                   timeout = 120000;
                 };
               } // {
-              # TypeSafe's Jev System One MCP server, global so every project sees
-              # it (it was previously only in ~/code/llm-harness-plugins/opencode.json).
-              # The API key is read at runtime via `{file:...}`, never stored in the
-              # nix store (see the header comment).
+              # Jev judgment tools (@jkudish/jev-mcp), global so every project sees
+              # them. They run against the local Unsloth Studio Decision API: a
+              # TypeSafe-compatible POST /v1/systemone on Studio's port that
+              # serves open System One models (Laya, ...). One Studio instance
+              # per host, run as nicky with linger (see
+              # packages/unsloth-studio/home.nix) — both users of this module
+              # reach the same localhost endpoint. The MCP's `compatible`
+              # provider takes the full POST URL in JEV_API_BASE_URL; under
+              # Studio's Keyless-localhost setting the bearer is ignored, so a
+              # literal keeps the provider resolver (which requires both vars)
+              # happy without a key file.
               jev = {
                 type = "local";
                 command = [ "npx" "-y" "@jkudish/jev-mcp" ];
-                environment.TYPESAFE_API_KEY = keyfile "typesafe";
+                environment = {
+                  JEV_PROVIDER = "compatible";
+                  JEV_API_BASE_URL = "http://127.0.0.1:8888/v1/systemone";
+                  JEV_API_KEY = "keyless";
+                };
+                enabled = true;
+              };
+            } // optionalAttrs (pkgs ? rea) {
+              # REA (packages/rea): reverse-engineering toolkit (native binaries,
+              # JS/Electron, .NET, websites, ...) served over stdio MCP. Only
+              # registered where the AI-unstable overlay provides pkgs.rea
+              # (nicky, aeiuno). Set enabled = false to hide its large tool
+              # catalog from every session.
+              rea = {
+                type = "local";
+                command = [ "${pkgs.rea}/bin/rea" "mcp" ];
+                enabled = true;
+              };
+            } // optionalAttrs (config.browseros.enable or false) {
+              # BrowserOS neo: agent-driven browser exposing a local MCP server
+              # (claw-server) on :9200. Agents drive the real browser (with the
+              # user's imported Chrome logins) over typed MCP tool calls.
+              browseros-neo = {
+                type = "remote";
+                url = "http://127.0.0.1:9200/mcp";
                 enabled = true;
               };
             };

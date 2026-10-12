@@ -20,16 +20,16 @@
 
 buildGoModule rec {
   pname = "magpie";
-  version = "0.1.384";
+  version = "0.1.1184";
 
   src = fetchFromGitHub {
     owner = "yetone";
     repo = "magpie";
-    rev = "12d79dd9f509f2128b0bf725c97a3c50e0748aa2"; # v0.1.384
-    hash = "sha256-6sBawN29VdL+EWpXk0YM54K4NaboZB0Lw4Ar2dRZD1A=";
+    rev = "dde3a31a3d825de3dbbcfd614e20c386e83f0d03"; # v0.1.1184
+    hash = "sha256-aSKjk+HCMksiSrYyf80nPU3j4DC4lf52XaEpTZelscE=";
   };
 
-  vendorHash = "sha256-7I/9ybvVtYGHsx1xvRvoy+xKfAC2nGjVW1DuU49caaY=";
+  vendorHash = "sha256-RevP93sHMwgwQxSh4WzKkNIupNQhU/sP3b/g/lpMS+E=";
 
   # Terminal-only build: no cgo, no WebKit/GTK. Cross-compiles cleanly and
   # avoids the broken WebKit rendering path on NVIDIA/Plasma/Wayland.

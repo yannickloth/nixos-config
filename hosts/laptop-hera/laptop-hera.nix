@@ -42,6 +42,11 @@ with lib;
   # In this file comes everything that is specific to this host.
   networking.hostName = "laptop-hera"; # Define your hostname.
 
+  # nicky's per-user services must survive logout so Unsloth Studio's local
+  # System One API (packages/unsloth-studio/home.nix) serves whoever is
+  # logged in — same reason laptop-p16 lingers nicky (Orca runtime server).
+  users.users.nicky.linger = true;
+
   # Syncthing device name for this host (see services/syncthing/pool.nix).
   services.syncthing.self = "laptop-hera";
   # Syncthing web-UI login username (the password comes from the agenix secret).

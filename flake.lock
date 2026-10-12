@@ -43,23 +43,6 @@
         "type": "github"
       }
     },
-    "forksStrata": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1791030344,
-        "narHash": "sha256-nZVj1Dy9gYM/Av2FrpCPwNjqZIqJi9yM0DmeJ/c6nss=",
-        "ref": "refs/heads/perf/iq-gateup",
-        "rev": "f9371cfd98a1ecaaf6cdbed6f63ff4dec8f15ec7",
-        "revCount": 638,
-        "type": "git",
-        "url": "ssh://git@github.com/yannickloth/forks-Strata.git"
-      },
-      "original": {
-        "ref": "refs/heads/perf/iq-gateup",
-        "type": "git",
-        "url": "ssh://git@github.com/yannickloth/forks-Strata.git"
-      }
-    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -139,11 +122,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1789426278,
-        "narHash": "sha256-GnotcvKtbTMnoVx6G4E7ZdUX6487Dky74dqq3pU7iRk=",
+        "lastModified": 1791260994,
+        "narHash": "sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "efe6f071ede9d21c37462d2d6682d5e670099684",
+        "rev": "151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4",
         "type": "github"
       },
       "original": {
@@ -231,7 +214,6 @@
     "root": {
       "inputs": {
         "agenix": "agenix",
-        "forksStrata": "forksStrata",
         "home-manager": "home-manager_2",
         "nixos-hardware": "nixos-hardware",
         "nixpkgs": "nixpkgs_3",

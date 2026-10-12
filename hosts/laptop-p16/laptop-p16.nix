@@ -13,6 +13,12 @@ with lib;
     ../../apps/benchmark.nix
     ../../apps/obs-studio.nix
     ../../apps/wine.nix
+    # Immich server + AI machine learning (web UI at :2283, LAN + Tailscale).
+    # Commented out: p16 currently runs CachyOS, not NixOS, so this NixOS
+    # module only takes effect on a future NixOS install. On CachyOS the
+    # server runs via home-manager instead (packages/immich/home.nix, enabled
+    # for nicky in users/nicky/nicky-hm.nix).
+    # ../../services/immich.nix
 
     # commonHm.hostName: home-manager modules cannot reach
     # config.networking.hostName, so the host name is passed explicitly. It
@@ -90,4 +96,18 @@ with lib;
   # system instance and systemd.user.extraConfig for the user instance.
   systemd.settings.Manager.DefaultLimitMEMLOCK = "infinity";
   systemd.user.extraConfig = "DefaultLimitMEMLOCK=infinity";
+
+  # nicky's always-on Orca runtime server (packages/orca/home.nix,
+  # orca.server.enable) must survive logout, which needs lingering. The
+  # standalone CachyOS deployment enables this in activation instead.
+  users.users.nicky.linger = true;
+
+  # The Orca runtime server listens on TCP 6768 and is meant to be reached only
+  # by Tailscale peers (other laptops pair to it over the mesh), same CGNAT gate
+  # as nix-serve in environments/laptop-firewall.nix. Kept in the host rather
+  # than the HM module because orca.server is a home-manager option and cannot
+  # touch networking.firewall.
+  networking.firewall.extraInputRules = ''
+    tcp dport 6768 ip saddr 100.64.0.0/10 accept
+  '';
 }
