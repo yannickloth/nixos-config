@@ -81,8 +81,19 @@
     # "Existing file '~/.gtkrc-2.0.backup' would be clobbered by backing up
     # '~/.gtkrc-2.0'". Overwrite without a backup, like ./.zshrc above.
     gtk.gtk2.force = true;
-    xdg.configFile."gtk-3.0/settings.ini".force = true;
-    xdg.configFile."gtk-4.0/settings.ini".force = true;
+    # The gtk module only defines these xdg.configFile entries when gtk is
+    # enabled (its condition is `gtk.enable && gtk.gtkN.enable`). Setting force
+    # on an entry with no source/text fails eval for users without a gtk
+    # profile (e.g. sven, aaron), so disable the entry under the same condition:
+    # home-manager filters disabled files out before it reads their source.
+    xdg.configFile."gtk-3.0/settings.ini" = {
+      force = true;
+      enable = config.gtk.enable && config.gtk.gtk3.enable;
+    };
+    xdg.configFile."gtk-4.0/settings.ini" = {
+      force = true;
+      enable = config.gtk.enable && config.gtk.gtk4.enable;
+    };
 
     # Symlink ~/sync to the shared syncthing data directory (/sync is created by the
     # system services.syncthing module, so create the symlink at activation time).
