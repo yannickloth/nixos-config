@@ -69,6 +69,7 @@
 # (STRATA_IQ256_GATHER, upstream PR #622) is upstream as of 0.1.40, behind
 # per-thread selection (see packages/strata/default.nix). The engine-lifecycle
 # API this comment used to mention is upstream as of 0.1.31 (--idle-unload);
+# pinned to 0.1.42 (61b3fb5) - 0.1.43 regressed decode (Niko1221/Strata#2010) -
 # upstream main is 0.1.43.
 {
   lib,
@@ -88,8 +89,8 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "7695859aa13afb248bdb4d36f9b2e95707db079d";  # v0.1.43 (main)
-    hash = "sha256-SjhgL3wXV36a4AuDlrQH9E9PDAOAqDS6dXMuVM5/5yw=";
+    rev = "61b3fb5dd3f1e8ec09cf7e4e05208bc6d3c46406";  # v0.1.42 (main)
+    hash = "sha256-FPwm4cuGTFiXgWkK5eTcfD9VIrH/OnVZiG6ToQFOfMQ=";
   },
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -101,7 +102,7 @@
 }:
 
 let
-  version = "0.1.43";
+  version = "0.1.42";
 
   meta = with lib; {
     description =
