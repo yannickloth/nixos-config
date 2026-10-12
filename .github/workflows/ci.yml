@@ -48,10 +48,8 @@ jobs:
   # Evaluate each host's toplevel derivation: catches eval / module / option /
   # merge errors without building the full closure.
   #
-  # The flake has a private `git+ssh://…forksStrata` input that CI cannot fetch
-  # (no deploy key on hosted runners), so override it with the public upstream
-  # for evaluation only. To evaluate the exact fork instead, add a deploy key
-  # as a repo secret and set up ssh-agent, then drop the --override-input.
+  # Strata is fetched directly by packages/strata (fetchFromGitHub), not via a
+  # flake input, so no --override-input is needed.
   eval-hosts:
     runs-on: ubuntu-latest
     strategy:
@@ -67,7 +65,6 @@ jobs:
       - name: Eval host config
         run: |
           nix eval --accept-flake-config \
-            --override-input forksStrata github:Niko1221/Strata \
             ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel.drvPath"
 
   # Evaluate the standalone home-manager flake (users/) for every user: catches
@@ -88,5 +85,4 @@ jobs:
       - name: Eval home config
         run: |
           nix eval --accept-flake-config \
-            --override-input forksStrata github:Niko1221/Strata \
             "./users#homeConfigurations.${{ matrix.user }}.activationPackage.drvPath"
