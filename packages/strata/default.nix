@@ -71,6 +71,12 @@
   # Lower learns a conversation's hot experts faster (a cold-start win, P8);
   # null leaves the engine's default.
   , adaptEvery ? null
+  # Environment variables merged into every engine config's "env" block (the
+  # engine reads them; they are not command-line flags). For upstream
+  # workarounds with no flag, e.g. STRATA_ADAPT_OVERLAP=0 - the v0.1.43 default
+  # costs ~2.7x decode on this host (Niko1221/Strata#2010, fixed upstream by
+  # PR #2011). Empty by default; see packages/strata/home.nix.
+  , engineEnv ? { }
   # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.43 (7695859).
   # The AVX2 IQ3 codebook gather (`STRATA_IQ256_GATHER`, upstream PR #622) is
   # upstream as of 0.1.40 and still enabled by default below; the native-
@@ -117,11 +123,12 @@ let
     name = "strata-patch-config";
     runtimeInputs = [ python3 ];
     text = ''
-      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} <<'PY'
+      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.escapeShellArg (builtins.toJSON engineEnv)} <<'PY'
       import glob, json, os, sys
-      ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt = (
+      ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, env_json = (
           int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5]),
-          sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10])
+          sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], sys.argv[11])
+      env_patch = json.loads(env_json or "{}")
       home = os.environ.get("STRATA_HOME") or os.path.expanduser("~/.local/share/strata")
 
       def set_opt(args, flag, value):
@@ -178,6 +185,10 @@ let
                   a = set_opt(a, "--pool-affinity", affinity)
               if adapt != "none":
                   a = set_opt(a, "--adapt-every", adapt)
+              # Merge the module's engine environment (flags with no command-line
+              # form), keeping anything setup.py or the user already set.
+              if env_patch:
+                  c["env"] = {**(c.get("env") or {}), **{k: str(v) for k, v in env_patch.items()}}
               c["args"] = a
               with open(p, "w", encoding="utf-8") as f:
                   json.dump(c, f, indent=1)

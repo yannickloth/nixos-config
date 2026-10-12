@@ -33,12 +33,12 @@ in
     package = mkOption {
       type = types.package;
       default = pkgs.callPackage ./default.nix {
-        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery vision;
+        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery vision engineEnv;
         # CachyOS needs the /usr/lib/libcuda shim; NixOS uses the driver runpath
         # (set by the standalone CachyOS flake / left false on NixOS).
         inherit (config.commonHm) isCachyOS;
       };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery vision; inherit (config.commonHm) isCachyOS; }";
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery vision engineEnv; inherit (config.commonHm) isCachyOS; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
     };
 
@@ -139,6 +139,19 @@ in
         sooner, which helps the first request of a cold session (P8 measured the
         fresh hit rate 0.468 -> 0.539 at 1); it trades a small warm-turn hit
         rate. null keeps the engine's default 4.
+      '';
+    };
+
+    engineEnv = mkOption {
+      type = types.attrsOf types.str;
+      default = { };
+      example = { STRATA_ADAPT_OVERLAP = "0"; };
+      description = ''
+        Environment variables merged into every engine config's `env` block (the
+        engine reads them; they are not command-line flags). For upstream
+        workarounds that have no flag, e.g. STRATA_ADAPT_OVERLAP=0: the v0.1.43
+        default costs ~2.7x decode on this host (Niko1221/Strata#2010, fixed
+        upstream by PR #2011). Empty by default.
       '';
     };
 

@@ -168,6 +168,13 @@ in
     poolWorkers = 15;
     kvResident = 20480;
     adaptEvery = 1;
+    # v0.1.43 turns STRATA_ADAPT_OVERLAP on by default for Linux CUDA. On this
+    # rig (single GPU, 15-worker pool, 3.2 GiB expert cache vs a ~40 GiB arena,
+    # --adapt-every 1) that costs ~2.7x decode: measured 13.9 -> 40.3 tok/s with
+    # only this flag changed, against a 31.6 tok/s 0.1.42 control. See
+    # Niko1221/Strata#2010 (fixed upstream by PR #2011); drop this when the
+    # default is reset upstream.
+    engineEnv.STRATA_ADAPT_OVERLAP = "0";
   };
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
