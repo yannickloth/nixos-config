@@ -62,6 +62,7 @@
     download = "/home/sven/sync/sven/Downloads/";
     music = "/home/sven/sync/sven/Music/";
     pictures = "/home/sven/sync/sven/Pictures/";
+    projects = "/home/sven/sync/sven/Projects/";
     publicShare = "/home/sven/sync/sven/Public/";
     templates = "/home/sven/sync/sven/Templates/";
     videos = "/home/sven/sync/sven/Videos/";

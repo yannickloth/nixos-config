@@ -578,6 +578,7 @@ in
     download = "/home/nicky/sync/yannick/Downloads/";
     music = "/home/nicky/sync/yannick/Music/";
     pictures = "/home/nicky/sync/yannick/Pictures/";
+    projects = "/home/nicky/sync/yannick/Projects/";
     publicShare = "/home/nicky/sync/yannick/Public/";
     templates = "/home/nicky/sync/yannick/Templates/";
     videos = "/home/nicky/sync/yannick/Videos/";

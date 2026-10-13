@@ -188,6 +188,7 @@
     download = "/home/aeiuno/sync/christine/Downloads/";
     music = "/home/aeiuno/sync/christine/Music/";
     pictures = "/home/aeiuno/sync/christine/Pictures/";
+    projects = "/home/aeiuno/sync/christine/Projects/";
     publicShare = "/home/aeiuno/sync/christine/Public/";
     templates = "/home/aeiuno/sync/christine/Templates/";
     videos = "/home/aeiuno/sync/christine/Videos/";
