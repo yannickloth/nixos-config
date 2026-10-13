@@ -88,36 +88,47 @@
       formatter.${system} = pkgs.nixfmt;
 
       # System 1 decision engines. Scope wrappers live beside them:
-      # packages/laya/{home,nixos}.nix and packages/clm/home.nix. (One
-      # packages.${system} assignment: flake outputs do not merge repeated
-      # dynamic-attribute paths.)
-      packages.${system} = {
-        laya = pkgs.callPackage ./packages/laya { };
-        clm = pkgs.callPackage ./packages/clm { };
-        # Strata (packages/strata): CUDA inference engine for the A3000
-        # (sm_86) + runtime wrappers; consumed via home-manager
-        # (packages/strata/home.nix, `strata.enable`). Built WITHOUT the
-        # strata-vision image encoder: image support drops throughput from
-        # ~35 to ~22 tok/s, so vision stays off.
-        strata = pkgs.callPackage ./packages/strata { vision = false; };
-        # Orca (packages/orca): the released Electron AppImage wrapped as a
-        # normal derivation (appimageTools.wrapType2). Consumed via home-manager
-        # (packages/orca/home.nix) and also exposed here for `nix build .#orca`
-        # / `nix-update`.
-        orca = pkgs.callPackage ./packages/orca { };
-        # BrowserOS neo (packages/browseros): agent-driven browser for AI
-        # assistants, packaged from the upstream AppImage.
-        browseros = pkgs.callPackage ./packages/browseros { };
-        # PhotoCraft (packages/photocraft): clean-room Photoshop
-        # reimplementation, packaged from the upstream AppImage. Installed for
-        # every user via users/common-hm.nix; exposed here for `nix build
-        # .#photocraft` / `nix-update`.
-        photocraft = pkgs.callPackage ./packages/photocraft { };
-        # REA (packages/rea): npm-only MCP+CLI reverse-engineering toolkit,
-        # built from the registry tarball on unstable's Node (matches the
-        # overlay, so the installed users share this store path).
-        rea = unstablePkgs.callPackage ./packages/rea { };
-      };
+      # packages/laya/{home,nixos}.nix and packages/clm/home.nix.
+      #
+      # Everything lives in ONE packages.${system} attrset: flake outputs do not
+      # merge repeated dynamic-attribute paths. The ArtCraft "Crafting Apps"
+      # (packages/craft-apps) already come as an attrset, so they are spread in
+      # alongside the individually listed packages.
+      packages.${system} =
+        # import (not callPackage): callPackage wraps the returned attrset with
+        # lib.makeOverridable, which would add `override`/`overrideDerivation`
+        # function attrs into the package set (and, in users/common-hm.nix,
+        # leak into home.packages via builtins.attrValues).
+        #
+        # Left at the default cachyos = false: these generic attributes are the
+        # plain wrapper for `nix build` / `nix-update`. The CachyOS laptop-p16
+        # deployment opts into the bundled GPU/audio stack via the host-aware
+        # install in users/common-hm.nix.
+        (import ./packages/craft-apps {
+          inherit (pkgs) lib appimageTools fetchurl;
+        })
+        // {
+          laya = pkgs.callPackage ./packages/laya { };
+          clm = pkgs.callPackage ./packages/clm { };
+          # Strata (packages/strata): CUDA inference engine for the A3000
+          # (sm_86) + runtime wrappers; consumed via home-manager
+          # (packages/strata/home.nix, `strata.enable`). Built WITHOUT the
+          # strata-vision image encoder: image support drops throughput from
+          # ~35 to ~22 tok/s, so vision stays off.
+          strata = pkgs.callPackage ./packages/strata { vision = false; };
+          # Orca (packages/orca): the released Electron AppImage wrapped as a
+          # normal derivation (appimageTools.wrapType2). Consumed via home-manager
+          # (packages/orca/home.nix) and also exposed here for `nix build .#orca`
+          # / `nix-update`.
+          orca = pkgs.callPackage ./packages/orca { };
+          # BrowserOS neo (packages/browseros): agent-driven browser for AI
+          # assistants, packaged from the upstream AppImage.
+          browseros = pkgs.callPackage ./packages/browseros { };
+          # REA (packages/rea): npm-only MCP+CLI reverse-engineering toolkit,
+          # built from the registry tarball on unstable's Node (matches the
+          # overlay, so the installed users share this store path).
+          rea = unstablePkgs.callPackage ./packages/rea { };
+        };
 
       nixosConfigurations =
         let
