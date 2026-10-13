@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 {
   imports = [
@@ -24,6 +24,18 @@
 
   # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
   opencode.enable = true;
+  # CachyOS has no system agenix / /etc/secrets, so decrypt the shared provider
+  # keys with aeiuno's user agenix key and materialize opencode's per-provider
+  # key files from it; NixOS hosts keep the default /etc/secrets path.
+  opencode.envFile =
+    lib.mkIf config.commonHm.isCachyOS config.age.secrets."open-webui.env".path;
+  age = {
+    identityPaths = [ "/home/aeiuno/.ssh/agenix_aeiuno" ];
+    secrets."open-webui.env" = {
+      file = ../../secrets/open-webui.env.age;
+      mode = "0400";
+    };
+  };
 
   # BrowserOS neo: agent-driven browser for AI assistants (MCP).
   browseros.enable = true;

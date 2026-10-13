@@ -39,7 +39,18 @@ let
 in
 {
   options.opencode = {
-    enable = mkEnableOption "opencode provider/model config (keys read from /etc/secrets/open-webui.env)";
+    enable = mkEnableOption "opencode provider/model config (keys read from the env file below)";
+    envFile = mkOption {
+      type = types.str;
+      default = "/etc/secrets/open-webui.env";
+      description = ''
+        Path to the OPENAI_API_KEYS env file the per-provider key files are
+        materialized from. Defaults to the system agenix path (NixOS). Standalone
+        home-manager hosts with no system agenix (CachyOS) point this at an
+        `age.secrets` path decrypted with the user key; see
+        users/nicky/nicky-hm.nix.
+      '';
+    };
   };
 
   config = mkIf config.opencode.enable {
@@ -205,8 +216,10 @@ in
                     };
                   };
                   # Sonnet-tier workhorse reasoning/analysis (1M ctx, vision).
-                  "claude-sonnet-5" = {
-                    name = "Claude Sonnet 5 (CI)";
+                  # 5.5 same price as 5.0 but faster (159 vs 91 tok/s) and more
+                  # reliable (99.6% vs 95.9%).
+                  "claude-sonnet-5.5" = {
+                    name = "Claude Sonnet 5.5 (CI)";
                     reasoning = true;
                     attachment = true;
                     limit = {
@@ -214,9 +227,11 @@ in
                       output = 128000;
                     };
                   };
-                  # Opus-tier deep formal reasoning (1M ctx, vision).
-                  "claude-opus-5" = {
-                    name = "Claude Opus 5 (CI)";
+                  # Opus-tier deep formal reasoning (1M ctx, vision). 5.5 is
+                  # cheaper and faster than 5 ($2.60/$13 vs $3.25/$16.25,
+                  # 123 vs 78 tok/s).
+                  "claude-opus-5.5" = {
+                    name = "Claude Opus 5.5 (CI)";
                     reasoning = true;
                     attachment = true;
                     limit = {
@@ -425,14 +440,21 @@ in
         });
     };
 
-    # Materialize per-provider API key files from the decrypted Open WebUI env
-    # file (OPENAI_API_KEYS JSON). Skipped silently when the file is absent.
+    # Materialize per-provider API key files from a decrypted Open WebUI env
+    # file (OPENAI_API_KEYS JSON). Source resolution, first existing wins:
+    #   1. config.opencode.envFile — an `age.secrets` path on standalone
+    #      home-manager hosts (CachyOS), or the system path on NixOS.
+    #   2. /etc/secrets/open-webui.env — the system agenix path (NixOS hosts).
+    # Skipped silently when neither exists.
     home.activation.setupOpenCodeKeys = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" <<'PYEOF'
+      ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" '${config.opencode.envFile}' <<'PYEOF'
       import json, os, sys
 
       home = sys.argv[1]
-      envfile = "/etc/secrets/open-webui.env"
+      # expandvars so an agenix $XDG_RUNTIME_DIR/... path is resolved from the
+      # activation environment rather than by bash before Python sees it.
+      candidates = [os.path.expandvars(p) for p in (sys.argv[2], "/etc/secrets/open-webui.env") if p]
+      envfile = next((p for p in candidates if p and os.path.exists(p)), None)
       keydir = os.path.join(home, ".config", "opencode", "keys")
       mapping = {
           "https://api.deepseek.com": "deepseek.key",
@@ -442,8 +464,8 @@ in
           "http://127.0.0.1:8888/v1": "unsloth.key",
           "https://api.cheaperinference.com/v1": "cheaperinference.key",
       }
-      if not os.path.exists(envfile):
-          print(f"opencode: {envfile} missing; skipping key setup")
+      if envfile is None:
+          print("opencode: no key source found (%s); skipping key setup" % ", ".join(candidates))
           sys.exit(0)
       try:
           with open(envfile) as fh:

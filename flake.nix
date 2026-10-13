@@ -152,8 +152,10 @@
             # deepseek-harness); sven/aaron keep plain stable pkgs.
             ./users/ai-pkgs.nix
             # Inject the agenix home-manager module so home-manager users can
-            # use `age.secrets` (nicky does for API keys).
+            # use `age.secrets` (nicky and aeiuno do, for the opencode provider
+            # keys on standalone/CachyOS home-manager).
             { home-manager.users.nicky.imports = [ agenix.homeManagerModules.default ]; }
+            { home-manager.users.aeiuno.imports = [ agenix.homeManagerModules.default ]; }
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;

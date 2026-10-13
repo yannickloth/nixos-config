@@ -28,6 +28,7 @@ let
   host-laptop-travelmate = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGDwgXXr+XgOfH/vtOCcyXZwZTg7r5iVAvIf3IHs7Ii1";
 
   user-nicky = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL7qyn3G5ztyNoQ6u4RZ1nJZaDNHcQRGhKaVj0i8pC8m";
+  user-aeiuno = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIASyK+Od8c/gEwvvdtz1Lovd/qnomAeCRr+cPmhn6qvQ";
 
   # All host keys. Host-wide system secrets and the login password hashes are
   # encrypted to this set.
@@ -47,8 +48,12 @@ in
   # Syncthing web-UI password, shared across all hosts.
   "syncthing-gui-password.age".publicKeys = hosts;
 
-  # Family AI-chat provider keys (Open WebUI).
-  "open-webui.env.age".publicKeys = hosts;
+  # Family AI-chat provider keys (Open WebUI). Also readable by user-nicky and
+  # user-aeiuno so standalone home-manager on CachyOS (p16, no system agenix,
+  # no /etc/secrets) can decrypt it for opencode via their user keys
+  # (~/.ssh/agenix_<user>); see users/{nicky,aeiuno}/*-hm.nix and
+  # users/opencode.nix.
+  "open-webui.env.age".publicKeys = hosts ++ [ user-nicky user-aeiuno ];
 
   # Per-host Syncthing device identity (cert.pem + key.pem). Encrypted to the
   # OWNING host only: the device key belongs to that host, so no other host or

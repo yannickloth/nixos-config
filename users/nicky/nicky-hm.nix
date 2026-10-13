@@ -80,6 +80,11 @@ in
 
   # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
   opencode.enable = true;
+  # On CachyOS there is no system agenix / /etc/secrets, so source the provider
+  # keys from the home-manager agenix secret decrypted with ~/.ssh/agenix_nicky
+  # (see the `age` block below). On NixOS hosts keep the default /etc/secrets.
+  opencode.envFile =
+    lib.mkIf config.commonHm.isCachyOS config.age.secrets."open-webui.env".path;
 
   # Orca (agent development environment): the desktop client on every host, and
   # on laptop-p16 the single always-on runtime server (`orca-ide serve`) that
@@ -470,6 +475,13 @@ in
     identityPaths = [ "/home/nicky/.ssh/agenix_nicky" ];
     secrets."nicky.nix" = {
       file = ../../secrets/nicky.nix.age;
+      mode = "0400";
+    };
+    # Shared family provider keys (OPENAI_API_KEYS JSON), also mounted here so
+    # opencode can materialize its per-provider key files on standalone
+    # home-manager hosts with no system agenix (CachyOS). See opencode.envFile.
+    secrets."open-webui.env" = {
+      file = ../../secrets/open-webui.env.age;
       mode = "0400";
     };
   };
