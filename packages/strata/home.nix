@@ -145,13 +145,11 @@ in
     engineEnv = mkOption {
       type = types.attrsOf types.str;
       default = { };
-      example = { STRATA_ADAPT_OVERLAP = "0"; };
+      example = { STRATA_ADAPT_OVERLAP = "1"; };
       description = ''
         Environment variables merged into every engine config's `env` block (the
         engine reads them; they are not command-line flags). For upstream
-        workarounds that have no flag, e.g. STRATA_ADAPT_OVERLAP=0: the v0.1.43
-        default costs ~2.7x decode on this host (Niko1221/Strata#2010, fixed
-        upstream by PR #2011). Empty by default.
+        workarounds that have no flag. Empty by default.
       '';
     };
 

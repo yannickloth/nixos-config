@@ -73,16 +73,14 @@
   , adaptEvery ? null
   # Environment variables merged into every engine config's "env" block (the
   # engine reads them; they are not command-line flags). For upstream
-  # workarounds with no flag, e.g. STRATA_ADAPT_OVERLAP=0 - the v0.1.43 default
-  # costs ~2.7x decode on this host (Niko1221/Strata#2010, fixed upstream by
-  # PR #2011). Empty by default; see packages/strata/home.nix.
+  # workarounds that have no flag. Empty by default; see
+  # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.43 (7695859).
-  # 0.1.43 defaults STRATA_ADAPT_OVERLAP on for Linux CUDA, which costs ~2.7x
-  # decode on this host (small expert cache, --adapt-every 1): Niko1221/Strata
-  # #2010, fix pending in PR #2011. It is turned off declaratively via the
-  # engineEnv option (packages/strata/home.nix); with it off 0.1.43 matches
-  # 0.1.42 (see users/nicky/nicky-hm.nix).
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.43.1 (a0116b2).
+  # 0.1.43.1 makes STRATA_ADAPT_OVERLAP opt-in again (off on every backend),
+  # reverting 0.1.43's Linux-CUDA-on default that cost ~2.7x decode on this host
+  # (small expert cache, --adapt-every 1): Niko1221/Strata#2010 / PR #2011, so
+  # the engineEnv workaround is no longer needed.
   # The AVX2 IQ3 codebook gather (`STRATA_IQ256_GATHER`, upstream PR #622) is
   # upstream as of 0.1.40 and still enabled by default below; the native-
   # embedding cudaHostAlloc error report is upstream as of 0.1.40.3. (This used
@@ -92,8 +90,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "7695859aa13afb248bdb4d36f9b2e95707db079d";  # v0.1.43 (main)
-    hash = "sha256-SjhgL3wXV36a4AuDlrQH9E9PDAOAqDS6dXMuVM5/5yw=";
+    rev = "a0116b2782a5b82622358c04a06496485d12b2d6";  # v0.1.43.1 (main)
+    hash = "sha256-ouJseBgkuS0WxgHgHw8vxuNNqR/B3W5yjbjfBzkBpqA=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -105,7 +103,7 @@
 }:
 
 let
-  version = "0.1.43";
+  version = "0.1.43.1";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
