@@ -19,6 +19,9 @@
 #                                               (api.moonshot.ai) uses different IDs (kimi-k3,
 #                                               kimi-k2.7-code, kimi-k2.7-code-highspeed, kimi-k2.6).
 #   Hetzner   https://inference.hetzner.com/api/v1   Qwen3.6-35B-A3B / Qwen3.8-27B: 256K ctx
+#   cheaper   https://api.cheaperinference.com/v1   wallet-backed
+#             OpenAI/Anthropic-compatible gateway (ci_live_... keys); model ids
+#             vary, list them from GET /v1/models (no auto-discovery)
 #   unsloth   http://127.0.0.1:8888/v1   local Unsloth Studio (laptop-p16 only);
 #                                        Studio enforces its own per-model context budget
 #   strata    http://127.0.0.1:8080/v1   local Strata server (laptop-p16 only); any
@@ -161,6 +164,74 @@ in
                     limit = {
                       context = 262144;
                       output = 32768;
+                    };
+                  };
+                };
+              };
+              # Cheaper Inference: wallet-backed OpenAI/Anthropic-compatible
+              # gateway (https://cheaperinference.com). Keys look like
+              # `ci_live_...`. opencode does NOT auto-discover models for custom
+              # providers, so every model you want MUST be listed here with the
+              # exact id from `GET https://api.cheaperinference.com/v1/models`.
+              cheaperinference = {
+                npm = "@ai-sdk/openai-compatible";
+                name = "Cheaper Inference";
+                options = {
+                  baseURL = "https://api.cheaperinference.com/v1";
+                  apiKey = keyfile "cheaperinference";
+                };
+                models = {
+                  # Core combo, mapped to the tier-router roles. Effective
+                  # prices are cheaperinference's discounted rates (2026-10).
+                  # DeepSeek stays cheaper direct off-peak, so v4.1-flash here
+                  # is for the 50% peak/cheap-tier discount + vision + speed.
+                  "deepseek-v4.1-flash" = {
+                    name = "DeepSeek V4.1 Flash (CI)";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 1048576;
+                      output = 393216;
+                    };
+                  };
+                  # Cheap GPT second-opinion: flash price, near-sonnet quality.
+                  "gpt-5.6-luna" = {
+                    name = "GPT-5.6 Luna (CI)";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 1050000;
+                      output = 128000;
+                    };
+                  };
+                  # Sonnet-tier workhorse reasoning/analysis (1M ctx, vision).
+                  "claude-sonnet-5" = {
+                    name = "Claude Sonnet 5 (CI)";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 1000000;
+                      output = 128000;
+                    };
+                  };
+                  # Opus-tier deep formal reasoning (1M ctx, vision).
+                  "claude-opus-5" = {
+                    name = "Claude Opus 5 (CI)";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 1000000;
+                      output = 128000;
+                    };
+                  };
+                  # Cheap 1M-in/1M-out reasoning cost-guard between flash and sonnet.
+                  "glm-5.3" = {
+                    name = "GLM-5.3 (CI)";
+                    reasoning = true;
+                    attachment = false;
+                    limit = {
+                      context = 1000000;
+                      output = 1000000;
                     };
                   };
                 };
@@ -369,6 +440,7 @@ in
           "https://inference.hetzner.com/api/v1": "hetzner.key",
           "https://api.z.ai/api/paas/v4/": "zai.key",
           "http://127.0.0.1:8888/v1": "unsloth.key",
+          "https://api.cheaperinference.com/v1": "cheaperinference.key",
       }
       if not os.path.exists(envfile):
           print(f"opencode: {envfile} missing; skipping key setup")
