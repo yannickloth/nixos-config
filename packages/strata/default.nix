@@ -71,6 +71,13 @@
   # Lower learns a conversation's hot experts faster (a cold-start win, P8);
   # null leaves the engine's default.
   , adaptEvery ? null
+  # Extra serve checkpoint near the prompt's end (`--prompt-cache-tail`,
+  # valueless flag; needs --prompt-cache and --prompt-cache-every > 0, both at
+  # the engine's defaults). Without it, checkpoint reuse only covers the
+  # resident KV window (--kv-resident) and every request re-reads
+  # `context - kvResident` tokens; with it the re-read is bounded (~12-13K
+  # tokens on this host, flat with context). One extra ~118 MB RAM checkpoint.
+  , promptCacheTail ? false
   # Environment variables merged into every engine config's "env" block (the
   # engine reads them; they are not command-line flags). For upstream
   # workarounds that have no flag. Empty by default; see
@@ -126,11 +133,11 @@ let
     name = "strata-patch-config";
     runtimeInputs = [ python3 ];
     text = ''
-      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.escapeShellArg (builtins.toJSON engineEnv)} <<'PY'
+      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.boolToString promptCacheTail} ${lib.escapeShellArg (builtins.toJSON engineEnv)} <<'PY'
       import glob, json, os, sys
-      ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, env_json = (
+      ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, tail, env_json = (
           int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5]),
-          sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], sys.argv[11])
+          sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], sys.argv[11], sys.argv[12])
       env_patch = json.loads(env_json or "{}")
       home = os.environ.get("STRATA_HOME") or os.path.expanduser("~/.local/share/strata")
 
@@ -188,6 +195,10 @@ let
                   a = set_opt(a, "--pool-affinity", affinity)
               if adapt != "none":
                   a = set_opt(a, "--adapt-every", adapt)
+              # Valueless flag: append when enabled (dedup), never touch args
+              # when disabled - the engine's own default is off.
+              if tail and "--prompt-cache-tail" not in a:
+                  a.append("--prompt-cache-tail")
               # Merge the module's engine environment (flags with no command-line
               # form), keeping anything setup.py or the user already set.
               if env_patch:

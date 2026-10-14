@@ -33,12 +33,12 @@ in
     package = mkOption {
       type = types.package;
       default = pkgs.callPackage ./default.nix {
-        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery vision engineEnv;
+        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery promptCacheTail vision engineEnv;
         # CachyOS needs the /usr/lib/libcuda shim; NixOS uses the driver runpath
         # (set by the standalone CachyOS flake / left false on NixOS).
         inherit (config.commonHm) isCachyOS;
       };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery vision engineEnv; inherit (config.commonHm) isCachyOS; }";
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery promptCacheTail vision engineEnv; inherit (config.commonHm) isCachyOS; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
     };
 
@@ -139,6 +139,23 @@ in
         sooner, which helps the first request of a cold session (P8 measured the
         fresh hit rate 0.468 -> 0.539 at 1); it trades a small warm-turn hit
         rate. null keeps the engine's default 4.
+      '';
+    };
+
+    promptCacheTail = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Checkpoint near the end of each prompt too (`--prompt-cache-tail`,
+        --serve; needs --prompt-cache and --prompt-cache-every > 0, both at
+        their engine defaults). Without it, conversation-checkpoint reuse only
+        covers the resident KV window (--kv-resident, 20480 here), so every
+        serve request re-reads `context - 20480` tokens: ~27K tokens (~31 s) at
+        47K context, ~2 min at a 130K agent conversation. With it the reused
+        prefix grows with the conversation and the per-request re-read is
+        bounded (~12-13K tokens, ~13 s flat at 20-48K context on this host;
+        bench 2026-10-14, /tmp/opencode/strata-ab-results.txt protocol). Costs
+        one extra ~118 MB RAM checkpoint.
       '';
     };
 

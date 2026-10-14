@@ -173,6 +173,15 @@ in
     poolWorkers = 15;
     kvResident = 20480;
     adaptEvery = 1;
+    # Prompt-cache tail checkpoint (bench 2026-10-14, arms of
+    # /tmp/opencode/strata-ab.sh.py): without it, serve-side checkpoint reuse
+    # caps at the kv-resident window (20480), so every request re-reads
+    # `context - 20480` tokens (~118 s at a 130K agent conversation). With it
+    # the re-read is bounded ~12-13K tokens (~13 s flat at 20-48K context;
+    # 47K turn: 31.4 s -> 12.5 s). The parked-conversation cache
+    # (--conversation-cache-mib) measured ~15% slower with no reuse gain in
+    # single-conversation flow, so it stays off.
+    promptCacheTail = true;
     # 0.1.43 defaulted STRATA_ADAPT_OVERLAP on for Linux CUDA, which cost ~2.7x
     # decode on this rig (small expert cache, --adapt-every 1) and needed an
     # explicit =0. 0.1.43.1 made it opt-in again (off everywhere), so no override
