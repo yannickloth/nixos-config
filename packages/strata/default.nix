@@ -217,6 +217,21 @@ let
     withVision = vision;
   };
 
+  # Every engine start re-applies the declarative policy - not just wrapper
+  # runs. The web UI's settings save rewrites strata-*.json from its form
+  # (dropping flags it does not know: --prompt-cache-tail was stripped this
+  # way on 2026-10-14) and restarts the engine directly, bypassing the
+  # wrappers' configPatch run. Wrapping the engine binary itself closes that
+  # hole; ~100 ms of python per engine start.
+  engineWrapped = writeShellApplication {
+    name = "strata-engine-wrapped";
+    runtimeInputs = [ python3 ];
+    text = ''
+      ${configPatch}/bin/strata-patch-config
+      exec "${engine}/bin/strata" "$@"
+    '';
+  };
+
   # The Python side of the repo (setup.py, the API server, the packing tools
   # and their static data), kept read-only in the store. chat.py is stdlib
   # only; serve/ and tools/ use exactly the packages setup.py installs into
@@ -304,7 +319,7 @@ let
         # engines as-is (no release download, no apt/pip toolchain bootstrap,
         # no NVIDIA pip wheels). The symlinks track store rebuilds.
         mkdir -p "$STRATA_HOME/engine"
-        ln -sfn "${engine}/bin/strata" "$STRATA_HOME/engine/strata"
+        ln -sfn "${engineWrapped}/bin/strata-engine-wrapped" "$STRATA_HOME/engine/strata"
         printf '%s\n' '{"source": "local", "version": "${version}", "archs": [${cudaArch}], "vision": "${if vision then "gpu" else "none"}", "cuda_dirs": []}' \
           > "$STRATA_HOME/engine/BUILD.json"
         ${lib.optionalString vision ''
@@ -426,7 +441,7 @@ let
         # without it an upgrade would keep serving the older store engine (the
         # config's `exe` is the engine/strata symlink).
         mkdir -p "$STRATA_HOME/engine"
-        ln -sfn "${engine}/bin/strata" "$STRATA_HOME/engine/strata"
+        ln -sfn "${engineWrapped}/bin/strata-engine-wrapped" "$STRATA_HOME/engine/strata"
         printf '%s\n' '{"source": "local", "version": "${version}", "archs": [${cudaArch}], "vision": "${if vision then "gpu" else "none"}", "cuda_dirs": []}' \
           > "$STRATA_HOME/engine/BUILD.json"
         CFG=""
