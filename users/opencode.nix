@@ -57,28 +57,7 @@ in
     # The TypeSafe `jev` MCP entry below runs `npx -y @jkudish/jev-mcp`, so the
     # Node toolchain must be on PATH for every user with this module enabled
     # (previously only nicky had it via her own home.packages).
-    home.packages = [ pkgs.nodejs ]
-      ++ optionals (pkgs ? oh-my-mermaid) [ pkgs.oh-my-mermaid ];
-
-    # oh-my-mermaid (omm, packages/oh-my-mermaid via the AI-unstable overlay):
-    # architecture-diagram CLI for `.omm/` docs. The bundled skills are
-    # symlinked into opencode's native global skill directory
-    # (~/.config/opencode/skills/<name>/SKILL.md) so /omm-scan, /omm-push and
-    # /omm-view work without running `omm setup` (which would mutate $HOME
-    # impermanently). The patched frontmatter (see the package) makes them
-    # slash-commands and manual-only: no auto-invocation in projects that
-    # never ask for omm. The skills only need the `omm` binary on PATH, which
-    # home.packages above provides. Gated on the overlay like the `rea` MCP
-    # entry below.
-    xdg.configFile."opencode/skills/omm-scan" = mkIf (pkgs ? oh-my-mermaid) {
-      source = "${pkgs.oh-my-mermaid}/share/oh-my-mermaid/skills/omm-scan";
-    };
-    xdg.configFile."opencode/skills/omm-push" = mkIf (pkgs ? oh-my-mermaid) {
-      source = "${pkgs.oh-my-mermaid}/share/oh-my-mermaid/skills/omm-push";
-    };
-    xdg.configFile."opencode/skills/omm-view" = mkIf (pkgs ? oh-my-mermaid) {
-      source = "${pkgs.oh-my-mermaid}/share/oh-my-mermaid/skills/omm-view";
-    };
+    home.packages = [ pkgs.nodejs ];
 
     xdg.configFile."opencode/opencode.json" = {
       text =

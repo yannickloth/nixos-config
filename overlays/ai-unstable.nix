@@ -34,12 +34,6 @@ final: prev: {
   # REA (rea-agents): MCP+CLI reverse-engineering toolkit, published only on
   # npm, packaged in-tree from the registry tarball (packages/rea).
   rea = unstablePkgs.callPackage ../packages/rea { };
-  # oh-my-mermaid (omm): architecture-diagram CLI + coding-agent skills,
-  # published only on npm, packaged in-tree from the registry tarball
-  # (packages/oh-my-mermaid). users/opencode.nix puts the CLI on PATH and
-  # symlinks the bundled skills into ~/.claude/skills, where opencode finds
-  # them (/omm-scan, /omm-push, /omm-view).
-  oh-my-mermaid = unstablePkgs.callPackage ../packages/oh-my-mermaid { };
   # Orca (ADE): not in nixpkgs and only shipped as a prebuilt Electron AppImage,
   # wrapped as a normal derivation in packages/orca. Exposed here so the adults
   # (nicky, aeiuno) get `pkgs.orca` on every host.
