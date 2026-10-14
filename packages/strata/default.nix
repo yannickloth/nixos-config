@@ -217,7 +217,7 @@ let
   };
 
   engine = callPackage ./engine.nix {
-    inherit strataSrc llamaCpp cudaArch isCachyOS;
+    inherit strataSrc version llamaCpp cudaArch isCachyOS;
     withVision = vision;
   };
 
