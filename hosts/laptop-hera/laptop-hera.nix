@@ -53,25 +53,36 @@ with lib;
   services.syncthing.guiUser = "syncthing";
 
   # The root volume has no room for the syncthing tree, so it lives on the
-  # second disk. Keep the canonical /sync path used by
-  # services/syncthing/default.nix identical on every host by making /sync a
-  # symlink to /data/syncthing here; only the backing store differs. The
-  # module's /sync tmpfiles/ACL rules and the ~/sync symlinks follow the
-  # symlink, so they need no changes. Re-asserted every activation (runs at
-  # boot too), and never removes a non-empty /sync — the one-time migration
-  # below must move the data first.
+  # second disk. Bind-mount it at the canonical /sync path used by
+  # services/syncthing/default.nix, so only the backing store differs between
+  # hosts. This replaces the previous /sync -> /data/syncthing symlink, which
+  # raced the module's `mkdir -p /sync` activation script (alphabetical script
+  # order created a real /sync first, and the silent rmdir/ln conversion then
+  # degraded into a nested /sync/syncthing symlink). With a bind mount there
+  # is no conversion left to race: /sync is a plain mount point, systemd
+  # orders it after /data by itself, and tmpfiles/ACL rules apply unchanged.
+  fileSystems."/sync" = {
+    device = "/data/syncthing";
+    fsType = "none";
+    options = [ "bind" ];
+    depends = [ "/data" ];
+  };
+
+  # systemd mount units do not create their bind source, and activation runs
+  # before mounts at boot, hence the mountpoint guard. One-time migration: if
+  # the legacy /sync symlink is still there, swap it for the mount point dir
+  # (order-independent with the module's `mkdir -p /sync`, which no-ops on the
+  # resulting directory). Once /sync is the bind mount this branch never fires.
   system.activationScripts.syncthing-hera-data = {
     deps = [ "users" "groups" ];
     text = ''
-      # Only act when the data disk is actually mounted; otherwise leave /sync
-      # alone rather than creating a stray dir on the root volume.
       if mountpoint -q /data; then
         mkdir -p /data/syncthing
         chown syncthing:syncthing /data/syncthing
         chmod 2770 /data/syncthing
-        if [ ! -L /sync ]; then
-          rmdir /sync 2>/dev/null || true
-          ln -sfn /data/syncthing /sync
+        if [ -L /sync ]; then
+          rm /sync
+          mkdir -p /sync
         fi
       else
         echo "syncthing-hera-data: /data not mounted; leaving /sync untouched" >&2
