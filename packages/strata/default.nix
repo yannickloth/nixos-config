@@ -83,15 +83,19 @@
   # workarounds that have no flag. Empty by default; see
   # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.44.1 (296b59d):
-  # a hotfix on 0.1.44 (old-CPU AVX startup, CUDA 12.0/12.1 build, Apple M2
-  # Metal, setup keeps the installed size); answers byte-identical to 0.1.44
-  # per upstream's identity tests, no flag or default changes touching the
-  # config policy below. 0.1.43.1 made STRATA_ADAPT_OVERLAP opt-in again (off
-  # on every backend), reverting 0.1.43's Linux-CUDA-on default that cost
-  # ~2.7x decode on this host (small expert cache, --adapt-every 1):
-  # Niko1221/Strata#2010 / PR #2011, so the engineEnv workaround is no longer
-  # needed.
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.43.1 (a0116b2).
+  # 0.1.44/0.1.44.1 measured on this rig (2026-10-14, same 300-token code
+  # prompt, n=3 per engine, engine-log metrics): 0.1.43.1 decodes 38-42 tok/s at
+  # 84-86% draft acceptance; 0.1.44.1 29-35 tok/s at 74-84% - a ~20-25% decode
+  # regression, and the new --route-tail-skip default only mitigates it inside
+  # 0.1.44.1 (23-26 tok/s with it off). Every 0.1.44 fix (old-CPU AVX startup,
+  # CUDA 12.0/12.1 build, Apple M2 Metal, setup size menu, Responses-API
+  # reasoning_effort) is irrelevant to this sm_86 12 GB host, so the update buys
+  # nothing and costs decode. Re-check on a later release.
+  # 0.1.43.1 made STRATA_ADAPT_OVERLAP opt-in again (off on every backend),
+  # reverting 0.1.43's Linux-CUDA-on default that cost ~2.7x decode on this host
+  # (small expert cache, --adapt-every 1): Niko1221/Strata#2010 / PR #2011, so
+  # the engineEnv workaround is no longer needed.
   # The AVX2 IQ3 codebook gather (`STRATA_IQ256_GATHER`, upstream PR #622) is
   # upstream as of 0.1.40 and still enabled by default below; the native-
   # embedding cudaHostAlloc error report is upstream as of 0.1.40.3. (This used
@@ -101,8 +105,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "296b59d2f73c8f04a805df29c2fa97655adace78";  # v0.1.44.1 (main)
-    hash = "sha256-Jfo2uldtyXW8Y/wQxA7WcYwtmzCGAOaXgnlMSo7K9LE=";
+    rev = "a0116b2782a5b82622358c04a06496485d12b2d6";  # v0.1.43.1 (main)
+    hash = "sha256-ouJseBgkuS0WxgHgHw8vxuNNqR/B3W5yjbjfBzkBpqA=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -114,7 +118,7 @@
 }:
 
 let
-  version = "0.1.44.1";
+  version = "0.1.43.1";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
