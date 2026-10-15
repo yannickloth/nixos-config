@@ -50,6 +50,7 @@
     download = "/home/aaron/sync/aaron/Downloads/";
     music = "/home/aaron/sync/aaron/Music/";
     pictures = "/home/aaron/sync/aaron/Pictures/";
+    projects = "/home/aaron/sync/aaron/Projects/";
     publicShare = "/home/aaron/sync/aaron/Public/";
     templates = "/home/aaron/sync/aaron/Templates/";
     videos = "/home/aaron/sync/aaron/Videos/";

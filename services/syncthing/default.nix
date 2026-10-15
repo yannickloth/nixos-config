@@ -142,22 +142,28 @@ in
         ${pkgs.acl}/bin/setfacl -R -m g::rwx /sync 2>/dev/null || true
         ${pkgs.acl}/bin/setfacl -m u:sven:--x,u:aaron:--x /sync 2>/dev/null || true
 
-        # Per-kid folders + their XDG dirs: create if missing (syncthing only
-        # creates the folder root at first start; nothing creates the XDG
-        # subdirs), setgid + group rw, and grant the kid rw (also as a default
-        # ACL so new synced content stays writable by the kid). The setgid bit
-        # makes new files inherit group syncthing, so the daemon and the parents
-        # (group) can always reach them.
-        ${concatMapStringsSep "\n" (d: ''
-          for xd in Desktop Documents Downloads Music Pictures Public Templates Videos; do
-            mkdir -p /sync/${d}/"$xd"
-            chmod 2770 /sync/${d}/"$xd"
-            chown syncthing:syncthing /sync/${d}/"$xd"
-            ${pkgs.acl}/bin/setfacl -m u:${d}:rwx /sync/${d}/"$xd" 2>/dev/null || true
-            ${pkgs.acl}/bin/setfacl -d -m u:${d}:rwx /sync/${d}/"$xd" 2>/dev/null || true
+        # XDG subdirs for every user's syncthing folder: create if missing
+        # (syncthing only creates the folder root at first start; nothing
+        # creates the XDG subdirs). setgid + group rw so the daemon and the
+        # parents (syncthing group) can always reach them; the default ACL on
+        # /sync propagates group rw to new content. The dir list must match the
+        # xdg.userDirs lists in users/*/[user]-hm.nix (which point at
+        # ~/sync/<folder>): add new dirs in both places.
+        ${concatMapStringsSep "\n" (folder: ''
+          for xd in Desktop Documents Downloads Music Pictures Projects Public Templates Videos; do
+            mkdir -p /sync/${folder}/"$xd"
+            chmod 2770 /sync/${folder}/"$xd"
+            chown syncthing:syncthing /sync/${folder}/"$xd"
           done
-          chmod 2770 /sync/${d}
-          chown syncthing:syncthing /sync/${d}
+          chmod 2770 /sync/${folder}
+          chown syncthing:syncthing /sync/${folder}
+        '') [ "yannick" "christine" "sven" "aaron" ]}
+
+        # Kids are not in the syncthing group, so grant each of them rw on their
+        # own folder only (named + default ACL, so new synced content stays
+        # writable by them). Adults reach their folders through the group, so
+        # they need no per-user ACL.
+        ${concatMapStringsSep "\n" (d: ''
           ${pkgs.acl}/bin/setfacl -m u:${d}:rwx /sync/${d} 2>/dev/null || true
           ${pkgs.acl}/bin/setfacl -d -m u:${d}:rwx /sync/${d} 2>/dev/null || true
           ${pkgs.acl}/bin/setfacl -R -m u:${d}:rwx /sync/${d} 2>/dev/null || true

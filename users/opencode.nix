@@ -19,6 +19,9 @@
 #                                               (api.moonshot.ai) uses different IDs (kimi-k3,
 #                                               kimi-k2.7-code, kimi-k2.7-code-highspeed, kimi-k2.6).
 #   Hetzner   https://inference.hetzner.com/api/v1   Qwen3.6-35B-A3B / Qwen3.8-27B: 256K ctx
+#   cheaper   https://api.cheaperinference.com/v1   wallet-backed
+#             OpenAI/Anthropic-compatible gateway (ci_live_... keys); model ids
+#             vary, list them from GET /v1/models (no auto-discovery)
 #   unsloth   http://127.0.0.1:8888/v1   local Unsloth Studio (laptop-p16 only);
 #                                        Studio enforces its own per-model context budget
 #   strata    http://127.0.0.1:8080/v1   local Strata server (laptop-p16 only); any
@@ -36,7 +39,18 @@ let
 in
 {
   options.opencode = {
-    enable = mkEnableOption "opencode provider/model config (keys read from /etc/secrets/open-webui.env)";
+    enable = mkEnableOption "opencode provider/model config (keys read from the env file below)";
+    envFile = mkOption {
+      type = types.str;
+      default = "/etc/secrets/open-webui.env";
+      description = ''
+        Path to the OPENAI_API_KEYS env file the per-provider key files are
+        materialized from. Defaults to the system agenix path (NixOS). Standalone
+        home-manager hosts with no system agenix (CachyOS) point this at an
+        `age.secrets` path decrypted with the user key; see
+        users/nicky/nicky-hm.nix.
+      '';
+    };
   };
 
   config = mkIf config.opencode.enable {
@@ -161,6 +175,78 @@ in
                     limit = {
                       context = 262144;
                       output = 32768;
+                    };
+                  };
+                };
+              };
+              # Cheaper Inference: wallet-backed OpenAI/Anthropic-compatible
+              # gateway (https://cheaperinference.com). Keys look like
+              # `ci_live_...`. opencode does NOT auto-discover models for custom
+              # providers, so every model you want MUST be listed here with the
+              # exact id from `GET https://api.cheaperinference.com/v1/models`.
+              cheaperinference = {
+                npm = "@ai-sdk/openai-compatible";
+                name = "Cheaper Inference";
+                options = {
+                  baseURL = "https://api.cheaperinference.com/v1";
+                  apiKey = keyfile "cheaperinference";
+                };
+                models = {
+                  # Core combo, mapped to the tier-router roles. Effective
+                  # prices are cheaperinference's discounted rates (2026-10).
+                  # DeepSeek stays cheaper direct off-peak, so v4.1-flash here
+                  # is for the 50% peak/cheap-tier discount + vision + speed.
+                  "deepseek-v4.1-flash" = {
+                    name = "DeepSeek V4.1 Flash (CI)";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 1048576;
+                      output = 393216;
+                    };
+                  };
+                  # Cheap GPT second-opinion: flash price, near-sonnet quality.
+                  "gpt-5.6-luna" = {
+                    name = "GPT-5.6 Luna (CI)";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 1050000;
+                      output = 128000;
+                    };
+                  };
+                  # Sonnet-tier workhorse reasoning/analysis (1M ctx, vision).
+                  # 5.5 same price as 5.0 but faster (159 vs 91 tok/s) and more
+                  # reliable (99.6% vs 95.9%).
+                  "claude-sonnet-5.5" = {
+                    name = "Claude Sonnet 5.5 (CI)";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 1000000;
+                      output = 128000;
+                    };
+                  };
+                  # Opus-tier deep formal reasoning (1M ctx, vision). 5.5 is
+                  # cheaper and faster than 5 ($2.60/$13 vs $3.25/$16.25,
+                  # 123 vs 78 tok/s).
+                  "claude-opus-5.5" = {
+                    name = "Claude Opus 5.5 (CI)";
+                    reasoning = true;
+                    attachment = true;
+                    limit = {
+                      context = 1000000;
+                      output = 128000;
+                    };
+                  };
+                  # Cheap 1M-in/1M-out reasoning cost-guard between flash and sonnet.
+                  "glm-5.3" = {
+                    name = "GLM-5.3 (CI)";
+                    reasoning = true;
+                    attachment = false;
+                    limit = {
+                      context = 1000000;
+                      output = 1000000;
                     };
                   };
                 };
@@ -354,14 +440,21 @@ in
         });
     };
 
-    # Materialize per-provider API key files from the decrypted Open WebUI env
-    # file (OPENAI_API_KEYS JSON). Skipped silently when the file is absent.
+    # Materialize per-provider API key files from a decrypted Open WebUI env
+    # file (OPENAI_API_KEYS JSON). Source resolution, first existing wins:
+    #   1. config.opencode.envFile — an `age.secrets` path on standalone
+    #      home-manager hosts (CachyOS), or the system path on NixOS.
+    #   2. /etc/secrets/open-webui.env — the system agenix path (NixOS hosts).
+    # Skipped silently when neither exists.
     home.activation.setupOpenCodeKeys = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" <<'PYEOF'
+      ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" '${config.opencode.envFile}' <<'PYEOF'
       import json, os, sys
 
       home = sys.argv[1]
-      envfile = "/etc/secrets/open-webui.env"
+      # expandvars so an agenix $XDG_RUNTIME_DIR/... path is resolved from the
+      # activation environment rather than by bash before Python sees it.
+      candidates = [os.path.expandvars(p) for p in (sys.argv[2], "/etc/secrets/open-webui.env") if p]
+      envfile = next((p for p in candidates if p and os.path.exists(p)), None)
       keydir = os.path.join(home, ".config", "opencode", "keys")
       mapping = {
           "https://api.deepseek.com": "deepseek.key",
@@ -369,9 +462,10 @@ in
           "https://inference.hetzner.com/api/v1": "hetzner.key",
           "https://api.z.ai/api/paas/v4/": "zai.key",
           "http://127.0.0.1:8888/v1": "unsloth.key",
+          "https://api.cheaperinference.com/v1": "cheaperinference.key",
       }
-      if not os.path.exists(envfile):
-          print(f"opencode: {envfile} missing; skipping key setup")
+      if envfile is None:
+          print("opencode: no key source found (%s); skipping key setup" % ", ".join(candidates))
           sys.exit(0)
       try:
           with open(envfile) as fh:

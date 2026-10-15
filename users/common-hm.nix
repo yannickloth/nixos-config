@@ -56,14 +56,25 @@
     # from roles/system.nix; listing it here keeps the standalone
     # home-manager deployment (users/flake.nix, CachyOS hosts) working.
     #
-    # PhotoCraft (packages/photocraft), the clean-room Photoshop
-    # reimplementation, is installed for all users. callPackage is used
-    # directly (rather than an overlay) so it lands for everyone regardless of
-    # whether the ai-unstable overlay is applied to this user's pkgs.
-    home.packages = [
-      pkgs.zoxide
-      (pkgs.callPackage ../packages/photocraft { })
-    ];
+    # The ArtCraft "Crafting Apps" (packages/craft-apps — PhotoCraft,
+    # VectorCraft, FilmCraft, LightCraft, PdfCraft, EffectCraft, DesignCraft,
+    # WordCraft, SoundCraft, DeckCraft, CADCraft, GridCraft) are installed for
+    # all users. They are imported directly (not callPackage: that would wrap
+    # the returned attrset with lib.makeOverridable and leak `override` /
+    # `overrideDerivation` functions into home.packages below) so they land for
+    # everyone regardless of whether the ai-unstable overlay is applied to this
+    # user's pkgs; attrValues expands the attribute set into home.packages.
+    #
+    # cachyos gates the host-specific GPU/audio stack bundled into the wrapper
+    # (Mesa, VA-API, PipeWire/PulseAudio ALSA config): the CachyOS laptop-p16
+    # deployment has no /run/opengl-driver, the NixOS hosts do and keep the
+    # plain build.
+    home.packages =
+      [ pkgs.zoxide ]
+      ++ builtins.attrValues (import ../packages/craft-apps {
+        inherit (pkgs) lib appimageTools fetchurl;
+        cachyos = config.commonHm.isCachyOS;
+      });
 
     # Let home-manager take over an existing plain ~/.zshrc (e.g. one created
     # by zsh-newuser-install); otherwise the zsh module's .zshrc would be a
@@ -81,8 +92,19 @@
     # "Existing file '~/.gtkrc-2.0.backup' would be clobbered by backing up
     # '~/.gtkrc-2.0'". Overwrite without a backup, like ./.zshrc above.
     gtk.gtk2.force = true;
-    xdg.configFile."gtk-3.0/settings.ini".force = true;
-    xdg.configFile."gtk-4.0/settings.ini".force = true;
+    # The gtk module only defines these xdg.configFile entries when gtk is
+    # enabled (its condition is `gtk.enable && gtk.gtkN.enable`). Setting force
+    # on an entry with no source/text fails eval for users without a gtk
+    # profile (e.g. sven, aaron), so disable the entry under the same condition:
+    # home-manager filters disabled files out before it reads their source.
+    xdg.configFile."gtk-3.0/settings.ini" = {
+      force = true;
+      enable = config.gtk.enable && config.gtk.gtk3.enable;
+    };
+    xdg.configFile."gtk-4.0/settings.ini" = {
+      force = true;
+      enable = config.gtk.enable && config.gtk.gtk4.enable;
+    };
 
     # Symlink ~/sync to the shared syncthing data directory (/sync is created by the
     # system services.syncthing module, so create the symlink at activation time).

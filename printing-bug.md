@@ -17,7 +17,7 @@ The job stays 0 pages; nothing comes out. Observed for jobs 296/297 (document
 
 ## Root cause
 
-A bug in **`libcupsfilters`** — not in the PDF, not in Typst, not in the printer.
+A bug in **`libcupsfilters`** [1] — not in the PDF, not in Typst, not in the printer.
 
 `pdftopdf` first *flattens* all annotations of the input PDF into page content
 (it does this whenever the PDF contains any `/Annots`). For an annotation that
@@ -54,7 +54,7 @@ in particular:
 
 ### Upstream fix
 
-OpenPrinting/libcupsfilters, issue **#246**, fixed by commit:
+OpenPrinting/libcupsfilters, issue **#246** [1], fixed by commit [2]:
 
 ```
 d3043e3c8b32d73c80f98b7c5d59613a9d844d69
@@ -149,7 +149,7 @@ After any `libcupsfilters` update:
 
 2. Decide whether the distro build already contains the fix. It does if the
    version's git tail is **at or after** `d3043e3`. To check the Arch package's
-   pinned commit:
+   pinned commit [3]:
 
    ```sh
    curl -fsSL https://gitlab.archlinux.org/archlinux/packaging/packages/libcupsfilters/-/raw/main/PKGBUILD | grep _commit
@@ -225,6 +225,10 @@ one input (Chrome and other viewers hit the same bug). Fix the filter instead.
 
 ## References
 
-- Upstream issue: OpenPrinting/libcupsfilters **#246**
-- Fix commit: `d3043e3c8b32d73c80f98b7c5d59613a9d844d69`
-- Arch package: <https://gitlab.archlinux.org/archlinux/packaging/packages/libcupsfilters>
+1. OpenPrinting/libcupsfilters, issue **#246** —
+   <https://github.com/OpenPrinting/libcupsfilters/issues/246>
+2. Upstream fix commit `d3043e3c8b32d73c80f98b7c5d59613a9d844d69` (David Reed,
+   2026-09-22) —
+   <https://github.com/OpenPrinting/libcupsfilters/commit/d3043e3c8b32d73c80f98b7c5d59613a9d844d69>
+3. Arch Linux `libcupsfilters` PKGBUILD —
+   <https://gitlab.archlinux.org/archlinux/packaging/packages/libcupsfilters>

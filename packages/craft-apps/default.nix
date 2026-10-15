@@ -1,0 +1,211 @@
+# ArtCraft "Crafting Apps" (https://getartcraft.com/apps): twelve pure-Rust,
+# clean-room reimplementations of familiar creative tools, published by
+# storytold as prebuilt Linux AppImages (no source build we want to pay for:
+# each is a large Rust + wgpu workspace).
+#
+# Every app is wrapped with appimageTools.wrapType2, so the result is a normal,
+# hash-pinned, immutable derivation that cannot self-update and never writes its
+# launcher into ~/.local/share. The desktop entry, hicolor icons, MIME types and
+# AppStream metadata the bundle carries are installed so the launcher shows the
+# real name and icon.
+#
+# Host-specific graphics/audio stack (the `cachyos` flag):
+#   nixpkgs' defaultFhsEnvArgs ships the GPU *loaders* only (vulkan-loader,
+#   libglvnd's libGL/libEGL) and expects the drivers, their Vulkan ICD JSONs and
+#   the glvnd EGL vendor JSON from /run/opengl-driver — a NixOS-only path that
+#   hardware.graphics populates. On NixOS that is enough, so the default build
+#   (cachyos = false) stays plain. The standalone CachyOS deployment
+#   (users/flake.nix, laptop-p16) has no /run/opengl-driver, so there wgpu
+#   enumerated no adapter and every app died with
+#   "Wgpu(CreateSurfaceError(CreateSurfaceError { inner:
+#   Hal(FailedToCreateSurfaceForAnyBackend({})) }))"; it needs Mesa bundled,
+#   VA-API for hardware video decode, and an ALSA setup matching its
+#   PipeWire/PulseAudio host. All of that is gated behind cachyos = true so the
+#   NixOS hosts (which use /run/opengl-driver) keep the plain config.
+#
+# Update one app: `nix-update --flake <pname>` bumps version + hash together.
+# Each AppImage also ships a `<pname>-cli` headless agent; it is not exposed
+# here — the desktop apps are the goal, and each CLI would need its own FHS-run
+# wrapper. See git history if that is wanted later.
+{
+  lib,
+  appimageTools,
+  fetchurl,
+  # Bundle the host-specific graphics/audio stack described above. Set only by
+  # the CachyOS deployment (users/common-hm.nix passes commonHm.isCachyOS, which
+  # is laptop-p16's standalone flake); the default false relies on the system's
+  # drivers (/run/opengl-driver on NixOS) and system ALSA config.
+  cachyos ? false,
+}:
+
+let
+  # pipewire ships its ALSA plugin config under share/alsa/alsa.conf.d, which
+  # alsa-lib does not read (it hooks /etc/alsa/conf.d). Repackage it as
+  # etc/alsa/conf.d so buildFHSEnv's buildEnv merges it into the FHS /etc next
+  # to alsa-plugins' confs; otherwise opening ALSA's default/"pipewire" PCM
+  # fails with "Unknown PCM pipewire" even though the plugin is present.
+  pipewireAlsaConf =
+    pkgs:
+    pkgs.runCommand "pipewire-alsa-conf" { } ''
+      mkdir -p $out/etc/alsa/conf.d
+      for name in 50-pipewire.conf 99-pipewire-default.conf; do
+        cp "$(find ${pkgs.pipewire} -name "$name" -print -quit)" "$out/etc/alsa/conf.d/$name"
+      done
+    '';
+
+  # Host-specific runtime extras, only bundled when cachyos = true.
+  cachyosExtras = pkgs: [
+    # GPU drivers + Vulkan ICDs + glvnd EGL vendor JSON + llvmpipe fallback.
+    pkgs.mesa
+    # ALSA plugins: the rate-lav/speexrate hooks and pulse/jack/oss PCMs.
+    pkgs.alsa-plugins
+    # PipeWire ALSA PCM config; the plugin itself ships with pipewire (in the
+    # default FHS env).
+    (pipewireAlsaConf pkgs)
+    # VA-API hardware video decode (FilmCraft, LightCraft): libva plus the
+    # Intel iHD driver. libva's compiled driver path includes /usr/lib/dri,
+    # which the FHS env maps to /usr/lib64/dri where the driver is merged.
+    pkgs.libva
+    pkgs.intel-media-driver
+  ];
+
+  mkCraftApp =
+    {
+      pname,
+      version,
+      hash,
+      description,
+    }:
+    let
+      src = fetchurl {
+        url = "https://github.com/storytold/${pname}/releases/download/v${version}/${pname}-${version}-linux-x86_64.AppImage";
+        # x86_64 build only; upstream ships -linux-aarch64.AppImage too.
+        inherit hash;
+      };
+
+      # Extract the AppImage a second time (wrapType2's internal extraction is
+      # the same derivation) so extraInstallCommands can install the bundle's
+      # desktop entry, hicolor icons, MIME types and AppStream metadata.
+      appimageContents = appimageTools.extract {
+        inherit pname version src;
+      };
+    in
+    appimageTools.wrapType2 {
+      inherit pname version src;
+
+      # Empty unless cachyos = true; see the header and cachyosExtras.
+      extraPkgs = pkgs: if cachyos then cachyosExtras pkgs else [ ];
+
+      # wrapType2 exposes only bin/<pname>, dropping everything else the bundle
+      # carries. Copy it back wholesale. Upstream names each file
+      # ai.storyteller.<pname> and sets Exec=<pname>, which matches the wrapped
+      # binary, so no substitution is needed.
+      extraInstallCommands = ''
+        mkdir -p $out/share
+        for dir in applications icons mime metainfo; do
+          if [ -d "${appimageContents}/usr/share/$dir" ]; then
+            cp -r "${appimageContents}/usr/share/$dir" "$out/share/"
+          fi
+        done
+      '';
+
+      meta = with lib; {
+        inherit description;
+        homepage = "https://getartcraft.com/apps/${pname}";
+        license = with licenses; [
+          mit
+          asl20
+        ];
+        mainProgram = pname;
+        # The pinned URL is the x86_64 AppImage specifically; do not advertise
+        # aarch64-linux as available.
+        platforms = [ "x86_64-linux" ];
+        sourceProvenance = with sourceTypes; [ binaryNativeCode ];
+      };
+    };
+in
+{
+  photocraft = mkCraftApp {
+    pname = "photocraft";
+    version = "0.7.0";
+    hash = "sha256-h+vONrzfazHRapyiLOKfmtjbaBheTZgRiADRwt54rEI=";
+    description = "Image editor: layers, masks, adjustment layers, type, vectors and real PSD files (clean-room Photoshop reimplementation)";
+  };
+
+  vectorcraft = mkCraftApp {
+    pname = "vectorcraft";
+    version = "0.10.0";
+    hash = "sha256-LS2JWHAURlwwlqbkVtc6c7tq7BBOwO0hOkBqFIAmwCk=";
+    description = "Vector illustration: SVG and PDF drawing (clean-room Illustrator reimplementation)";
+  };
+
+  filmcraft = mkCraftApp {
+    pname = "filmcraft";
+    version = "0.6.0";
+    hash = "sha256-wLWl0PDnEXaqgGyJX4ylE/LVBbcP74W4dLviPJEjK8c=";
+    description = "Non-linear video editor (clean-room Premiere Pro reimplementation)";
+  };
+
+  lightcraft = mkCraftApp {
+    pname = "lightcraft";
+    version = "0.6.0";
+    hash = "sha256-V37wGNzuyNSYDS+bIHguw3hIFYuOZBnMkNMcK1gMGRk=";
+    description = "Photo library and raw developer (clean-room Lightroom reimplementation)";
+  };
+
+  pdfcraft = mkCraftApp {
+    pname = "pdfcraft";
+    version = "0.7.1";
+    hash = "sha256-rlyHm7Mm0OkaJB6fnGwXYI73ZsAFxmwtcoAnAQe/Y1o=";
+    description = "PDF workbench: read, organize, combine, split and secure";
+  };
+
+  effectcraft = mkCraftApp {
+    pname = "effectcraft";
+    version = "0.8.0";
+    hash = "sha256-MSIdq2Mf7zo40UBUb/wqaVVFm4WYd4RagoLZqXI5s3M=";
+    description = "Motion graphics and visual effects (clean-room After Effects reimplementation)";
+  };
+
+  designcraft = mkCraftApp {
+    pname = "designcraft";
+    version = "0.6.0";
+    hash = "sha256-+2Ln56mt7i/X9ACyuiYJO5aoA0cKfY1HbjkZbwXEwDQ=";
+    description = "Page layout and publishing (clean-room InDesign reimplementation)";
+  };
+
+  wordcraft = mkCraftApp {
+    pname = "wordcraft";
+    version = "0.6.1";
+    hash = "sha256-Nu04RMTlg5HPE0HRM79rVptSIfjnB+Xicds8ON9tw8M=";
+    description = "Word processing (clean-room Microsoft Word reimplementation)";
+  };
+
+  soundcraft = mkCraftApp {
+    pname = "soundcraft";
+    version = "0.6.1";
+    hash = "sha256-aMZY8uctdKMnf0jfPOE+TbnG6v1/FCX2Pi3IXYZ5EgA=";
+    description = "Digital audio workstation: recording, editing and mixing (clean-room Pro Tools reimplementation)";
+  };
+
+  deckcraft = mkCraftApp {
+    pname = "deckcraft";
+    version = "0.5.0";
+    hash = "sha256-Zi9iNqHAqBwyboCxJq/VXdaNwqEsM7vDAJ8G2fObMR4=";
+    description = "Presentations and slide shows (clean-room PowerPoint reimplementation)";
+  };
+
+  cadcraft = mkCraftApp {
+    pname = "cadcraft";
+    version = "0.6.2";
+    hash = "sha256-MtqtoRubblEucqoHHOvzyvF/dBuF8JR0m/85rTYDatE=";
+    description = "Computer-aided design and drafting (clean-room AutoCAD reimplementation)";
+  };
+
+  gridcraft = mkCraftApp {
+    pname = "gridcraft";
+    version = "0.6.1";
+    hash = "sha256-nbcvSahW9DmlyJs+tP0+1RxKepluvmaS5Y0ej12jyVQ=";
+    description = "Spreadsheets and data analysis (clean-room Excel reimplementation)";
+  };
+}
