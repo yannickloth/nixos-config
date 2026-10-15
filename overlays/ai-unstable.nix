@@ -8,18 +8,26 @@
 # of built-in AI features, so they are pulled from nixos-unstable. hermes-agent,
 # magpie and deepseek-harness are not in nixpkgs at all and are packaged in-tree
 # (packages/hermes-agent, packages/magpie, packages/deepseek-harness).
-{ unstablePkgs, hermesAgent, browseros }:
+{
+  unstablePkgs,
+  hermesAgent,
+  browseros,
+}:
 
 final: prev: {
-  # opencode 1.18.30/1.18.31 crashed on every prompt when the config declared
-  # any custom provider: "TypeError: undefined is not an object (evaluating
-  # 'a.name')" / "Unexpected server error". Root cause was a circular runtime
-  # import between packages/core/src/filesystem.ts and filesystem/search.ts,
-  # which the newer Bun bundler (1.4.x) evaluated in the order that left
-  # FileSystemSearch.node undefined. Upstream fixed it in anomalyco/opencode
-  # PR #49298 (v1.18.32), and nixpkgs-unstable now ships 1.18.34, so the
-  # in-tree patch was dropped (see git history / packages/patches).
-  opencode = unstablePkgs.opencode;
+  # opencode v2 (2.0.29+, https://opencode.ai/v2): upstream moved past the 1.x
+  # line that nixpkgs packages (unstable still ships 1.18.34) and now publishes
+  # the CLI only as prebuilt per-platform npm tarballs under the new @opencode
+  # scope, so v2 is packaged in-tree (packages/opencode2) from the registry.
+  # History: v1.18.30/31 crashed on every prompt with a custom provider
+  # ("TypeError: undefined is not an object (evaluating 'a.name')") — a circular
+  # runtime import between packages/core/src/filesystem.ts and
+  # filesystem/search.ts that the Bun 1.4 bundler evaluated in the wrong order,
+  # leaving FileSystemSearch.node undefined; fixed upstream in PR #49298
+  # (v1.18.32), so the in-tree patch of that era was dropped (see git history /
+  # packages/patches). Swap back to `unstablePkgs.opencode` (and delete
+  # packages/opencode2) once nixpkgs packages the 2.x line.
+  opencode = unstablePkgs.callPackage ../packages/opencode2 { };
   pi-coding-agent = unstablePkgs.pi-coding-agent;
   # Hermes Agent is packaged in-tree (packages/hermes-agent) from upstream's
   # uv.lock via uv2nix — it is not in nixpkgs at all.
