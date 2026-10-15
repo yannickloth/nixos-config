@@ -74,7 +74,28 @@
       ++ builtins.attrValues (import ../packages/craft-apps {
         inherit (pkgs) lib appimageTools fetchurl;
         cachyos = config.commonHm.isCachyOS;
-      });
+      })
+      # Ioskeley Mono, CachyOS only. roles/fonts.nix installs it system-wide via
+      # the NixOS `fonts.packages` option, which does not exist here: the
+      # standalone flake (users/flake.nix) builds only home-manager modules, so
+      # that option never runs. Linking the faces into ~/.nix-profile/share/fonts
+      # instead works because the CachyOS system fontconfig scans the XDG data
+      # dirs. Gated on isCachyOS so the NixOS hosts do not install a second copy.
+      # The user-level fontconfig module is NOT a usable lever here (see
+      # sven-hm.nix: config.fonts.fontconfig.enable is false off-NixOS).
+      #
+      # Same six variants as roles/fonts.nix. The *-unhinted builds are left
+      # out: they reuse both the file names and the family name of the hinted
+      # ones, so buildEnv rejects the pair and fontconfig could not tell them
+      # apart anyway.
+      ++ lib.optionals config.commonHm.isCachyOS (with pkgs; [
+        ioskeley-mono.normal
+        ioskeley-mono.normal-NL
+        ioskeley-mono.normal-NF
+        ioskeley-mono.normal-term
+        ioskeley-mono.normal-NL-NF
+        ioskeley-mono.normal-term-NF
+      ]);
 
     # Let home-manager take over an existing plain ~/.zshrc (e.g. one created
     # by zsh-newuser-install); otherwise the zsh module's .zshrc would be a
