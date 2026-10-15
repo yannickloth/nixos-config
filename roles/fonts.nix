@@ -42,6 +42,21 @@ with lib;
         inter
         iosevka
         iosevka-comfy.comfy
+        # Ioskeley Mono (compact geometric programming typeface built with
+        # Iosevka, inspired by Berkeley Mono). All Normal-cut variants: the
+        # hinted default plus its no-ligature (NL), Nerd Font (NF), terminal
+        # metric (term) and unhinted permutations. The `condensed` and
+        # `semiCondensed` families are left out; add e.g.
+        # ioskeley-mono.condensed here if wanted.
+        ioskeley-mono.normal
+        ioskeley-mono.normal-NL
+        ioskeley-mono.normal-NF
+        ioskeley-mono.normal-term
+        ioskeley-mono.normal-NL-NF
+        ioskeley-mono.normal-term-NF
+        ioskeley-mono.normal-unhinted
+        ioskeley-mono.normal-NL-unhinted
+        ioskeley-mono.normal-term-unhinted
         liberation_ttf
         material-design-icons
         material-icons
