@@ -178,6 +178,12 @@ in
   # enable stays gated on laptop-p16 (isP16).
   strata = lib.mkIf isP16 {
     enable = true;
+    # Keep the engine resident far longer than the 5-minute default: a reload
+    # puts the weights back in VRAM in ~27-30 s before decode can start, and at
+    # the old 300 s every >5-minute gap cost that stall. 900 s holds ~55 GB of
+    # RAM and most of the GPU idle between turns instead — the trade-off is
+    # explicitness over latency, so lower it if another GPU job needs the card.
+    idleUnloadSeconds = 900;
     # Vision stays off: the strata-vision image encoder drops throughput from
     # ~35 to ~22 tok/s.
     vision = false;

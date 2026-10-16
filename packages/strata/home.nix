@@ -187,7 +187,10 @@ in
       description = ''
         Seconds without a request after which `strata-server` unloads the
         engine (freeing ~55 GB of RAM and most of the GPU). The next request
-        starts it again (a minute or two).
+        starts it again — measured ~27-30 s of weight loading into VRAM before
+        decode can begin, so every idle gap longer than this value costs that
+        stall. Raise it to keep the engine resident across longer pauses; the
+        cost is holding the RAM and GPU while idle.
       '';
     };
 
