@@ -33,9 +33,10 @@
 #   version is insufficient".
 # - Measured speed (0.1.31+, fixed 22-token prompt, bench/a3000-tune.sh):
 #   ~28-33 tok/s decode; the 0.1.18-era ~6 tok/s figure predates the engine
-#   fixes upstream landed in 0.1.19-0.1.31. Interactive-snappy local chat
-#   stays on unsloth-studio's 9B GGUFs; this is the quality endpoint for
-#   opencode.
+#   fixes upstream landed in 0.1.19-0.1.31. At 0.1.44.1 the A/B above measured
+#   ~38-56 tok/s depending on prompt and context (Swift IQ3_XXS pack, the
+#   production config). Interactive-snappy local chat stays on unsloth-studio's
+#   9B GGUFs; this is the quality endpoint for opencode.
 {
   lib
 , stdenv
@@ -83,19 +84,24 @@
   # workarounds that have no flag. Empty by default; see
   # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.43.1 (a0116b2).
-  # 0.1.44/0.1.44.1 measured on this rig (2026-10-14, same 300-token code
-  # prompt, n=3 per engine, engine-log metrics): 0.1.43.1 decodes 38-42 tok/s at
-  # 84-86% draft acceptance; 0.1.44.1 29-35 tok/s at 74-84% - a ~20-25% decode
-  # regression, and the new --route-tail-skip default only mitigates it inside
-  # 0.1.44.1 (23-26 tok/s with it off). Every 0.1.44 fix (old-CPU AVX startup,
-  # CUDA 12.0/12.1 build, Apple M2 Metal, setup size menu, Responses-API
-  # reasoning_effort) is irrelevant to this sm_86 12 GB host, so the update buys
-  # nothing and costs decode. Re-check on a later release.
-  # 0.1.43.1 made STRATA_ADAPT_OVERLAP opt-in again (off on every backend),
-  # reverting 0.1.43's Linux-CUDA-on default that cost ~2.7x decode on this host
-  # (small expert cache, --adapt-every 1): Niko1221/Strata#2010 / PR #2011, so
-  # the engineEnv workaround is no longer needed.
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.44.1 (296b59d2f).
+  # The 0.1.44 decode regression this package rolled back from (5c1a1db) did not
+  # hold up. The first measurement, 2026-10-14 morning, put 0.1.43.1 at 38-42
+  # tok/s and 84-86% draft acceptance against 0.1.44.1's 29-35 tok/s and 74-84%
+  # on the same 300-token code prompt (n=3, engine-log metrics). A later
+  # controlled A/B on this rig, one engine build per arm (the 0.1.44.1 the
+  # release wraps) and identical tokens in every arm, found the two equal:
+  # 51-54 vs 51-54 tok/s on a short code prompt, 51-56 vs 53-59 at a 30 KB
+  # context, 37.6-38.1 vs 38.1-39.8 on 2000-token generations - and neither
+  # suspected knob (STRATA_NO_MMVQ_ROWS2, STRATA_COMMIT_BATCH) changed anything.
+  # See Niko1221/Strata#2441 (closed as not reproducible) and #2010; the morning
+  # measurement is kept here as history, not as a reason to stay behind.
+  # STRATA_ADAPT_OVERLAP stays opt-in and off by default: 0.1.43's Linux-CUDA-on
+  # default cost ~2.7x decode on this host (small expert cache, --adapt-every 1)
+  # and 0.1.43.1 reverted it (Niko1221/Strata#2010 / PR #2011), so it needs no
+  # engineEnv override here - and an interleaved A/B on 0.1.44.1 (2026-10-16,
+  # four rounds per arm, alternating order) measured the flag a wash on this rig
+  # (54.8 vs 54.0 tok/s on the one length-matched row).
   # The AVX2 IQ3 codebook gather (`STRATA_IQ256_GATHER`, upstream PR #622) is
   # upstream as of 0.1.40 and still enabled by default below; the native-
   # embedding cudaHostAlloc error report is upstream as of 0.1.40.3. (This used
@@ -105,8 +111,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "a0116b2782a5b82622358c04a06496485d12b2d6";  # v0.1.43.1 (main)
-    hash = "sha256-ouJseBgkuS0WxgHgHw8vxuNNqR/B3W5yjbjfBzkBpqA=";
+    rev = "296b59d2f73c8f04a805df29c2fa97655adace78";  # v0.1.44.1 (main)
+    hash = "sha256-Jfo2uldtyXW8Y/wQxA7WcYwtmzCGAOaXgnlMSo7K9LE=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -118,7 +124,7 @@
 }:
 
 let
-  version = "0.1.43.1";
+  version = "0.1.44.1";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer

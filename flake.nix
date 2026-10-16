@@ -14,7 +14,7 @@
     # committed; private keys stay in the gitignored age-keys/ and on each host.
     agenix.url = "github:ryantm/agenix";
     # Strata (github.com/Niko1221/Strata) is not a flake input: packages/strata
-    # fetches it directly with fetchFromGitHub, pinned to v0.1.43.1 in
+    # fetches it directly with fetchFromGitHub, pinned to v0.1.44.1 in
     # engine.nix/default.nix. (It used to be the private yannickloth/forks-Strata
     # fork's sm_86 branch; upstream 0.1.40.3 now carries every engine change the
     # fork had, so the fork only added a bench harness - see git history.)

@@ -195,10 +195,12 @@ in
     # (--conversation-cache-mib) measured ~15% slower with no reuse gain in
     # single-conversation flow, so it stays off.
     promptCacheTail = true;
-    # 0.1.43 defaulted STRATA_ADAPT_OVERLAP on for Linux CUDA, which cost ~2.7x
-    # decode on this rig (small expert cache, --adapt-every 1) and needed an
-    # explicit =0. 0.1.43.1 made it opt-in again (off everywhere), so no override
-    # is needed now; re-add engineEnv.STRATA_ADAPT_OVERLAP to A/B it.
+    # STRATA_ADAPT_OVERLAP stays at the upstream default (off): 0.1.43 defaulted
+    # it on for Linux CUDA, which cost ~2.7x decode on this rig (small expert
+    # cache, --adapt-every 1), and 0.1.43.1 made it opt-in again. The interleaved
+    # A/B on 0.1.44.1 (2026-10-16, see packages/strata/default.nix) measured the
+    # flag a wash here, so no engineEnv override is set; re-add one to re-test
+    # after an engine change.
   };
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)

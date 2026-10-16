@@ -69,10 +69,11 @@
 # (STRATA_IQ256_GATHER, upstream PR #622) is upstream as of 0.1.40, behind
 # per-thread selection (see packages/strata/default.nix). The engine-lifecycle
 # API this comment used to mention is upstream as of 0.1.31 (--idle-unload);
-# pinned to 0.1.43.1 (a0116b2) after 0.1.44.1 measured ~20-25% slower decode on
-# this host (bench note in packages/strata/default.nix); 0.1.43.1 makes
-# STRATA_ADAPT_OVERLAP opt-in again (0.1.43's Linux-CUDA-on default cost
-# ~2.7x on this host; Niko1221/Strata#2010).
+# pinned to 0.1.44.1 (296b59d2f). The short-lived rollback to 0.1.43.1 (a0116b2)
+# was for a 0.1.44.1 decode regression that a later controlled A/B on this rig
+# did not reproduce (bench note in packages/strata/default.nix,
+# Niko1221/Strata#2441/#2010). STRATA_ADAPT_OVERLAP stays opt-in and off: 0.1.43's
+# Linux-CUDA-on default cost ~2.7x decode on this host (Niko1221/Strata#2010).
 {
   lib,
   stdenv,
@@ -91,12 +92,12 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "a0116b2782a5b82622358c04a06496485d12b2d6";  # v0.1.43.1 (main)
-    hash = "sha256-ouJseBgkuS0WxgHgHw8vxuNNqR/B3W5yjbjfBzkBpqA=";
+    rev = "296b59d2f73c8f04a805df29c2fa97655adace78";  # v0.1.44.1 (main)
+    hash = "sha256-Jfo2uldtyXW8Y/wQxA7WcYwtmzCGAOaXgnlMSo7K9LE=";
   },
   # Version of the pinned strataSrc above; passed from default.nix so the
   # package and the engine always report the same version.
-  version ? "0.1.43.1",
+  version ? "0.1.44.1",
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
     repo = "llama.cpp";
