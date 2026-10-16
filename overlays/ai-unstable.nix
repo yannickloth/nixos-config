@@ -16,9 +16,13 @@
 
 final: prev: {
   # opencode v2 (2.0.29+, https://opencode.ai/v2): upstream moved past the 1.x
-  # line that nixpkgs packages (unstable still ships 1.18.34) and now publishes
-  # the CLI only as prebuilt per-platform npm tarballs under the new @opencode
-  # scope, so v2 is packaged in-tree (packages/opencode2) from the registry.
+  # line that nixpkgs packages (1.18.34 in the pinned nixpkgs-unstable, 1.19.0
+  # in current nixpkgs) and now publishes the CLI only as prebuilt per-platform
+  # npm tarballs under the new @opencode scope, so v2 is packaged in-tree
+  # (packages/opencode2) from the registry.
+  # Upstream's desktop/GUI build is the same v2 release train; nixpkgs'
+  # `opencode-desktop` is built from the 1.x monorepo, so it is packaged in-tree
+  # too (packages/opencode-desktop, wrapped from the released AppImage).
   # History: v1.18.30/31 crashed on every prompt with a custom provider
   # ("TypeError: undefined is not an object (evaluating 'a.name')") — a circular
   # runtime import between packages/core/src/filesystem.ts and
@@ -28,13 +32,19 @@ final: prev: {
   # packages/patches). Swap back to `unstablePkgs.opencode` (and delete
   # packages/opencode2) once nixpkgs packages the 2.x line.
   opencode = unstablePkgs.callPackage ../packages/opencode2 { };
+  # opencode Desktop: the Electron GUI of the same v2 line, shipped upstream
+  # only as per-platform installers (no source build), so it is wrapped in-tree
+  # (packages/opencode-desktop) from the released AppImage, like orca/browseros.
+  # Self-contained: it bundles its own agent server, so it does not follow the
+  # CLI pin above.
+  opencode-desktop = unstablePkgs.callPackage ../packages/opencode-desktop { };
   pi-coding-agent = unstablePkgs.pi-coding-agent;
   # herdr (herdr.dev, herdrdev/herdr): Rust terminal multiplexer / runtime that
   # keeps several coding agents (opencode, claude, codex, ...) in the tabs and
   # panes of one persistent session. Not in the stable channel at all (nixos-26.05
   # has no herdr), and the 0.9.x line moves fast, so it comes from unstable like
   # the rest of this list. The per-agent integrations (`herdr integration install
-  # opencode`, ...) are installed at runtime into ~/.config/herdr, not here.
+  # opencode`, ...) and the agent skill are handled by packages/herdr/home.nix.
   herdr = unstablePkgs.herdr;
   # Hermes Agent is packaged in-tree (packages/hermes-agent) from upstream's
   # uv.lock via uv2nix — it is not in nixpkgs at all.

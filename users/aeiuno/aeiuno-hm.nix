@@ -8,6 +8,7 @@
     ../hyprland.nix
     ../../packages/orca/home.nix
     ../../packages/browseros/home.nix
+    ../../packages/opencode-desktop/home.nix
     ../../packages/rea/home.nix
     ../../packages/herdr/home.nix
     # Unsloth Studio is deliberately NOT enabled for aeiuno (packages/
@@ -40,6 +41,10 @@
 
   # BrowserOS neo: agent-driven browser for AI assistants (MCP).
   browseros.enable = true;
+
+  # opencode Desktop: the GUI of the opencode v2 line, next to the `opencode`
+  # CLI in home.packages below.
+  opencode-desktop.enable = true;
 
   # REA: reverse-engineering MCP server + CLI (packages/rea/home.nix).
   rea.enable = true;

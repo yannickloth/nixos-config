@@ -3,9 +3,9 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
-    # Fast-moving AI tooling (opencode, pi-coding-agent, jetbrains-toolbox,
-    # vscode) for nicky/aeiuno is overlaid from unstable on top of the stable
-    # base; see overlays/ai-unstable.nix.
+    # Fast-moving AI tooling (opencode, opencode-desktop, pi-coding-agent,
+    # herdr, jetbrains-toolbox, vscode) for nicky/aeiuno is overlaid from
+    # unstable on top of the stable base; see overlays/ai-unstable.nix.
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
@@ -124,6 +124,12 @@
           # BrowserOS neo (packages/browseros): agent-driven browser for AI
           # assistants, packaged from the upstream AppImage.
           browseros = pkgs.callPackage ./packages/browseros { };
+          # opencode CLI + Desktop are in-tree pins (nixpkgs ships the 1.x
+          # line, upstream's v2 is npm/AppImage only) and carry an
+          # `updateScript`, so `nix-update opencode --flake --use-update-script`
+          # (likewise `opencode-desktop`) bumps their version and hashes.
+          opencode = unstablePkgs.callPackage ./packages/opencode2 { };
+          opencode-desktop = unstablePkgs.callPackage ./packages/opencode-desktop { };
           # REA (packages/rea): npm-only MCP+CLI reverse-engineering toolkit,
           # built from the registry tarball on unstable's Node (matches the
           # overlay, so the installed users share this store path).
@@ -147,9 +153,10 @@
           commonModules = [
             home-manager.nixosModules.home-manager
             agenix.nixosModules.default
-            # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
-            # herdr, jetbrains-toolbox, vscode, hermes-agent, magpie,
-            # deepseek-harness); sven/aaron keep plain stable pkgs.
+            # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode,
+            # opencode-desktop, pi, herdr, jetbrains-toolbox, vscode,
+            # hermes-agent, magpie, deepseek-harness); sven/aaron keep plain
+            # stable pkgs.
             ./users/ai-pkgs.nix
             # Inject the agenix home-manager module so home-manager users can
             # use `age.secrets` (nicky and aeiuno do, for the opencode provider

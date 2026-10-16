@@ -1,7 +1,7 @@
 # Applied by each NixOS host (via the root flake). Gives nicky and aeiuno the
-# AI-unstable overlay (opencode, pi-coding-agent, herdr, jetbrains-toolbox,
-# vscode, hermes-agent, magpie, deepseek-harness) on top of the host's stable
-# pkgs, while sven/aaron keep plain stable pkgs.
+# AI-unstable overlay (opencode, opencode-desktop, pi-coding-agent, herdr,
+# jetbrains-toolbox, vscode, hermes-agent, magpie, deepseek-harness) on top of
+# the host's stable pkgs, while sven/aaron keep plain stable pkgs.
 #
 # This mirrors what the standalone users/flake.nix does by passing per-user
 # pkgs to homeManagerConfiguration: it overrides the home-manager per-user

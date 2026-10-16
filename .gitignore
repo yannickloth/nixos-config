@@ -2,6 +2,10 @@
 tmp/
 result
 result-*
+# Python bytecode from the package update scripts (packages/*/update.py,
+# packages/tools/pin_block.py).
+__pycache__/
+*.pyc
 .agentmem/
 # JetBrains IDE project state (kept locally, not in git).
 .idea/

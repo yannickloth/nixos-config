@@ -73,6 +73,7 @@ in
     ../hyprland.nix
     ../../packages/orca/home.nix
     ../../packages/browseros/home.nix
+    ../../packages/opencode-desktop/home.nix
     ../../packages/rea/home.nix
     ../../packages/herdr/home.nix
     # Immich disabled 2026-10-10 (not in use); see the immich block below.
@@ -96,6 +97,11 @@ in
   # BrowserOS neo: agent-driven browser for AI assistants (MCP), runs with the
   # user's real logins in its own profile.
   browseros.enable = true;
+
+  # opencode Desktop: the GUI of the opencode v2 line, next to the `opencode`
+  # CLI in home.packages below. Both read ~/.config/opencode; the desktop app
+  # runs its own bundled agent server.
+  opencode-desktop.enable = true;
 
   # REA: reverse-engineering MCP server + CLI (packages/rea/home.nix) and the
   # "reverse-engineer-anything" agent skill.
