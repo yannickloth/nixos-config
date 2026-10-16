@@ -9,6 +9,7 @@
     ../../packages/orca/home.nix
     ../../packages/browseros/home.nix
     ../../packages/rea/home.nix
+    ../../packages/herdr/home.nix
     # Unsloth Studio is deliberately NOT enabled for aeiuno (packages/
     # unsloth-studio/home.nix) — see the block after opencode.enable below.
     # ../../packages/unsloth-studio/home.nix
@@ -42,6 +43,11 @@
 
   # REA: reverse-engineering MCP server + CLI (packages/rea/home.nix).
   rea.enable = true;
+
+  # herdr (packages/herdr/home.nix): terminal multiplexer / runtime for coding
+  # agents, plus its agent skill and the integrations for the agents installed
+  # here (opencode, pi, hermes).
+  herdr.enable = true;
 
   # Orca (agent development environment): desktop client only. Runs locally per
   # user; pair it to a running `orca serve` (e.g. nicky's on laptop-p16) from

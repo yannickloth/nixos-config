@@ -148,7 +148,7 @@
             home-manager.nixosModules.home-manager
             agenix.nixosModules.default
             # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode, pi,
-            # jetbrains-toolbox, vscode, hermes-agent, magpie,
+            # herdr, jetbrains-toolbox, vscode, hermes-agent, magpie,
             # deepseek-harness); sven/aaron keep plain stable pkgs.
             ./users/ai-pkgs.nix
             # Inject the agenix home-manager module so home-manager users can

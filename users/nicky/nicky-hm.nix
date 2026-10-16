@@ -74,6 +74,7 @@ in
     ../../packages/orca/home.nix
     ../../packages/browseros/home.nix
     ../../packages/rea/home.nix
+    ../../packages/herdr/home.nix
     # Immich disabled 2026-10-10 (not in use); see the immich block below.
     # ../../packages/immich/home.nix
   ];
@@ -99,6 +100,12 @@ in
   # REA: reverse-engineering MCP server + CLI (packages/rea/home.nix) and the
   # "reverse-engineer-anything" agent skill.
   rea.enable = true;
+
+  # herdr (packages/herdr/home.nix): terminal multiplexer / runtime for coding
+  # agents, plus its agent skill and the integrations for the agents installed
+  # here (opencode, pi, hermes) — those `herdr integration install` runs happen
+  # at activation, see the module.
+  herdr.enable = true;
   orca.server = lib.mkIf isP16 {
     enable = true;
     # No Tailscale address pinned: the launcher derives it at start.

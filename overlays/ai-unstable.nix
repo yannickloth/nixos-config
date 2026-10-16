@@ -29,6 +29,13 @@ final: prev: {
   # packages/opencode2) once nixpkgs packages the 2.x line.
   opencode = unstablePkgs.callPackage ../packages/opencode2 { };
   pi-coding-agent = unstablePkgs.pi-coding-agent;
+  # herdr (herdr.dev, herdrdev/herdr): Rust terminal multiplexer / runtime that
+  # keeps several coding agents (opencode, claude, codex, ...) in the tabs and
+  # panes of one persistent session. Not in the stable channel at all (nixos-26.05
+  # has no herdr), and the 0.9.x line moves fast, so it comes from unstable like
+  # the rest of this list. The per-agent integrations (`herdr integration install
+  # opencode`, ...) are installed at runtime into ~/.config/herdr, not here.
+  herdr = unstablePkgs.herdr;
   # Hermes Agent is packaged in-tree (packages/hermes-agent) from upstream's
   # uv.lock via uv2nix — it is not in nixpkgs at all.
   hermes-agent = hermesAgent;
