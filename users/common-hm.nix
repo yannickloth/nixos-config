@@ -127,6 +127,33 @@
       enable = config.gtk.enable && config.gtk.gtk4.enable;
     };
 
+    # ~/.ssh/config must be a real file owned by the user. ssh refuses one it does
+    # not own ("Bad owner or permissions"), and home-manager can only deploy its
+    # generated config as a symlink into /nix/store — where files are owned by
+    # `nobody` on the CachyOS deployment, so every ssh invocation fails. (A NixOS
+    # host keeps root-owned store files, which ssh does accept, but a real file
+    # works there too and keeps one code path for both.)
+    #
+    # So home-manager's own deployment of the file is disabled and the same
+    # generated content is installed as a real 0600 file at activation instead:
+    # the content stays declared through programs.ssh (settings), only the
+    # deployment step differs. `enable = false` is a plain boolean — `lib.mkIf
+    # false` would drop the definition and leave the default `true` — and it is
+    # harmless for sven/aaron, who have no ssh module and so no source to read
+    # (home-manager filters disabled entries out before it reads one, like the
+    # gtk entries above). It also keeps home-manager from ever moving a real
+    # ~/.ssh/config aside to ~/.ssh/config.backup, so a hand-written config that
+    # predates this stays where it is.
+    home.file.".ssh/config".enable = false;
+    home.activation.sshConfigRealFile = lib.mkIf config.commonHm.enableDeveloperTools (
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        # install (not cp) replaces the destination with the wanted mode; the
+        # source is home-manager's generated text file, which stays in the store.
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -d -m 700 "$HOME/.ssh"
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 600 ${config.home.file.".ssh/config".source} "$HOME/.ssh/config"
+      ''
+    );
+
     # Symlink ~/sync to the shared syncthing data directory (/sync is created by the
     # system services.syncthing module, so create the symlink at activation time).
     home.activation.linkSyncDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
