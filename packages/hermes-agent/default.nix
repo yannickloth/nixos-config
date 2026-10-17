@@ -35,12 +35,12 @@
 }:
 
 let
-  # Pin: v0.21.6 (2026-10-08).
+  # Pin: v0.22.2 (2026-10-15).
   src = fetchFromGitHub {
     owner = "NousResearch";
     repo = "hermes-agent";
-    rev = "818c13be1dc4fd28987e1e881a9408224afd4535";
-    hash = "sha256-nET4+PalQSZ4xfhdg2Rb5NB40XxINAkSvpUYHf947Io=";
+    rev = "d923a5eb487a17c0a68801bba9ef0f56c81040a8";
+    hash = "sha256-i9rob9jtBv6XTV0acNbHDEUM+9f3ZsN1zJkD6dMBzTc=";
   };
 
   workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = src; };
@@ -74,8 +74,8 @@ let
     });
   };
 
-  # requires-python = ">=3.11,<3.15", but v0.21.6's uv.lock narrows the
-  # resolution to supported-markers = ["python_full_version >= '3.14'"], and
+  # requires-python = ">=3.11,<3.15", but the pinned release's uv.lock narrows
+  # the resolution to supported-markers = ["python_full_version >= '3.14'"], and
   # uv2nix asserts the build environment satisfies one of them — so the base
   # interpreter must be 3.14. (The old 3.11 pin existed only for tflite-runtime's
   # cp311-only wheels; upstream dropped tflite-runtime from the lock.)
@@ -96,7 +96,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "hermes-agent";
-  version = "0.21.6";
+  version = "0.22.2";
 
   dontUnpack = true;
   dontBuild = true;

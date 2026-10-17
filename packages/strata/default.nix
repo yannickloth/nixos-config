@@ -84,8 +84,16 @@
   # workarounds that have no flag. Empty by default; see
   # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.44.1 (296b59d2f).
-  # The 0.1.44 decode regression this package rolled back from (5c1a1db) did not
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.45 (477ac13).
+  # 0.1.45 is a drop-in engine swap for the 0.1.44.1 this package was tuned
+  # against: setup replaces the engine, upstream's identity tests report the
+  # Qwen3.8-Flash-Next answers the resident config serves as byte-identical to
+  # 0.1.44.1's (CUDA sm_60/sm_86 included; sm_86 is what runs here), and the two
+  # features it adds - `--parallel N` slots and the Qwen3.6 image path (a
+  # separate mmproj download, package `vision = true`) - are both opt-in and left
+  # unset by the configPatch below, so the calibrated knobs and the bench
+  # numbers above carry over. The 0.1.44 decode regression this package rolled
+  # back from (5c1a1db) did not
   # hold up. The first measurement, 2026-10-14 morning, put 0.1.43.1 at 38-42
   # tok/s and 84-86% draft acceptance against 0.1.44.1's 29-35 tok/s and 74-84%
   # on the same 300-token code prompt (n=3, engine-log metrics). A later
@@ -111,8 +119,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "296b59d2f73c8f04a805df29c2fa97655adace78";  # v0.1.44.1 (main)
-    hash = "sha256-Jfo2uldtyXW8Y/wQxA7WcYwtmzCGAOaXgnlMSo7K9LE=";
+    rev = "477ac13cbe8e582c20484871ce459d20d82df09d";  # v0.1.45 (main)
+    hash = "sha256-YfCpJ+iSbs8hSGzWtTr/fNJYRjUjS+ed7U7TNiaDBJU=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -124,7 +132,7 @@
 }:
 
 let
-  version = "0.1.44.1";
+  version = "0.1.45";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
