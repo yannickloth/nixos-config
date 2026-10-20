@@ -339,6 +339,29 @@ in
                     };
                   };
 
+                  # --- decisions --------------------------------------------
+                  # System One family. Kev is the only download that is a
+                  # decoder, so it is the only one that also answers
+                  # /v1/chat/completions. Its native context is 262144; the
+                  # 16384 here matches the Studio override, which is the
+                  # useful ceiling on a 12 GB card.
+                  #
+                  # Do NOT add the mys/laya-* GGUFs here. Both carry
+                  # general.architecture = "ggmlc", which llama.cpp rejects
+                  # ("unknown model architecture"). They are private-format
+                  # exports, not llama.cpp GGUFs, and a request for them
+                  # wedges Studio's model switch. Laya runs through the
+                  # Decision API instead, with catalog ids
+                  # "laya-multilingual" / "laya-typed-decisions"; the
+                  # /v1/systemone route answers "Unknown model" for repo ids.
+                  "ggml-org/Kev-4B-GGUF" = {
+                    name = "Kev 4B decisions (local)";
+                    limit = {
+                      context = 16384;
+                      output = 4096;
+                    };
+                  };
+
                   # --- vision / OCR ----------------------------------------
                   # Single image in, short text out; the 131072 Studio setting
                   # from 2026-09-17 has to be re-entered (its override row is

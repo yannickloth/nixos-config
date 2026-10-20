@@ -206,6 +206,16 @@ in
     # (--conversation-cache-mib) measured ~15% slower with no reuse gain in
     # single-conversation flow, so it stays off.
     promptCacheTail = true;
+    # The other half of the Studio handoff (packages/unsloth-studio/home.nix
+    # frees the card FROM Strata FOR Studio; these free it FROM Studio FOR
+    # Strata). Naming a Strata model while Studio holds the card must not end
+    # in a failed cudaMalloc: beforeLoad asks Studio to unload its own model
+    # first, and minFreeVramMib is the backstop that refuses the load (503 +
+    # Retry-After) if VRAM is still short after the hook. idleUnloadSeconds
+    # above is 900, so Strata holds the card deliberately long - a Studio turn
+    # inside that window is exactly the case this covers.
+    minFreeVramMib = 8000;
+    beforeLoad = "${config.home.homeDirectory}/.local/bin/unsloth-studio-unload.sh";
     # STRATA_ADAPT_OVERLAP stays at the upstream default (off): 0.1.43 defaulted
     # it on for Linux CUDA, which cost ~2.7x decode on this rig (small expert
     # cache, --adapt-every 1), and 0.1.43.1 made it opt-in again. The interleaved
