@@ -16,12 +16,15 @@
 
 let
   pname = "browseros";
-  version = "0.51.0";
+  version = "0.51.1.2";
 
   src = fetchurl {
-    url = "https://github.com/browseros-ai/BrowserOS/releases/download/v${version}/BrowserOS_v${version}_x64.AppImage";
-    # x86_64 build only; upstream also ships BrowserOS_v${version}_amd64.deb.
-    hash = "sha256-tYbfcgg8BG4uotHMG2RjMl7Uywwxl11I4JzBQhXj578=";
+    # Since 0.51.1.2 the neo releases tag as "browserclaw/v<version>" and the
+    # AppImage is named BrowserOS_neo_v<version>_x64.AppImage.
+    url = "https://github.com/browseros-ai/BrowserOS/releases/download/browserclaw/v${version}/BrowserOS_neo_v${version}_x64.AppImage";
+    # x86_64 build only; upstream also ships BrowserOS_neo_v${version}_amd64.deb.
+    # Hash from the release's published asset digest.
+    hash = "sha256-kUJQvP8RtJh25A9ToNsJ5bZTkpBIf98pMVXe7hLHKVA=";
   };
 
   # Extract once so extraInstallCommands can install the desktop entry and icon.

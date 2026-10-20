@@ -23,18 +23,18 @@
 
 buildNpmPackage {
   pname = "rea";
-  version = "6.5.0";
+  version = "6.7.0";
 
   src = fetchurl {
-    url = "https://registry.npmjs.org/rea-agents/-/rea-agents-6.5.0.tgz";
-    hash = "sha256-UxcXoG6SymUaq1JpEZD5FvrARCcsAfh14ixeKTIY5pk=";
+    url = "https://registry.npmjs.org/rea-agents/-/rea-agents-6.7.0.tgz";
+    hash = "sha256-IJWKZtuhoBHlCkhr65Rjo0MSjtNoyYT5QGU2LBP1H5A=";
   };
 
   postPatch = ''
     cp ${./package-lock.json} package-lock.json
   '';
 
-  npmDepsHash = "sha256-gPCCo1pwtUCGhgMAhaqwKf0Ldi7mZqmqnIb6fwkbBHU=";
+  npmDepsHash = "sha256-R3a2E0cnvbi5y/JLSl4pRFoLRCvnld8LXcE9RQFzC5w=";
 
   dontNpmBuild = true;
 

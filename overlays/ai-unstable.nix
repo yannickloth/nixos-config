@@ -66,22 +66,25 @@ final: prev: {
   # BrowserOS neo: agent-driven browser that AI assistants drive over MCP with
   # the user's real logins. Packaged in-tree from the upstream AppImage.
   browseros = browseros;
-  # JetBrains moved the Toolbox tarball from download-cdn.jetbrains.com to
-  # download.jetbrains.com (2026-10); nixpkgs-unstable still fetches the dead
-  # CDN host, so the fixed-output source derivation 404s and the whole switch
-  # fails. The same version still 200s at the new host with byte-identical
-  # contents (same output hash), so re-point the source — and the runScript /
-  # install commands, which embed its store path — at the working host. Drop
-  # this override once nixpkgs updates the URL upstream.
+  # JetBrains Toolbox version bump ahead of nixpkgs-unstable. History: in
+  # 2026-10 JetBrains moved the Toolbox tarball from download-cdn.jetbrains.com
+  # to download.jetbrains.com and nixpkgs-unstable lagged, so the fixed-output
+  # source derivation 404'd and the whole switch failed — the override then
+  # re-pointed the 3.8.1.88030 source at the working host. nixpkgs has since
+  # (rev fe13242281) fixed the URL itself, so the override's only job now is
+  # the version bump to 3.9.0.88839 (released 2026-10-19). Drop this override
+  # once nixpkgs-unstable carries 3.9.0.
   jetbrains-toolbox =
     let
+      newVersion = "3.9.0.88839";
       fixedSrc = unstablePkgs.fetchzip {
-        url = "https://download.jetbrains.com/toolbox/jetbrains-toolbox-3.8.1.88030.tar.gz";
-        hash = "sha256-OsuSgC22E2hurQCEnev8GA8hQWLaxg6hclPYHm8crWc=";
+        url = "https://download.jetbrains.com/toolbox/jetbrains-toolbox-${newVersion}.tar.gz";
+        hash = "sha256-Nqov5++wuLy4r08N6inyBmdr9eTdQknrc1AFf0jywTs=";
       };
       base = unstablePkgs.jetbrains-toolbox;
     in
     base.overrideAttrs (old: {
+      version = newVersion;
       runScript = "${fixedSrc}/bin/jetbrains-toolbox --update-failed";
       extraInstallCommands = ''
         install -Dm0644 ${fixedSrc}/bin/jetbrains-toolbox.desktop -t $out/share/applications
