@@ -36,13 +36,15 @@ appimageTools.wrapType2 {
   inherit pname version src;
 
   extraInstallCommands = ''
-    install -Dm444 ${appimageContents}/browseros.desktop \
-      $out/share/applications/browseros.desktop
+    # 0.51.1.2 rebranded the bundle's entry to browserclaw (the release tag
+    # is browserclaw/v... and the desktop file is browserclaw.desktop).
+    install -Dm444 ${appimageContents}/browserclaw.desktop \
+      $out/share/applications/browserclaw.desktop
 
-    install -Dm444 ${appimageContents}/browseros.png \
-      $out/share/icons/hicolor/512x512/apps/browseros.png
+    install -Dm444 ${appimageContents}/browserclaw.png \
+      $out/share/icons/hicolor/512x512/apps/browserclaw.png
 
-    substituteInPlace $out/share/applications/browseros.desktop \
+    substituteInPlace $out/share/applications/browserclaw.desktop \
       --replace-fail 'Exec=AppRun %U' 'Exec=${pname} %U'
   '';
 
