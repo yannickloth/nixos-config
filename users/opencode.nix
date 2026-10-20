@@ -252,14 +252,26 @@ in
                 };
               };
             } // optionalAttrs isP16 {
-              # Local Unsloth Studio server: OpenAI-compatible API on localhost.
-              # Model list captured from `curl http://127.0.0.1:8888/v1/models`
-              # (2026-09-16). The TTS (unsloth/orpheus-*) and text-to-image
-              # (unsloth/Qwen-Image-*) entries are excluded: opencode only speaks
-              # chat completions. Download/load new models in the Studio UI, then
-              # add matching entries here; limits are advisory (opencode uses them
-              # for compaction thresholds) and set to the ~100K budget Studio
-              # actually serves per loaded model, well under the native windows.
+              # Local Unsloth Studio server: OpenAI-compatible API on localhost
+              # (:8888). The model list below is the server's *local library*
+              # (`curl -H "Authorization: Bearer $KEY"
+              # http://127.0.0.1:8888/v1/models`, captured 2026-10-20), minus the
+              # two local models that cannot answer a chat completion:
+              #   unsloth/orpheus-3b-0.1-ft    TTS
+              #   unsloth/Qwen-Image-2.1-GGUF  text-to-image
+              #
+              # `limit.context` is NOT the model's native window. Studio serves
+              # 8192 by default and only a per-model override
+              # (`custom_context_length` in Settings -> API, stored in
+              # studio.db's app_settings.openai_api_auto_switch_overrides) raises
+              # it; the live value is `context_length` in
+              # `/api/inference/status` (loaded) or `/v1/models/<id>` (GGUF,
+              # loaded). Keep this number <= that one: opencode compacts at
+              # `limit.context`, so an inflated value ships prompts Studio
+              # truncates. Auto-switch is on (openai_api_auto_switch_model), so
+              # naming a downloaded model loads it; on laptop-p16 the
+              # llama-server handoff wrapper unloads Strata first
+              # (packages/unsloth-studio/home.nix).
               unsloth-studio = {
                 npm = "@ai-sdk/openai-compatible";
                 options = {
@@ -270,9 +282,40 @@ in
                   apiKey = keyfile "unsloth";
                 };
                 models = {
-                  "empero-ai/Qwen3.8-9B-Distill-GGUF" = {
-                    name = "Qwen3.8-9B Distill (local)";
-                    reasoning = true;
+                  # --- translation ------------------------------------------
+                  # Served at 32768 tokens (native 262144 / 131072): Studio's
+                  # 8192 default was raised with a custom_context_length
+                  # override on 2026-10-20 so a multi-page document fits in one
+                  # request. Raise the Studio override and this number together
+                  # - never this one alone.
+                  "unsloth/Hy-MT2-1.8B-GGUF" = {
+                    name = "Hy-MT2 1.8B translation (local)";
+                    limit = {
+                      context = 32768;
+                      output = 8192;
+                    };
+                  };
+                  "mradermacher/translategemma-4b-it-GGUF" = {
+                    name = "TranslateGemma 4B IT translation (local)";
+                    attachment = true; # ships an mmproj: image -> translated text
+                    limit = {
+                      context = 32768;
+                      output = 8192;
+                    };
+                  };
+
+                  # --- chat -------------------------------------------------
+                  # The one model here already pinned to 131072 in Studio
+                  # (override on the UD-IQ3_XXS quant).
+                  "unsloth/LFM2.5-24B-A2B-GGUF" = {
+                    name = "LFM2.5 24B-A2B (local)";
+                    limit = {
+                      context = 131072;
+                      output = 32768;
+                    };
+                  };
+                  "unsloth/Llama-3.2-3B-Instruct-GGUF" = {
+                    name = "Llama 3.2 3B Instruct (local)";
                     limit = {
                       context = 103424;
                       output = 32768;
@@ -280,29 +323,8 @@ in
                   };
                   "ornith-ai/Ornith-1.5-9B-GGUF" = {
                     name = "Ornith-1.5-9B (local)";
-                    limit = {
-                      context = 103424;
-                      output = 32768;
-                    };
-                  };
-                  "unsloth/qwen3.8-27B-GGUF" = {
-                    name = "Qwen3.8-27B (local)";
                     reasoning = true;
-                    limit = {
-                      context = 103424;
-                      output = 32768;
-                    };
-                  };
-                  "empero-ai/Qwen3.8-27B-Ridge-GGUF" = {
-                    name = "Qwen3.8-27B Ridge (local)";
-                    reasoning = true;
-                    limit = {
-                      context = 103424;
-                      output = 32768;
-                    };
-                  };
-                  "empero-ai/Qwythos-9B-v2-GGUF" = {
-                    name = "Qwythos-9B v2 (local)";
+                    attachment = true; # mmproj (vision)
                     limit = {
                       context = 103424;
                       output = 32768;
@@ -310,21 +332,17 @@ in
                   };
                   "empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF" = {
                     name = "Qwythos-9B Claude-Mythos 1M (local)";
+                    attachment = true; # mmproj (vision)
                     limit = {
                       context = 103424;
                       output = 32768;
                     };
                   };
-                  "unsloth/gemma-4-12B-it-qat-GGUF" = {
-                    name = "Gemma-4-12B IT QAT (local)";
-                    limit = {
-                      context = 103424;
-                      output = 32768;
-                    };
-                  };
-                  # Vision OCR model. Studio serves it with a tiny default
-                  # context budget (4K); expanded to 131072 in the Studio UI
-                  # (2026-09-17), so the advisory limit matches that.
+
+                  # --- vision / OCR ----------------------------------------
+                  # Single image in, short text out; the 131072 Studio setting
+                  # from 2026-09-17 has to be re-entered (its override row is
+                  # gone), or this number overstates what Studio serves.
                   "unsloth/GLM-OCR" = {
                     name = "GLM-OCR (local)";
                     attachment = true;

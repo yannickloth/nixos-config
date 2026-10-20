@@ -200,6 +200,28 @@ in
       description = "Loopback port of the Strata API (the port Studio's Custom provider points at).";
     };
 
+    minFreeVramMib = mkOption {
+      type = types.ints.unsigned;
+      default = 0;
+      description = ''
+        Refuse to start the engine unless this much VRAM is free (`--min-free-vram-mib`).
+        On the shared A3000 this is the guard that keeps Strata from loading into a card
+        Unsloth Studio's own model has already filled: the request answers 503 with a
+        Retry-After instead of spilling to CPU or dying on a failed allocation. 0 leaves
+        the check off (the engine tries anyway).
+      '';
+    };
+
+    beforeLoad = mkOption {
+      type = types.str;
+      default = "";
+      description = ''
+        Command run before the engine loads (`--before-load`), e.g. asking Unsloth Studio
+        to unload its model so Strata gets the VRAM. A failing hook keeps the engine
+        unloaded and returns the error to the caller. Empty runs nothing.
+      '';
+    };
+
     defaultConfig = mkOption {
       type = types.str;
       default = "";
@@ -229,6 +251,10 @@ in
       Unit = {
         Description = "Strata server (${if cfg.vision then "image encoder preloaded" else "engine loads on demand"}; Unsloth Studio's 125B endpoint)";
         After = [ "network-online.target" ];
+        # Unlimited restarts: a unit that gives up would leave Studio's 125B
+        # endpoint dead. StartLimit* belongs in [Unit] - in [Service] systemd
+        # only warns ("Unknown key") and ignores it.
+        StartLimitIntervalSec = 0;
       };
       Install = mkIf cfg.autoStart { WantedBy = [ "default.target" ]; };
       Service = {
@@ -238,14 +264,16 @@ in
           "BROWSER=true" # never open a browser from the service
           "STRATA_PORT=${toString cfg.port}"
           "STRATA_IDLE_UNLOAD=${toString cfg.idleUnloadSeconds}"
-        ] ++ optional (cfg.defaultConfig != "") "STRATA_CONFIG=${cfg.defaultConfig}";
+        ]
+        ++ optional (cfg.minFreeVramMib > 0) "STRATA_MIN_FREE_VRAM=${toString cfg.minFreeVramMib}"
+        ++ optional (cfg.beforeLoad != "") "STRATA_BEFORE_LOAD=${cfg.beforeLoad}"
+        ++ optional (cfg.defaultConfig != "") "STRATA_CONFIG=${cfg.defaultConfig}";
         # MAP_HUGETLB for the expert arena is charged to RLIMIT_MEMLOCK.
         LimitMEMLOCK = "infinity";
         # No setup yet (no venv/config): exit cleanly with guidance instead of
-        # restart-looping. startLimit* keeps a broken config from spinning.
+        # restart-looping.
         Restart = "on-failure";
         RestartSec = "10s";
-        StartLimitIntervalSec = 0;
       };
     };
   };

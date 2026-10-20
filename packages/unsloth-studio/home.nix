@@ -38,6 +38,17 @@ in
       default = 8888;
       description = "TCP port for the Studio web UI, the OpenAI-compatible API and the Decision API (/v1/systemone).";
     };
+
+    strataGpuHandoff = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Hand the GPU over from Strata on every model load: pin Studio's llama-server to a
+        wrapper that unloads the Strata engine first (see `.unsloth/llama.cpp/build/bin/
+        llama-server-handoff`). Only meaningful on the host that runs `strata` with
+        `strata.enable`; elsewhere it would pin a binary path that may not exist yet.
+      '';
+    };
   };
 
   config = mkIf cfg.enable {
@@ -107,6 +118,103 @@ in
           exec "$HOME/.local/bin/unsloth" studio -p ${toString cfg.port}
         '';
       };
+      # Free the GPU before Studio starts: ask the Strata server to unload its
+      # 125B engine. Strata's own control contract is `POST /v1/unload` (or
+      # `/unload`) with a JSON content type - it rejects anything else with
+      # 415/403 to keep other web pages from dropping the model. This used to
+      # post /api/inference/unload, which is Unsloth Studio's *own* API on
+      # 127.0.0.1:8888, not Strata's: the Strata server answered {"error":
+      # "not found"} and Studio's llama-server then died with cudaMalloc OOM
+      # while the 125B engine still held the card (2026-10-20 on laptop-p16).
+      ".local/bin/unsloth-studio-free-gpu.sh" = {
+        executable = true;
+        text = ''
+          #!/usr/bin/env bash
+          # Ask Strata (if it is up) to unload its engine so Studio's own
+          # models get the VRAM. Never fails the caller: a missing server, a
+          # busy engine or an old Strata must not stop Studio from starting.
+          set -u
+          curl=${pkgs.curl}/bin/curl
+          url="''${STRATA_URL:-http://127.0.0.1:8080}"
+          wait_s="''${STRATA_UNLOAD_WAIT:-120}"
+
+          # Nothing listening (or no Strata on this host): nothing to free.
+          health="$($curl -fsS -m 5 "$url/health" 2>/dev/null)" || exit 0
+          case "$health" in
+            *'"loaded":false'*|*'"loaded": false'*) exit 0 ;;
+          esac
+
+          echo "strata: unloading the engine to free the GPU for Studio..." >&2
+          code="$($curl -sS -m "$((wait_s + 30))" -o /dev/null -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' -d '{}' \
+            "$url/v1/unload?wait=$wait_s" 2>/dev/null)" || code="000"
+
+          # The reply means the engine is stopping, not that VRAM is back yet:
+          # poll /health before letting Studio's llama-server allocate.
+          i=0
+          while [ "$i" -lt 30 ]; do
+            health="$($curl -fsS -m 5 "$url/health" 2>/dev/null)" || break
+            case "$health" in
+              *'"loaded":false'*|*'"loaded": false'*)
+                echo "strata: engine unloaded, GPU free for Studio" >&2
+                exit 0 ;;
+            esac
+            i=$((i + 1))
+            ${pkgs.coreutils}/bin/sleep 2
+          done
+
+          echo "strata: engine still loaded (unload answered HTTP $code); Studio may see little free VRAM" >&2
+          exit 0
+        '';
+      };
+      # Model-load hook for the Strata host: Studio spawns this instead of the
+      # managed llama-server (LLAMA_SERVER_PATH, set on the unit below), so the
+      # GPU is freed at the moment a model is picked - not only when the
+      # service starts. It lives in build/bin beside the real binary on
+      # purpose, for two reasons: Studio globs libggml-*.so next to the binary
+      # it runs (a shim elsewhere would read as a CPU-only build), and
+      # _is_unsloth_managed_binary / _llama_install_root only resolve a binary
+      # under ~/.unsloth/llama.cpp (pinned elsewhere, Studio would treat
+      # llama.cpp as user-owned and stop offering its updates). exec'ing the
+      # real binary keeps $ORIGIN, backend loading and the weekly
+      # `unsloth studio update` (which rebuilds llama-server in place) intact;
+      # if a rebuild ever removes this file, discovery falls through to the
+      # managed binary and the link comes back on the next switch.
+      ".unsloth/llama.cpp/build/bin/llama-server-handoff" = lib.mkIf cfg.strataGpuHandoff {
+        executable = true;
+        text = ''
+          #!/usr/bin/env bash
+          # Free the GPU (unload Strata) before Studio's llama-server allocates.
+          # Never fails the load for the handoff's sake: if Strata is down or
+          # busy the helper says so and llama-server starts exactly as before.
+          set -u
+          root="$HOME/.unsloth/llama.cpp"
+          real="''${LLAMA_SERVER_REAL:-}"
+          if [ -z "$real" ]; then
+            for candidate in "$root/build/bin/llama-server" "$root/llama-server"; do
+              [ -x "$candidate" ] && { real="$candidate"; break; }
+            done
+          fi
+          if [ -z "$real" ] || [ ! -x "$real" ]; then
+            echo "llama-server-handoff: no llama-server under $root" >&2
+            exit 127
+          fi
+          if [ "$real" = "$0" ]; then
+            echo "llama-server-handoff: refusing to exec itself ($real)" >&2
+            exit 127
+          fi
+
+          # Capability probes never touch the GPU: do not evict Strata for them.
+          for arg in "$@"; do
+            case "$arg" in
+              --version | --help | -h | --list-devices | --build-info) exec "$real" "$@" ;;
+            esac
+          done
+
+          "$HOME/.local/bin/unsloth-studio-free-gpu.sh" || true
+          exec "$real" "$@"
+        '';
+      };
       # Update wrapper for the systemd timer. The installer's own update path
       # is `unsloth studio update` (install.sh runs exactly that), so updates
       # go through the CLI, not a reinstall. Skips cleanly while not
@@ -157,12 +265,16 @@ in
           Type = "simple";
           ExecStart = "${config.home.homeDirectory}/.local/bin/unsloth-studio-launcher.sh";
           # On the Strata host, Studio's models own the GPU while it runs: ask
-          # the Strata server (if up) to unload its 125B engine first - the
-          # same /api/inference contract Studio itself exposes. The '-'
-          # prefix tolerates "not running" and "already unloaded"; on hosts
-          # without Strata the curl fails instantly and is ignored. (If a
-          # STRATA_API_KEY is ever set, the curl needs to send it.)
-          ExecStartPre = "-${pkgs.curl}/bin/curl -sS -m 150 -X POST http://127.0.0.1:8080/api/inference/unload -o /dev/null";
+          # the Strata server (if up) to unload its 125B engine first. The '-'
+          # prefix keeps "not running" / "already unloaded" from blocking the
+          # unit; the helper logs what it found. (If a STRATA_API_KEY is ever
+          # set, the curl needs to send it.)
+          ExecStartPre = "-${config.home.homeDirectory}/.local/bin/unsloth-studio-free-gpu.sh";
+          # Every model load starts here, so the Strata engine is unloaded at
+          # the moment a model is chosen rather than only at service start.
+          # See the llama-server-handoff file above.
+          Environment = optional cfg.strataGpuHandoff
+            "LLAMA_SERVER_PATH=${config.home.homeDirectory}/.unsloth/llama.cpp/build/bin/llama-server-handoff";
           Restart = "on-failure";
           RestartSec = "15s";
         };

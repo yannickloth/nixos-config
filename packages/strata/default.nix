@@ -155,11 +155,12 @@ let
     name = "strata-patch-config";
     runtimeInputs = [ python3 ];
     text = ''
-      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.boolToString promptCacheTail} ${lib.escapeShellArg (builtins.toJSON engineEnv)} <<'PY'
+      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.boolToString promptCacheTail} ${lib.escapeShellArg (builtins.toJSON engineEnv)} ${lib.boolToString vision} <<'PY'
       import glob, json, os, sys
-      ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, tail, env_json = (
+      ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, tail, env_json, vision = (
           int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5]),
-          sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], sys.argv[11], sys.argv[12])
+          sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], sys.argv[11], sys.argv[12],
+          sys.argv[13] == "true")
       env_patch = json.loads(env_json or "{}")
       home = os.environ.get("STRATA_HOME") or os.path.expanduser("~/.local/share/strata")
 
@@ -225,6 +226,14 @@ let
               # form), keeping anything setup.py or the user already set.
               if env_patch:
                   c["env"] = {**(c.get("env") or {}), **{k: str(v) for k, v in env_patch.items()}}
+              # Images follow the package's vision build, not a stale config
+              # block: a config written by an older install (or by setup with
+              # --vision yes) keeps a "vision" block pointing at
+              # engine/strata-vision, which a vision=false build does not ship.
+              # The server would then try to start it and fail model loads
+              # ("vision encoder failed to start ... engine/strata-vision").
+              if not vision:
+                  c.pop("vision", None)
               c["args"] = a
               with open(p, "w", encoding="utf-8") as f:
                   json.dump(c, f, indent=1)
@@ -482,9 +491,22 @@ let
           echo "Strata: no model configured - run 'strata' once first." >&2
           exit 1
         fi
-        exec "$PY" ${share}/serve/server.py --engine strata --config "$CFG" \
-          --host 127.0.0.1 --port "''${STRATA_PORT:-8080}" \
-          ${lib.optionalString (!vision) "--lazy "}--idle-unload "''${STRATA_IDLE_UNLOAD:-300}"
+        extra=(--host 127.0.0.1 --port "''${STRATA_PORT:-8080}")
+        ${lib.optionalString (!vision) "extra+=(--lazy)"}
+        extra+=(--idle-unload "''${STRATA_IDLE_UNLOAD:-300}")
+        # Refuse to load the engine into a GPU another program has already
+        # filled (Studio's models): the server answers 503 + Retry-After instead
+        # of spilling to CPU or dying on a failed allocation.
+        if [ -n "''${STRATA_MIN_FREE_VRAM:-}" ]; then
+          extra+=(--min-free-vram-mib "$STRATA_MIN_FREE_VRAM")
+        fi
+        # A command to run before the engine loads, e.g. asking the other
+        # server to give up its model. A failing hook keeps the engine unloaded
+        # and returns the error to the caller (upstream #1997).
+        if [ -n "''${STRATA_BEFORE_LOAD:-}" ]; then
+          extra+=(--before-load "$STRATA_BEFORE_LOAD")
+        fi
+        exec "$PY" ${share}/serve/server.py --engine strata --config "$CFG" "''${extra[@]}"
       '';
   };
 in

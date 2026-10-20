@@ -146,6 +146,11 @@ in
   # localhost endpoint. Hosts set users.users.nicky.linger = true so the API
   # survives logout.
   unsloth-studio.enable = true;
+  # On the Strata host, pin Studio's llama-server to the handoff wrapper so
+  # picking a model unloads the 125B engine before VRAM is computed (the other
+  # hosts have no `strata` unit and no llama.cpp tree yet, where a pinned path
+  # would only get in discovery's way).
+  unsloth-studio.strataGpuHandoff = isP16;
 
   # Strata (Qwen3.8-Flash-Next 125B MoE inference, OpenAI/Anthropic API on
   # localhost). Same GPU gating as laya/clm: the engine is built for the
