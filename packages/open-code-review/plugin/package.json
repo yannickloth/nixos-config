@@ -1,0 +1,9 @@
+{
+  "name": "opencode-ocr-plugin-host",
+  "private": true,
+  "description": "Runtime dependencies for the OpenCodeReview opencode plugin (packages/open-code-review)",
+  "dependencies": {
+    "@opencode-ai/plugin": "1.19.3",
+    "@opencode/plugin": "0.0.0-beta-19507"
+  }
+}

@@ -56,6 +56,16 @@ final: prev: {
   # DeepSeek Harness (dsh): agent harness published only on npm, packaged
   # in-tree from the registry tarball (packages/deepseek-harness).
   deepseek-harness = unstablePkgs.callPackage ../packages/deepseek-harness { };
+  # Open Code Review (ocr): Alibaba's AI code-review CLI. Not in nixpkgs, and
+  # its npm wrapper downloads the Go binary at install time, so it is built
+  # from the upstream source in-tree (packages/open-code-review). The
+  # companion OpenCode plugin (ocr_review tools + /ocr-review slash commands)
+  # and the node_modules its SDK imports need are packaged next to it and
+  # deployed by users/opencode.nix. NOTE: open-codereview.ai serves no LLM
+  # API — `ocr` consumes the providers already configured in opencode, so
+  # this is a package + plugin, not a provider entry.
+  open-code-review = unstablePkgs.callPackage ../packages/open-code-review { };
+  open-code-ocr-plugin = unstablePkgs.callPackage ../packages/open-code-review/plugin-deps.nix { };
   # REA (rea-agents): MCP+CLI reverse-engineering toolkit, published only on
   # npm, packaged in-tree from the registry tarball (packages/rea).
   rea = unstablePkgs.callPackage ../packages/rea { };

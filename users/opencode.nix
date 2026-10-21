@@ -56,8 +56,12 @@ in
   config = mkIf config.opencode.enable {
     # The TypeSafe `jev` MCP entry below runs `npx -y @jkudish/jev-mcp`, so the
     # Node toolchain must be on PATH for every user with this module enabled
-    # (previously only nicky had it via her own home.packages).
-    home.packages = [ pkgs.nodejs ];
+    # (previously only nicky had it via her own home.packages). open-code-review
+    # (ocr) is Alibaba's AI code-review CLI: it consumes the LLM providers
+    # configured below (via `ocr config provider`, or delegation mode) — it is
+    # not a provider itself (open-codereview.ai serves no LLM API; see
+    # packages/open-code-review).
+    home.packages = [ pkgs.nodejs pkgs.open-code-review ];
 
     xdg.configFile."opencode/opencode.json" = {
       text =
@@ -480,6 +484,20 @@ in
           model = "strata-local/swift-1.5-iq3_xxs";
         });
     };
+
+    # Open Code Review's official OpenCode integration: native ocr_review /
+    # ocr_health tools plus /ocr-review and /ocr-health slash commands
+    # (plugins/open-code-review/opencode in alibaba/open-code-review, pinned
+    # to the same release as the ocr CLI in home.packages above). opencode
+    # auto-loads *.ts from the plugins/ directory; the file's SDK imports must
+    # resolve from ~/.config/opencode/node_modules, which opencode does not
+    # provide itself — hence the node_modules symlink (OpenCode 2.x needs
+    # both @opencode-ai/plugin and @opencode/plugin; see
+    # packages/open-code-review/plugin-deps.nix).
+    xdg.configFile."opencode/plugins/open-code-review.ts".source =
+      "${pkgs.open-code-ocr-plugin}/plugin/open-code-review.ts";
+    xdg.configFile."opencode/node_modules".source =
+      "${pkgs.open-code-ocr-plugin}/node_modules";
 
     # Materialize per-provider API key files from a decrypted Open WebUI env
     # file (OPENAI_API_KEYS JSON). Source resolution, first existing wins:
