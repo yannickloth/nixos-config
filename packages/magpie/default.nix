@@ -20,15 +20,16 @@
 
 buildGoModule rec {
   pname = "magpie";
-  version = "0.1.1294";
+  version = "0.1.1308";
 
   src = fetchFromGitHub {
     owner = "yetone";
     repo = "magpie";
-    rev = "2c3c903974b65c145f9f009d83a2cf7e0fb3ee01"; # v0.1.1294
-    hash = "sha256-VJmJ9acn9aOxjcV/29WLybPj+5gh0tmbShfD8fq2DLc=";
+    rev = "b855cfee9e47be4150931b48328b4c2f40742037"; # v0.1.1308
+    hash = "sha256-yP0RsDnt3xSxNx07IOX/DGIvRjBc9Sxq9wtXZmVAoxU=";
   };
 
+  # Unchanged between v0.1.1294 and v0.1.1308 (go.mod/go.sum did not move).
   vendorHash = "sha256-pBk3sQZ9/1sVdz2ZteBGgQrI49fDfgsQ8ur7pzM477A=";
 
   # Terminal-only build: no cgo, no WebKit/GTK. Cross-compiles cleanly and

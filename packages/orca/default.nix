@@ -26,13 +26,14 @@
 
 let
   pname = "orca-ide";
-  version = "1.4.230";
+  version = "1.4.237";
 
   src = fetchurl {
     url = "https://github.com/stablyai/orca/releases/download/v${version}/orca-linux.AppImage";
     # x86_64 build only; upstream also ships orca-linux-arm64.AppImage.
-    # Hash from the release's published asset digest (SHA256SUMS).
-    hash = "sha256-1QOwMWtb/aeyhx2E9m6ZvekYybuvnR9ggcKT+UYVCKs=";
+    # Hash computed from the release asset (v1.4.237 publishes no SHA256SUMS;
+    # earlier releases did, hence earlier commits cite the digest).
+    hash = "sha256-waZj6I2nCh/prgIawagq2tK92ugl+dcWU57ufmnH7yk=";
   };
 
   # Extract the AppImage a second time (wrapType2's internal extraction is the

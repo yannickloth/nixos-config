@@ -47,7 +47,7 @@ let
   #
   # Update: bump skillRev to the new `v<version>` tag (== default.nix version)
   # and refresh skillHashes from that release's manifest.
-  skillRev = "v1.4.229";
+  skillRev = "v1.4.237";
 
   skillHashes = {
     "computer-use" = "sha256-KDmTP9NSFoRUYUZkA+YGFIgAX231cSbQzQ92nqRXU/M=";
