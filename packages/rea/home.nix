@@ -39,7 +39,10 @@ let
       (name:
         map (dir: nameValuePair "${dir}/skills/${name}" {
           source = skillDir name;
-          force = true;
+          # No force: force makes home-manager rm -rf whatever is at the path
+          # (a hand-installed skill dir included). Without it the link is still
+          # replaced, and a real directory makes the switch fail loudly instead
+          # of being destroyed.
         }) skillAgentDirs)
       cfg.skills
   );

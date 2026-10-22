@@ -23,9 +23,9 @@ masterpdfeditor.overrideAttrs (old: rec {
     sha256 = "sha256-mheHvHU7Z1jUxFWEEfXv2kVO51t/edTK3xV82iteUXM=";
   };
 
-  # Disable fixup (custom binary location) and the automatic Qt wrapper (we
-  # control the Qt env below).
-  dontFixup = true;
+  # Keep fixup enabled: autoPatchelfHook runs there and the prebuilt binary
+  # needs its interpreter/RPATH rewritten to the wrapper's libraries. Only the
+  # automatic Qt wrapper is disabled (we control the Qt env below).
   dontWrapQtApps = true;
   nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ makeWrapper ];
 

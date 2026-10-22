@@ -71,9 +71,35 @@ in
   config = mkIf cfg.enable {
     environment.systemPackages = [ cfg.package ];
 
+    # The unit runs as cfg.user:cfg.group. The default `laya` account owns the
+    # venv (~/.local/share/laya/venv, under /var/lib/laya) and the model cache,
+    # so provision it when the defaults are used; custom accounts must already
+    # exist (asserted below).
+    users.groups = mkIf (cfg.group == "laya") { laya = { }; };
+    users.users = mkIf (cfg.user == "laya") {
+      laya = {
+        isSystemUser = true;
+        group = cfg.group;
+        home = "/var/lib/laya";
+        createHome = true;
+      };
+    };
+
+    assertions = [
+      {
+        assertion = cfg.user != "laya" || config.users.users ? laya;
+        message = "services.laya.user '${cfg.user}' does not exist; set services.laya.user to a configured account.";
+      }
+      {
+        assertion = cfg.group != "laya" || config.users.groups ? laya;
+        message = "services.laya.group '${cfg.group}' does not exist; set services.laya.group to a configured group.";
+      }
+    ];
+
     systemd.services.laya-mcp = {
       description = "Laya MCP server (System 1 decision engine, streamable HTTP)";
       after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
       wantedBy = [ "multi-user.target" ];
       serviceConfig = {
         User = cfg.user;
@@ -84,6 +110,10 @@ in
           ++ optional (cfg.maxLen != null) "LAYA_MAX_LEN=${toString cfg.maxLen}";
         Restart = "on-failure";
         RestartSec = 15;
+        # RestartSec default (100ms) limit window is 10s; with RestartSec=15
+        # the start-limit could never trip and a crash loop would run forever.
+        StartLimitIntervalSec = 120;
+        StartLimitBurst = 5;
       };
     };
   };

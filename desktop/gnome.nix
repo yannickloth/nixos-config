@@ -23,7 +23,6 @@ with lib;
     gnome.cheese
     gnome.gnome-themes-extra
     gnome.gpaste # Clipboard management system with GNOME 3 integration
-    gnome.vinagre
     gnome.zenity
     gnomeExtensions.prime-gpu-profile-selector
     layan-gtk-theme
@@ -49,11 +48,8 @@ with lib;
       gnome-settings-daemon.enable = true;
       rygel.enable = true;
       sushi.enable = true;
-      tracker = {
-        enable = true;
-      };
-      tracker-miners.enable = true;
-      gnome-user-share.enable = true;
+      tinysparql.enable = true; # was tracker (renamed upstream)
+      localsearch.enable = true; # was tracker-miners (renamed upstream)      gnome-user-share.enable = true;
     };
     sysprof.enable = true; # Enable sysprof
   };

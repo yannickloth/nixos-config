@@ -24,7 +24,7 @@ let
   # so the service does not hardcode an address that can change.
   serveLauncher = pkgs.writeShellScript "orca-serve-launch" ''
     set -eu
-    addr='${if cfg.server.pairingAddress != null then cfg.server.pairingAddress else ""}'
+    addr=${escapeShellArg (if cfg.server.pairingAddress != null then cfg.server.pairingAddress else "")}
     if [ -z "$addr" ] && command -v tailscale >/dev/null 2>&1; then
       addr="$(tailscale ip -4 2>/dev/null | ${pkgs.coreutils}/bin/head -n1 || true)"
     fi
@@ -148,6 +148,15 @@ in
   };
 
   config = mkIf cfg.enable {
+    # `orca.server.enable` alone would otherwise evaluate cleanly but install
+    # nothing (the whole body is gated on `orca.enable`).
+    assertions = [
+      {
+        assertion = !cfg.server.enable || cfg.enable;
+        message = "orca.server.enable requires orca.enable = true";
+      }
+    ];
+
     home.packages = [ cfg.package ];
 
     # The desktop entry and hicolor icons now ship inside the package itself
@@ -165,8 +174,8 @@ in
     systemd.user.services.orca-server = mkIf cfg.server.enable {
       Unit = {
         Description = "Orca runtime server (headless `orca serve`)";
-        After = [ "network-online.target" ];
-        Wants = [ "network-online.target" ];
+        # No After=network-online.target: that unit lives in the system manager
+        # and is invisible to user units; the launcher retries instead.
       };
       Install = {
         WantedBy = [ "default.target" ];

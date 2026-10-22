@@ -12,6 +12,7 @@
 , symlinkJoin
 , writeShellApplication
 , uv
+, python312
 ,
 }:
 
@@ -39,27 +40,30 @@ let
 
   # Shared launcher preamble. `''${...}` is a literal `${...}` for the shell.
   env = ''
-    export UV_PROJECT_ENVIRONMENT="''${LAYA_VENV:-$HOME/.local/share/laya/venv}"
+    # writeShellApplication runs under `set -u`: fail with a clear message
+    # instead of "HOME: unbound variable", and give uv a writable cache dir.
+    export UV_PROJECT_ENVIRONMENT="''${LAYA_VENV:-''${HOME:?set HOME or LAYA_VENV}/.local/share/laya/venv}"
+    export UV_CACHE_DIR="''${UV_CACHE_DIR:-''${HOME:?set HOME or UV_CACHE_DIR}/.cache/uv}"
     export USE_TF=0
     export LD_LIBRARY_PATH="/run/opengl-driver/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
   '';
 
   mkScript = name: text: writeShellApplication {
     inherit name;
-    runtimeInputs = [ uv ];
+    runtimeInputs = [ uv python312 ];
     text = env + text;
   };
 
   # Create/refresh the uv environment on demand.
   laya-setup = mkScript "laya-setup" ''
-    exec uv sync --frozen --project ${share}/project --python 3.12 "$@"
+    exec uv sync --frozen --project ${share}/project --python ${python312}/bin/python3.12 "$@"
   '';
 
   # The venv's Python (REPL when given no args), so `import laya` works.
   laya-python = mkScript "laya-python" ''
     if [ ! -x "$UV_PROJECT_ENVIRONMENT/bin/python" ]; then
       echo "Laya: creating environment (downloads PyTorch/CUDA, several GB)..." >&2
-      uv sync --frozen --project ${share}/project --python 3.12 >&2
+      uv sync --frozen --project ${share}/project --python ${python312}/bin/python3.12 >&2
     fi
     exec "$UV_PROJECT_ENVIRONMENT/bin/python" "$@"
   '';
@@ -81,7 +85,7 @@ let
   laya-demo = mkScript "laya-demo" ''
     if [ ! -x "$UV_PROJECT_ENVIRONMENT/bin/python" ]; then
       echo "Laya: creating environment (downloads PyTorch/CUDA, several GB)..." >&2
-      uv sync --frozen --project ${share}/project --python 3.12 >&2
+      uv sync --frozen --project ${share}/project --python ${python312}/bin/python3.12 >&2
     fi
     exec "$UV_PROJECT_ENVIRONMENT/bin/python" - <<'PY'
     import os, json

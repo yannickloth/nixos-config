@@ -11,9 +11,9 @@ in
       ensurePrinters = [
         {
           name = xp15000_name;
-          deviceUri = "https://${xp15000_ip}:631/ipp/print";
+          deviceUri = "ipps://${xp15000_ip}/ipp/print";
           model = "everywhere";
-          description = pkgs.lib.replaceStrings [ "_" ] [ " " ] xp15000;
+          description = xp15000;
           location = "B31 0 SàM";
         }
       ];

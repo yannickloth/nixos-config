@@ -10,12 +10,12 @@ with lib;
   #   laptop-p16:  128 GiB RAM                    -> maxJobs = 12, cores = 0
   options.roles.nix = {
     maxJobs = mkOption {
-      type = types.int;
+      type = types.ints.unsigned;
       default = 4;
       description = "Maximum number of parallel Nix jobs (nix.settings.max-jobs).";
     };
     cores = mkOption {
-      type = types.nullOr types.int;
+      type = types.nullOr types.ints.unsigned;
       default = null;
       description = "Concurrent tasks per build (nix.settings.cores). 0 = all cores; null = unset.";
     };
@@ -61,6 +61,11 @@ with lib;
         #         ];
         trusted-public-keys = [
           "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
+          # Per-host nix-serve cache keys (services/nix-serve.nix): without
+          # these, require-sigs rejects every path fetched from the peers.
+          "laptop-p16-cache-1:er0G/b76dgJN1Riv22lpCSv4N46p/HlScZdVmVT2Hug="
+          "laptop-hera-cache-1:74gTsymxYX+HfUZLAgdzPPhFzP55cRjcGkNSBdxVuNc="
+          "laptop-xps-cache-1:7jhFyomCPUOVeewJ1Og36KLv9uEdKA+TBnIrAqnR/xk="
           # lantian key, pairs with the CachyOS substituter above:
           # "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
           #"xtruder-public.cachix.org-1:+qG/fM2195QJcE2BXmKC+sS4mX/lQHqwjBH83Rhzl14="

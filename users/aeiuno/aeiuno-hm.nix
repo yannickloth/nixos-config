@@ -28,11 +28,12 @@
   opencode.enable = true;
   # CachyOS has no system agenix / /etc/secrets, so decrypt the shared provider
   # keys with aeiuno's user agenix key and materialize opencode's per-provider
-  # key files from it; NixOS hosts keep the default /etc/secrets path.
+  # key files from it; NixOS hosts keep the default /etc/secrets path (and must
+  # not try to decrypt with the user key).
   opencode.envFile =
     lib.mkIf config.commonHm.isCachyOS config.age.secrets."open-webui.env".path;
-  age = {
-    identityPaths = [ "/home/aeiuno/.ssh/agenix_aeiuno" ];
+  age = lib.mkIf config.commonHm.isCachyOS {
+    identityPaths = [ "${config.home.homeDirectory}/.ssh/agenix_aeiuno" ];
     secrets."open-webui.env" = {
       file = ../../secrets/open-webui.env.age;
       mode = "0400";
@@ -156,7 +157,7 @@
       zotero
     ];
     sessionVariables = {
-      MOZ_ENABLE_WAYLAND = 1; # for Firefox in Wayland sessions
+      MOZ_ENABLE_WAYLAND = "1"; # for Firefox in Wayland sessions
       # NIXOS_OZONE_WL = "1"; # for Electron apps in Wayland sessions (VSCode, Chrome...) # disabled because VSCode/Electron/Chromium does nothing with it (unknown option), except issue a warning about it being unknown.
     };
     /*shellAliases = {

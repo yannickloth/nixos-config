@@ -48,6 +48,23 @@ in
   # Syncthing web-UI password, shared across all hosts.
   "syncthing-gui-password.age".publicKeys = hosts;
 
+  # Family SSH identities (private halves), distributed by
+  # services/ssh-user-keys.nix: agenix decrypts them to /run/agenix on every
+  # host and the unit installs them as ~/.ssh/agenix_<user>. Encrypted to
+  # `hosts`, because automatic installation needs the host to decrypt them;
+  # the matching public keys are committed in users/ssh-public-keys.nix.
+  "ssh-user-nicky.key.age".publicKeys = hosts;
+  "ssh-user-aeiuno.key.age".publicKeys = hosts;
+  "ssh-user-sven.key.age".publicKeys = hosts;
+  "ssh-user-aaron.key.age".publicKeys = hosts;
+
+  # Per-host nix-serve binary-cache signing keys. Encrypted to the owning host
+  # only; the matching public keys are trusted in roles/nix.nix so the peers
+  # accept each other's (now signed) store paths.
+  "nix-cache-laptop-p16.key.age".publicKeys = [ host-laptop-p16 ];
+  "nix-cache-laptop-hera.key.age".publicKeys = [ host-laptop-hera ];
+  "nix-cache-laptop-xps.key.age".publicKeys = [ host-laptop-xps ];
+
   # Family AI-chat provider keys (Open WebUI). Also readable by user-nicky and
   # user-aeiuno so standalone home-manager on CachyOS (p16, no system agenix,
   # no /etc/secrets) can decrypt it for opencode via their user keys

@@ -93,16 +93,26 @@ final: prev: {
       };
       base = unstablePkgs.jetbrains-toolbox;
     in
-    base.overrideAttrs (old: {
+    # NOTE: buildFHSEnv embeds `runScript`/`extraInstallCommands` into the
+    # wrapper script when it is *called*; `base.overrideAttrs` on the result
+    # cannot change them (it only rewrites attrs of the already-generated
+    # runCommand derivation), so the version bump has to rebuild the FHS env.
+    unstablePkgs.buildFHSEnv {
+      pname = "jetbrains-toolbox";
       version = newVersion;
+      multiPkgs =
+        pkgs:
+        with pkgs;
+        [ icu libappindicator-gtk3 ] ++ unstablePkgs.appimageTools.defaultFhsEnvArgs.multiPkgs pkgs;
       runScript = "${fixedSrc}/bin/jetbrains-toolbox --update-failed";
       extraInstallCommands = ''
         install -Dm0644 ${fixedSrc}/bin/jetbrains-toolbox.desktop -t $out/share/applications
-        install -Dm0644 ${fixedSrc}/bin/toolbox-tray-color.png -t $out/share/icons/hicolor/32x32/apps/jetbrains-toolbox.png
+        install -Dm0644 ${fixedSrc}/bin/toolbox-tray-color.png $out/share/pixmaps/jetbrains-toolbox.png
       '';
-      passthru = (old.passthru or { }) // {
+      passthru = (base.passthru or { }) // {
         src = fixedSrc;
       };
-    });
+      meta = base.meta;
+    };
   vscode = unstablePkgs.vscode;
 }

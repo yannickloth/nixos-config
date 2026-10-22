@@ -23,8 +23,16 @@ with lib;
     };
 
     systemd.tmpfiles.rules = [
-      # 2770 + group rw so nicky/aeiuno can edit secrets without sudo.
-      "d /etc/secrets 2770 root secrets -"
+      # 3770 + group rw so nicky/aeiuno can still edit secrets in place, but
+      # the sticky bit stops them from unlinking/replacing root-owned files
+      # (which would defeat the per-secret owner/mode settings).
+      "d /etc/secrets 3770 root secrets -"
+    ]
+    # The Syncthing secret is 0640 root:syncthing, but this directory is
+    # group-traversable only for `secrets`. Give the syncthing user the
+    # traverse bit so the daemon can open its own password file.
+    ++ lib.optionals config.services.syncthing.enable [
+      "A /etc/secrets - - - - u:syncthing:--x"
     ];
 
     # agenix secrets. Each decrypts on this host (using its SSH host key) to the

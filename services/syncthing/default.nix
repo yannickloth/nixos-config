@@ -29,10 +29,11 @@ let
 
   selfName = cfg.self;
 
-  # The full device list for this host: itself plus every peer.
+  # The full device list for this host: every peer, excluding the local node
+  # (Syncthing expects the local device only in folder device lists).
   devices =
-    mapAttrs (name: dev: { inherit name; id = dev.id; })
-      pool.devices;
+    filterAttrs (name: _: name != selfName)
+      (mapAttrs (name: dev: { inherit name; id = dev.id; }) pool.devices);
 
   # Folders this host should sync: those whose share matrix includes self.
   # Each is shared with exactly the peers listed in the matrix.
@@ -52,9 +53,19 @@ let
       })
       (filterAttrs (_: f: elem selfName f.devices) pool.folders);
 
-  # Per-host secrets dir for the device cert/key. agenix decrypts the cert/key
-  # here from the git-committed .age files (see age.secrets below).
-  secretsDir = "/etc/nixos/secrets/syncthing/${selfName}";
+  # Person folders synced on this host (used for the XDG subdirs and the
+  # recursive ACL repair below).
+  syncedPersonFolders = filter (f: builtins.hasAttr f folders) [ "yannick" "christine" "sven" "aaron" ];
+  # Stamp for the expensive recursive ACL repair: it only needs to run when the
+  # folder set changes (or on a fresh install), not on every switch.
+  aclStamp = builtins.hashString "sha256"
+    (concatStringsSep ":" (syncedPersonFolders ++ [ "sven" "aaron" ]));
+
+  # Per-host identity dir. agenix decrypts the cert/key here from the
+  # git-committed .age files (see age.secrets below); it lives outside the
+  # configuration checkout so a `git add -A` can never commit the plaintext
+  # private key.
+  secretsDir = "/var/lib/syncthing/identity";
   # True when this host has a pre-generated syncthing identity committed as
   # secrets/syncthing/<self>/cert.pem.age. Hosts without one (e.g. a brand-new
   # laptop) skip the cert/key agenix secrets and let syncthing generate its own
@@ -81,8 +92,12 @@ in
       group = "syncthing";
       dataDir = "/sync";
       configDir = "/var/lib/syncthing";
-      guiAddress = "0.0.0.0:8384"; # LAN: family members reach the web UI
-      openDefaultPorts = true;
+      # Listener on all interfaces: the GUI is reachable from the LAN/Wi-Fi
+      # (family devices) and from the tailnet. Binding to a specific address
+      # breaks as soon as DHCP hands out another one.
+      guiAddress = "0.0.0.0:8384";
+      # Not openDefaultPorts: the firewall rules below are explicit.
+      openDefaultPorts = false;
       overrideDevices = true; # strict: only the declared set is kept
       overrideFolders = true; # strict: only the declared set is kept
       cert = lib.mkIf hasSyncthingIdentity "${secretsDir}/cert.pem";
@@ -93,6 +108,12 @@ in
         # Syncthing's web UI supports only one login per instance. The password
         # comes from guiPasswordFile; the username is set via the guiUser option.
         user = cfg.guiUser;
+        # Enforce HTTPS: plain-HTTP requests are redirected. Syncthing
+        # generates a self-signed certificate in the config dir on first start
+        # (https-cert.pem/https-key.pem); replace those with a real certificate
+        # for the hosts you browse from. This keeps the shared password and
+        # session cookie off the wire on LAN/Wi-Fi.
+        tls = true;
       };
       settings.devices = devices;
       settings.folders = folders;
@@ -103,6 +124,13 @@ in
       };
     };
 
+    # GUI on 8384 (LAN/Wi-Fi + tailnet, HTTPS enforced above) and the
+    # device-ID-authenticated sync port on 22000 (LAN and tailnet).
+    networking.firewall = {
+      allowedTCPPorts = [ 8384 22000 ];
+      allowedUDPPorts = [ 22000 ];
+    };
+
     # --- Access control ---
     # Parents reach /sync via the syncthing group; kids are not in that group.
     # sven/aaron reach /sync only to traverse into their own folder
@@ -111,24 +139,29 @@ in
     # from secrets/.
     users.groups.syncthing.members = [ "nicky" "aeiuno" ];
 
-    networking.firewall.allowedTCPPorts = [
-      8384 # syncthing web UI
-    ];
+    # NOTE: the firewall ports live in the `networking.firewall` block next to
+    # the services.syncthing settings above (GUI 8384 on LAN/Wi-Fi + tailnet,
+    # sync 22000).
 
     systemd.tmpfiles.rules = [
       # 2770 (no "others"): only the syncthing group (parents) can reach /sync.
       "d /sync 2770 syncthing syncthing -"
       # Default ACL: new synced files inherit group rwx and are never
       # world-readable. sven/aaron get traverse-only (--x) so they can reach
-      # their own folder below without listing the rest of /sync.
-      "A /sync 2770 syncthing syncthing - u::rwx,u:sven:--x,u:aaron:--x,g::rwx,o::---"
+      # their own folder below without listing the rest of /sync. The `d:`
+      # entries are the *default* ACL entries that make new content inherit
+      # these permissions (without them only existing files are covered).
+      "A /sync 2770 syncthing syncthing - u::rwx,u:sven:--x,u:aaron:--x,g::rwx,o::---,d:u::rwx,d:u:sven:--x,d:u:aaron:--x,d:g::rwx,d:o::---"
       # Per-kid folders: setgid (2770) so new content inherits group syncthing
       # (parents + syncthing daemon both rw), plus a named ACL so the kid is rw.
       "d /sync/sven 2770 syncthing syncthing -"
-      "A /sync/sven 2770 syncthing syncthing - u::rwx,u:sven:rwx,g::rwx,o::---"
+      "A /sync/sven 2770 syncthing syncthing - u::rwx,u:sven:rwx,g::rwx,o::---,d:u::rwx,d:u:sven:rwx,d:g::rwx,d:o::---"
       "d /sync/aaron 2770 syncthing syncthing -"
-      "A /sync/aaron 2770 syncthing syncthing - u::rwx,u:aaron:rwx,g::rwx,o::---"
+      "A /sync/aaron 2770 syncthing syncthing - u::rwx,u:aaron:rwx,g::rwx,o::---,d:u::rwx,d:u:aaron:rwx,d:g::rwx,d:o::---"
       "d /var/lib/syncthing 0700 syncthing syncthing -"
+      # Device identity (agenix writes cert.pem/key.pem here as 0640
+      # root:syncthing, so the daemon can read them).
+      "d /var/lib/syncthing/identity 0750 root syncthing -"
     ];
 
     # Files synced in from other hosts arrive with their original permissions
@@ -137,9 +170,9 @@ in
     # add a group rwx ACL to all existing content under /sync so nicky/aeiuno
     # (members of the syncthing group) can access everything. The same is done
     # for the kids on their own folders. Idempotent.
-    system.activationScripts.syncthing-acl = stringAfter [ "users" "groups" ] ''
+    system.activationScripts.syncthing-acl = stringAfter [ "users" "groups" "syncthing-data-dir" ] ''
+      ACL_STAMP="${aclStamp}"
       if [ -d /sync ]; then
-        ${pkgs.acl}/bin/setfacl -R -m g::rwx /sync 2>/dev/null || true
         ${pkgs.acl}/bin/setfacl -m u:sven:--x,u:aaron:--x /sync 2>/dev/null || true
 
         # XDG subdirs for every user's syncthing folder: create if missing
@@ -157,18 +190,29 @@ in
           done
           chmod 2770 /sync/${folder}
           chown syncthing:syncthing /sync/${folder}
-        '') [ "yannick" "christine" "sven" "aaron" ]}
+        '') syncedPersonFolders}
 
-        # Kids are not in the syncthing group, so grant each of them rw on their
-        # own folder only (named + default ACL, so new synced content stays
-        # writable by them). Adults reach their folders through the group, so
-        # they need no per-user ACL.
-        ${concatMapStringsSep "\n" (d: ''
-          ${pkgs.acl}/bin/setfacl -m u:${d}:rwx /sync/${d} 2>/dev/null || true
-          ${pkgs.acl}/bin/setfacl -d -m u:${d}:rwx /sync/${d} 2>/dev/null || true
-          ${pkgs.acl}/bin/setfacl -R -m u:${d}:rwx /sync/${d} 2>/dev/null || true
-          ${pkgs.acl}/bin/setfacl -R -d -m u:${d}:rwx /sync/${d} 2>/dev/null || true
-        '') [ "sven" "aaron" ]}
+        # Expensive part: recursively repair ACLs on existing synced content
+        # (can take minutes on large photo/music trees). Only on first run or
+        # when the folder set changes; delete /var/lib/syncthing/.acl-stamp to
+        # force a full repair.
+        if [ "$(cat /var/lib/syncthing/.acl-stamp 2>/dev/null)" != "$ACL_STAMP" ]; then
+          ${pkgs.acl}/bin/setfacl -R -m g::rwx /sync 2>/dev/null || true
+
+          # Kids are not in the syncthing group, so grant each of them rw on
+          # their own folder only (named + default ACL, so new synced content
+          # stays writable by them). Adults reach their folders through the
+          # group, so they need no per-user ACL.
+          ${concatMapStringsSep "\n" (d: ''
+            ${pkgs.acl}/bin/setfacl -m u:${d}:rwx /sync/${d} 2>/dev/null || true
+            ${pkgs.acl}/bin/setfacl -d -m u:${d}:rwx /sync/${d} 2>/dev/null || true
+            ${pkgs.acl}/bin/setfacl -R -m u:${d}:rwx /sync/${d} 2>/dev/null || true
+            ${pkgs.acl}/bin/setfacl -R -d -m u:${d}:rwx /sync/${d} 2>/dev/null || true
+          '') [ "sven" "aaron" ]}
+
+          ${pkgs.coreutils}/bin/mkdir -p /var/lib/syncthing
+          ${pkgs.coreutils}/bin/printf '%s\n' "$ACL_STAMP" > /var/lib/syncthing/.acl-stamp
+        fi
       fi
     '';
 
@@ -208,16 +252,16 @@ in
     age.secrets.syncthing-cert = lib.mkIf hasSyncthingIdentity {
       file = ../../secrets/syncthing/${selfName}/cert.pem.age;
       path = "${secretsDir}/cert.pem";
-      mode = "0644";
+      mode = "0640";
       owner = "root";
-      group = "root";
+      group = "syncthing";
     };
     age.secrets.syncthing-key = lib.mkIf hasSyncthingIdentity {
       file = ../../secrets/syncthing/${selfName}/key.pem.age;
       path = "${secretsDir}/key.pem";
-      mode = "0600";
+      mode = "0640";
       owner = "root";
-      group = "root";
+      group = "syncthing";
     };
   };
 }

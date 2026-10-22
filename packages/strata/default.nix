@@ -179,15 +179,23 @@ let
               out += [flag, str(value)]
           return out
 
+      failed = []
       for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
           if p.endswith(".shared-settings.json"):     # the web app's Chat settings, not a model
               continue
           try:
               with open(p, encoding="utf-8") as f:
-                  c = json.load(f)
+                  text = f.read()
+              c = json.loads(text)
               if not isinstance(c, dict) or not isinstance(c.get("args"), list):
                   continue
               a = c["args"]
+              # Mandatory for native packs (the engine refuses to start/serve
+              # them without these); the settings form drops unknown flags, so
+              # enforce them on every rewrite.
+              if "--expert-cache" not in a:
+                  a.append("--expert-cache")
+              a = set_opt(a, "--spec-min-p", 2 if spec == "none" else max(2, int(float(spec))))
               if ctx > 0:
                   a = set_opt(a, "--max-context", ctx)
               if kv:
@@ -235,10 +243,24 @@ let
               if not vision:
                   c.pop("vision", None)
               c["args"] = a
-              with open(p, "w", encoding="utf-8") as f:
-                  json.dump(c, f, indent=1)
+              new_text = json.dumps(c, indent=1)
+              # Skip unchanged files: strata-server picks the served model by
+              # mtime, so rewriting everything would destroy that ordering.
+              if new_text == text:
+                  continue
+              # Atomic replace so a concurrent reader never sees a partial file.
+              tmp = p + ".tmp"
+              with open(tmp, "w", encoding="utf-8") as f:
+                  f.write(new_text)
+              os.replace(tmp, p)
           except Exception as e:
-              print(f"strata: could not patch {p}: {e}", file=sys.stderr)
+              failed.append(f"{p}: {e}")
+      if failed:
+          for msg in failed:
+              print(f"strata: could not patch {msg}", file=sys.stderr)
+          # This script is the enforcement point of the module policy: do not
+          # fail open with stale settings.
+          sys.exit(1)
       PY
     '';
   };

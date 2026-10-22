@@ -63,10 +63,18 @@ in
     home.activation.installUnsloth = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       if [ ! -x "$HOME/.local/bin/unsloth" ] || [ ! -x "$HOME/.unsloth/studio/unsloth_studio/bin/unsloth" ]; then
         echo "Installing Unsloth Studio..."
-        $DRY_RUN_CMD ${pkgs.coreutils}/bin/timeout 1800 env \
-          UNSLOTH_SKIP_AUTOSTART=1 NO_COLOR=1 \
-          ${pkgs.curl}/bin/curl -fsSL https://unsloth.ai/install.sh \
-          | ${pkgs.bash}/bin/sh </dev/null
+        # One bash -c with pipefail so a curl failure is not masked by the
+        # right-hand sh (and so $DRY_RUN_CMD guards the whole pipeline, not
+        # just the left side). The installer env vars go on the sh side.
+        # The installer script itself is pinned by hash (fetched by Nix at
+        # build time); only the payload it downloads from upstream remains
+        # mutable. pipefail: a failed fetch must not be masked by `sh`.
+        $DRY_RUN_CMD ${pkgs.bash}/bin/bash -o pipefail -c '
+          env UNSLOTH_SKIP_AUTOSTART=1 NO_COLOR=1 ${pkgs.bash}/bin/sh ${pkgs.fetchurl {
+            url = "https://unsloth.ai/install.sh";
+            sha256 = "05krswbirv8k9pjp5ydllvnydkgxay4p5jsivggkmkd35jjql33g";
+          }}
+        ' </dev/null || echo "unsloth-studio: installer failed (network/upstream); continuing" >&2
       fi
     '';
 
@@ -87,10 +95,13 @@ in
       $DRY_RUN_CMD mkdir -p "$desktop_dir" "$(dirname "$icon")"
       if [ ! -x "$app" ]; then
         echo "Installing Unsloth Desktop..."
-        $DRY_RUN_CMD ${pkgs.coreutils}/bin/timeout 1800 \
-          ${pkgs.curl}/bin/curl -fL --retry 3 -o "$app" \
-          https://github.com/unslothai/unsloth/releases/latest/download/Unsloth-Desktop-Linux.AppImage
-        $DRY_RUN_CMD chmod +x "$app"
+        # Pinned release (fetchurl verifies the hash): "releases/latest"
+        # downloaded and installed whatever GitHub served at switch time.
+        UNSLOTH_DESKTOP_APPIMAGE=${pkgs.fetchurl {
+          url = "https://github.com/unslothai/unsloth/releases/download/v0.1.909-beta/Unsloth-Desktop-Linux.AppImage";
+          sha256 = "07k4sghwpsbpnwk12m2x4pcxcapkrpkfnaqm7csymshkc4jm8nv2";
+        }}
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -Dm0755 "$UNSLOTH_DESKTOP_APPIMAGE" "$app"
       fi
       if [ ! -f "$icon" ] && [ -x "$app" ]; then
         tmp="$(${pkgs.coreutils}/bin/mktemp -d)"
@@ -218,11 +229,22 @@ in
           auth=()
           [ -n "$key" ] && auth=(-H "Authorization: Bearer $key")
 
-          # Nothing listening: Studio is not running, so it holds nothing.
-          status="$($curl -fsS -m 5 "''${auth[@]}" "$url/api/inference/status" 2>/dev/null)" || {
+          # Distinguish transport failure (Studio not running -> nothing to
+          # free) from an HTTP/auth error (Studio is up but we cannot confirm
+          # its state -> refuse to pretend VRAM is free).
+          status_file="$(${pkgs.coreutils}/bin/mktemp)"
+          code="$($curl -sS -m 5 -o "$status_file" -w '%{http_code}' "''${auth[@]}" "$url/api/inference/status" 2>/dev/null)" || code=000
+          if [ "$code" = "000" ]; then
             echo "studio-unload: no Studio at $url; nothing to free" >&2
             exit 0
-          }
+          fi
+          case "$code" in
+            2*) status="$(cat "$status_file")" ;;
+            *)
+              echo "studio-unload: Studio returned HTTP $code; cannot confirm that VRAM is free" >&2
+              exit 1
+              ;;
+          esac
 
           # Every resident model, plus anything mid-load: a load in flight
           # holds VRAM as surely as a resident one does.
@@ -231,7 +253,9 @@ in
           try:
               d = json.load(sys.stdin)
           except Exception:
-              sys.exit(0)
+              sys.exit(2)
+          if not isinstance(d, dict):
+              sys.exit(2)
           ids = []
           for k in ("loaded", "loading"):
               v = d.get(k) or []
@@ -240,6 +264,11 @@ in
           for i in dict.fromkeys(ids):
               print(i)
           ' 2>/dev/null)"
+          _ids_rc=$?
+          if [ "$_ids_rc" -ne 0 ]; then
+            echo "studio-unload: cannot parse /api/inference/status; refusing to assume Studio is idle" >&2
+            exit 2
+          fi
 
           if [ -z "$ids" ]; then
             echo "studio-unload: Studio holds no model; nothing to free" >&2
@@ -383,7 +412,7 @@ in
           # prefix keeps "not running" / "already unloaded" from blocking the
           # unit; the helper logs what it found. (If a STRATA_API_KEY is ever
           # set, the curl needs to send it.)
-          ExecStartPre = "-${config.home.homeDirectory}/.local/bin/unsloth-studio-free-gpu.sh";
+          ExecStartPre = optional cfg.strataGpuHandoff "-${config.home.homeDirectory}/.local/bin/unsloth-studio-free-gpu.sh";
           # Every model load starts here, so the Strata engine is unloaded at
           # the moment a model is chosen rather than only at service start.
           # See the llama-server-handoff file above.

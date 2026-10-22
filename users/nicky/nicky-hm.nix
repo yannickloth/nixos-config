@@ -76,8 +76,6 @@ in
     ../../packages/opencode-desktop/home.nix
     ../../packages/rea/home.nix
     ../../packages/herdr/home.nix
-    # Immich disabled 2026-10-10 (not in use); see the immich block below.
-    # ../../packages/immich/home.nix
   ];
 
   # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
@@ -116,13 +114,6 @@ in
     enable = true;
     # No Tailscale address pinned: the launcher derives it at start.
   };
-
-  # Immich (self-hosted photo/video library with local AI: smart search, faces,
-  # duplicates) as rootless Podman containers under a systemd user service
-  # (packages/immich/home.nix). DISABLED 2026-10-10: not in use now. The module
-  # and its systemd unit are kept in-tree but not installed; re-enable by
-  # uncommenting the import above and the line below.
-  # immich.enable = isP16;
 
   # Laya (System 1 decision engine) + its MCP server, from the reusable
   # packages/laya package/module. DISABLED 2026-09-28: laya is not in use, so
@@ -397,13 +388,25 @@ in
   ];
 
   home.activation.setupTresorit = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        # Install Tresorit if not already installed
+        # Install Tresorit if not already installed. The installer is fetched
+        # by Nix at build time (pinned hash) instead of downloaded from a
+        # mutable URL at activation: reproducible, MITM-proof, and it does not
+        # silently change between switches. It is copied to a private temp file
+        # (never a predictable /tmp path a local user could pre-create), and a
+        # failure only warns instead of aborting the whole switch.
+        TRESORIT_INSTALLER=$(${pkgs.fetchurl {
+          url = "https://installer.tresorit.com/tresorit_installer.run";
+          sha256 = "0xpw9a07hq5fxw6zb30csafz7kchpb257wag61sc271prax303zk";
+        }})
         if [ ! -f "$HOME/.local/share/tresorit/tresorit" ]; then
           echo "Installing Tresorit..."
-          $DRY_RUN_CMD ${pkgs.curl}/bin/curl -fL -o /tmp/tresorit_installer.run https://installer.tresorit.com/tresorit_installer.run
-          $DRY_RUN_CMD chmod +x /tmp/tresorit_installer.run
-          $DRY_RUN_CMD /tmp/tresorit_installer.run --target "$HOME/.local/share/tresorit" --noexec
-          $DRY_RUN_CMD rm /tmp/tresorit_installer.run
+          installer=$(${pkgs.coreutils}/bin/mktemp)
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/cp "$TRESORIT_INSTALLER" "$installer"
+          $DRY_RUN_CMD chmod +x "$installer"
+          if ! $DRY_RUN_CMD "$installer" --target "$HOME/.local/share/tresorit" --noexec; then
+            echo "setupTresorit: installer failed; leaving Tresorit uninstalled" >&2
+          fi
+          $DRY_RUN_CMD rm -f "$installer"
         fi
 
         # Create desktop file in applications directory
@@ -500,7 +503,7 @@ in
   #  /etc/profiles/per-user/nicky/etc/profile.d/hm-session-vars.sh
   #
   home.sessionVariables = {
-    MOZ_ENABLE_WAYLAND = 1; # for Firefox in Wayland sessions
+    MOZ_ENABLE_WAYLAND = "1"; # for Firefox in Wayland sessions
     # AI-chat API keys (ZAI_CODING_PLAN_API_KEY, DEEPSEEK_API_KEY) are sourced
     # at shell init from the agenix-decrypted file (see programs.zsh.initContent).
     # Pretty man pages via bat: strips the raw formatting and syntax-highlights
@@ -584,7 +587,9 @@ in
     nestor-mount = {
       Unit = {
         Description = "Mount nestor NAS (Tailscale) via Rclone";
-        After = [ "network-online.target" ];
+        # No After=network-online.target: that unit lives in the system
+        # manager and is invisible to user units. Restart=on-failure below
+        # retries until Tailscale is up.
       };
       Install = {
         WantedBy = [ "default.target" ];
@@ -594,9 +599,7 @@ in
         ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p %h/nestor";
         ExecStart = ''
           ${pkgs.rclone}/bin/rclone mount nestor:/ /home/${config.home.username}/nestor \
-          --vfs-cache-mode writes \
-          --allow-other \
-          --network-mode
+          --vfs-cache-mode writes
         '';
         # fusermount3 from the Nix closure (not /usr/bin: wrong on NixOS).
         ExecStop = "${pkgs.fuse3}/bin/fusermount3 -u %h/nestor";

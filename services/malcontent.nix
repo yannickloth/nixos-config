@@ -135,8 +135,16 @@ in
         let
           # Java's single-file launcher derives the class name from the file
           # basename, but the nix store path is <hash>-MalcontentMerge.java (a
-          # leading digit is not a valid class name). Copy to a clean name first.
-          javaSrc = "${pkgs.coreutils}/bin/install -D -m 0644 ${./MalcontentMerge.java} /tmp/MalcontentMerge.java";
+          # leading digit is not a valid class name). Stage a clean-named copy
+          # in a root-only scratch dir: /tmp is world-writable, so a pre-created
+          # file or symlink there would let an unprivileged user swap the source
+          # that root is about to execute.
+          javaDir = "/run/malcontent-kids";
+          javaFile = "${javaDir}/MalcontentMerge.java";
+          javaSrc = ''
+            ${pkgs.coreutils}/bin/install -d -m 0700 -o root -g root ${javaDir}
+            ${pkgs.coreutils}/bin/install -m 0600 -o root -g root ${./MalcontentMerge.java} ${javaFile}
+          '';
           mkUser = user: ''
             install -d -m 0700 -o root -g root /var/lib/AccountsService/users
             cat > /var/lib/AccountsService/users/.${user}-malcontent <<'EOF'
@@ -146,7 +154,7 @@ in
             ${sessionLimitsSection}
             ${appFilterSection}
             EOF
-            ${pkgs.jdk25}/bin/java /tmp/MalcontentMerge.java /var/lib/AccountsService/users/.${user}-malcontent /var/lib/AccountsService/users/${user}
+            ${pkgs.jdk25}/bin/java ${javaFile} /var/lib/AccountsService/users/.${user}-malcontent /var/lib/AccountsService/users/${user}
             rm -f /var/lib/AccountsService/users/.${user}-malcontent
             chmod 0600 /var/lib/AccountsService/users/${user}
             chown root:root /var/lib/AccountsService/users/${user}
@@ -156,16 +164,26 @@ in
         ''
           ${javaSrc}
           ${lib.concatStringsSep "\n" (map mkUser users)}
-          ${pkgs.coreutils}/bin/rm -f /tmp/MalcontentMerge.java
+          ${pkgs.coreutils}/bin/rm -f ${javaFile}
         '';
     };
 
     # Enforce session time limits at login for sven/aaron via pam_malcontent.
-    security.pam.services.login.rules.account.malcontent = mkIf (config.users.users ? sven || config.users.users ? aaron) {
-      control = "required";
-      modulePath = "${pkgs.malcontent.pam}/lib/security/pam_malcontent.so";
-      # Run before the other account rules.
-      order = config.security.pam.services.login.rules.account.unix.order - 10;
+    # It must be attached to every entry point to a session: `login` covers the
+    # TTY, `sddm` the graphical login (Plasma/Hyprland use SDDM, so a rule on
+    # `login` alone would leave the limits unenforced at the GUI).
+    security.pam.services = mkIf (config.users.users ? sven || config.users.users ? aaron) {
+      login.rules.account.malcontent = {
+        control = "required";
+        modulePath = "${pkgs.malcontent.pam}/lib/security/pam_malcontent.so";
+        # Run before the other account rules.
+        order = config.security.pam.services.login.rules.account.unix.order - 10;
+      };
+      sddm.rules.account.malcontent = {
+        control = "required";
+        modulePath = "${pkgs.malcontent.pam}/lib/security/pam_malcontent.so";
+        order = (config.security.pam.services.sddm.rules.account.unix.order or 100) - 10;
+      };
     };
 
     # Must-click (modal kdialog) warnings 30/15/5 minutes before the daily lock,

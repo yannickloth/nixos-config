@@ -48,6 +48,8 @@ buildNpmPackage {
   # (dist/frida/FridaInstrumentationManager.js, `await import("frida")`), so
   # the missing native binding only disables its frida-backed tools.
   npmFlags = [ "--ignore-scripts" ];
+  # `npm rebuild` (buildNpmPackage's install step) does not inherit npmFlags.
+  npmRebuildFlags = [ "--ignore-scripts" ];
 
   meta = with lib; {
     description = "Reverse engineer anything with agents, from app behavior down to native binaries";

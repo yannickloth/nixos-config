@@ -34,7 +34,7 @@
       tuxtype # touch typing tutor for kids
     ];
     sessionVariables = {
-      MOZ_ENABLE_WAYLAND = 1;
+      MOZ_ENABLE_WAYLAND = "1";
     };
   };
 

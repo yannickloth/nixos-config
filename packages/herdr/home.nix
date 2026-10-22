@@ -94,7 +94,7 @@ let
   # version and expects a reinstall. A failure must not block the switch (the
   # agent may simply not be set up in this home), hence the warning.
   installIntegration = target: ''
-    ${concatMapStringsSep "\n" (dir: "$DRY_RUN_CMD mkdir -p \"$HOME/${dir}\"") (targetConfigDirs.${target} or [ ])}
+    ${concatMapStringsSep "\n" (dir: "$DRY_RUN_CMD mkdir -p \"$HOME/${dir}\" || echo \"herdr: cannot create $HOME/${dir}\" >&2") (targetConfigDirs.${target} or [ ])}
     if ! $DRY_RUN_CMD ${getExe cfg.package} integration install ${target}; then
       echo "herdr: integration install ${target} failed; is ${target} installed for this user?" >&2
     fi

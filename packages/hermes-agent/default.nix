@@ -88,6 +88,13 @@ let
       ]
     );
 
+  # NOTE (verified 2026-10-21): uv2nix's `workspace.deps.all.<pkg>` is the list
+  # of *extra/group names* declared in the package's pyproject — uv2nix
+  # lib/workspace.nix:273-277 maps `attrNames optional-dependencies ++
+  # attrNames dev-dependencies` — not a list of expanded package names. So
+  # subtracting the extra names below really does disable those extras:
+  # upstream pyproject.toml declares kittentts/dingtalk/feishu as
+  # [project.optional-dependencies] keys.
   depsSelection = workspace.deps.all // {
     hermes-agent = lib.subtractLists [ "dingtalk" "feishu" "kittentts" ] workspace.deps.all.hermes-agent;
   };

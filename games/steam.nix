@@ -18,9 +18,29 @@ with lib;
   # subvolume is no longer a Steam library; it can be deleted once every
   # account has reinstalled the games it wants.
   programs.steam = {
-    dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
+    # The module's openFirewall flags accept these ports on *every* interface,
+    # which on a roaming laptop exposes the Remote Play / game-transfer
+    # listeners on hotel Wi-Fi. The scoped rules below replace them.
+    dedicatedServer.openFirewall = false;
     enable = true;
-    localNetworkGameTransfers.openFirewall = true; # Open ports in the firewall for Steam Local Network Game Transfers.
-    remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
+    localNetworkGameTransfers.openFirewall = false;
+    remotePlay.openFirewall = false;
   };
+
+  # Steam ports (from nixpkgs' programs/steam.nix: dedicated 27015, Remote Play
+  # TCP 27036-27037 + UDP 27031-27036 + 10400-10401, transfers 27040),
+  # reachable from private ranges only. Needs the nftables backend.
+  assertions = [
+    {
+      assertion = config.networking.nftables.enable;
+      message = "games/steam.nix: the scoped Steam ports require networking.nftables.enable";
+    }
+  ];
+
+  networking.firewall.extraInputRules = ''
+    ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10 } tcp dport { 27015, 27036, 27037, 27040 } accept
+    ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10 } udp dport { 10400, 10401, 27015, 27031-27036 } accept
+    ip6 saddr { fc00::/7, fe80::/10 } tcp dport { 27015, 27036, 27037, 27040 } accept
+    ip6 saddr { fc00::/7, fe80::/10 } udp dport { 10400, 10401, 27015, 27031-27036 } accept
+  '';
 }

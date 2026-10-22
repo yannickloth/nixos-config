@@ -125,7 +125,7 @@
     };
     "Camera phone-pixel3a" = {
       id = "pixel_3a_4s5y-photos";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "phone-pixel3a" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
     };
     "Dictaphone" = {
       id = "602jh-lb39h";

@@ -145,20 +145,71 @@
     # ~/.ssh/config aside to ~/.ssh/config.backup, so a hand-written config that
     # predates this stays where it is.
     home.file.".ssh/config".enable = false;
-    home.activation.sshConfigRealFile = lib.mkIf config.commonHm.enableDeveloperTools (
-      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        # install (not cp) replaces the destination with the wanted mode; the
-        # source is home-manager's generated text file, which stays in the store.
-        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -d -m 700 "$HOME/.ssh"
-        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 600 ${config.home.file.".ssh/config".source} "$HOME/.ssh/config"
-      ''
-    );
+    # Gate on the same condition that produces the source (programs.ssh with
+    # settings), not on the developer-tools flag: otherwise a user with ssh
+    # enabled but without developer tools gets no ~/.ssh/config at all.
+    home.activation.sshConfigRealFile = lib.mkIf
+      (config.programs.ssh.enable && config.home.file.".ssh/config".source != null)
+      (
+        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -d -m 700 "$HOME/.ssh"
+          # Never clobber a hand-written config: keep a backup when the file on
+          # disk differs from the generated one.
+          if [ -f "$HOME/.ssh/config" ] && [ ! -L "$HOME/.ssh/config" ] \
+            && ! ${pkgs.diffutils}/bin/cmp -s ${config.home.file.".ssh/config".source} "$HOME/.ssh/config"; then
+            $DRY_RUN_CMD ${pkgs.coreutils}/bin/mv -f "$HOME/.ssh/config" "$HOME/.ssh/config.bak"
+            echo "sshConfigRealFile: existing ~/.ssh/config backed up to ~/.ssh/config.bak" >&2
+          fi
+          # install (not cp) replaces the destination with the wanted mode; the
+          # source is home-manager's generated text file, which stays in the store.
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 600 ${config.home.file.".ssh/config".source} "$HOME/.ssh/config"
+        ''
+      );
+
+    # Standalone home-manager only (this CachyOS host): NixOS hosts get the key
+    # from the system unit (services/ssh-user-keys.nix) at boot/switch, so HM
+    # must not touch keys there. On CachyOS there is no system agenix, so decrypt
+    # the identity with the machine's host key (root-only -> sudo; prompts once
+    # if sudo is not passwordless) and install it. Existing keys are never
+    # touched; no sudo -> a warning with the manual one-liner.
+    home.activation.installFamilySshKey = lib.mkIf
+      (config.commonHm.isCachyOS && builtins.elem config.home.username [ "nicky" "aeiuno" "sven" "aaron" ])
+      (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        key="$HOME/.ssh/agenix_${config.home.username}"
+        secret=${../secrets/ssh-user-${config.home.username}.key.age}
+        if [ ! -f "$key" ]; then
+          if [ -z "''${DRY_RUN_CMD:-}" ]; then
+            mkdir -p -m 700 "$HOME/.ssh"
+            # Plain sudo: silent when wheel is passwordless, otherwise it asks
+            # once (the key is then present and this never runs again). No tty
+            # -> sudo fails fast and the warning below prints the manual command.
+            if ( umask 077; sudo ${pkgs.age}/bin/age --decrypt \
+                   -i /etc/ssh/ssh_host_ed25519_key "$secret" > "$key" ) \
+               && [ -s "$key" ]; then
+              chmod 600 "$key"
+              echo "installFamilySshKey: installed $key using the host key" >&2
+            else
+              rm -f "$key"
+              echo "installFamilySshKey: could not decrypt $secret with the host key" >&2
+            fi
+          else
+            echo "installFamilySshKey: $key missing; run once: sudo ${pkgs.age}/bin/age -d -i /etc/ssh/ssh_host_ed25519_key $secret > ~/.ssh/agenix_${config.home.username}" >&2
+          fi
+        fi
+      '');
 
     # Symlink ~/sync to the shared syncthing data directory (/sync is created by the
     # system services.syncthing module, so create the symlink at activation time).
     home.activation.linkSyncDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      if [ -d /sync ]; then
+      if [ -L "$HOME/sync" ]; then
         $DRY_RUN_CMD ln -sfn /sync "$HOME/sync"
+      elif [ -e "$HOME/sync" ]; then
+        # A real directory/file here means the pre-migration layout (or a
+        # user-created dir); `ln -sfn` would nest a link inside it or delete
+        # a file, so leave it alone.
+        echo "warning: $HOME/sync exists and is not a symlink; leaving it alone" >&2
+      elif [ -d /sync ]; then
+        $DRY_RUN_CMD ln -s /sync "$HOME/sync"
       else
         echo "warning: /sync does not exist; not creating ~/sync symlink"
       fi
@@ -236,6 +287,20 @@
           '';
         };
         command-not-found.enable = true;
+        # Client side of the family identities: the key installed by
+        # services/ssh-user-keys.nix is ~/.ssh/agenix_<user>, not the default
+        # id_ed25519 (which may be a personal key, e.g. nicky's GitHub
+        # identity). Point ssh at it for the family hosts.
+        ssh = lib.mkIf
+          (builtins.elem config.home.username [ "nicky" "aeiuno" "sven" "aaron" ])
+          {
+            enable = true;
+            settings = {
+              "laptop-hera laptop-p16 laptop-xps nestor" = {
+                IdentityFile = [ "~/.ssh/agenix_${config.home.username}" ];
+              };
+            };
+          };
       }
       # Shared developer tools (nicky + aeiuno)
       (lib.mkIf config.commonHm.enableDeveloperTools {

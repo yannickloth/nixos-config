@@ -61,7 +61,7 @@ in
     # configured below (via `ocr config provider`, or delegation mode) — it is
     # not a provider itself (open-codereview.ai serves no LLM API; see
     # packages/open-code-review).
-    home.packages = [ pkgs.nodejs pkgs.open-code-review ];
+    home.packages = [ pkgs.nodejs ] ++ lib.optional (pkgs ? open-code-review) pkgs.open-code-review;
 
     xdg.configFile."opencode/opencode.json" = {
       text =
@@ -448,13 +448,17 @@ in
               # happy without a key file.
               jev = {
                 type = "local";
-                command = [ "npx" "-y" "@jkudish/jev-mcp" ];
+                # Version-pinned: `npx -y` alone resolves "latest" on every
+                # session start, so an upstream publish would silently change
+                # what agents execute.
+                command = [ "npx" "-y" "@jkudish/jev-mcp@0.14.4" ];
                 environment = {
                   JEV_PROVIDER = "compatible";
                   JEV_API_BASE_URL = "http://127.0.0.1:8888/v1/systemone";
                   JEV_API_KEY = "keyless";
                 };
-                enabled = true;
+                # Only laptop-p16 runs the Unsloth Studio backend.
+                enabled = isP16;
               };
             } // optionalAttrs (pkgs ? rea) {
               # REA (packages/rea): reverse-engineering toolkit (native binaries,
@@ -495,9 +499,9 @@ in
     # both @opencode-ai/plugin and @opencode/plugin; see
     # packages/open-code-review/plugin-deps.nix).
     xdg.configFile."opencode/plugins/open-code-review.ts".source =
-      "${pkgs.open-code-ocr-plugin}/plugin/open-code-review.ts";
+      lib.mkIf (pkgs ? open-code-ocr-plugin) "${pkgs.open-code-ocr-plugin}/plugin/open-code-review.ts";
     xdg.configFile."opencode/node_modules".source =
-      "${pkgs.open-code-ocr-plugin}/node_modules";
+      lib.mkIf (pkgs ? open-code-ocr-plugin) "${pkgs.open-code-ocr-plugin}/node_modules";
 
     # Materialize per-provider API key files from a decrypted Open WebUI env
     # file (OPENAI_API_KEYS JSON). Source resolution, first existing wins:
@@ -531,9 +535,10 @@ in
               _, _, payload = fh.read().partition("=")
           keys = json.loads(payload.strip())
       except Exception as exc:
-          print(f"opencode: failed to parse {envfile}: {exc}; skipping key setup")
-          sys.exit(1)
+          print(f"opencode: failed to parse {envfile}: {exc}; leaving existing keys untouched", file=sys.stderr)
+          sys.exit(0)
       os.makedirs(keydir, mode=0o700, exist_ok=True)
+      os.chmod(keydir, 0o700)
       for url, name in mapping.items():
           key = keys.get(url)
           if not key:
@@ -541,6 +546,8 @@ in
               continue
           path = os.path.join(keydir, name)
           fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+          # O_CREAT only applies the mode on creation; tighten existing files.
+          os.fchmod(fd, 0o600)
           with os.fdopen(fd, "w") as out:
               out.write(key + "\n")
           print(f"opencode: wrote {path}")

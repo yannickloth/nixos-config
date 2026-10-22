@@ -54,45 +54,34 @@ in
     environmentFile = "/etc/secrets/open-webui.env"; # contains OPENAI_API_KEYS
   };
 
+  # open-webui runs as a DynamicUser, but the env file it must read is
+  # 0660 root:secrets (see services/secrets.nix); without group membership
+  # systemd fails to load EnvironmentFile and the unit never starts.
+  systemd.services.open-webui.serviceConfig.SupplementaryGroups = [ "secrets" ];
+
   # Keep the kid-safety gate in sync with the versioned source file. Open WebUI
-  # reads filters from its DB at request time, so this runs after startup and is
-  # a no-op whenever the file is unchanged.
+  # reads filters from its DB at request time, so re-seeding on every start is
+  # idempotent (it merges by key) and needs no restart.
   #
-  # Explicit dependency: the seed service runs the compiled SeedGates class
-  # (Java 25) via ${pkgs.jdk25}/bin/java with the sqlite-jdbc driver. Declaring
-  # the JDK here keeps it in the system closure regardless of apps/java.nix.
+  # It runs as an ExecStartPost of open-webui itself: a separate DynamicUser
+  # unit is assigned a *different* ephemeral UID and would create a webui.db
+  # that open-webui cannot write. SeedGates waits up to 60s for the 'function'
+  # table, which also covers the first-boot race.
+  #
+  # Explicit dependency: the seed runs the compiled SeedGates class (Java 25)
+  # via ${pkgs.jdk25}/bin/java with the sqlite-jdbc driver. Declaring the JDK
+  # here keeps it in the system closure regardless of apps/java.nix.
   environment.systemPackages = [ pkgs.jdk25 ];
-  systemd.services.open-webui-seed-gates = {
-    description = "Seed the kid-safety filter into the Open WebUI database";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "open-webui.service" ];
-    serviceConfig = {
-      Type = "oneshot";
-      # Run as the same DynamicUser/namespace as open-webui so the SQLite DB
-      # (and any -wal/-shm/journal files) are written as the same on-disk
-      # owner. Running this as root created a root-owned webui.db that
-      # open-webui's DynamicUser could not write, which broke open-webui at
-      # boot.
-      User = "open-webui";
-      DynamicUser = true;
-      PrivateUsers = true;
-      StateDirectory = "open-webui";
-      PrivateTmp = true;
-      # Retry if the DB is not ready on first boot or a transient SQLite lock.
-      Restart = "on-failure";
-      RestartSec = "10";
-      ExecStart = [
-        [
-          "${pkgs.jdk25}/bin/java"
-          # sqlite-jdbc loads its native library via System.load (restricted in
-          # JDK 24+); the flag silences the runtime warning.
-          "--enable-native-access=ALL-UNNAMED"
-          "--class-path"
-          "${seedGates}:${sqliteJdbc}"
-          "SeedGates"
-          "${./ai-chat/filters/kid-safety.py}"
-        ]
-      ];
-    };
-  };
+  systemd.services.open-webui.serviceConfig.ExecStartPost = [
+    [
+      "${pkgs.jdk25}/bin/java"
+      # sqlite-jdbc loads its native library via System.load (restricted in
+      # JDK 24+); the flag silences the runtime warning.
+      "--enable-native-access=ALL-UNNAMED"
+      "--class-path"
+      "${seedGates}:${sqliteJdbc}"
+      "SeedGates"
+      "${./ai-chat/filters/kid-safety.py}"
+    ]
+  ];
 }

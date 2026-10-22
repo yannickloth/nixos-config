@@ -11,9 +11,11 @@ with lib;
       fontconfig = {
         enable = mkForce true;
         defaultFonts = {
-          monospace = ["Iosevka 11"];
-          sansSerif = ["Inter 11"];
-          serif = ["Roboto Slab 11"];
+          # Family names only: fontconfig matches these against the family,
+          # not the file/size ("Iosevka 11" is not a family name).
+          monospace = ["Iosevka"];
+          sansSerif = ["Inter"];
+          serif = ["Roboto Slab"];
         };
       };
       fontDir = {
@@ -62,7 +64,6 @@ with lib;
         ioskeley-mono.normal-term-NF
         liberation_ttf
         material-design-icons
-        material-icons
         merriweather
         montserrat
         mplus-outline-fonts.githubRelease

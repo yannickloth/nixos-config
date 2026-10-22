@@ -68,8 +68,9 @@
       };
     "/boot" =
       {
-        # device = "/dev/disk/by-partuuid/D52884F4-8461-3B48-B533-8592E0E188BA";
-        device = "/dev/nvme0n1p1";
+        # Stable partition identity: /dev/nvme0n1p1 changes if the drive is
+        # enumerated differently or moved to another slot.
+        device = "/dev/disk/by-partuuid/D52884F4-8461-3B48-B533-8592E0E188BA";
         fsType = "vfat";
       };
     "/data" =

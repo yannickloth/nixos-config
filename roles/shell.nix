@@ -14,16 +14,15 @@ with lib;
   programs.zsh.enable = true;
   environment.shellAliases = {
     ls = "lsd"; # replace ls by lsd
-    ll = "ls -lha";
-    l = "ls -l";
-    la = "ls -a";
-    lla = "ls -la";
+    ll = "lsd -lha";
+    l = "lsd -l";
+    la = "lsd -a";
+    lla = "lsd -la";
     lt = "lsd --tree"; # --tree is not supported by 'ls', so in any case when ls is not aliased to lsd, 'lsd --tree' will continue to work
     ".." = "cd ..";
-    nrs = "sudo nixos-rebuild switch";
-    nrsu = "sudo nixos-rebuild switch --upgrade";
-    nrsf = "sudo nixos-rebuild switch --flake";
-    nrsfh = "sudo nixos-rebuild switch --flake ./"; # nrsf here
-    myip = "curl ipinfo.io/ip"; # print public IPv4 address
+    nrs = "sudo nixos-rebuild switch --flake ./";
+    nrsu = "nix flake update && sudo nixos-rebuild switch --flake ./";
+    nrsfh = "sudo nixos-rebuild switch --flake ./";
+    myip = "${pkgs.curl}/bin/curl ipinfo.io/ip"; # print public IPv4 address
   };
 }

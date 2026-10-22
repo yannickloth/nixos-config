@@ -13,12 +13,6 @@ with lib;
     ../../apps/benchmark.nix
     ../../apps/obs-studio.nix
     ../../apps/wine.nix
-    # Immich server + AI machine learning (web UI at :2283, LAN + Tailscale).
-    # Commented out: p16 currently runs CachyOS, not NixOS, so this NixOS
-    # module only takes effect on a future NixOS install. On CachyOS the
-    # server runs via home-manager instead (packages/immich/home.nix, enabled
-    # for nicky in users/nicky/nicky-hm.nix).
-    # ../../services/immich.nix
 
     # commonHm.hostName: home-manager modules cannot reach
     # config.networking.hostName, so the host name is passed explicitly. It
@@ -56,6 +50,15 @@ with lib;
 
   # 128 GiB RAM -> run browser profiles in RAM.
   roles.psd.enable = true;
+
+  # Strata's 39.97 GiB expert arena uses MAP_HUGETLB|MAP_HUGE_2MB and needs the
+  # whole mmap covered (all-or-nothing, else it falls back to 4 KiB pages).
+  # 22528 * 2 MiB = 44 GiB: the arena plus ~4 GiB headroom. Only reserve it when
+  # nicky's home-manager profile actually enables Strata on this host; a fixed
+  # pool is parked RAM that normal allocations cannot use. 44 GiB covers ONE
+  # engine: a second concurrent engine needs its own ~40 GiB arena.
+  boot.kernel.sysctl."vm.nr_hugepages" =
+    lib.mkIf (config.home-manager.users.nicky.strata.enable or false) 22528;
 
   # 128 GiB RAM -> /tmp in RAM. Volatile by nature, so no cleanOnBoot wipe
   # (deleting psd's tens of thousands of small profile files was slow at boot).

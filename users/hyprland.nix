@@ -20,7 +20,7 @@ let
   # version's binary over IPC is fragile. On NixOS that is the system
   # programs.hyprland build; on CachyOS it is the pacman one, which is on PATH
   # (home-manager no longer installs Hyprland there, see `package` below).
-  hyprctl = if config.commonHm.isCachyOS then "hyprctl" else "${pkgs.hyprland}/bin/hyprctl";
+  hyprctl = if config.commonHm.isCachyOS then "hyprctl" else "${hyprctl}";
 
   # Hyprspace (workspace overview) is a native Hyprland plugin, so it must be
   # built against the exact Hyprland it loads into. On NixOS that is the same
@@ -64,7 +64,7 @@ let
 
   # SUPER+K: a searchable keybindings cheatsheet, formatted from `hyprctl binds`.
   keybindings = pkgs.writeShellScript "omarchy-keybindings" ''
-    ${pkgs.hyprland}/bin/hyprctl binds -j \
+    ${hyprctl} binds -j \
       | ${pkgs.jq}/bin/jq -r '.[] | "\(.modmask)|\(.key)|\(.dispatcher)|\(.arg)"' \
       | while IFS='|' read -r mask key disp arg; do
           m=""
@@ -141,7 +141,7 @@ let
     EOF
 
     if ${pkgs.procps}/bin/pgrep -x Hyprland >/dev/null 2>&1; then
-      ${pkgs.hyprland}/bin/hyprctl reload >/dev/null 2>&1 || true
+      ${hyprctl} reload >/dev/null 2>&1 || true
     fi
   '';
 
@@ -662,13 +662,13 @@ in
         general {
           lock_cmd = ${pkgs.hyprlock}/bin/hyprlock
           before_sleep_cmd = ${pkgs.systemd}/bin/loginctl lock-session
-          after_sleep_cmd = ${pkgs.hyprland}/bin/hyprctl dispatch dpms on
+          after_sleep_cmd = ${hyprctl} dispatch dpms on
         }
 
         listener {
           timeout = 150
-          on-timeout = ${pkgs.hyprland}/bin/hyprctl dispatch dpms off
-          on-resume = ${pkgs.hyprland}/bin/hyprctl dispatch dpms on
+          on-timeout = ${hyprctl} dispatch dpms off
+          on-resume = ${hyprctl} dispatch dpms on
         }
 
         listener {

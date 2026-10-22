@@ -30,9 +30,11 @@ buildNpmPackage {
 
   dontNpmBuild = true;
 
-  # `npm pack` runs the `prepare` script, which wants spago/purescript to
-  # rebuild; the published tarball is already bundled, so skip all scripts.
-  npmPackFlags = [ "--ignore-scripts" ];
+  # The `prepare` script wants spago/purescript to rebuild and devDependencies
+  # (esbuild) download binaries; the published tarball is already bundled, so
+  # skip scripts for every npm invocation (npmFlags, not npmPackFlags, which
+  # only covers `npm pack`).
+  npmFlags = [ "--ignore-scripts" ];
 
   meta = with lib; {
     description = "Language server for PureScript";
