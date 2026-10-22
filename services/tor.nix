@@ -34,7 +34,7 @@ in
       ControlPort = controlPort;
       # Without an authentication method any local process can drive the
       # daemon; the nftables kid-block is not authentication.
-      CookieAuthentication = 1;
+      CookieAuthentication = true;
       SocksPort = socksPort;
     };
     client = {

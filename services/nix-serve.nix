@@ -24,12 +24,19 @@ in
     # Sign the narinfos so peers (require-sigs = true, the default) accept the
     # paths; nix-serve loads it as a systemd credential (LoadCredential).
     secretKeyFile = mkIf hasCacheKey "/run/agenix/nix-cache-key";
-    # Defence in depth: the nftables rule in environments/laptop-firewall.nix
-    # restricts :5000 to the tailnet, but the service itself should not accept
-    # anything else either (an unrelated firewall change must not expose the
-    # whole store).
-    serviceConfig.IPAddressAllow = [ "127.0.0.1/32" "::1/128" "100.64.0.0/10" "fd7a:115c:a1e0::/48" ];
   };
+
+  # Defence in depth: the nftables rule in environments/laptop-firewall.nix
+  # restricts :5000 to the tailnet, but the service itself should not accept
+  # anything else either (an unrelated firewall change must not expose the
+  # whole store). `services.nix-serve` has no serviceConfig passthrough, so
+  # extend the unit directly.
+  systemd.services.nix-serve.serviceConfig.IPAddressAllow = [
+    "127.0.0.1/32"
+    "::1/128"
+    "100.64.0.0/10"
+    "fd7a:115c:a1e0::/48"
+  ];
 
   age.secrets.nix-cache-key = mkIf hasCacheKey {
     file = cacheKeyFile;

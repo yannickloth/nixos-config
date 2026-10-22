@@ -27,11 +27,11 @@ with lib;
       # Run before any user session can replace the file, and only after /home
       # exists (it may be a separate mount or a network filesystem).
       before = [ "systemd-user-sessions.service" ];
-      requiresMountsFor = [ "/home" ];
       path = [ pkgs.e2fsprogs pkgs.coreutils ];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        requiresMountsFor = [ "/home" ];
       };
       # chattr -i first so updates flow on rebuild/boot, then re-immortalize.
       # The target lives in a directory the user controls, so only ever write

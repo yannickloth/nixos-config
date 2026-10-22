@@ -29,11 +29,11 @@ let
 
   selfName = cfg.self;
 
-  # The full device list for this host: every peer, excluding the local node
-  # (Syncthing expects the local device only in folder device lists).
+  # The full device list for this host. The local node stays in the map: the
+  # nixpkgs module resolves folder peers through settings.devices by name (self
+  # included), and Syncthing itself ignores its own ID as a remote device.
   devices =
-    filterAttrs (name: _: name != selfName)
-      (mapAttrs (name: dev: { inherit name; id = dev.id; }) pool.devices);
+    mapAttrs (name: dev: { inherit name; id = dev.id; }) pool.devices;
 
   # Folders this host should sync: those whose share matrix includes self.
   # Each is shared with exactly the peers listed in the matrix.

@@ -22,11 +22,11 @@ with lib;
 
 let
   cfg = config.services.sshUserKeys;
-  pubkeys = import ../users/ssh-public-keys.nix;
 
-  # Only users that actually exist on this host (the module is imported by the
-  # family environment, whose hosts all define the four accounts).
-  keyUsers = filter (u: config.users.users ? ${u}) (attrNames pubkeys);
+  # Only users that actually exist on this host. This module does not define
+  # users.users itself (the authorized_keys live in each user's module), so
+  # probing the option here cannot recurse.
+  keyUsers = filter (u: config.users.users ? ${u}) [ "nicky" "aeiuno" "sven" "aaron" ];
 in
 {
   options.services.sshUserKeys = {
@@ -52,12 +52,6 @@ in
         })
         keyUsers
     );
-
-    # Public halves: allow each account to log in with its own identity on
-    # every host (not with the other family members' keys).
-    users.users = mapAttrs (u: pub: {
-      openssh.authorizedKeys.keys = [ pub ];
-    }) (filterAttrs (u: _: elem u keyUsers) pubkeys);
 
     # Install the private halves into the users' ~/.ssh. Runs at multi-user (so
     # /home is mounted and the accounts exist) and is restarted when a key

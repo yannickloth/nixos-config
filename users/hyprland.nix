@@ -20,7 +20,7 @@ let
   # version's binary over IPC is fragile. On NixOS that is the system
   # programs.hyprland build; on CachyOS it is the pacman one, which is on PATH
   # (home-manager no longer installs Hyprland there, see `package` below).
-  hyprctl = if config.commonHm.isCachyOS then "hyprctl" else "${hyprctl}";
+  hyprctl = if config.commonHm.isCachyOS then "hyprctl" else "${pkgs.hyprland}/bin/hyprctl";
 
   # Hyprspace (workspace overview) is a native Hyprland plugin, so it must be
   # built against the exact Hyprland it loads into. On NixOS that is the same

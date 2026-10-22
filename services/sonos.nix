@@ -1,21 +1,23 @@
 { config, lib, pkgs, ... }:
 with lib;
 {
-  # The SSDP set/chain below only work with the nftables firewall backend, and
-  # `firewall.extraInputRules` is iptables syntax when nftables is off. Fail at
-  # evaluation instead of producing a broken or silently non-working firewall.
-  assertions = [
-    {
-      assertion = config.networking.nftables.enable;
-      message = "services/sonos.nix: SONOS SSDP discovery requires networking.nftables.enable";
-    }
-    {
-      assertion = config.networking.firewall.enable;
-      message = "services/sonos.nix: SONOS SSDP discovery requires networking.firewall.enable";
-    }
-  ];
-
   config = {
+    # The SSDP set/chain below only work with the nftables firewall backend, and
+    # `firewall.extraInputRules` is iptables syntax when nftables is off. Fail at
+    # evaluation instead of producing a broken or silently non-working firewall.
+    # (Must live inside `config`: a module that returns `config` cannot also set
+    # top-level options.)
+    assertions = [
+      {
+        assertion = config.networking.nftables.enable;
+        message = "services/sonos.nix: SONOS SSDP discovery requires networking.nftables.enable";
+      }
+      {
+        assertion = config.networking.firewall.enable;
+        message = "services/sonos.nix: SONOS SSDP discovery requires networking.firewall.enable";
+      }
+    ];
+
     networking = {
       firewall = {
         # SONOS/SMB ports are scoped to private source ranges in
