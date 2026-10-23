@@ -473,11 +473,11 @@ in
               };
             } // optionalAttrs (config.browseros.enable or false) {
               # BrowserOS neo: agent-driven browser exposing a local MCP server
-              # (claw-server) on :9200. Agents drive the real browser (with the
+              # (claw-server) on :9010. Agents drive the real browser (with the
               # user's imported Chrome logins) over typed MCP tool calls.
               browseros-neo = {
                 type = "remote";
-                url = "http://127.0.0.1:9200/mcp";
+                url = "http://127.0.0.1:9010/mcp";
                 enabled = true;
               };
             };
