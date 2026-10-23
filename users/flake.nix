@@ -67,7 +67,7 @@
         ];
       };
     in
-    {
+    let
       homeConfigurations = {
         # Default targets. nicky is deployed on laptop-p16 (CachyOS).
         nicky = mkHome "nicky" "laptop-p16" adultPkgs;
@@ -75,5 +75,44 @@
         sven = mkHome "sven" "laptop-p16" stablePkgs;
         aaron = mkHome "aaron" "laptop-p16" stablePkgs;
       };
+
+      checks = {
+        x86_64-linux =
+          let
+            lib = nixpkgs.lib;
+            # Standalone home-manager picks up the CachyOS-only key bootstrap,
+            # so this is where its generated script is testable.
+            scripts = {
+              ssh-key-bootstrap = stablePkgs.writeText "ssh-key-bootstrap.sh"
+                homeConfigurations.nicky.config.home.activation.installFamilySshKey.data;
+            };
+            scriptFiles = lib.attrValues scripts;
+          in
+          {
+            # Force each user's HM evaluation (the same drvPath the deploy builds).
+            eval = stablePkgs.runCommandLocal "users-eval" { } ''
+              cat > $out <<EOF
+              ${builtins.unsafeDiscardStringContext homeConfigurations.nicky.activationPackage.drvPath}
+              ${builtins.unsafeDiscardStringContext homeConfigurations.aeiuno.activationPackage.drvPath}
+              ${builtins.unsafeDiscardStringContext homeConfigurations.sven.activationPackage.drvPath}
+              ${builtins.unsafeDiscardStringContext homeConfigurations.aaron.activationPackage.drvPath}
+              EOF
+            '';
+
+            scripts-syntax = stablePkgs.runCommandLocal "users-scripts-syntax" {
+              nativeBuildInputs = [ stablePkgs.bash stablePkgs.shellcheck ];
+            } ''
+              set -euo pipefail
+              ${lib.concatMapStringsSep "\n" (f: ''
+                bash -n ${f}
+                shellcheck -s bash -S error -e SC1091,SC2148 ${f}
+              '') scriptFiles}
+              touch $out
+            '';
+          };
+      };
+    in
+    {
+      inherit checks homeConfigurations;
     };
 }
