@@ -8,13 +8,26 @@
 # draft layer and the Python environment live in a writable runtime directory
 # (~/.local/share/strata, override with STRATA_HOME) and are downloaded or
 # created on first run - exactly what upstream's setup.py does, minus the
-# engine: the engine/BUILD.json marker ("source": "local") tells setup.py the
-# engine is already built, so it never fetches a release zip nor apt-gets a
-# CUDA toolchain. The engine is linked against nixpkgs' CUDA libraries, so no
-# NVIDIA pip wheels are needed either.
+# engine. Two things tell setup.py to use the store engine as-is: the
+# engine/BUILD.json marker ("source": "local", "nix_built": true) and
+# ./setup-trust-nix-engine.patch, which makes build_engine() return the
+# installed engine instead of hashing and recompiling a source tree that is not
+# there, and keeps engine_update_note() from calling it "older than this Strata
+# expects" on every start. The engine is linked against nixpkgs' CUDA
+# libraries, so no NVIDIA pip wheels are needed either.
 #
-# Images (the strata-vision encoder) are chosen by the `vision` argument; the
-# home-manager module (./home.nix) turns it on by default. The encoder costs
+# Since Strata 0.2.0 the tree holds three separately versioned products: the
+# engine (0.1.47 in this release), the Terminal/CLI (strata.py + strata_cli,
+# what `strata launch`, `strata models` and `strata update` run) and the desktop
+# app (apps/). This package ships the engine plus the Python source that the
+# setup and serve paths need: setup.py now imports strata_control/ (and, through
+# it, strata_cli/), and serve/server.py imports both, so they are installed
+# beside setup.py and copied into the runtime directory. The wrappers below keep
+# calling setup.py and serve/server.py directly; the Terminal and the app are
+# not wired up here.
+#
+# Images (the strata-vision encoder) are chosen by the `vision` argument; off by
+# default, and flake.nix builds the attribute without them. The encoder costs
 # ~1.2 GB of VRAM and a few % of text speed, and setup downloads ~0.9 GB more
 # (the mmproj vision weights).
 # Runtime notes (laptop-p16, established 2026-09-27 - see also engine.nix):
@@ -25,6 +38,14 @@
 #   expert cache otherwise fills VRAM and the first request dies with "verify:
 #   instantiate: out of memory"). --expert-cache must stay: the engine refuses
 #   to serve native packs at large contexts without it.
+# - Since 0.2.0 a run config carries TWO option lists: "args" (what setup or the
+#   app generated) and "user_args" (options the person set by hand, which
+#   serve/server.py merges over "args" at every start); "args_written" records
+#   what setup last wrote so a later setup run can tell the hand edits apart.
+#   The configPatch below therefore writes the policy into "args", takes the
+#   policy flags out of "user_args" (the layer that would otherwise win) and
+#   re-stamps "args_written" - without that, a value left in the app's settings
+#   form would override the module options.
 # - Native (IQ) packs REQUIRE --spec >= 2: the engine refuses to start
 #   without it, and deeper is faster (spec 4 > spec 2: 6.3 vs 5.6 tok/s).
 # - The engine only resolves libcuda through the wrapper's LD_LIBRARY_PATH
@@ -84,16 +105,14 @@
   # workarounds that have no flag. Empty by default; see
   # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.1.45 (477ac13).
-  # 0.1.45 is a drop-in engine swap for the 0.1.44.1 this package was tuned
-  # against: setup replaces the engine, upstream's identity tests report the
-  # Qwen3.8-Flash-Next answers the resident config serves as byte-identical to
-  # 0.1.44.1's (CUDA sm_60/sm_86 included; sm_86 is what runs here), and the two
-  # features it adds - `--parallel N` slots and the Qwen3.6 image path (a
-  # separate mmproj download, package `vision = true`) - are both opt-in and left
-  # unset by the configPatch below, so the calibrated knobs and the bench
-  # numbers above carry over. The 0.1.44 decode regression this package rolled
-  # back from (5c1a1db) did not
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.2 (011c9e6).
+  # That tag's engine is 0.1.47 (see engine.nix), a drop-in swap for the 0.1.45
+  # this package was last tuned against: the engine the 0.2 line ships is the
+  # same Qwen3.8-Flash-Next path with the 0.2 features (Gyro trellis experts,
+  # GPU roles, the NUMA-split CPU pool, `--parallel` driven from serve/) left
+  # unset or opt-in, so the calibrated knobs and the bench numbers above carry
+  # over. Two measured comparisons behind that, kept as history:
+  # The 0.1.44 decode regression this package rolled back from (5c1a1db) did not
   # hold up. The first measurement, 2026-10-14 morning, put 0.1.43.1 at 38-42
   # tok/s and 84-86% draft acceptance against 0.1.44.1's 29-35 tok/s and 74-84%
   # on the same 300-token code prompt (n=3, engine-log metrics). A later
@@ -119,8 +138,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "477ac13cbe8e582c20484871ce459d20d82df09d";  # v0.1.45 (main)
-    hash = "sha256-YfCpJ+iSbs8hSGzWtTr/fNJYRjUjS+ed7U7TNiaDBJU=";
+    rev = "011c9e600a93bbc9fd451c563501b5831c32bbca";  # v0.2.2 (main); engine 0.1.47
+    hash = "sha256-rZqp6GjcaDzwL9FjBxCrh3DNfF8j9QT7S0kN7BVD+vg=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -132,7 +151,13 @@
 }:
 
 let
-  version = "0.1.45";
+  # The Strata release this package is pinned to (its app version); the engine
+  # it builds has its own version - see engineVersion below.
+  version = "0.2.2";
+  # CMakeLists.txt's project(VERSION ...) in that tree. BUILD.json has to report
+  # the ENGINE's version: setup.py compares it against MIN_ENGINE and against
+  # the `engine=X.Y.Z` string compiled into the binary (stale_binary()).
+  engineVersion = "0.1.47";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
@@ -141,9 +166,11 @@ let
 
   # "none" sentinel: an argument the configPatch below must leave unset (the
   # engine keeps its own default), for the calibrated knobs that are optional.
-  optArg = v: if v == null then "none" else toString v;
+  helpers = import ../../lib;
+  # Tested in tests/unit.nix (lib/default.nix).
+  optArg = helpers.optArg;
   # Numbers via toJSON so a float renders as "0.35", not Nix's "0.350000".
-  jsonArg = v: if v == null then "none" else builtins.toJSON v;
+  jsonArg = helpers.jsonArg;
 
   # Declarative engine policy: rewrite the args of every engine config under
   # STRATA_HOME so the served model always matches the module options, whatever
@@ -154,119 +181,18 @@ let
   configPatch = writeShellApplication {
     name = "strata-patch-config";
     runtimeInputs = [ python3 ];
+    # ${share} (the last argument) is upstream's own strata_control/user_args.py,
+    # used to move the policy between "args", "user_args" and "args_written"
+    # exactly the way serve/server.py and setup.py do.
     text = ''
-      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.boolToString promptCacheTail} ${lib.escapeShellArg (builtins.toJSON engineEnv)} ${lib.boolToString vision} <<'PY'
-      import glob, json, os, sys
-      ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, tail, env_json, vision = (
-          int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5]),
-          sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], sys.argv[11], sys.argv[12],
-          sys.argv[13] == "true")
-      env_patch = json.loads(env_json or "{}")
-      home = os.environ.get("STRATA_HOME") or os.path.expanduser("~/.local/share/strata")
-
-      def set_opt(args, flag, value):
-          # drop every occurrence of flag (and its value, if it takes one), then
-          # append it at the end when value is not None
-          out, i = [], 0
-          while i < len(args):
-              if args[i] == flag:
-                  i += 1
-                  if i < len(args) and not args[i].startswith("--"):
-                      i += 1
-                  continue
-              out.append(args[i]); i += 1
-          if value is not None:
-              out += [flag, str(value)]
-          return out
-
-      failed = []
-      for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
-          if p.endswith(".shared-settings.json"):     # the web app's Chat settings, not a model
-              continue
-          try:
-              with open(p, encoding="utf-8") as f:
-                  text = f.read()
-              c = json.loads(text)
-              if not isinstance(c, dict) or not isinstance(c.get("args"), list):
-                  continue
-              a = c["args"]
-              # Mandatory for native packs (the engine refuses to start/serve
-              # them without these); the settings form drops unknown flags, so
-              # enforce them on every rewrite.
-              if "--expert-cache" not in a:
-                  a.append("--expert-cache")
-              a = set_opt(a, "--spec-min-p", 2 if spec == "none" else max(2, int(float(spec))))
-              if ctx > 0:
-                  a = set_opt(a, "--max-context", ctx)
-              if kv:
-                  a = set_opt(a, "--kv", kv)
-              # k8v4 never streams its KV (the engine refuses the combination)
-              if kv == "k8v4" or kv_res <= 0:
-                  a = set_opt(a, "--kv-resident", None)
-              else:
-                  a = set_opt(a, "--kv-resident", kv_res)
-              # past the trained 262144 the angles must be rescaled; inside it,
-              # keep the model completely stock (no rope flags at all)
-              if ctx > 262144:
-                  a = set_opt(a, "--rope-scaling", rope)
-                  a = set_opt(a, "--rope-scale", f"{ctx / 262144:g}")
-              else:
-                  a = set_opt(a, "--rope-scaling", None)
-                  a = set_opt(a, "--rope-scale", None)
-              a = set_opt(a, "--vram-reserve-mib", vram)
-              # Calibrated hardware knobs (tools/calibrate.py): set only when the
-              # module provided them, otherwise the engine's default/probe stands.
-              if pcie != "none":
-                  a = set_opt(a, "--pcie-frac", pcie)
-              if spec != "none":
-                  a = set_opt(a, "--spec-min-p", spec)
-              if workers != "none":
-                  a = set_opt(a, "--pool-workers", workers)
-              if affinity != "none":
-                  a = set_opt(a, "--pool-affinity", affinity)
-              if adapt != "none":
-                  a = set_opt(a, "--adapt-every", adapt)
-              # Valueless flag: append when enabled (dedup), never touch args
-              # when disabled - the engine's own default is off.
-              if tail and "--prompt-cache-tail" not in a:
-                  a.append("--prompt-cache-tail")
-              # Merge the module's engine environment (flags with no command-line
-              # form), keeping anything setup.py or the user already set.
-              if env_patch:
-                  c["env"] = {**(c.get("env") or {}), **{k: str(v) for k, v in env_patch.items()}}
-              # Images follow the package's vision build, not a stale config
-              # block: a config written by an older install (or by setup with
-              # --vision yes) keeps a "vision" block pointing at
-              # engine/strata-vision, which a vision=false build does not ship.
-              # The server would then try to start it and fail model loads
-              # ("vision encoder failed to start ... engine/strata-vision").
-              if not vision:
-                  c.pop("vision", None)
-              c["args"] = a
-              new_text = json.dumps(c, indent=1)
-              # Skip unchanged files: strata-server picks the served model by
-              # mtime, so rewriting everything would destroy that ordering.
-              if new_text == text:
-                  continue
-              # Atomic replace so a concurrent reader never sees a partial file.
-              tmp = p + ".tmp"
-              with open(tmp, "w", encoding="utf-8") as f:
-                  f.write(new_text)
-              os.replace(tmp, p)
-          except Exception as e:
-              failed.append(f"{p}: {e}")
-      if failed:
-          for msg in failed:
-              print(f"strata: could not patch {msg}", file=sys.stderr)
-          # This script is the enforcement point of the module policy: do not
-          # fail open with stale settings.
-          sys.exit(1)
+      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.boolToString promptCacheTail} ${lib.escapeShellArg (builtins.toJSON engineEnv)} ${lib.boolToString vision} ${lib.escapeShellArg share} <<'PY'
+      ${builtins.readFile ./config_patch.py}
       PY
     '';
   };
 
   engine = callPackage ./engine.nix {
-    inherit strataSrc version llamaCpp cudaArch isCachyOS;
+    inherit strataSrc engineVersion llamaCpp cudaArch isCachyOS;
     withVision = vision;
   };
 
@@ -285,26 +211,51 @@ let
     '';
   };
 
-  # The Python side of the repo (setup.py, the API server, the packing tools
-  # and their static data), kept read-only in the store. chat.py is stdlib
-  # only; serve/ and tools/ use exactly the packages setup.py installs into
-  # the venv on first run.
+  # The Python side of the repo (setup.py, the API server, the Terminal/CLI, the
+  # packing tools and their static data), kept read-only in the store. chat.py is
+  # stdlib only; serve/, tools/, strata_control/ and strata_cli/ use exactly the
+  # packages setup.py installs into the venv on first run. Since Strata 0.2.0
+  # setup.py imports strata_control/ (acquisition, atomic, draft_layer,
+  # discovery, user_args) and serve/server.py imports strata_cli/ too, so both
+  # trees have to sit beside setup.py.
+  #
+  # runtimeTrees/runtimeFiles are the single list of what the runtime directory
+  # needs: the derivation installs exactly them and the `strata` wrapper copies
+  # exactly them into STRATA_HOME.
+  runtimeTrees = [ "serve" "tools" "data" "strata_control" "strata_cli" ];
+  runtimeFiles = [
+    "setup.py"
+    "strata.py"
+    "chat.py"
+    # source_version() reads project(VERSION ...) from it, and stale_binary()
+    # compares that with the `engine=X.Y.Z` string in the binary: without the
+    # file the engine would look stale (and source_version() would raise). It is
+    # only the version record here - the runtime directory is not a build tree.
+    "CMakeLists.txt"
+    "requirements.txt"
+    "requirements-build.txt"
+    "requirements-nvfp4-local.txt"
+    "requirements-monitor.txt"
+  ];
+
   runtime = stdenv.mkDerivation {
     pname = "strata-runtime";
     inherit version;
     src = strataSrc;
     dontBuild = true;
-    # setup.py fingerprints a "source": "local" engine from the files it was
-    # compiled from (engine/BUILD.json src/vision_src) and rebuilds it when they
-    # do not match. The store-built engine has no source tree beside it, so
-    # `strata --setup` tried to recompile it from STRATA_HOME and died with
-    # "does not appear to contain CMakeLists.txt" (see the patch).
+    # setup.py rebuilds a "source": "local" engine when its BUILD.json src/
+    # vision_src stop matching the source tree beside it. The store-built engine
+    # has no source tree in the runtime directory, so `strata --setup` tried to
+    # recompile it from STRATA_HOME and died with "does not appear to contain
+    # CMakeLists.txt". The patch makes build_engine() trust a BUILD.json with
+    # "nix_built": true, and keeps engine_update_note() from calling such an
+    # engine "older than this Strata expects" on every start.
     patches = [ ./setup-trust-nix-engine.patch ];
     installPhase = ''
       runHook preInstall
       mkdir -p $out/share/strata
-      install -m644 setup.py chat.py $out/share/strata/
-      cp -r serve tools data $out/share/strata/
+      cp -r ${lib.concatStringsSep " " runtimeTrees} $out/share/strata/
+      install -m644 ${lib.concatStringsSep " " runtimeFiles} $out/share/strata/
       runHook postInstall
     '';
   };
@@ -355,11 +306,13 @@ let
         # the store's read-only modes, so make the copies writable again:
         # otherwise the next refresh's rm (and anything else) would hit
         # "Permission denied" on the unwritable dirs/files.
-        chmod -R u+rwX "$STRATA_HOME/serve" "$STRATA_HOME/tools" "$STRATA_HOME/data" 2>/dev/null || true
-        rm -rf "$STRATA_HOME/serve" "$STRATA_HOME/tools" "$STRATA_HOME/data"
-        cp -r ${share}/serve ${share}/tools ${share}/data "$STRATA_HOME/"
-        install -m644 ${share}/setup.py ${share}/chat.py "$STRATA_HOME/"
-        chmod -R u+rwX "$STRATA_HOME/serve" "$STRATA_HOME/tools" "$STRATA_HOME/data"
+        for d in ${lib.concatStringsSep " " runtimeTrees}; do
+          chmod -R u+rwX "''${STRATA_HOME:?}/$d" 2>/dev/null || true
+          rm -rf "''${STRATA_HOME:?}/$d"
+          cp -r "${share}/$d" "$STRATA_HOME/"
+          chmod -R u+rwX "''${STRATA_HOME:?}/$d"
+        done
+        install -m644 ${lib.concatMapStringsSep " " (f: "${share}/${f}") runtimeFiles} "$STRATA_HOME/"
 
         # The pinned llama.cpp (setup.py only reads gguf-py from it): pre-place
         # it so a fresh runtime dir does not download the source zip.
@@ -369,11 +322,15 @@ let
         fi
 
         # Engine marker: "source": "local" makes setup.py use the store-built
-        # engines as-is (no release download, no apt/pip toolchain bootstrap,
-        # no NVIDIA pip wheels). The symlinks track store rebuilds.
+        # engines as-is, and "nix_built": true is what ./setup-trust-nix-engine.patch
+        # checks before it returns this engine instead of rebuilding it (and
+        # before engine_update_note() calls it old). version is the ENGINE's
+        # version (0.1.47), not the app's: setup.py compares it with MIN_ENGINE
+        # and with the `engine=X.Y.Z` string compiled into the binary. The
+        # symlinks track store rebuilds.
         mkdir -p "$STRATA_HOME/engine"
         ln -sfn "${engineWrapped}/bin/strata-engine-wrapped" "$STRATA_HOME/engine/strata"
-        printf '%s\n' '{"source": "local", "version": "${version}", "archs": [${cudaArch}], "vision": "${if vision then "gpu" else "none"}", "cuda_dirs": []}' \
+        printf '%s\n' '{"source": "local", "nix_built": true, "version": "${engineVersion}", "archs": [${cudaArch}], "vision": "${if vision then "gpu" else "none"}", "cuda_dirs": []}' \
           > "$STRATA_HOME/engine/BUILD.json"
         ${lib.optionalString vision ''
         ln -sfn "${engine}/bin/strata-vision" "$STRATA_HOME/engine/strata-vision"
@@ -495,7 +452,7 @@ let
         # config's `exe` is the engine/strata symlink).
         mkdir -p "$STRATA_HOME/engine"
         ln -sfn "${engineWrapped}/bin/strata-engine-wrapped" "$STRATA_HOME/engine/strata"
-        printf '%s\n' '{"source": "local", "version": "${version}", "archs": [${cudaArch}], "vision": "${if vision then "gpu" else "none"}", "cuda_dirs": []}' \
+        printf '%s\n' '{"source": "local", "nix_built": true, "version": "${engineVersion}", "archs": [${cudaArch}], "vision": "${if vision then "gpu" else "none"}", "cuda_dirs": []}' \
           > "$STRATA_HOME/engine/BUILD.json"
         CFG=""
         for f in "$STRATA_HOME"/strata-*.json; do
@@ -540,6 +497,12 @@ symlinkJoin {
     strata-chat
     strata-server
   ];
+  # `share` is the runtime tree as it is copied into STRATA_HOME. The flake's
+  # `strata-fail-closed` check runs ./config_patch.py against the REAL
+  # strata_control/user_args.py through here (a stub would not notice an upstream
+  # API change, and this file's whole job is to drive that API). It points at the
+  # runtime derivation only, so the check does not pull in the CUDA engine.
+  passthru = { runtimeShare = share; };
   meta = with lib; {
     description = "Strata: local Qwen3.8-Flash-Next (125B MoE) inference with an OpenAI/Anthropic-compatible API";
     homepage = "https://github.com/Niko1221/Strata";

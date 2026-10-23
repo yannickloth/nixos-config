@@ -68,14 +68,22 @@
 # the fork (github.com/yannickloth/forks-Strata). The AVX2 IQ3 codebook gather
 # (STRATA_IQ256_GATHER, upstream PR #622) is upstream as of 0.1.40, behind
 # per-thread selection (see packages/strata/default.nix). The engine-lifecycle
-# API this comment used to mention is upstream as of 0.1.31 (--idle-unload);
-# pinned to 0.1.45 (477ac13), which adds --parallel (several requests at once)
-# and the Qwen3.6 vision/mmproj path - neither is wired up here, so the 0.1.44.1
-# engine config keeps working unchanged. The short-lived rollback to 0.1.43.1
-# (a0116b2) was for a 0.1.44.1 decode regression that a later controlled A/B on
-# this rig did not reproduce (bench note in packages/strata/default.nix,
-# Niko1221/Strata#2441/#2010). STRATA_ADAPT_OVERLAP stays opt-in and off: 0.1.43's
-# Linux-CUDA-on default cost ~2.7x decode on this host (Niko1221/Strata#2010).
+# API this comment used to mention is upstream as of 0.1.31 (--idle-unload).
+# Pinned to Strata 0.2.2 (011c9e6), whose engine is 0.1.47: the 0.2 releases
+# split the engine from the app/Terminal (separately versioned from now on) and
+# bumped the engine to 0.1.46/0.1.47 - Gyro trellis experts on CUDA/HIP/SYCL/
+# Metal, GPU roles, the NUMA-split CPU pool, an optional API key. Two engine
+# changes matter to this package: the K-quant MMQ prompt kernels moved into
+# libstrata_kq.so, which the engine dlopens from its own folder (installed
+# beside the binary below; without it those experts take the FP16 prompt path),
+# and --parallel is now driven by serve/ rather than by the engine config. Our
+# config does not set it, so the calibrated knobs and the bench numbers above
+# carry over.
+# The short-lived rollback to 0.1.43.1 (a0116b2) was for a 0.1.44.1 decode
+# regression that a later controlled A/B on this rig did not reproduce (bench
+# note in packages/strata/default.nix, Niko1221/Strata#2441/#2010).
+# STRATA_ADAPT_OVERLAP stays opt-in and off: 0.1.43's Linux-CUDA-on default cost
+# ~2.7x decode on this host (Niko1221/Strata#2010).
 {
   lib,
   stdenv,
@@ -94,12 +102,13 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "477ac13cbe8e582c20484871ce459d20d82df09d";  # v0.1.45 (main)
-    hash = "sha256-YfCpJ+iSbs8hSGzWtTr/fNJYRjUjS+ed7U7TNiaDBJU=";
+    rev = "011c9e600a93bbc9fd451c563501b5831c32bbca";  # v0.2.2 (main); engine 0.1.47
+    hash = "sha256-rZqp6GjcaDzwL9FjBxCrh3DNfF8j9QT7S0kN7BVD+vg=";
   },
-  # Version of the pinned strataSrc above; passed from default.nix so the
-  # package and the engine always report the same version.
-  version ? "0.1.45",
+  # The engine's own version (CMakeLists.txt's project(VERSION ...)), passed from
+  # default.nix. Since Strata 0.2.0 the engine is versioned apart from the app:
+  # the v0.2.2 tree builds engine 0.1.47 while the app is 0.2.2.
+  engineVersion ? "0.1.47",
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
     repo = "llama.cpp";
@@ -122,7 +131,7 @@ let
 
   engine = stdenv.mkDerivation {
     pname = "strata-engine";
-    inherit version;
+    version = engineVersion;
     src = strataSrc;
 
   stdenv = cudaPackages.stdenv;
@@ -148,11 +157,21 @@ let
     (lib.cmakeBool "STRATA_ENABLE_CUDA" true)
     (lib.cmakeBool "STRATA_BUILD_TESTS" false)
     (lib.cmakeBool "STRATA_PORTABLE" true)
-    # Upstream 0.1.32 gates the Q4_K/Q5_K/Q5_1 MMQ prompt kernels behind this
-    # option (OFF by default). With it, the UD-Q4_K_XL GGUF experts use int8
-    # tensor cores instead of dequant + cuBLAS; the IQ3_XXS native pack is
-    # unaffected. This is the fork's perf/am47 work, merged upstream.
+    # The K-quant MMQ prompt kernels (Q4_K/Q5_K/Q5_1; ON by default since the
+    # 0.2 line, and setup.py passes it explicitly). With it, the UD-Q4_K_XL GGUF
+    # experts use int8 tensor cores instead of dequant + cuBLAS; the IQ3_XXS
+    # native pack is unaffected. The kernels live in libstrata_kq.so, which the
+    # engine dlopens only for a model with those formats (installed below).
     (lib.cmakeBool "STRATA_MMQ_KQUANTS" true)
+    # The Q6_K gate/up expert kernels for the UD-Q6_K_XL files. ON upstream;
+    # named here so an upstream default change cannot silently change what this
+    # package builds (both are in setup.py's own cmake line).
+    (lib.cmakeBool "STRATA_Q6K_EXPERTS" true)
+    # STRATA_MMQ_TQ_OVERLAY stays at its default (ON): at configure time it
+    # writes patched copies of the pinned llama.cpp's ggml-cuda headers into the
+    # build tree (never into the read-only store checkout) so the Gyro trellis
+    # prompts use MMQ; it disables itself with a message when the pinned
+    # llama.cpp is not the one it knows.
     (lib.cmakeFeature "STRATA_GGML_DIR" "${llamaCpp}")
     (lib.cmakeFeature "CMAKE_CUDA_ARCHITECTURES" cudaArch)
     # Experiment 2026-09-27 (see matrix in the header): global --use_fast_math
@@ -163,6 +182,14 @@ let
   installPhase = ''
     runHook preInstall
     install -Dm755 strata $out/bin/strata
+    # libstrata_kq.so: the K-quant MMQ prompt kernels (STRATA_MMQ_KQUANTS), a
+    # shared library the engine dlopens from ITS OWN folder (/proc/self/exe's
+    # dir - $out/bin here) the first time a model asks for Q4_K/Q5_K/Q5_1/Q6_K
+    # experts. It is built as a dependency of the `strata` target; without it
+    # those experts silently take the FP16 prompt path (the engine says so once).
+    if [ -f libstrata_kq.so ]; then
+      install -Dm755 libstrata_kq.so $out/bin/libstrata_kq.so
+    fi
     runHook postInstall
   '';
 
@@ -179,6 +206,10 @@ let
       ln -sf /usr/lib/libnvidia-ml.so.1 $out/lib-driver/libnvidia-ml.so.1
     ''}
     patchelf --add-rpath $out/lib-driver $out/bin/strata
+    # the K-quant library links CUDA::cuda_driver (the host's libcuda) too
+    if [ -f $out/bin/libstrata_kq.so ]; then
+      patchelf --add-rpath $out/lib-driver $out/bin/libstrata_kq.so
+    fi
   '';
 
   meta = meta // { mainProgram = "strata"; };
@@ -186,7 +217,7 @@ let
 
   vision = stdenv.mkDerivation {
     pname = "strata-vision";
-    inherit version;
+    version = engineVersion;
     src = strataSrc;
     sourceRoot = "source/tools/vision";
 
@@ -233,7 +264,7 @@ let
   };
 in
 symlinkJoin {
-  name = "strata-${version}";
+  name = "strata-${engineVersion}";
   paths = [ engine ] ++ lib.optional withVision vision;
   inherit meta;
 }
