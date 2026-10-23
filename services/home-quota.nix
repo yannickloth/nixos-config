@@ -1,5 +1,8 @@
 { config, lib, pkgs, ... }:
 
+let
+  helpers = import ../lib;
+in
 {
   # Per-user disk quotas on /home via btrfs project quotas (per-directory).
   # Each kid gets a project id and a hard cap so they can't fill the disk;
@@ -25,12 +28,12 @@
       # sven: project id 2001, 50 GiB hard limit, inherited by new files
       ${pkgs.e2fsprogs}/bin/chattr -p 2001 -R /home/sven 2>/dev/null || warn "chattr -p 2001 /home/sven"
       ${pkgs.e2fsprogs}/bin/chattr +P -R /home/sven 2>/dev/null || warn "chattr +P /home/sven"
-      ${pkgs.quota}/bin/setquota -P 2001 0 52428800 0 0 /home 2>/dev/null || warn "setquota -P 2001"
+      ${pkgs.quota}/bin/setquota -P 2001 0 ${toString (helpers.gibToKiB 50)} 0 0 /home 2>/dev/null || warn "setquota -P 2001"
 
       # aaron: project id 2002, 50 GiB hard limit, inherited by new files
       ${pkgs.e2fsprogs}/bin/chattr -p 2002 -R /home/aaron 2>/dev/null || warn "chattr -p 2002 /home/aaron"
       ${pkgs.e2fsprogs}/bin/chattr +P -R /home/aaron 2>/dev/null || warn "chattr +P /home/aaron"
-      ${pkgs.quota}/bin/setquota -P 2002 0 52428800 0 0 /home 2>/dev/null || warn "setquota -P 2002"
+      ${pkgs.quota}/bin/setquota -P 2002 0 ${toString (helpers.gibToKiB 50)} 0 0 /home 2>/dev/null || warn "setquota -P 2002"
     '';
   };
 }

@@ -26,7 +26,7 @@ let
   # Only users that actually exist on this host. This module does not define
   # users.users itself (the authorized_keys live in each user's module), so
   # probing the option here cannot recurse.
-  keyUsers = filter (u: config.users.users ? ${u}) [ "nicky" "aeiuno" "sven" "aaron" ];
+  keyUsers = (import ../lib).filterExistingUsers config.users.users [ "nicky" "aeiuno" "sven" "aaron" ];
 in
 {
   options.services.sshUserKeys = {
@@ -65,19 +65,14 @@ in
         Type = "oneshot";
         RemainAfterExit = true;
       };
-      script = ''
-        set -eu
-        ${concatMapStringsSep "\n" (u: ''
-          home="${config.users.users.${u}.home}"
-          src="/run/agenix/ssh-user-${u}"
-          if [ -r "$src" ]; then
-            ${pkgs.coreutils}/bin/install -d -m 0700 -o ${u} -g users "$home/.ssh"
-            ${pkgs.coreutils}/bin/install -m 0600 -o ${u} -g users "$src" "$home/.ssh/agenix_${u}"
-          else
-            echo "ssh-user-keys: $src missing; skipping ${u}" >&2
-          fi
-        '') keyUsers}
-      '';
+      script = (import ../lib).sshKeyInstallScript {
+        installBin = "${pkgs.coreutils}/bin/install";
+        keys = map (u: {
+          user = u;
+          home = config.users.users.${u}.home;
+          secret = "/run/agenix/ssh-user-${u}";
+        }) keyUsers;
+      };
     };
   };
 }

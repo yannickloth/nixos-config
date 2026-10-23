@@ -74,10 +74,10 @@ with lib;
       # for the ephemeral reply port and before the input chain's policy drop.
       firewall.extraInputRules = ''
         # SONOS/SMB control + media ports: home LAN / tailnet sources only.
-        ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10 } tcp dport { 445, 1400-1499, 3400-3401, 3445, 3500, 4444 } accept
-        ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10 } udp dport { 1900, 1901, 6969 } accept
-        ip6 saddr { fe80::/10, fc00::/7 } tcp dport { 445, 1400-1499, 3400-3401, 3445, 3500, 4444 } accept
-        ip6 saddr { fe80::/10, fc00::/7 } udp dport { 1900, 1901, 6969 } accept
+        ${(import ../lib).privateNetRules {
+          tcp = [ "445" "1400-1499" "3400-3401" "3445" "3500" "4444" ];
+          udp = [ "1900" "1901" "6969" ];
+        }}
 
         ip protocol udp ip daddr . udp dport @upnp accept
       '';

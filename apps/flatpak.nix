@@ -21,19 +21,8 @@ with lib;
 let
   cfg = config.apps.flatpak;
 
-  # "app/org.kde.krita/x86_64/stable" -> "org.kde.krita"
-  # builtins.split keeps empty lists at the separators, so filter for the
-  # string parts first. A malformed ref (fewer than two parts) must fail with a
-  # clear message instead of throwing an opaque elemAt error.
-  appIdOf =
-    ref:
-    let
-      parts = builtins.filter builtins.isString (builtins.split "/" ref);
-    in
-    if builtins.length parts >= 2 then
-      builtins.elemAt parts 1
-    else
-      throw "apps.flatpak: malformed app ref '${ref}' (expected app/<id>/<arch>/<branch>)";
+  # Ref parsing lives in lib/ so it is unit-tested (tests/unit.nix).
+  appIdOf = (import ../lib).parseAppRef;
 in
 {
   options.apps.flatpak = {
@@ -80,7 +69,7 @@ in
           }.${config.home.username} or [ ];
           userOverrides =
             let
-              ids = map appIdOf userApps;
+              ids = (import ../lib).appIdsOf userApps;
             in
             mapAttrsToList
               (id: args: {

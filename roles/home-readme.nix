@@ -53,11 +53,9 @@ with lib;
           fi
         }
 
-        ${concatStringsSep "\n" (mapAttrsToList
-          (user: file: ''
-            install_readme "${config.users.users.${user}.home or "/home/${user}"}/README.md" ${file}
-          '')
-          config.roles.homeReadme.files)}
+        ${concatStringsSep "\n" (map (
+          t: ''install_readme "${t.target}" ${config.roles.homeReadme.files.${t.user}}''
+        ) ((import ../lib).readmeTargets config.users.users config.roles.homeReadme.files))}
       '';
     };
   };

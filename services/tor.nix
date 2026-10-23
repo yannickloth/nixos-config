@@ -8,12 +8,13 @@ let
   torBrowserPort = 9150;
 
   kidNames = [ "sven" "aaron" ];
+  helpers = import ../lib;
   kidUsers = lib.filter
     (u: builtins.hasAttr u config.users.users && config.users.users.${u}.uid != null)
     kidNames;
   # Fail closed: a renamed/removed kid or an auto-allocated (null) uid must not
   # silently drop the block below.
-  missingKids = lib.filter (u: !(builtins.elem u kidUsers)) kidNames;
+  missingKids = helpers.missingUsersOrUid config.users.users kidNames;
   kidUids = lib.map (u: toString config.users.users.${u}.uid) kidUsers;
 in
 {
@@ -58,11 +59,12 @@ in
   # This keys on the kids' numeric UIDs, so users/{sven,aaron}.nix pin explicit
   # stable uids (an auto-allocated uid would be null at build time).
   networking.nftables.tables."nixos-fw".content =
-    lib.mkAfter (lib.optionalString (kidUids != [ ]) ''
-      chain tor-block-kids {
-        type filter hook output priority 0; policy accept;
-        meta skuid { ${lib.concatStringsSep ", " kidUids} } ip daddr 127.0.0.0/8 tcp dport { ${toString socksPort}, ${toString controlPort}, ${toString torBrowserPort} } reject with tcp reset
-        meta skuid { ${lib.concatStringsSep ", " kidUids} } ip6 daddr ::1 tcp dport { ${toString socksPort}, ${toString controlPort}, ${toString torBrowserPort} } reject with tcp reset
+    lib.mkAfter (lib.optionalString (kidUids != [ ]) (
+      helpers.torBlockRules {
+        uids = kidUids;
+        socksPort = socksPort;
+        controlPort = controlPort;
+        browserPort = torBrowserPort;
       }
-    '');
+    ));
 }

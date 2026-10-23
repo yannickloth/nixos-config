@@ -37,10 +37,8 @@ with lib;
     }
   ];
 
-  networking.firewall.extraInputRules = ''
-    ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10 } tcp dport { 27015, 27036, 27037, 27040 } accept
-    ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10 } udp dport { 10400, 10401, 27015, 27031-27036 } accept
-    ip6 saddr { fc00::/7, fe80::/10 } tcp dport { 27015, 27036, 27037, 27040 } accept
-    ip6 saddr { fc00::/7, fe80::/10 } udp dport { 10400, 10401, 27015, 27031-27036 } accept
-  '';
+  networking.firewall.extraInputRules = (import ../lib).privateNetRules {
+    tcp = [ "27015" "27036" "27037" "27040" ];
+    udp = [ "10400" "10401" "27015" "27031-27036" ];
+  };
 }

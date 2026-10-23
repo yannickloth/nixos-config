@@ -21,8 +21,8 @@ with lib;
     browseDomains = [ "fritz.box" "local" "home" ];
   };
 
-  networking.firewall.extraInputRules = ''
-    ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10, 169.254.0.0/16 } udp dport 5353 accept
-    ip6 saddr { fe80::/10, fc00::/7 } udp dport 5353 accept
-  '';
+  networking.firewall.extraInputRules = (import ../lib).privateNetRules {
+    udp = [ "5353" ];
+    v4 = (import ../lib).privateV4LinkLocal;
+  };
 }

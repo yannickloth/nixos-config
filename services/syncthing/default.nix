@@ -51,15 +51,15 @@ let
         path = "${cfg.dataDir}/${label}";
         devices = f.devices;
       })
-      (filterAttrs (_: f: elem selfName f.devices) pool.folders);
+      (helpers.selectFoldersForHost pool.folders selfName);
 
   # Person folders synced on this host (used for the XDG subdirs and the
   # recursive ACL repair below).
-  syncedPersonFolders = filter (f: builtins.hasAttr f folders) [ "yannick" "christine" "sven" "aaron" ];
+  helpers = import ../../lib;
+  syncedPersonFolders = helpers.filterExistingFolders folders [ "yannick" "christine" "sven" "aaron" ];
   # Stamp for the expensive recursive ACL repair: it only needs to run when the
   # folder set changes (or on a fresh install), not on every switch.
-  aclStamp = builtins.hashString "sha256"
-    (concatStringsSep ":" (syncedPersonFolders ++ [ "sven" "aaron" ]));
+  aclStamp = helpers.aclStamp syncedPersonFolders [ "sven" "aaron" ];
 
   # Per-host identity dir. agenix decrypts the cert/key here from the
   # git-committed .age files (see age.secrets below); it lives outside the
