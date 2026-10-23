@@ -1,0 +1,21 @@
+#string
+set -euo pipefail
+warn() { echo "home-readmes: $*" >&2; }
+
+install_readme() {
+  local target="$1" src="$2"
+  if [ -L "$target" ] || { [ -e "$target" ] && [ ! -f "$target" ]; }; then
+    warn "refusing to replace non-regular $target"
+    return 0
+  fi
+  /nix/store/ys498nc6scmzxp5nwafgz5wfw3w1s0va-e2fsprogs-1.47.4-bin/bin/chattr -i "$target" 2>/dev/null || true
+  /nix/store/61685rbaxmpigwi3z23i33sv3jyfl70q-coreutils-9.11/bin/install --no-target-directory -o root -g root -m 0444 "$src" "$target"
+  if ! /nix/store/ys498nc6scmzxp5nwafgz5wfw3w1s0va-e2fsprogs-1.47.4-bin/bin/chattr +i "$target" 2>/dev/null; then
+    warn "chattr +i failed on $target (filesystem without immutable support); the README is not immutable"
+  fi
+}
+
+install_readme "/home/aaron/README.md" /nix/store/ai55bsghhxly4bqlf3cfihq00mcmb9fb-aaron.md
+install_readme "/home/aeiuno/README.md" /nix/store/vvfpq2hzfnv3sal7krl8wqk8n3nk422y-parents.md
+install_readme "/home/nicky/README.md" /nix/store/vvfpq2hzfnv3sal7krl8wqk8n3nk422y-parents.md
+install_readme "/home/sven/README.md" /nix/store/yay9hqg3919zhp2f4d5d7gh78z608agf-sven.md

@@ -1,1 +1,1 @@
-{ self }: self.nixosConfigurations.laptop-xps.config.networking.firewall.extraInputRules
+{ flake }: flake.nixosConfigurations.laptop-xps.config.networking.firewall.extraInputRules

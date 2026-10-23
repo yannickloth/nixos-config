@@ -1,1 +1,1 @@
-{ self }: self.nixosConfigurations.laptop-xps.config.networking.nftables.tables."nixos-fw".content
+{ flake }: flake.nixosConfigurations.laptop-xps.config.networking.nftables.tables."nixos-fw".content

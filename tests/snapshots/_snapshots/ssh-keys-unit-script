@@ -1,0 +1,28 @@
+#string
+if [ -r "/run/agenix/ssh-user-nicky" ]; then
+  /nix/store/61685rbaxmpigwi3z23i33sv3jyfl70q-coreutils-9.11/bin/install -d -m 0700 -o nicky -g users "/home/nicky/.ssh"
+  /nix/store/61685rbaxmpigwi3z23i33sv3jyfl70q-coreutils-9.11/bin/install -m 0600 -o nicky -g users "/run/agenix/ssh-user-nicky" "/home/nicky/.ssh/agenix_nicky"
+else
+  echo "ssh-user-keys: /run/agenix/ssh-user-nicky missing; skipping nicky" >&2
+fi
+
+if [ -r "/run/agenix/ssh-user-aeiuno" ]; then
+  /nix/store/61685rbaxmpigwi3z23i33sv3jyfl70q-coreutils-9.11/bin/install -d -m 0700 -o aeiuno -g users "/home/aeiuno/.ssh"
+  /nix/store/61685rbaxmpigwi3z23i33sv3jyfl70q-coreutils-9.11/bin/install -m 0600 -o aeiuno -g users "/run/agenix/ssh-user-aeiuno" "/home/aeiuno/.ssh/agenix_aeiuno"
+else
+  echo "ssh-user-keys: /run/agenix/ssh-user-aeiuno missing; skipping aeiuno" >&2
+fi
+
+if [ -r "/run/agenix/ssh-user-sven" ]; then
+  /nix/store/61685rbaxmpigwi3z23i33sv3jyfl70q-coreutils-9.11/bin/install -d -m 0700 -o sven -g users "/home/sven/.ssh"
+  /nix/store/61685rbaxmpigwi3z23i33sv3jyfl70q-coreutils-9.11/bin/install -m 0600 -o sven -g users "/run/agenix/ssh-user-sven" "/home/sven/.ssh/agenix_sven"
+else
+  echo "ssh-user-keys: /run/agenix/ssh-user-sven missing; skipping sven" >&2
+fi
+
+if [ -r "/run/agenix/ssh-user-aaron" ]; then
+  /nix/store/61685rbaxmpigwi3z23i33sv3jyfl70q-coreutils-9.11/bin/install -d -m 0700 -o aaron -g users "/home/aaron/.ssh"
+  /nix/store/61685rbaxmpigwi3z23i33sv3jyfl70q-coreutils-9.11/bin/install -m 0600 -o aaron -g users "/run/agenix/ssh-user-aaron" "/home/aaron/.ssh/agenix_aaron"
+else
+  echo "ssh-user-keys: /run/agenix/ssh-user-aaron missing; skipping aaron" >&2
+fi

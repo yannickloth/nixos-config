@@ -175,7 +175,7 @@
           '';
 
           snapshots = pkgs.runCommandLocal "namaka-snapshots" { } ''
-            test '${builtins.toJSON (namaka.lib.load { src = ./tests/snapshots; })}' = '{}'
+            test '${builtins.toJSON (namaka.lib.load { src = ./tests/snapshots; inputs = { flake = self; }; })}' = '{}'
             touch $out
           '';
 

@@ -1,0 +1,18 @@
+#string
+tcp dport 5000 ip saddr 100.64.0.0/10 accept
+tcp dport 5000 ip6 saddr fd7a:115c:a1e0::/48 accept
+
+# SONOS/SMB control + media ports: home LAN / tailnet sources only.
+ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10 } tcp dport { 445, 1400-1499, 3400-3401, 3445, 3500, 4444 } accept
+ip6 saddr { fe80::/10, fc00::/7 } tcp dport { 445, 1400-1499, 3400-3401, 3445, 3500, 4444 } accept
+ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10 } udp dport { 1900, 1901, 6969 } accept
+ip6 saddr { fe80::/10, fc00::/7 } udp dport { 1900, 1901, 6969 } accept
+
+ip protocol udp ip daddr . udp dport @upnp accept
+
+ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10, 169.254.0.0/16 } udp dport { 5353 } accept
+ip6 saddr { fe80::/10, fc00::/7 } udp dport { 5353 } accept
+ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10 } tcp dport { 27015, 27036, 27037, 27040 } accept
+ip6 saddr { fe80::/10, fc00::/7 } tcp dport { 27015, 27036, 27037, 27040 } accept
+ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10 } udp dport { 10400, 10401, 27015, 27031-27036 } accept
+ip6 saddr { fe80::/10, fc00::/7 } udp dport { 10400, 10401, 27015, 27031-27036 } accept
