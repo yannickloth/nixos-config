@@ -18,13 +18,18 @@
 # STRATA_IDLE_UNLOAD seconds (default 300) without a request, reloading on the
 # next one. With `vision` on the engine is preloaded instead:
 # `--lazy` is dropped so the image encoder is ready. Vision is off by default
-# (the encoder costs ~35 -> ~22 tok/s), so the server runs `--lazy`. Runs as a user service so
-# Studio can reach it whenever; Studio's own models keep the GPU the rest of the
-# time.
+# (using the encoder costs ~35 -> ~22 tok/s), so the server runs `--lazy`; the
+# ENCODER is still shipped by default on this host (`visionEncoder`), so
+# `strata --setup` can turn images on per run without a rebuild. Runs as a user
+# service so Studio can reach it whenever; Studio's own models keep the GPU the
+# rest of the time.
 { config, lib, pkgs, ... }:
 with lib;
 let
   cfg = config.strata;
+  # The desktop app: upstream's AppImage, both paths in the store. Only touched
+  # when strata.desktop.enable is set (see the option below).
+  desktop = pkgs.callPackage ./desktop.nix { };
 in
 {
   options.strata = {
@@ -33,12 +38,12 @@ in
     package = mkOption {
       type = types.package;
       default = pkgs.callPackage ./default.nix {
-        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery promptCacheTail vision engineEnv;
+        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery promptCacheTail vision visionEncoder engineEnv;
         # CachyOS needs the /usr/lib/libcuda shim; NixOS uses the driver runpath
         # (set by the standalone CachyOS flake / left false on NixOS).
         inherit (config.commonHm) isCachyOS;
       };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery promptCacheTail vision engineEnv; inherit (config.commonHm) isCachyOS; }";
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery promptCacheTail vision visionEncoder engineEnv; inherit (config.commonHm) isCachyOS; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
     };
 
@@ -46,13 +51,53 @@ in
       type = types.bool;
       default = false;
       description = ''
-        Build and enable the strata-vision image encoder (`--vision gpu`), so
-        the served model reads images (screenshots, photos, scanned pages) in
-        addition to text. Off by default: it drops throughput from ~35 to ~22
-        tok/s. Costs ~1.2 GB of VRAM for the encoder and a ~0.9 GB mmproj
-        download on first setup. The wrapper passes `--vision yes` to setup
-        when enabled; `strata --setup --vision no` overrides it for one run.
+        Serve images by default: the wrapper passes `--vision yes` to setup
+        (`--vision no` overrides it for one run) and strata-server preloads the
+        engine instead of loading it lazily. Off by default: it drops throughput
+        from ~35 to ~22 tok/s. Costs ~1.2 GB of VRAM for the encoder and a
+        ~0.9 GB mmproj download on first setup. Implies `visionEncoder`.
       '';
+    };
+
+    visionEncoder = mkOption {
+      type = types.bool;
+      default = cfg.vision;
+      defaultText = literalExpression "config.strata.vision";
+      description = ''
+        Build and ship the strata-vision image encoder, without deciding what
+        setup does with it. With the binary installed, `strata --setup` asks the
+        images question and both answers work (yes: CPU encoder on a 12 GB card,
+        ~35 -> ~22 tok/s; no: text only). Costs only disk until images are used.
+        Leave it false and the setup run is forced text-only, because the
+        package has no encoder to enable.
+      '';
+    };
+
+    desktop = {
+      enable = mkEnableOption ''
+        the Strata desktop app (upstream's Tauri AppImage, symlinked into
+        ~/.local/opt with a desktop entry). It shares this package's models,
+        packs and run configs, and it can either load a local model with its own
+        bundled engine (copied into ~/.local/share/strata/components, ~1 GB, on
+        first start) or talk to any OpenAI/Anthropic-compatible API through a
+        saved connection - including this package's own server at
+        http://127.0.0.1:8080/v1. NVIDIA CUDA 13 build: needs driver 580 or newer
+      '';
+
+      stopServerOnLaunch = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Stop `strata.service` (and unsloth-studio, laya-mcp) before the app
+          starts. Off by default: as a front end the app can point at a running
+          server or another API, and stopping it would break that connection.
+          Turn it on only if you load a *local* model in the app - its own
+          engine then needs the whole card, and only one owner can hold it.
+          Started with the app, the stopped units are not restarted
+          automatically; `systemctl --user start strata.service` brings the
+          server back.
+        '';
+      };
     };
 
     context = mkOption {
@@ -233,48 +278,95 @@ in
     };
   };
 
-  config = mkIf cfg.enable {
-    assertions = [
-      {
-        assertion = cfg.ropeScaling != "none" || cfg.context <= 262144;
-        message = "strata.ropeScaling = \"none\" needs strata.context <= 262144: the engine refuses --rope-scale with no scaling past the trained context.";
-      }
-      {
-        assertion = cfg.kvResident == 0 || cfg.kvResident >= 20480;
-        message = "strata.kvResident must be 0 (whole KV in VRAM) or at least 20480 (the engine's --kv-resident minimum).";
-      }
-    ];
+  config = mkMerge [
+    (mkIf cfg.enable {
+      assertions = [
+        {
+          assertion = cfg.ropeScaling != "none" || cfg.context <= 262144;
+          message = "strata.ropeScaling = \"none\" needs strata.context <= 262144: the engine refuses --rope-scale with no scaling past the trained context.";
+        }
+        {
+          assertion = cfg.kvResident == 0 || cfg.kvResident >= 20480;
+          message = "strata.kvResident must be 0 (whole KV in VRAM) or at least 20480 (the engine's --kv-resident minimum).";
+        }
+        {
+          # `vision` means "serve images by default", which needs the encoder
+          # binary in the package. Only the option DEFAULT ties the two, so an
+          # explicit `visionEncoder = false` would otherwise produce a package
+          # that is told to serve images it cannot encode.
+          assertion = !cfg.vision || cfg.visionEncoder;
+          message = "strata.vision = true needs strata.visionEncoder = true: the package must ship the strata-vision encoder it is told to serve with.";
+        }
+      ];
 
-    home.packages = [ cfg.package ];
+      home.packages = [ cfg.package ] ++ optional cfg.desktop.enable desktop.wrapper;
 
-    systemd.user.services.strata = {
-      Unit = {
-        Description = "Strata server (${if cfg.vision then "image encoder preloaded" else "engine loads on demand"}; Unsloth Studio's 125B endpoint)";
-        After = [ "network-online.target" ];
-        # Unlimited restarts: a unit that gives up would leave Studio's 125B
-        # endpoint dead. StartLimit* belongs in [Unit] - in [Service] systemd
-        # only warns ("Unknown key") and ignores it.
-        StartLimitIntervalSec = 0;
+      # The desktop app: the store's executable AppImage symlinked where a user
+      # expects an app to live, plus the menu entry and icon. A symlink (not a
+      # copy) keeps one copy on disk; upstream's in-app updater cannot replace a
+      # store path, so updates come from bumping ./desktop.nix.
+      home.file = mkIf cfg.desktop.enable {
+        ".local/opt/Strata.AppImage".source = desktop.appImage;
+        ".local/share/icons/hicolor/256x256/apps/strata-desktop.png".source = desktop.icon;
+        # Written as a file rather than through `xdg.desktopEntries`: that option
+        # only lands when `xdg.enable` is set, and this module must not turn on
+        # home-manager's whole XDG environment for one menu entry. `Exec` needs an
+        # absolute path - the desktop spec has no `%h` field code.
+        ".local/share/applications/strata-desktop.desktop".text = ''
+          [Desktop Entry]
+          Type=Application
+          Name=Strata
+          GenericName=Local AI
+          Comment=Local AI, tuned to one model.
+          Exec=${optionalString cfg.desktop.stopServerOnLaunch "env STRATA_APP_STOP_SERVER=1 "}${desktop.wrapper}/bin/strata-app %U
+          Icon=strata-desktop
+          Categories=Development;
+          Terminal=false
+          StartupNotify=true
+        '';
       };
-      Install = mkIf cfg.autoStart { WantedBy = [ "default.target" ]; };
-      Service = {
-        Type = "simple";
-        ExecStart = "${cfg.package}/bin/strata-server";
-        Environment = [
-          "BROWSER=true" # never open a browser from the service
-          "STRATA_PORT=${toString cfg.port}"
-          "STRATA_IDLE_UNLOAD=${toString cfg.idleUnloadSeconds}"
-        ]
-        ++ optional (cfg.minFreeVramMib > 0) "STRATA_MIN_FREE_VRAM=${toString cfg.minFreeVramMib}"
-        ++ optional (cfg.beforeLoad != "") "STRATA_BEFORE_LOAD=${cfg.beforeLoad}"
-        ++ optional (cfg.defaultConfig != "") "STRATA_CONFIG=${cfg.defaultConfig}";
-        # MAP_HUGETLB for the expert arena is charged to RLIMIT_MEMLOCK.
-        LimitMEMLOCK = "infinity";
-        # No setup yet (no venv/config): exit cleanly with guidance instead of
-        # restart-looping.
-        Restart = "on-failure";
-        RestartSec = "10s";
+
+      systemd.user.services.strata = {
+        Unit = {
+          Description = "Strata server (${if cfg.vision then "image encoder preloaded" else "engine loads on demand"}; Unsloth Studio's 125B endpoint)";
+          After = [ "network-online.target" ];
+          # Unlimited restarts: a unit that gives up would leave Studio's 125B
+          # endpoint dead. StartLimit* belongs in [Unit] - in [Service] systemd
+          # only warns ("Unknown key") and ignores it.
+          StartLimitIntervalSec = 0;
+        };
+        Install = mkIf cfg.autoStart { WantedBy = [ "default.target" ]; };
+        Service = {
+          Type = "simple";
+          ExecStart = "${cfg.package}/bin/strata-server";
+          Environment = [
+            "BROWSER=true" # never open a browser from the service
+            "STRATA_PORT=${toString cfg.port}"
+            "STRATA_IDLE_UNLOAD=${toString cfg.idleUnloadSeconds}"
+          ]
+          ++ optional (cfg.minFreeVramMib > 0) "STRATA_MIN_FREE_VRAM=${toString cfg.minFreeVramMib}"
+          ++ optional (cfg.beforeLoad != "") "STRATA_BEFORE_LOAD=${cfg.beforeLoad}"
+          ++ optional (cfg.defaultConfig != "") "STRATA_CONFIG=${cfg.defaultConfig}";
+          # MAP_HUGETLB for the expert arena is charged to RLIMIT_MEMLOCK.
+          LimitMEMLOCK = "infinity";
+          # No setup yet (no venv/config): exit cleanly with guidance instead of
+          # restart-looping.
+          Restart = "on-failure";
+          RestartSec = "10s";
+        };
       };
-    };
-  };
+    })
+
+    # The desktop app only makes sense beside the package it shares models and
+    # run configs with. Its files live in the block above (mkIf cfg.enable);
+    # saying so here beats an option that silently installs nothing.
+    (mkIf cfg.desktop.enable {
+      assertions = [
+        {
+          assertion = cfg.enable;
+          message = "strata.desktop.enable = true needs strata.enable = true: the app shares this package's models, packs and run configs.";
+        }
+      ];
+    })
+  ];
 }

@@ -88,8 +88,14 @@ in
     (mkIf cfg.installSkill {
       home.file = skillLinks;
 
-      # OpenCode reads skills from its own config dir as well.
-      xdg.configFile."opencode/skills/browseros-neo/SKILL.md".source = skillFile;
+      # OpenCode reads skills from its own config dir as well. BrowserOS's own
+      # "Connect" writes a real file here (and a .browserclaw-managed.json next
+      # to it); without `force` every switch after that aborts with "would be
+      # clobbered". Same rule as the skillDirs above: the deployment wins.
+      xdg.configFile."opencode/skills/browseros-neo/SKILL.md" = {
+        source = skillFile;
+        force = true;
+      };
     })
   ]);
 }

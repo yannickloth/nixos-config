@@ -262,7 +262,29 @@
               echo "args_written invented for a pre-0.2.0 config" >&2; exit 1
             fi
 
-            # 5. last, because this file makes EVERY later run fail: an
+            # 5. the encoder is shipped (vision_encoder = true): the images answer
+            #    from setup is the person's choice, so its "vision" block must
+            #    stay - otherwise `strata --setup --vision yes` would be undone
+            #    at every start, by this script or by strata-server's run of it.
+            printf '{"args":["--max-context","8192"],"vision":{"encoder":"/x/strata-vision"}}' > "$STRATA_HOME/strata-vis.json"
+            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' true ${strataShare} 2800
+            # the block itself, not just the key: a script that wrote nothing
+            # would also satisfy a bare '"vision"' match
+            grep -q -- '"encoder": "/x/strata-vision"' "$STRATA_HOME/strata-vis.json"
+            # and a config that serves images gets the larger request reserve,
+            # not the module's text-only one (1800): encoder activations OOM otherwise
+            grep -q -- '"2800"' "$STRATA_HOME/strata-vis.json"
+
+            # 5b. the same config, from a package that ships no encoder: the
+            #     stale block points at a binary this install does not have, and
+            #     the server would fail every model load trying to start it.
+            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare} 2800
+            if grep -q -- '"vision"' "$STRATA_HOME/strata-vis.json"; then
+              echo "vision block kept although the package ships no encoder" >&2; exit 1
+            fi
+            grep -q -- '"1800"' "$STRATA_HOME/strata-vis.json"
+
+            # 6. last, because this file makes EVERY later run fail: an
             #    unreadable config is a hard failure, since this script is the
             #    enforcement point of the policy and must not fail open with
             #    stale settings.
@@ -300,9 +322,11 @@
           clm = pkgs.callPackage ./packages/clm { };
           # Strata (packages/strata): CUDA inference engine for the A3000
           # (sm_86) + runtime wrappers; consumed via home-manager
-          # (packages/strata/home.nix, `strata.enable`). Built WITHOUT the
-          # strata-vision image encoder: image support drops throughput from
-          # ~35 to ~22 tok/s, so vision stays off.
+          # (packages/strata/home.nix, `strata.enable`). This generic attribute
+          # ships WITHOUT the strata-vision image encoder; the home-manager
+          # deployment decides that separately with `strata.visionEncoder`
+          # (binary present, setup asks) and `strata.vision` (images by
+          # default). Serving images drops throughput from ~35 to ~22 tok/s.
           strata = pkgs.callPackage ./packages/strata { vision = false; };
           # Orca (packages/orca): the released Electron AppImage wrapped as a
           # normal derivation (appimageTools.wrapType2). Consumed via home-manager

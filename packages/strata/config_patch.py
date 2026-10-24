@@ -24,10 +24,14 @@
 # hand edits as generated - and the next `strata --setup` would drop them.
 import glob, json, os, sys
 
-ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, tail, env_json, vision = (
+ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, tail, env_json, vision_encoder = (
     int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5]),
     sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10],
     sys.argv[11] == "true", sys.argv[12], sys.argv[13] == "true")
+# The reserve a config that serves images needs (encoder activations). Optional
+# so a caller written before the vision split keeps working; the module passes
+# it (packages/strata/default.nix, vramVisionReserveMiB).
+vram_vision = int(sys.argv[15]) if len(sys.argv) > 15 else 2800
 share = sys.argv[14]
 env_patch = json.loads(env_json or "{}")
 home = os.environ.get("STRATA_HOME") or os.path.expanduser("~/.local/share/strata")
@@ -126,7 +130,14 @@ for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
         else:
             a = set_opt(a, "--rope-scaling", None)
             a = set_opt(a, "--rope-scale", None)
-        a = set_opt(a, "--vram-reserve-mib", vram)
+        # Images can be on for THIS config even when the module default is off:
+        # with the encoder shipped, `strata --setup --vision yes` (or the app's
+        # images switch) writes a "vision" block. Such a config needs the larger
+        # request-time reserve, or the encoder's activations OOM on a 12 GB card
+        # - the module's text-only reserve is a budget for text alone. Keyed on
+        # the config, not the module default, for exactly that reason.
+        vision_on = bool(c.get("vision")) and vision_encoder
+        a = set_opt(a, "--vram-reserve-mib", vram_vision if vision_on and vram < vram_vision else vram)
         # Calibrated hardware knobs (tools/calibrate.py): set only when the
         # module provided them, otherwise the engine's default/probe stands.
         # (--spec-min-p is done above, with the other always-written options.)
@@ -146,13 +157,15 @@ for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
         # form), keeping anything setup.py or the user already set.
         if env_patch:
             c["env"] = {**(c.get("env") or {}), **{k: str(v) for k, v in env_patch.items()}}
-        # Images follow the package's vision build, not a stale config
-        # block: a config written by an older install (or by setup with
-        # --vision yes) keeps a "vision" block pointing at
-        # engine/strata-vision, which a vision=false build does not ship.
-        # The server would then try to start it and fail model loads
-        # ("vision encoder failed to start ... engine/strata-vision").
-        if not vision:
+        # Images follow the package's vision BUILD (vision_encoder: does the
+        # install ship engine/strata-vision?), not the module's default and not
+        # a stale config block: a config written by an older install (or by
+        # setup with --vision yes) keeps a "vision" block pointing at
+        # engine/strata-vision, which a package without the encoder does not
+        # ship. The server would then try to start it and fail model loads
+        # ("vision encoder failed to start ... engine/strata-vision"). With the
+        # encoder shipped, the block is the person's setup answer and stays.
+        if not vision_encoder:
             c.pop("vision", None)
         c["args"] = a
         # Record this rewrite as the writer of record: "args_written" = what is

@@ -17,7 +17,7 @@
 # libraries, so no NVIDIA pip wheels are needed either.
 #
 # Since Strata 0.2.0 the tree holds three separately versioned products: the
-# engine (0.1.47 in this release), the Terminal/CLI (strata.py + strata_cli,
+# engine (0.1.48.1 in this release), the Terminal/CLI (strata.py + strata_cli,
 # what `strata launch`, `strata models` and `strata update` run) and the desktop
 # app (apps/). This package ships the engine plus the Python source that the
 # setup and serve paths need: setup.py now imports strata_control/ (and, through
@@ -26,10 +26,13 @@
 # calling setup.py and serve/server.py directly; the Terminal and the app are
 # not wired up here.
 #
-# Images (the strata-vision encoder) are chosen by the `vision` argument; off by
-# default, and flake.nix builds the attribute without them. The encoder costs
-# ~1.2 GB of VRAM and a few % of text speed, and setup downloads ~0.9 GB more
-# (the mmproj vision weights).
+# Images (the strata-vision encoder) are two separate choices. `visionEncoder`
+# says whether the package BUILDS and ships the encoder; `vision` says whether
+# setup and strata-server default to using it. Off by default, and flake.nix
+# builds the attribute without them. Shipping the encoder costs only disk
+# (~1.2 GB of VRAM and a few % of text speed are paid when it is used, plus
+# ~0.9 GB of mmproj weights that setup downloads); with it shipped and `vision`
+# false, `strata --setup` asks and either answer works. See home.nix.
 # Runtime notes (laptop-p16, established 2026-09-27 - see also engine.nix):
 # - The wrapper and `strata-server` enforce a declarative engine policy on
 #   every config (the module options, see home.nix): --max-context (default
@@ -68,8 +71,20 @@
   , pkgs
   , python3
   , uv
+  , util-linux
+  , coreutils
   , cudaArch ? "86"
+  # Serve images by default: the wrapper passes `--vision yes` to setup, and
+  # strata-server preloads the engine so the encoder is ready. Implies
+  # visionEncoder (there is nothing to serve without the binary).
   , vision ? false
+  # Build and ship the strata-vision encoder, without deciding what setup does
+  # with it. With the binary present, `strata --setup` asks the images question
+  # and both answers work: `yes` reads images (CPU encoder on this 12 GB card,
+  # ~35 -> ~22 tok/s), `no` stays text-only. Defaults to `vision`, so callers
+  # that only know the old argument keep their behaviour; set it true with
+  # vision = false to let setup offer the choice (see packages/strata/home.nix).
+  , visionEncoder ? vision
   # Host family: true on the CachyOS host (adds the /usr/lib/libcuda shim in the
   # engine; NixOS uses /run/opengl-driver/lib). Set by packages/strata/home.nix.
   , isCachyOS ? false
@@ -105,9 +120,11 @@
   # workarounds that have no flag. Empty by default; see
   # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.2 (011c9e6).
-  # That tag's engine is 0.1.47 (see engine.nix), a drop-in swap for the 0.1.45
-  # this package was last tuned against: the engine the 0.2 line ships is the
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.3.1 (7ddc17a;
+  # tag object 9bc52164 peeled to that commit).
+  # That tag's engine is 0.1.48.1 (see engine.nix; the release's engine packages
+  # are labelled 0.1.48, the CMake project version says 0.1.48.1), a drop-in
+  # swap for the 0.1.47 this package was last tuned against: the engine the 0.2 line ships is the
   # same Qwen3.8-Flash-Next path with the 0.2 features (Gyro trellis experts,
   # GPU roles, the NUMA-split CPU pool, `--parallel` driven from serve/) left
   # unset or opt-in, so the calibrated knobs and the bench numbers above carry
@@ -138,8 +155,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "011c9e600a93bbc9fd451c563501b5831c32bbca";  # v0.2.2 (main); engine 0.1.47
-    hash = "sha256-rZqp6GjcaDzwL9FjBxCrh3DNfF8j9QT7S0kN7BVD+vg=";
+    rev = "7ddc17a38fe7f31637e895ecfba58c2cd43d65ec";  # v0.2.3.1 (tag object 9bc52164 peeled); engine 0.1.48.1
+    hash = "sha256-/XIjcm1AWS//7AA734FhHCrQlFdylqiPiVVzYksHiAA=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -153,16 +170,26 @@
 let
   # The Strata release this package is pinned to (its app version); the engine
   # it builds has its own version - see engineVersion below.
-  version = "0.2.2";
+  version = "0.2.3.1";
   # CMakeLists.txt's project(VERSION ...) in that tree. BUILD.json has to report
   # the ENGINE's version: setup.py compares it against MIN_ENGINE and against
   # the `engine=X.Y.Z` string compiled into the binary (stale_binary()).
-  engineVersion = "0.1.47";
+  engineVersion = "0.1.48.1";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
   # otherwise fills VRAM completely.
   vramReserveMiB = if vision then 2800 else 1800;
+  # The reserve a config that serves images needs, when `vision` is false but
+  # the encoder is shipped: a config can still carry a "vision" block (setup
+  # answered yes, or the app turned images on). config_patch.py applies this
+  # per config, so the text-only budget is not spent on encoder activations.
+  vramVisionReserveMiB = 2800;
+
+  # What engine/BUILD.json records for images: the encoder binary is there
+  # whenever the package ships it. "cpu"/"gpu" say which reader setup picks by
+  # default; on a 12 GB card the encoder runs on the CPU either way.
+  visionMarker = if visionEncoder then (if vision then "gpu" else "cpu") else "none";
 
   # "none" sentinel: an argument the configPatch below must leave unset (the
   # engine keeps its own default), for the calibrated knobs that are optional.
@@ -185,7 +212,7 @@ let
     # used to move the policy between "args", "user_args" and "args_written"
     # exactly the way serve/server.py and setup.py do.
     text = ''
-      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.boolToString promptCacheTail} ${lib.escapeShellArg (builtins.toJSON engineEnv)} ${lib.boolToString vision} ${lib.escapeShellArg share} <<'PY'
+      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.boolToString promptCacheTail} ${lib.escapeShellArg (builtins.toJSON engineEnv)} ${lib.boolToString visionEncoder} ${lib.escapeShellArg share} ${toString vramVisionReserveMiB} <<'PY'
       ${builtins.readFile ./config_patch.py}
       PY
     '';
@@ -193,7 +220,7 @@ let
 
   engine = callPackage ./engine.nix {
     inherit strataSrc engineVersion llamaCpp cudaArch isCachyOS;
-    withVision = vision;
+    withVision = visionEncoder;
   };
 
   # Every engine start re-applies the declarative policy - not just wrapper
@@ -295,11 +322,22 @@ let
 
   strata = writeShellApplication {
     name = "strata";
-    runtimeInputs = [ uv ];
+    # flock: the runtime-tree lock; coreutils: sha256sum/cut for the monitor
+    # requirements stamp (not assumed on the host PATH).
+    runtimeInputs = [ uv util-linux coreutils ];
     text =
       env
       + ''
         mkdir -p "$STRATA_HOME"
+
+        # One writer at a time for the runtime tree: every invocation copies
+        # strata_cli/, serve/ and friends out of the store, so two `strata`
+        # calls at once (a `strata status` while a model starts, say) would
+        # interleave cp and rm and leave "File exists"/"Permission denied"
+        # debris. The lock is held only for this copy/venv phase - never while
+        # a model runs, so a status check cannot wait behind a 5-minute load.
+        exec 9>"$STRATA_HOME/.runtime.lock"
+        flock 9
 
         # Refresh the program files from the store; runtime state (models/,
         # packs/, mtp/, engine/, strata-*.json, logs) is left alone. cp keeps
@@ -325,14 +363,22 @@ let
         # engines as-is, and "nix_built": true is what ./setup-trust-nix-engine.patch
         # checks before it returns this engine instead of rebuilding it (and
         # before engine_update_note() calls it old). version is the ENGINE's
-        # version (0.1.47), not the app's: setup.py compares it with MIN_ENGINE
+        # version (0.1.48.1), not the app's: setup.py compares it with MIN_ENGINE
         # and with the `engine=X.Y.Z` string compiled into the binary. The
         # symlinks track store rebuilds.
         mkdir -p "$STRATA_HOME/engine"
         ln -sfn "${engineWrapped}/bin/strata-engine-wrapped" "$STRATA_HOME/engine/strata"
-        printf '%s\n' '{"source": "local", "nix_built": true, "version": "${engineVersion}", "archs": [${cudaArch}], "vision": "${if vision then "gpu" else "none"}", "cuda_dirs": []}' \
+        printf '%s\n' '{"source": "local", "nix_built": true, "version": "${engineVersion}", "archs": [${cudaArch}], "vision": "${visionMarker}", "cuda_dirs": []}' \
           > "$STRATA_HOME/engine/BUILD.json"
-        ${lib.optionalString vision ''
+        # The image encoder link follows `visionEncoder`, the package's choice of what it ships -
+        # not `vision`, which only says whether setup defaults to images. A link left by an older
+        # install (a GC'd store path, e.g. 0.1.38's) made setup.py demand an encoder the Nix build
+        # did not ship - and fall through to a cmake rebuild of a runtime directory that has no
+        # source tree (it died on a missing cmake/strata_ggml_tq_overlay.cmake).
+        ${lib.optionalString (!visionEncoder) ''
+        rm -f "$STRATA_HOME/engine/strata-vision"
+        ''}
+        ${lib.optionalString visionEncoder ''
         ln -sfn "${engine}/bin/strata-vision" "$STRATA_HOME/engine/strata-vision"
         ''}
 
@@ -346,6 +392,31 @@ let
           uv venv --seed --python "${python3}/bin/python3" "$STRATA_HOME/.venv" >&2
         fi
 
+        # The Terminal UI - the screens `strata launch` shows, `strata monitor`
+        # and the human `strata status` view - imports textual/rich, which the
+        # server's requirements.txt does not carry (upstream's Terminal archive
+        # ships them as requirements-monitor.txt). Install them once per
+        # change of that file: without this, `strata status` dies on
+        # "No module named 'rich'" and `strata launch` cannot draw its screens.
+        monitor_req="$STRATA_HOME/requirements-monitor.txt"
+        monitor_stamp="$STRATA_HOME/.venv/.monitor-requirements"
+        if [ -f "$monitor_req" ]; then
+          want_sum=$(sha256sum "$monitor_req" | cut -d' ' -f1)
+          have_sum=$(cat "$monitor_stamp" 2>/dev/null || true)
+          if [ "$want_sum" != "$have_sum" ]; then
+            echo "Strata: installing the terminal UI packages..." >&2
+            if uv pip install --python "$STRATA_HOME/.venv/bin/python" -r "$monitor_req" >&2; then
+              printf '%s\n' "$want_sum" > "$monitor_stamp"
+            else
+              echo "Strata: the terminal UI packages could not be installed; 'strata launch' screens and the human 'strata status' view need them (offline?)" >&2
+            fi
+          fi
+        fi
+
+        # Everything that needed a consistent runtime tree is done; let other
+        # invocations through before anything long (model load) starts.
+        flock -u 9
+
         # Declarative engine policy (max-context, KV format, rope scaling) and
         # the VRAM reserve are enforced on every config here and again in
         # strata-server (see configPatch above). NOTE: --expert-cache must
@@ -354,6 +425,38 @@ let
         # its GPU hit path can diverge from a cache-off run; with the cache
         # mandatory there is no off switch to fall back on.
         ${configPatch}/bin/strata-patch-config
+
+        # From 0.2.0 the Terminal - `strata launch`, `strata status`,
+        # `strata models`, `strata doctor`, ... - lives in strata_cli/ and is
+        # entered through strata.py; setup.py stays the first-run installer and
+        # foreground start this wrapper has always driven. Send the documented
+        # Terminal commands to Control and everything else to setup.py, so
+        # `strata launch` (upstream's documented entry point, docs/INSTALL.md)
+        # and the bare `strata` setup run both behave as documented.
+        case "''${1:-}" in
+          --version | -V | serve | profile | repair-access | doctor | components | update | \
+          models | drafting | engine | install | runtime | ops | bench | timeskip | tune | \
+          presets | launch | connect | status | monitor | logs | connection | config | code)
+            # `launch` and `serve` start a model: free the GPU the same way the
+            # setup path does, unless the run is read-only (--plan, --check,
+            # --help, --no-start).
+            if [ "''${1:-}" = launch ] || [ "''${1:-}" = serve ]; then
+              plan_only=0
+              for arg in "$@"; do
+                case "$arg" in --plan | --check | --no-start | --help | -h) plan_only=1 ;; esac
+              done
+              if [ "$plan_only" = 0 ]; then
+                for unit in strata unsloth-studio laya-mcp; do
+                  if systemctl --user is-active --quiet "$unit" 2>/dev/null; then
+                    echo "Strata: stopping $unit (frees VRAM/RAM for the model)..." >&2
+                    systemctl --user stop "$unit" || true
+                  fi
+                done
+              fi
+            fi
+            exec "$STRATA_HOME/.venv/bin/python" "$STRATA_HOME/strata.py" "$@"
+            ;;
+        esac
 
         # First-run setup must write this context too, not whatever the
         # interactive default offers (setup.py then derives the matching yarn
@@ -375,7 +478,7 @@ let
         start_model=1
         for arg in "$@"; do
           case "$arg" in
-            --setup | --check | --no-start) start_model=0 ;;
+            --setup | --check | --no-start | --help | -h) start_model=0 ;;
           esac
         done
         if [ "$start_model" = 1 ]; then
@@ -389,7 +492,7 @@ let
 
         cd "$STRATA_HOME"
       ''
-      + lib.optionalString vision ''
+      + lib.optionalString (vision && visionEncoder) ''
         # Images on by default when the package ships the vision encoder
         # (~1.2 GB VRAM for the encoder, a few % slower text, ~0.9 GB extra
         # download). Override at setup time with e.g. `strata --vision no`.
@@ -401,6 +504,26 @@ let
         done
         if [ "$want_vision_explicit" = 0 ]; then
           set -- "$@" --vision yes
+        fi
+      ''
+      + lib.optionalString (!visionEncoder) ''
+        # Images off by default when the package does NOT ship the encoder:
+        # upstream's setup offers them anyway ("[y]"), and answering yes made
+        # setup.py look for engine/strata-vision, miss it and fall through to a
+        # cmake rebuild of a runtime directory that has no source tree (it died
+        # on the missing cmake/strata_ggml_tq_overlay.cmake). The package cannot
+        # serve images, so ask for text instead. An explicit --vision yes still
+        # wins, and setup then fails with the real reason (see the patch).
+        # With `visionEncoder = true` (encoder shipped, images not the default)
+        # this block is absent on purpose: setup asks, and both answers work.
+        want_vision_explicit=0
+        for arg in "$@"; do
+          case "$arg" in
+            --vision | --vision=*) want_vision_explicit=1 ;;
+          esac
+        done
+        if [ "$want_vision_explicit" = 0 ]; then
+          set -- "$@" --vision no
         fi
       ''
       + ''
@@ -452,7 +575,17 @@ let
         # config's `exe` is the engine/strata symlink).
         mkdir -p "$STRATA_HOME/engine"
         ln -sfn "${engineWrapped}/bin/strata-engine-wrapped" "$STRATA_HOME/engine/strata"
-        printf '%s\n' '{"source": "local", "nix_built": true, "version": "${engineVersion}", "archs": [${cudaArch}], "vision": "${if vision then "gpu" else "none"}", "cuda_dirs": []}' \
+        # Same for the image encoder: BUILD.json below claims an encoder
+        # whenever the package ships one, so the link must agree, or the server
+        # keeps a stale (GC'd) or missing engine/strata-vision and a
+        # vision-enabled config fails its model load.
+        ${lib.optionalString visionEncoder ''
+        ln -sfn "${engine}/bin/strata-vision" "$STRATA_HOME/engine/strata-vision"
+        ''}
+        ${lib.optionalString (!visionEncoder) ''
+        rm -f "$STRATA_HOME/engine/strata-vision"
+        ''}
+        printf '%s\n' '{"source": "local", "nix_built": true, "version": "${engineVersion}", "archs": [${cudaArch}], "vision": "${visionMarker}", "cuda_dirs": []}' \
           > "$STRATA_HOME/engine/BUILD.json"
         CFG=""
         for f in "$STRATA_HOME"/strata-*.json; do

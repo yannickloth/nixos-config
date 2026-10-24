@@ -180,9 +180,19 @@ in
     # RAM and most of the GPU idle between turns instead — the trade-off is
     # explicitness over latency, so lower it if another GPU job needs the card.
     idleUnloadSeconds = 900;
-    # Vision stays off: the strata-vision image encoder drops throughput from
-    # ~35 to ~22 tok/s.
+    # Vision is not the default: using the strata-vision image encoder drops
+    # throughput from ~35 to ~22 tok/s. The ENCODER is still built and shipped
+    # (visionEncoder), so `strata --setup` asks the images question and both
+    # answers work instead of failing on a package without the binary. Answer
+    # that prompt explicitly - upstream's default is "y" - and the cost of
+    # shipping the encoder is disk only.
     vision = false;
+    visionEncoder = true;
+    # The desktop app (upstream AppImage): shares the models below and can
+    # either load one with its own engine or use the API of a running server -
+    # e.g. add http://127.0.0.1:8080/v1 as a custom connection. Nothing is
+    # stopped on launch (stopServerOnLaunch) for that reason.
+    desktop.enable = true;
     pcieFrac = 0.35;
     specMinP = 0.70;
     poolWorkers = 15;
@@ -394,10 +404,10 @@ in
         # silently change between switches. It is copied to a private temp file
         # (never a predictable /tmp path a local user could pre-create), and a
         # failure only warns instead of aborting the whole switch.
-        TRESORIT_INSTALLER=$(${pkgs.fetchurl {
+        TRESORIT_INSTALLER=${pkgs.fetchurl {
           url = "https://installer.tresorit.com/tresorit_installer.run";
           sha256 = "0xpw9a07hq5fxw6zb30csafz7kchpb257wag61sc271prax303zk";
-        }})
+        }}
         if [ ! -f "$HOME/.local/share/tresorit/tresorit" ]; then
           echo "Installing Tresorit..."
           installer=$(${pkgs.coreutils}/bin/mktemp)

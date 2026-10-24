@@ -12,14 +12,20 @@
          elif meta.get("backend") == "hip" and not WIN:
              old = meta.get("src") != source_hash(ENGINE_SOURCES) or stale_binary(eng / EXE)
          else:
-@@ -5411,6 +5414,12 @@
+@@ -5411,6 +5414,18 @@
      meta = json.loads(stamp.read_text(encoding="utf-8")) if stamp.exists() else {}
      want_vision = vision != "none"
      local = meta.get("source") == "local"
-+    if meta.get("nix_built") and (eng / EXE).exists() and (not want_vision or (eng / VEXE).exists()):
++    if meta.get("nix_built") and (eng / EXE).exists():
 +        # A Nix-built engine (packages/strata in nixos-config): it lives in a runtime directory that
 +        # carries no source tree to recompile from, and its BUILD.json says "nix_built". Trust it
 +        # as-is instead of trying (and failing) to rebuild it from ROOT.
++        # Images are the package's choice, not this run's: a package built with strata.vision =
++        # false has no engine/strata-vision, and no source tree here can build one. Say so
++        # instead of falling through to a cmake configure that cannot succeed.
++        if want_vision and not (eng / VEXE).exists():
++            fail("this Strata package was built without the image encoder (strata.vision = false)",
++                 "run setup with --vision no for this run, or enable strata.vision and switch")
 +        ok("engine already built for this PC (Nix)")
 +        return eng
      src, vsrc = source_hash(ENGINE_SOURCES), source_hash(VISION_SOURCES)
