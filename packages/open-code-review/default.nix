@@ -39,8 +39,73 @@ buildGoModule rec {
   # 1.26.8; upstream's go.mod demands 1.26.9 — a patch release that adds no
   # language features, so relax the directive. Drop this once nixpkgs-unstable
   # carries Go >= 1.26.9.
+  # Upstream embeds its extension allowlist (internal/config/allowlist/
+  # supported_file_types.json) and its path-to-rule map into the binary with
+  # //go:embed, so markdown cannot be enabled at run time — `ocr review
+  # --preview` reports every .md file as `unsupported_ext`. Upstream main still
+  # ships no markdown (checked 2026-10-25, v1.13.3 included), so it is patched
+  # in here. Markdown carries the skills, agent prompts, and AGENTS.md files
+  # that drive every other artifact in these repos; reviewing them is the point.
   postPatch = ''
     substituteInPlace go.mod --replace-fail "go 1.26.9" "go 1.26.8"
+
+    # Enable the extensions: append to the embedded allowlist array.
+    substituteInPlace internal/config/allowlist/supported_file_types.json \
+      --replace-fail '".metal"' '".metal", ".md", ".markdown"'
+
+    # Map them to an instruction-file rule. First match wins, and json.md is
+    # keyed on file extension alone, so the markdown entries stay ahead of it.
+    substituteInPlace internal/config/rules/system_rules.json \
+      --replace-fail '"path_rule_map": {' \
+        '"path_rule_map": { "**/*.md": "markdown.md", "**/*.markdown": "markdown.md",'
+
+    # rule_docs/ is //go:embed-ed with a glob, so a new document joins it.
+    cat > internal/config/rules/rule_docs/markdown.md <<'MARKDOWN_RULES'
+#### Instruction integrity
+
+- Every file path, command, agent name, skill name, and section heading this
+  file cites must exist in this repository. A citation to a file that does not
+  exist is blocking: the reader is an agent that will follow the text literally.
+- Frontmatter keys must be valid for their consumer — `mode`, `name`,
+  `description`, `permission`, `model` for agent files; `name`, `description`,
+  `compatibility` for skill files. An unrecognised key is silently ignored, so
+  a misplaced setting never takes effect.
+- A cross-reference to another step, phase, or rule must resolve. "See Step 5"
+  must name a step that exists after any renumbering.
+
+#### Executability
+
+- Every command must run as written: correct interpreter, correct working
+  directory, arguments in the order the tool accepts them.
+- An instruction whose outcome cannot be observed by running something must say
+  how the reader confirms it.
+- An ordering constraint must be explicit. Two steps whose order matters, and
+  which do not say so, are a defect.
+
+#### Contradictions and gaps
+
+- Flag two instructions that cannot both be satisfied.
+- Flag a rule stated twice in different words, and a rule stated once and then
+  never applied.
+- Flag a claimed count (files, steps, items) that the repository contradicts.
+  Counts read from the data are preferred over counts written in prose.
+- Flag a gate that no tool enforces and that the text does not ask a person to
+  check.
+
+#### Agent and permission correctness
+
+- A file declaring `mode: subagent` must not be presented as a primary agent,
+  and a file that audits or reports must deny `edit` and `write`.
+- A read-only auditor that can write is a defect: it will change the artifact it
+  is judging.
+- A skill must not depend on an agent that does not exist.
+
+#### Scope and duplication
+
+- Flag a restatement of another file's rules where the two copies can drift;
+  cite the other file instead.
+- Flag instructions that reach outside the declared scope of this file.
+MARKDOWN_RULES
   '';
 
   # Only the CLI. `./...` would also build internal/llm/gen (a codegen tool)
