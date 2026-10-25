@@ -115,7 +115,17 @@
 in{
     # NVIDIA RTX A3000 12GB Laptop GPU (Ampere, compute capability 8.6)
 
-    dynamicBoost.enable = false; # Left off (the A3000 is Ampere and could use it, but it changes GPU power behavior). # Whether to enable dynamic Boost balances power between the CPU and the GPU for improved performance on supported laptops using the nvidia-powerd daemon. For more information, see the NVIDIA docs, on Chapter 23. Dynamic Boost on Linux. https://download.nvidia.com/XFree86/Linux-x86_64/510.73.05/README/dynamicboost.html
+    # Left off: the A3000 is Ampere and could use it, but it changes GPU power behavior.
+    # This host currently runs CachyOS, where the option is inert anyway: nvidia-powerd
+    # ships enabled with nvidia-utils, and it logs that the SBIOS refuses Dynamic Boost
+    # ("DC power limits table is not supported", "Failed to get SysPwrLimitGetInfo!!").
+    # The GPU therefore stays at its 115 W TGP and `nvidia-smi -pl 130` is rejected as
+    # unsupported in scope, since mobile Ampere exposes the 130 W vBIOS ceiling as
+    # read-only. May work under NixOS (hardware.nvidia.dynamicBoost.enable = true), which
+    # starts nvidia-powerd the supported way; untested, and the SBIOS refusal would likely
+    # apply there too. See Chapter 23, Dynamic Boost on Linux:
+    # https://download.nvidia.com/XFree86/Linux-x86_64/510.73.05/README/dynamicboost.html
+    dynamicBoost.enable = false;
 
     gsp.enable = true; # Whether to enable the GPU System Processor (GSP) on the video card. The NVIDIA GPU System Processor (GSP) is a specialized co-processor embedded within certain NVIDIA GPUs. Its primary function is to offload tasks traditionally handled by the CPU, such as GPU initialization and management, directly onto the GPU. By handling low-level tasks, the GSP allows for more efficient communication between the CPU and GPU, which can be particularly beneficial in data-centric applications and gaming.
 
