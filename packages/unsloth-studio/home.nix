@@ -1,6 +1,6 @@
 # Unsloth Studio (https://unsloth.ai, github.com/unslothai/unsloth) — the
 # local LLM inference web UI + OpenAI/Anthropic-compatible API server — as a
-# home-manager module, in the same style as ../clm/home.nix.
+# home-manager module, in the same style as ../laya/home.nix.
 #
 # Studio is not in nixpkgs and upstream installs it imperatively (curl | sh
 # into ~/.unsloth), so this module is activation scripts + systemd user units
@@ -11,14 +11,47 @@
 # The Decision API (Studio → Settings → API → Decision API → "Serve
 # requests") serves open System One decision models (Laya, Clef, ...) behind
 # a TypeSafe-compatible POST /v1/systemone on the SAME port as the web UI.
-# The opencode `jev` MCP (users/opencode.nix) points there. Two GUI toggles
-# are per-install, one-time settings this module cannot set declaratively:
-# "Serve requests" (downloads the ~678 MB Laya checkpoint on first use) and
-# "Keyless API access" (localhost requests skip the bearer key).
+# Harness clients (users/opencode.nix), both gated on laptop-p16: the pinned
+# `jev` MCP (composed judgment tools, stdio) posts here, and the `systemone`
+# MCP reads the native /mcp/decisions mount with one raw `decide` tool.
+#
+# Model and device are picked in that same panel and stored in Studio's DB
+# (~/.unsloth/studio/studio.db, app_settings rows), not here — deliberately.
+# The env overrides (UNSLOTH_SYSTEMONE_{MODEL,DEVICE,DISABLE}) do not supply
+# a default, they LOCK the value: device_locked() makes validate() reject any
+# GUI change. Leaving them unset keeps the panel editable.
+#
+# Fallbacks when the rows are absent or unrecognised: model
+# laya-multilingual, device cpu. CPU is the deliberate one — a CUDA context
+# opened in Studio's backend is never returned
+# (core/systemone/laya_runtime.py), so Laya on the dGPU holds VRAM for as
+# long as the backend lives, beside Strata's arena and llama-server's models.
+#
+# Checkpoints (core/systemone/catalog.py — this is the list the panel shows,
+# and it is longer than the Laya family). The three Laya ones are subfolders of
+# convaiinnovations/laya and download on first use:
+#   laya-multilingual      678 MB  mmBERT-base, 1024 tok, 100+ languages
+#   laya-english           846 MB  ModernBERT, 512 tok
+#   laya-typed-decisions   846 MB  English, four typed-decision workflows
+# The catalog also lists laya-gguf and third-party decision models (clef,
+# clef-flash, kev-0.8b/4b/9b, lev, julia-1, openjev, bespoke-nimble-9b-v3), some
+# flagged llama.cpp-only — that names the serving backend, not a GPU
+# requirement. With device = cpu every checkpoint runs CPU-only, beside Strata
+# instead of competing for the A3000; what you pay is latency. One forward pass
+# on laya-multilingual is ~120 ms measured, while the autoregressive kev-* ones
+# take seconds (kev-0.8b) to tens of seconds (kev-9b) per decision, and each
+# swap evicts the resident model. The 120 ms checkpoint is therefore the default
+# and the large ones are reached only by explicit escalation — the
+# `systemone_deep` plugin tool in the harness repo.
+#
+# "Serve requests" itself (a DB row with no env equivalent) and "Keyless API
+# access" (localhost requests skip the bearer key) stay per-install GUI
+# settings.
 #
 # ONE INSTANCE PER HOST: Studio installs per-user into $HOME and binds the
 # port below, so a second user enabling this on the same machine would
-# collide. Other users on the host simply point their clients at
+# collide; a second instance needs its own $HOME prefix as well as its own
+# port. Other users on the host simply point their clients at
 # http://127.0.0.1:<port>. For the API to be up no matter who is logged in,
 # the host must set `users.users.nicky.linger = true` (all three hosts do).
 # Today it is enabled for nicky only; aeiuno's opencode reaches the same
@@ -394,8 +427,9 @@ in
 
     systemd.user.services = {
       # Always-on Studio: the web UI/API and the Decision API
-      # (/v1/systemone) that the opencode `jev` MCP calls. Needs linger on
-      # the NixOS side to survive logout (see the header comment).
+      # (/v1/systemone + the /mcp/decisions mount), which the `jev` and
+      # `systemone` MCPs call. Needs linger on the NixOS side to survive
+      # logout (see the header comment).
       unsloth-studio = {
         Unit = {
           Description = "Unsloth Studio - local LLM inference web UI";

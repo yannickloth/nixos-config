@@ -9,7 +9,8 @@
     "../llm-harness-plugins/tier-router/opencode",
     "../llm-harness-plugins/agentinsights/opencode",
     "../llm-harness-plugins/ivp/opencode",
-    "../llm-harness-plugins/codify-first/opencode"
+    "../llm-harness-plugins/codify-first/opencode",
+    "../llm-harness-plugins/systemone/opencode"
   ],
   "agent": {
     "driver-identifier": {

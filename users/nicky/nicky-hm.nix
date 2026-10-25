@@ -65,7 +65,6 @@ in
     ../common-hm.nix
     ../emacs-adult.nix
     ../../packages/laya/home.nix
-    ../../packages/clm/home.nix
     ../../packages/strata/home.nix
     ../../packages/unsloth-studio/home.nix
     ../natural-scroll.nix
@@ -121,17 +120,23 @@ in
   # off. Set back to isP16 to re-enable on laptop-p16.
   laya.enable = false;
 
-  # CLM (Contrastive Language Models) encoder + API server user services, from
-  # the reusable packages/clm package/module. Same GPU gating as laya: the
-  # Qwen3-8B encoder wants ~17 GB VRAM on top of what laya/unsloth hold. If
-  # VRAM gets tight, keep the service but set clm.enableEncoder = false and
-  #   point clm.embUrl at another host's encoder.
-  clm.enable = isP16;
+  # CLM is gone entirely: package, flake output, module and service units all
+  # removed. Unsloth Studio's Decision API serves the same System 1 shape
+  # locally — POST /v1/systemone plus the /mcp/decisions MCP mount — and runs
+  # the model on CPU, so a separate stack (Qwen3-8B pooling encoder wanting
+  # ~17 GB of VRAM on top of Strata and Studio, plus a 75 MB head on
+  # clm-serve) had nothing left to add here. It was never provisioned either:
+  # no ~/.local/share/clm venv ever existed, so both units sat installed and
+  # inactive. Recoverable from git if the engine is ever wanted back.
 
   # Unsloth Studio on every host (packages/unsloth-studio/home.nix): the
   # local inference UI/API and — the reason it left its laptop-p16-only gate
   # — the Decision API, which serves open System One models (Laya, ...) on a
-  # TypeSafe-compatible /v1/systemone that the opencode `jev` MCP calls.
+  # TypeSafe-compatible /v1/systemone. This is the local decisional endpoint:
+  # the opencode `jev` and `systemone` MCPs both call it, `systemone` through
+  # the native /mcp/decisions mount. Its model and device live in Studio's DB
+  # panel, not here; that module's header records why the env overrides are
+  # deliberately unset.
   # ONE instance per host: Studio installs per-user into $HOME and binds
   # :8888, so aeiuno does not enable it — her opencode reaches the same
   # localhost endpoint. Hosts set users.users.nicky.linger = true so the API
@@ -144,7 +149,7 @@ in
   unsloth-studio.strataGpuHandoff = isP16;
 
   # Strata (Qwen3.8-Flash-Next 125B MoE inference, OpenAI/Anthropic API on
-  # localhost). Same GPU gating as laya/clm: the engine is built for the
+  # localhost). Same GPU gating as laya: the engine is built for the
   # A3000's sm_86 and the runtime wants its 12 GB of VRAM plus 34-50 GB of
   # RAM for the expert arena. First `strata` run downloads the ~70-84 GB
   # model into ~/.local/share/strata (STRATA_HOME overrides the directory).

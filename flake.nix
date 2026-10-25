@@ -297,8 +297,8 @@
         };
 
 
-      # System 1 decision engines. Scope wrappers live beside them:
-      # packages/laya/{home,nixos}.nix and packages/clm/home.nix.
+      # System 1 decision engines. Scope wrapper lives beside it:
+      # packages/laya/{home,nixos}.nix.
       #
       # Everything lives in ONE packages.${system} attrset: flake outputs do not
       # merge repeated dynamic-attribute paths. The ArtCraft "Crafting Apps"
@@ -319,7 +319,6 @@
         })
         // {
           laya = pkgs.callPackage ./packages/laya { };
-          clm = pkgs.callPackage ./packages/clm { };
           # Strata (packages/strata): CUDA inference engine for the A3000
           # (sm_86) + runtime wrappers; consumed via home-manager
           # (packages/strata/home.nix, `strata.enable`). This generic attribute

@@ -54,9 +54,10 @@ in
   };
 
   config = mkIf config.opencode.enable {
-    # The TypeSafe `jev` MCP entry below runs `npx -y @jkudish/jev-mcp`, so the
-    # Node toolchain must be on PATH for every user with this module enabled
-    # (previously only nicky had it via her own home.packages). open-code-review
+    # Node toolchain (npx): the `jev` MCP entry below runs
+    # `npx -y @jkudish/jev-mcp`, and the skills install flows documented in
+    # packages/{orca,browseros,rea} are `npx skills add ...`, so npx stays on
+    # PATH for every user with this module enabled. open-code-review
     # (ocr) is Alibaba's AI code-review CLI: it consumes the LLM providers
     # configured below (via `ocr config provider`, or delegation mode) — it is
     # not a provider itself (open-codereview.ai serves no LLM API; see
@@ -421,11 +422,13 @@ in
 
             # Laya System 1 decision engine, served as a shared streamable-HTTP MCP
             # server by the packages/laya home-manager module. The MCP entry is
-            # registered only when that feature is enabled for this user, but it is
-            # DISABLED by default: laya is a local engine and when its checkpoint is
-            # not loaded every call hung for the full 120s timeout. Routing/decisions
-            # now go to deepseek-flash (see tier-router and the local_decide tool), so
-            # flip `enabled` back to true only when laya is actually running.
+            # registered only when that feature is enabled for this user, and it is
+            # DISABLED because laya is not deployed: with its checkpoint unloaded
+            # every call hangs for the full 120s timeout. Decisional prompts are
+            # served locally by Studio's Decision API instead (POST /v1/systemone,
+            # see packages/unsloth-studio/home.nix), which is the only local
+            # decision backend this config runs. Flip `enabled` back to true only
+            # when laya actually runs.
             mcp = optionalAttrs (config.laya.enable or false)
               {
                 laya = {
@@ -434,18 +437,60 @@ in
                   enabled = false;
                   timeout = 120000;
                 };
-              } // {
-              # Jev judgment tools (@jkudish/jev-mcp), global so every project sees
-              # them. They run against the local Unsloth Studio Decision API: a
-              # TypeSafe-compatible POST /v1/systemone on Studio's port that
-              # serves open System One models (Laya, ...). One Studio instance
-              # per host, run as nicky with linger (see
-              # packages/unsloth-studio/home.nix) — both users of this module
-              # reach the same localhost endpoint. The MCP's `compatible`
-              # provider takes the full POST URL in JEV_API_BASE_URL; under
-              # Studio's Keyless-localhost setting the bearer is ignored, so a
-              # literal keeps the provider resolver (which requires both vars)
-              # happy without a key file.
+              } // optionalAttrs isP16 {
+              # System One decision tools straight from local Unsloth Studio, so
+              # decisional prompts stay on this machine. Studio serves this
+              # itself: routes/systemone.py builds a FastMCP ("Unsloth
+              # Decisions") mounted at /mcp/decisions with stateless_http and
+              # json_response, exposing one tool, `decide(state, questions)`,
+              # whose schema documents the noul / choice / score question types.
+              # So there is no vendor client and no npx package to pin; the
+              # endpoint runs Laya on CPU (see packages/unsloth-studio/home.nix).
+              #
+              # Auth is the owner's Studio key — the same file the
+              # unsloth-studio provider reads. /mcp/decisions is wrapped in
+              # RequireStudioAuth, which calls security() directly and so
+              # bypasses keyless admission: a dummy bearer gets 401 (verified),
+              # the real key gets 200. oauth = false because this is a header
+              # credential, not an OAuth server.
+              #
+              # Tools surface as systemone_<tool> (here systemone_decide). If the
+              # connection reports 401, the `{file:}` substitution is not being
+              # applied inside headers on this OpenCode build; switch to
+              # "Bearer {env:UNSLOTH_API_KEY}" and export that variable.
+              systemone = {
+                type = "remote";
+                url = "http://127.0.0.1:8888/mcp/decisions/";
+                oauth = false;
+                enabled = true;
+                headers = {
+                  Authorization = "Bearer ${keyfile "unsloth"}";
+                };
+              };
+
+              # Jev judgment tools (@jkudish/jev-mcp): 12 composed workflows —
+              # screen, verify, noul, find, rerank, classify, decide, compare,
+              # extract, audit, review, gate (exactly these 12 as of 0.14.4;
+              # confirmed with a live tools/list, which is the only reliable
+              # source — the package README and the skill text hint at extras
+              # the server does not expose). They are prompt decompositions of
+              # the same System One primitive that `systemone_decide` exposes
+              # raw, kept because they encode workflows you would otherwise
+              # have to rebuild per call.
+              #
+              # Local-only, verified in the package source: with
+              # JEV_PROVIDER=compatible, dist/provider.js `resolve` demands both
+              # JEV_API_KEY and JEV_API_BASE_URL and throws when either is
+              # missing, and `askJev` then POSTs to JEV_API_BASE_URL verbatim —
+              # it cannot fall back to TypeSafe's hosted endpoint. TypeSafe-direct
+              # is only the `auto` default when TYPESAFE_API_KEY is set.
+              #
+              # Auth differs from the entry above on purpose: /v1/systemone is in
+              # the keyless inference routes, so the bearer here is a literal
+              # placeholder, while /mcp/decisions is wrapped in RequireStudioAuth
+              # and needs the real owner key.
+              #
+              # `npx -y` executes pinned third-party JS against your state.
               jev = {
                 type = "local";
                 # Version-pinned: `npx -y` alone resolves "latest" on every
@@ -457,8 +502,7 @@ in
                   JEV_API_BASE_URL = "http://127.0.0.1:8888/v1/systemone";
                   JEV_API_KEY = "keyless";
                 };
-                # Only laptop-p16 runs the Unsloth Studio backend.
-                enabled = isP16;
+                enabled = true;
               };
             } // optionalAttrs (pkgs ? rea) {
               # REA (packages/rea): reverse-engineering toolkit (native binaries,
@@ -549,8 +593,35 @@ in
           # O_CREAT only applies the mode on creation; tighten existing files.
           os.fchmod(fd, 0o600)
           with os.fdopen(fd, "w") as out:
-              out.write(key + "\n")
+              # No trailing newline: these files are read back through the
+              # file: interpolation used by provider apiKey values and MCP
+              # headers, and an `Authorization: Bearer` header would otherwise
+              # carry the newline in the token (a protocol error, or a silently
+              # invalid credential).
+              out.write(key)
           print(f"opencode: wrote {path}")
+      # Repair files the secret no longer supplies, and any left by an older
+      # version of this script. Without this, a key whose URL was dropped from
+      # the secret stays on disk with its trailing newline, and that newline
+      # rides inside an `Authorization: Bearer {file:...}` header as a silently
+      # invalid credential. (Exactly what happened to unsloth.key.)
+      for entry in sorted(os.listdir(keydir)):
+          path = os.path.join(keydir, entry)
+          if os.path.islink(path) or not os.path.isfile(path):
+              continue
+          try:
+              with open(path, encoding="utf-8") as fh:
+                  current = fh.read()
+              stripped = current.rstrip()
+              if stripped == current:
+                  continue
+              fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+              os.fchmod(fd, 0o600)
+              with os.fdopen(fd, "w", encoding="utf-8") as out:
+                  out.write(stripped)
+              print(f"opencode: normalized {path}")
+          except OSError as exc:
+              print(f"opencode: could not normalize {path}: {exc}", file=sys.stderr)
       PYEOF
     '';
   };
