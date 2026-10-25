@@ -69,9 +69,9 @@
 # (STRATA_IQ256_GATHER, upstream PR #622) is upstream as of 0.1.40, behind
 # per-thread selection (see packages/strata/default.nix). The engine-lifecycle
 # API this comment used to mention is upstream as of 0.1.31 (--idle-unload).
-# Pinned to Strata 0.2.3.1 (7ddc17a), whose engine is 0.1.48.1: the 0.2 releases
+# Pinned to Strata 0.2.6 (4b9e05a2), whose engine is 0.1.51: the 0.2 releases
 # split the engine from the app/Terminal (separately versioned from now on) and
-# bumped the engine to 0.1.46 -> 0.1.47 -> 0.1.48 - Gyro trellis experts on CUDA/HIP/SYCL/
+# bumped the engine to 0.1.46 -> 0.1.47 -> 0.1.48 -> 0.1.50 -> 0.1.51 - Gyro trellis experts on CUDA/HIP/SYCL/
 # Metal, GPU roles, the NUMA-split CPU pool, an optional API key. Two engine
 # changes matter to this package: the K-quant MMQ prompt kernels moved into
 # libstrata_kq.so, which the engine dlopens from its own folder (installed
@@ -102,14 +102,14 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "7ddc17a38fe7f31637e895ecfba58c2cd43d65ec";  # v0.2.3.1; engine 0.1.48.1
-    hash = "sha256-/XIjcm1AWS//7AA734FhHCrQlFdylqiPiVVzYksHiAA=";
+    rev = "4b9e05a2a806a3fe24f7b2560d98626c37dade35";  # v0.2.6; engine 0.1.51
+    hash = "sha256-HLlmKl+RDIP84KdifVUzduQ+ZN+51DbGaw9t+ITJkm8=";
   },
   # The engine's own version (CMakeLists.txt's project(VERSION ...)), passed from
   # default.nix. Since Strata 0.2.0 the engine is versioned apart from the app:
-  # the v0.2.3.1 tree builds engine 0.1.48.1 while the app is 0.2.3 (0.2.3.1
-  # changed only the Terminal's Control, to 0.1.48.1).
-  engineVersion ? "0.1.48.1",
+  # the v0.2.6 tree builds engine 0.1.51 while the app is 0.2.6 (since 0.2.4 the
+  # releases also ship separately versioned engine packages, 0.1.50 in v0.2.5).
+  engineVersion ? "0.1.51",
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
     repo = "llama.cpp";

@@ -1,9 +1,11 @@
 # The Strata desktop app (Tauri 2), installed as upstream's Linux AppImage.
 #
 # Upstream publishes the app only as prebuilt installers; the Linux artifact is
-# a Tauri AppImage that carries its own Node sidecar, its own Strata Control
-# (pinned CPython + hash-locked wheels) and an engine package. Consequences,
-# all from 0.2.3.1's `apps/host/server/`:
+# a Tauri AppImage that carries its own Node sidecar and its own Strata Control
+# (pinned CPython + hash-locked wheels). Since 0.2.5 it ships NO engine: the
+# engine component packages are separately versioned downloads (strata-engine-
+# 0.1.50-* in the v0.2.6 release) the app installs on demand. Consequences,
+# all from 0.2.6's `apps/host/server/`:
 #
 # - It does NOT reuse the systemd `strata.service` *process* or its port: the
 #   app starts its own server through its bundled Control (control-runtime.mjs:
@@ -18,9 +20,10 @@
 # - It does NOT reuse the Nix-built engine binary. bundled-engine.mjs looks for
 #   an engine *component package* under <components>/engine/ (checked against
 #   engine-component.json); packages/strata writes ~/.local/share/strata/engine
-#   with a BUILD.json instead, which is not that shape. First start copies the
-#   bundled 0.1.48 engine into ~/.local/share/strata/components (~1 GB); an
-#   installed component of the same or a newer version is never touched.
+#   with a BUILD.json instead, which is not that shape. The AppImage no longer
+#   bundles an engine (its engine-bundle/ is an empty placeholder), so first
+#   start downloads the component package (~1 GB); an installed component of
+#   the same or a newer version is never touched.
 # - It DOES share the models. Models folder, run configs, MTP layer and the
 #   inventory are one set for the app and the Terminal ("Desktop and Terminal
 #   share the same model inventory, profiles, runtime and agent sessions"), so
@@ -36,18 +39,16 @@
 }:
 
 let
-  # Release v0.2.3.1 carries artifacts named 0.2.3: 0.2.3.1 changed only the
-  # Terminal's Control (0.1.48.1); the app and the engine packages are the
-  # 0.2.3 files. NVIDIA CUDA 13 build: the lane engine.nix builds for
-  # (engine/ = CUDA 13, engine-cuda12/ is the experimental one), and the build
-  # upstream's packaging matrix ran. Needs driver >= 580.
-  tag = "v0.2.3.1";
-  version = "0.2.3";
+  # Release v0.2.6. Since 0.2.5 there is one Linux artifact per release, named
+  # Strata-<version>-linux-x86_64.AppImage (the NVIDIA CUDA 13 lane is gone:
+  # the AppImage ships no engine; engines are separate component packages).
+  tag = "v0.2.6";
+  version = "0.2.6";
 
   src = fetchurl {
-    name = "Strata-${version}-linux-nvidia-cuda13.AppImage";
-    url = "https://github.com/Niko1221/Strata/releases/download/${tag}/Strata-${version}-linux-nvidia-cuda13.AppImage";
-    hash = "sha256-RxKvw/mEDuL8zpDvaVR4/dPbHX0CFN6Q87D99Iw1Hm0=";
+    name = "Strata-${version}-linux-x86_64.AppImage";
+    url = "https://github.com/Niko1221/Strata/releases/download/${tag}/Strata-${version}-linux-x86_64.AppImage";
+    hash = "sha256-a1Er+rMmFiawpNFJP6QU8FytED9RQP6BfGMJSkpQKFg=";
   };
 
   # 128x128@2x = what a 256x256 hicolor entry wants. fetchurl refuses a file
