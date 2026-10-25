@@ -54,8 +54,7 @@ in
   };
 
   config = mkIf config.opencode.enable {
-    # Node toolchain (npx): the `jev` MCP entry below runs
-    # `npx -y @jkudish/jev-mcp`, and the skills install flows documented in
+    # Node toolchain (npx): the skills install flows documented in
     # packages/{orca,browseros,rea} are `npx skills add ...`, so npx stays on
     # PATH for every user with this module enabled. open-code-review
     # (ocr) is Alibaba's AI code-review CLI: it consumes the LLM providers
@@ -468,42 +467,16 @@ in
                 };
               };
 
-              # Jev judgment tools (@jkudish/jev-mcp): 12 composed workflows —
-              # screen, verify, noul, find, rerank, classify, decide, compare,
-              # extract, audit, review, gate (exactly these 12 as of 0.14.4;
-              # confirmed with a live tools/list, which is the only reliable
-              # source — the package README and the skill text hint at extras
-              # the server does not expose). They are prompt decompositions of
-              # the same System One primitive that `systemone_decide` exposes
-              # raw, kept because they encode workflows you would otherwise
-              # have to rebuild per call.
-              #
-              # Local-only, verified in the package source: with
-              # JEV_PROVIDER=compatible, dist/provider.js `resolve` demands both
-              # JEV_API_KEY and JEV_API_BASE_URL and throws when either is
-              # missing, and `askJev` then POSTs to JEV_API_BASE_URL verbatim —
-              # it cannot fall back to TypeSafe's hosted endpoint. TypeSafe-direct
-              # is only the `auto` default when TYPESAFE_API_KEY is set.
-              #
-              # Auth differs from the entry above on purpose: /v1/systemone is in
-              # the keyless inference routes, so the bearer here is a literal
-              # placeholder, while /mcp/decisions is wrapped in RequireStudioAuth
-              # and needs the real owner key.
-              #
-              # `npx -y` executes pinned third-party JS against your state.
-              jev = {
-                type = "local";
-                # Version-pinned: `npx -y` alone resolves "latest" on every
-                # session start, so an upstream publish would silently change
-                # what agents execute.
-                command = [ "npx" "-y" "@jkudish/jev-mcp@0.14.4" ];
-                environment = {
-                  JEV_PROVIDER = "compatible";
-                  JEV_API_BASE_URL = "http://127.0.0.1:8888/v1/systemone";
-                  JEV_API_KEY = "keyless";
-                };
-                enabled = true;
-              };
+              # No Jev MCP here on purpose. The `@jkudish/jev-mcp` stdio server
+              # shipped 12 prompt decompositions (screen, verify, noul, find,
+              # rerank, classify, decide, compare, extract, audit, review, gate)
+              # over the same local System One primitive `systemone_decide`
+              # exposes raw — so it added a third-party `npx -y` package that
+              # executes JS against this state, and nothing the local plugin
+              # does not cover. Those workflows now live in the systemone plugin
+              # (llm-harness-plugins/systemone) against the local decision API.
+              # Do not re-add a hosted Jev client here: it would send local
+              # judgment prompts to a third party.
             } // optionalAttrs (pkgs ? rea) {
               # REA (packages/rea): reverse-engineering toolkit (native binaries,
               # JS/Electron, .NET, websites, ...) served over stdio MCP. Only

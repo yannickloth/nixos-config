@@ -11,9 +11,12 @@
 # The Decision API (Studio → Settings → API → Decision API → "Serve
 # requests") serves open System One decision models (Laya, Clef, ...) behind
 # a TypeSafe-compatible POST /v1/systemone on the SAME port as the web UI.
-# Harness clients (users/opencode.nix), both gated on laptop-p16: the pinned
-# `jev` MCP (composed judgment tools, stdio) posts here, and the `systemone`
-# MCP reads the native /mcp/decisions mount with one raw `decide` tool.
+# Harness clients (users/opencode.nix), gated on laptop-p16: the `systemone`
+# MCP reads the native /mcp/decisions mount with one raw `decide` tool, and the
+# systemone plugin (llm-harness-plugins/systemone) posts its packaged judgments
+# to /v1/systemone with the owner key. No third-party composed MCP judgment
+# server is registered: it covered the same primitive through `npx -y`, and the
+# plugin covers it locally.
 #
 # Model and device are picked in that same panel and stored in Studio's DB
 # (~/.unsloth/studio/studio.db, app_settings rows), not here — deliberately.
@@ -427,8 +430,8 @@ in
 
     systemd.user.services = {
       # Always-on Studio: the web UI/API and the Decision API
-      # (/v1/systemone + the /mcp/decisions mount), which the `jev` and
-      # `systemone` MCPs call. Needs linger on the NixOS side to survive
+      # (/v1/systemone + the /mcp/decisions mount), which the `systemone` MCP
+      # and the systemone plugin call. Needs linger on the NixOS side to survive
       # logout (see the header comment).
       unsloth-studio = {
         Unit = {

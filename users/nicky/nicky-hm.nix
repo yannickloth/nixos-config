@@ -133,8 +133,9 @@ in
   # local inference UI/API and — the reason it left its laptop-p16-only gate
   # — the Decision API, which serves open System One models (Laya, ...) on a
   # TypeSafe-compatible /v1/systemone. This is the local decisional endpoint:
-  # the opencode `jev` and `systemone` MCPs both call it, `systemone` through
-  # the native /mcp/decisions mount. Its model and device live in Studio's DB
+  # the opencode `systemone` MCP reaches it through the native /mcp/decisions
+  # mount, and the systemone plugin (llm-harness-plugins/systemone) posts its
+  # packaged judgments to /v1/systemone. Its model and device live in Studio's DB
   # panel, not here; that module's header records why the env overrides are
   # deliberately unset.
   # ONE instance per host: Studio installs per-user into $HOME and binds
