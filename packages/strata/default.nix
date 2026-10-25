@@ -55,11 +55,17 @@
 #   (the lib-driver dir, see ./engine.nix): launching serve/server.py by hand
 #   without it fails with a misleading "cannot pin 322 MiB: CUDA driver
 #   version is insufficient".
-# - Measured speed (0.1.31+, fixed 22-token prompt, bench/a3000-tune.sh):
-#   ~28-33 tok/s decode; the 0.1.18-era ~6 tok/s figure predates the engine
-#   fixes upstream landed in 0.1.19-0.1.31. At 0.1.44.1 the A/B above measured
-#   ~38-56 tok/s depending on prompt and context (Swift IQ3_XXS pack, the
-#   production config). Interactive-snappy local chat stays on unsloth-studio's
+# - Measured speed (suite: tools/strata_bench.py, suite 1; the pre-0.2 notes
+#   used a fixed 22-token prompt via bench/a3000-tune.sh): ~28-33 tok/s decode
+#   at 0.1.31+; the 0.1.18-era ~6 tok/s figure predates the engine fixes
+#   upstream landed in 0.1.19-0.1.31. ~38-56 tok/s at 0.1.44.1 depending on
+#   prompt and context (Swift IQ3_XXS pack, the production config). At 0.1.51
+#   (v0.2.6, 2026-10-25, bench/results/2026-10-25-community-*-iq3-xxs-2 in the
+#   runtime dir): 56.9 tok/s short-chat decode (47.8-62.9), 53.9 on
+#   agent-session follow-ups, prefill a wash at 4K/16K (~1050-1150 tok/s) -
+#   and the conversation cache hits for the first time (70.8%, follow-up TTFT
+#   35.2 -> 2.4 s; on 0.1.47 every turn re-read all ~20K context tokens at a
+#   0.0% hit). Interactive-snappy local chat stays on unsloth-studio's
 #   9B GGUFs; this is the quality endpoint for opencode.
 {
   lib

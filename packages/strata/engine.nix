@@ -33,9 +33,10 @@
 #   Upstream: "removing refusals removes a safety behaviour".  Off by default;
 #   keep it off unless that trade is wanted knowingly.
 #
-#   Remaining headroom is now ~2.3x to the desktop benchmark card's 64.6 tok/s
-#   (IQ3_XXS, RTX 5070) - consistent with 2x bandwidth and a 60-80W laptop
-#   part, rather than the 9x gap the stale pin suggested.
+#   Remaining headroom to the desktop benchmark card's 64.6 tok/s (IQ3_XXS,
+#   RTX 5070) is ~1.1x: 0.1.51 measures 56.9 tok/s short-chat decode here
+#   (2026-10-25; the ~2.3x note above was against the 0.1.18-era 28.4, and the
+#   9x gap the stale pin suggested is long gone).
 #
 # Two CUDA builds ship here:
 #   strata        - the inference engine (main target)
