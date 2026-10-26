@@ -19,7 +19,7 @@
     namaka.inputs.nixpkgs.follows = "nixpkgs";
     namaka.inputs.haumea.inputs.nixpkgs.follows = "nixpkgs";
     # Strata (github.com/Niko1221/Strata) is not a flake input: packages/strata
-    # fetches it directly with fetchFromGitHub, pinned to v0.2.2 (engine 0.1.47;
+    # fetches it directly with fetchFromGitHub, pinned to v0.2.6 (engine 0.1.51;
     # the app and the engine are versioned separately since 0.2.0) in
     # engine.nix/default.nix. (It used to be the private yannickloth/forks-Strata
     # fork's sm_86 branch; upstream 0.1.40.3 now carries every engine change the
@@ -297,9 +297,6 @@
         };
 
 
-      # System 1 decision engines. Scope wrapper lives beside it:
-      # packages/laya/{home,nixos}.nix.
-      #
       # Everything lives in ONE packages.${system} attrset: flake outputs do not
       # merge repeated dynamic-attribute paths. The ArtCraft "Crafting Apps"
       # (packages/craft-apps) already come as an attrset, so they are spread in
@@ -318,7 +315,6 @@
           inherit (pkgs) lib appimageTools fetchurl;
         })
         // {
-          laya = pkgs.callPackage ./packages/laya { };
           # Strata (packages/strata): CUDA inference engine for the A3000
           # (sm_86) + runtime wrappers; consumed via home-manager
           # (packages/strata/home.nix, `strata.enable`). This generic attribute

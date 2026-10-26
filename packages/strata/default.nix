@@ -3,8 +3,8 @@
 # sm_86): OpenAI- and Anthropic-compatible API on localhost, browser chat
 # page, terminal chat.
 #
-# Packaged like ./laya: the CUDA engine is built in the store (see
-# ./engine.nix), while the multi-GB model files, the expert pack, the MTP
+# The CUDA engine is built in the store (see ./engine.nix), while the
+# multi-GB model files, the expert pack, the MTP
 # draft layer and the Python environment live in a writable runtime directory
 # (~/.local/share/strata, override with STRATA_HOME) and are downloaded or
 # created on first run - exactly what upstream's setup.py does, minus the
@@ -452,7 +452,7 @@ let
                 case "$arg" in --plan | --check | --no-start | --help | -h) plan_only=1 ;; esac
               done
               if [ "$plan_only" = 0 ]; then
-                for unit in strata unsloth-studio laya-mcp; do
+                for unit in strata unsloth-studio; do
                   if systemctl --user is-active --quiet "$unit" 2>/dev/null; then
                     echo "Strata: stopping $unit (frees VRAM/RAM for the model)..." >&2
                     systemctl --user stop "$unit" || true
@@ -477,8 +477,8 @@ let
         fi
 
         # The model wants the A3000's full 12 GB of VRAM and tens of GB of
-        # RAM, so free them: stop the GPU-resident user services (unsloth-
-        # studio, laya-mcp) when the model is actually about to start
+        # RAM, so free them: stop the GPU-resident user service (unsloth-
+        # studio) when the model is actually about to start
         # (--setup/--check/--no-start don't). Restart afterwards with
         # systemctl --user start <unit>.
         start_model=1
@@ -488,7 +488,7 @@ let
           esac
         done
         if [ "$start_model" = 1 ]; then
-          for unit in strata unsloth-studio laya-mcp; do
+          for unit in strata unsloth-studio; do
             if systemctl --user is-active --quiet "$unit" 2>/dev/null; then
               echo "Strata: stopping $unit (frees VRAM/RAM for the model)..." >&2
               systemctl --user stop "$unit"

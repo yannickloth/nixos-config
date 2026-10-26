@@ -64,7 +64,6 @@ in
   imports = [
     ../common-hm.nix
     ../emacs-adult.nix
-    ../../packages/laya/home.nix
     ../../packages/strata/home.nix
     ../../packages/unsloth-studio/home.nix
     ../natural-scroll.nix
@@ -114,11 +113,13 @@ in
     # No Tailscale address pinned: the launcher derives it at start.
   };
 
-  # Laya (System 1 decision engine) + its MCP server, from the reusable
-  # packages/laya package/module. DISABLED 2026-09-28: laya is not in use, so
-  # the package, its user service, and the (gated) opencode MCP entry are all
-  # off. Set back to isP16 to re-enable on laptop-p16.
-  laya.enable = false;
+  # Laya is gone entirely: package, flake output, home/nixos modules, the
+  # laya-mcp user service and the (gated) opencode MCP entry all removed. It was
+  # disabled since 2026-09-28, and Unsloth Studio's Decision API already serves
+  # the same System One shape locally — POST /v1/systemone and the
+  # /mcp/decisions MCP mount, the latter registering as opencode's `systemone`
+  # server — so a second engine with its own checkpoint, venv and port had
+  # nothing left to add. Recoverable from git if it is ever wanted back.
 
   # CLM is gone entirely: package, flake output, module and service units all
   # removed. Unsloth Studio's Decision API serves the same System 1 shape
@@ -150,7 +151,7 @@ in
   unsloth-studio.strataGpuHandoff = isP16;
 
   # Strata (Qwen3.8-Flash-Next 125B MoE inference, OpenAI/Anthropic API on
-  # localhost). Same GPU gating as laya: the engine is built for the
+  # localhost). GPU-gated to laptop-p16: the engine is built for the
   # A3000's sm_86 and the runtime wants its 12 GB of VRAM plus 34-50 GB of
   # RAM for the expert arena. First `strata` run downloads the ~70-84 GB
   # model into ~/.local/share/strata (STRATA_HOME overrides the directory).

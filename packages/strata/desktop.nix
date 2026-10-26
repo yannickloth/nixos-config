@@ -72,11 +72,11 @@ in
   # uses. Only when the person intends to load a *local* model in the app - its
   # own engine then needs the whole 12 GB card, and one owner holds it at a
   # time - the module sets STRATA_APP_STOP_SERVER=1 and the launcher frees the
-  # GPU first, the way the `strata` wrapper does. `laya-mcp` exists on some
-  # hosts only; systemctl's failure there is expected and ignored.
+  # GPU first, the way the `strata` wrapper does. Units missing on a host make
+  # systemctl fail there, which is expected and ignored.
   wrapper = writeShellScriptBin "strata-app" ''
     if [ "''${STRATA_APP_STOP_SERVER:-0}" = 1 ]; then
-      for unit in strata unsloth-studio laya-mcp; do
+      for unit in strata unsloth-studio; do
         if systemctl --user is-active --quiet "$unit" 2>/dev/null; then
           echo "Strata app: stopping $unit (frees VRAM/RAM for a local model)..." >&2
           systemctl --user stop "$unit" || true

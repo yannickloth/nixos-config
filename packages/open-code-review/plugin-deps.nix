@@ -24,7 +24,7 @@
 }:
 
 let
-  version = "1.13.2";
+  version = "1.13.3";
 
   # Plugin file pinned to the same release as the CLI so tools and CLI stay
   # in sync (hash via `nix store prefetch-file`).

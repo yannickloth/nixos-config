@@ -88,7 +88,7 @@ in
         type = types.bool;
         default = false;
         description = ''
-          Stop `strata.service` (and unsloth-studio, laya-mcp) before the app
+          Stop `strata.service` (and unsloth-studio) before the app
           starts. Off by default: as a front end the app can point at a running
           server or another API, and stopping it would break that connection.
           Turn it on only if you load a *local* model in the app - its own

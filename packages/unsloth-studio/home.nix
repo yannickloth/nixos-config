@@ -1,6 +1,6 @@
 # Unsloth Studio (https://unsloth.ai, github.com/unslothai/unsloth) — the
 # local LLM inference web UI + OpenAI/Anthropic-compatible API server — as a
-# home-manager module, in the same style as ../laya/home.nix.
+# home-manager module.
 #
 # Studio is not in nixpkgs and upstream installs it imperatively (curl | sh
 # into ~/.unsloth), so this module is activation scripts + systemd user units
@@ -134,8 +134,8 @@ in
         # Pinned release (fetchurl verifies the hash): "releases/latest"
         # downloaded and installed whatever GitHub served at switch time.
         UNSLOTH_DESKTOP_APPIMAGE=${pkgs.fetchurl {
-          url = "https://github.com/unslothai/unsloth/releases/download/v0.1.909-beta/Unsloth-Desktop-Linux.AppImage";
-          sha256 = "07k4sghwpsbpnwk12m2x4pcxcapkrpkfnaqm7csymshkc4jm8nv2";
+          url = "https://github.com/unslothai/unsloth/releases/download/v0.1.910-beta/Unsloth-Desktop-Linux.AppImage";
+          sha256 = "sha256-5Ak9Z/oqc0jKdz4J9bxZgjLWBdIaAa9RfuoIgO1zbR8=";
         }}
         $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -Dm0755 "$UNSLOTH_DESKTOP_APPIMAGE" "$app"
       fi

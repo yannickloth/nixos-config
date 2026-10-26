@@ -24,21 +24,20 @@
 
 buildGoModule rec {
   pname = "open-code-review";
-  version = "1.13.2";
+  version = "1.13.3";
 
   src = fetchFromGitHub {
     owner = "alibaba";
     repo = "open-code-review";
     rev = "v${version}";
-    hash = "sha256-/ov2RIiZwbT7Pn9+lzvGBoOrjvGhW1asgKPf1kQUweQ=";
+    hash = "sha256-dDKNxjI0pWoJGabUvsGTERYKvKtvEm3UGD/FLPKpfnw=";
   };
 
   vendorHash = "sha256-LpqnNp6gxHatHH68pM59ESQICDDSVrkZm7AJLVvYTao=";
 
-  # The pinned nixpkgs-unstable (users/flake.lock rev 151fa4e8) ships Go
-  # 1.26.8; upstream's go.mod demands 1.26.9 — a patch release that adds no
-  # language features, so relax the directive. Drop this once nixpkgs-unstable
-  # carries Go >= 1.26.9.
+  # The pinned nixpkgs-unstable carries Go 1.26.10, which satisfies upstream's
+  # `go 1.26.9` directive, so go.mod is used as shipped (the 1.26.9 -> 1.26.8
+  # relax needed by the 1.13.2-era pin is gone).
   # Upstream embeds its extension allowlist (internal/config/allowlist/
   # supported_file_types.json) and its path-to-rule map into the binary with
   # //go:embed, so markdown cannot be enabled at run time — `ocr review
@@ -47,8 +46,6 @@ buildGoModule rec {
   # in here. Markdown carries the skills, agent prompts, and AGENTS.md files
   # that drive every other artifact in these repos; reviewing them is the point.
   postPatch = ''
-    substituteInPlace go.mod --replace-fail "go 1.26.9" "go 1.26.8"
-
     # Enable the extensions: append to the embedded allowlist array.
     substituteInPlace internal/config/allowlist/supported_file_types.json \
       --replace-fail '".metal"' '".metal", ".md", ".markdown"'

@@ -419,24 +419,11 @@ in
               };
             };
 
-            # Laya System 1 decision engine, served as a shared streamable-HTTP MCP
-            # server by the packages/laya home-manager module. The MCP entry is
-            # registered only when that feature is enabled for this user, and it is
-            # DISABLED because laya is not deployed: with its checkpoint unloaded
-            # every call hangs for the full 120s timeout. Decisional prompts are
-            # served locally by Studio's Decision API instead (POST /v1/systemone,
-            # see packages/unsloth-studio/home.nix), which is the only local
-            # decision backend this config runs. Flip `enabled` back to true only
-            # when laya actually runs.
-            mcp = optionalAttrs (config.laya.enable or false)
-              {
-                laya = {
-                  type = "remote";
-                  url = "http://127.0.0.1:${toString (config.laya.mcpPort or 8765)}/mcp";
-                  enabled = false;
-                  timeout = 120000;
-                };
-              } // optionalAttrs isP16 {
+            # System One decision tools come from Unsloth Studio only. The old
+            # packages/laya MCP server (a separate streamable-HTTP endpoint on
+            # port 8765) is gone with the package: Studio's Decision API serves
+            # the same shape locally, so there is nothing else to register.
+            mcp = optionalAttrs isP16 {
               # System One decision tools straight from local Unsloth Studio, so
               # decisional prompts stay on this machine. Studio serves this
               # itself: routes/systemone.py builds a FastMCP ("Unsloth
