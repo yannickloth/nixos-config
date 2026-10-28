@@ -71,6 +71,7 @@ in
     ../hyprland.nix
     ../../packages/orca/home.nix
     ../../packages/browseros/home.nix
+    ../../packages/libreoffice-mcp/home.nix
     ../../packages/opencode-desktop/home.nix
     ../../packages/rea/home.nix
     ../../packages/herdr/home.nix
@@ -93,6 +94,13 @@ in
   # BrowserOS neo: agent-driven browser for AI assistants (MCP), runs with the
   # user's real logins in its own profile.
   browseros.enable = true;
+
+  # LibreOffice MCP extension (packages/libreoffice-mcp): an MCP server runs
+  # inside the open LibreOffice window on https://localhost:8765/mcp (the
+  # default port; aeiuno uses 8766 so parallel sessions cannot attach to each
+  # other's documents), so agents edit the document the user is looking at.
+  # Registered in users/opencode.nix.
+  libreofficeMcp.enable = true;
 
   # opencode Desktop: the GUI of the opencode v2 line, next to the `opencode`
   # CLI in home.packages below. Both read ~/.config/opencode; the desktop app

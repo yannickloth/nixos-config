@@ -484,6 +484,40 @@ in
                 url = "http://127.0.0.1:9010/mcp";
                 enabled = true;
               };
+            } // optionalAttrs (config.libreofficeMcp.enable or false) {
+              # LibreOffice MCP (packages/libreoffice-mcp): the extension serves
+              # streamable HTTP from inside the running soffice process, so its
+              # tools act on the document the user has open, not on a copy.
+              # Upstream exposes /, /health (liveness only) and /mcp (the MCP
+              # endpoint) on the configured port; /health is not MCP.
+              #
+              # Local-only, by design: the server binds IPv4 loopback (the
+              # artifact pins Host=127.0.0.1) and upstream's tunnel support is
+              # left off. The URL spells out 127.0.0.1 rather than "localhost"
+              # because this host resolves localhost to ::1 first, which the
+              # server does not listen on — the numeric address makes client and
+              # socket agree without relying on Happy Eyeballs fallback.
+              #
+              # The generated cert has to reach Node-based MCP clients: the
+              # extension serves TLS with a self-signed cert (SAN localhost +
+              # 127.0.0.1, generated into ~/.config/libreoffice/mcp-certs on
+              # first start, which also keeps browser-origin requests out — the
+              # server sends Access-Control-Allow-Origin: *).
+              # packages/libreoffice-mcp/home.nix exports it as
+              # NODE_EXTRA_CA_CERTS, which is how opencode's Node fetch trusts
+              # it. Without that variable the connection fails with a
+              # self-signed certificate error, so a failed connection here
+              # usually means: env var missing (app started outside the HM
+              # session), LibreOffice closed, or the extension not loaded.
+              #
+              # The port comes from the same option that is patched into the
+              # extension (libreofficeMcp.port), never a hardcoded 8765, so two
+              # users on one host do not attach to each other's documents.
+              libreoffice = {
+                type = "remote";
+                url = "https://127.0.0.1:${toString config.libreofficeMcp.port}/mcp";
+                enabled = true;
+              };
             };
           };
         in
