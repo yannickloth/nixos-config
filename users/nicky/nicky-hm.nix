@@ -101,6 +101,10 @@ in
   # other's documents), so agents edit the document the user is looking at.
   # Registered in users/opencode.nix.
   libreofficeMcp.enable = true;
+  # Same build as the app in home.packages (libreoffice-qt6, not pkgs.libreoffice
+  # default): `unopkg` must come from the LibreOffice that actually runs, so the
+  # extension registers into the profile that build reads.
+  libreofficeMcp.libreoffice = pkgs.libreoffice-qt6;
 
   # opencode Desktop: the GUI of the opencode v2 line, next to the `opencode`
   # CLI in home.packages below. Both read ~/.config/opencode; the desktop app
@@ -368,7 +372,13 @@ in
     kid3-qt # A simple and powerful audio tag editor
     kodi
     krita
-    libreoffice
+    # Qt6/KDE build of the same 25.8.5.2: the plain `libreoffice` ships only the
+    # gen+gtk3 VCL plugins, so on this Wayland/KDE session it reads the user's
+    # dark GTK theme (adw-gtk3-dark) even though Plasma is BreezeLight, and its
+    # "Application Colors = Automatic" then resolves to dark. The qt6 build has
+    # --enable-qt6, follows the Plasma colour scheme, and keeps native Wayland +
+    # KDE dialogs. libreofficeMcp.libreoffice must match it (see below).
+    libreoffice-qt6
     lua
     lutris
     mastodon
