@@ -32,6 +32,8 @@
       supertuxkart # Tux kart racing
       tuxpaint # kid-friendly drawing
       tuxtype # touch typing tutor for kids
+      keepassxc # password manager
+      libreoffice-qt6 # office suite
     ];
     sessionVariables = {
       MOZ_ENABLE_WAYLAND = "1";
