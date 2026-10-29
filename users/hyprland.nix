@@ -590,6 +590,14 @@ in
     # module's own `finalPortalPackage != null`, so gate it the same way.
     xdg.portal.enable = !config.commonHm.isCachyOS;
     xdg.portal.extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+    # Name the backend selection explicitly: xdg-desktop-portal 1.17 reads it
+    # from portals.conf, and the HM module warns during evaluation when neither
+    # xdg.portal.config nor configPackages is set (the warning ignores
+    # `enable`, so it fired on the NixOS hosts too). `common.default = "*"`
+    # keeps the pre-1.17 behavior — first implementation in lexicographic
+    # order — which is what these sessions have always run, because neither
+    # portal package ships its own portals.conf.
+    xdg.portal.config.common.default = "*";
 
     # GNOME/GTK theming so libadwaita and GTK apps follow the Omarchy dark look
     # in a Wayland session (Plasma themes its own GTK apps). Gated to the

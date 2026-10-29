@@ -274,6 +274,17 @@
 
     programs = lib.mkMerge [
       {
+        # The HM ssh module appends a `Host *` block of legacy default values
+        # while enableDefaultConfig is on (its default). Every value in that
+        # block equals OpenSSH's own built-in default, so switching it off does
+        # not change how ssh behaves; it only drops the block from the
+        # generated config and silences the module's evaluation warning. A
+        # branch of its own, not part of the family settings below: the module
+        # warns for every profile that imports it, including users who get no
+        # ssh settings there.
+        ssh.enableDefaultConfig = false;
+      }
+      {
         # Shared by all users
         zsh = {
           enable = true;
@@ -356,10 +367,6 @@
           '';
           viAlias = true;
           vimAlias = true;
-        };
-        ssh = {
-          enable = true;
-          enableDefaultConfig = false; # module defaults will be removed in the future
         };
         starship = {
           enable = true;
