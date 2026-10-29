@@ -20,6 +20,7 @@
       digikam # photo management / organizer
       extremetuxracer # high-speed arctic penguin racing game
       gcompris # educational game suite for young children
+      google-chrome # web browser
       kdePackages.dolphin # native file manager (ACL access to /filedrop; see roles/base.nix)
       klavaro # full-featured touch typing tutor
       kdePackages.ktuberling # fun "potato head" constructor game for young kids
