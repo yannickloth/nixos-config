@@ -6,7 +6,13 @@
 # so wrap the released AppImage with appimageTools.wrapType2. This gives a
 # hash-pinned, immutable Nix derivation that cannot self-update.
 #
-# Update: bump `version` and the AppImage `hash`.
+# Update: bump `version` and the AppImage `hash` — by hand, nix-update cannot
+# be used: the repo's releases feed mixes several release trains
+# (browserclaw/v*, claw-server/v*, ext-browserclaw/v*) and nix-update's atom
+# parsing picks whatever entry is newest (it selected claw-server/v0.0.89).
+# Also check the newest browserclaw/v release actually ships
+# BrowserOS_neo_<version>_x64.AppImage: 0.51.2.4 (2026-10-24) shipped
+# Windows installers only, so 0.51.2.3 stays the Linux pin.
 {
   lib,
   appimageTools,
