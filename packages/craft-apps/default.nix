@@ -1,4 +1,4 @@
-# ArtCraft "Crafting Apps" (https://getartcraft.com/apps): twelve pure-Rust,
+# ArtCraft "Crafting Apps" (https://getartcraft.com/apps): thirteen pure-Rust,
 # clean-room reimplementations of familiar creative tools, published by
 # storytold as prebuilt Linux AppImages (no source build we want to pay for:
 # each is a large Rust + wgpu workspace).
@@ -176,6 +176,13 @@ in
     version = "0.14.0";
     hash = "sha256-x7mkt2DkyUsF/eTNHCZoI6c2vD+lBxUM/w3Bkg7fwo4=";
     description = "Page layout and publishing (clean-room InDesign reimplementation)";
+  };
+
+  figcraft = mkCraftApp {
+    pname = "figcraft";
+    version = "0.12.1";
+    hash = "sha256-xSvgRte+pzeQ81hP/KbseTXfIprc6Pjkg7AyQu4qqx8=";
+    description = "Interface design and prototyping (clean-room Figma reimplementation)";
   };
 
   wordcraft = mkCraftApp {

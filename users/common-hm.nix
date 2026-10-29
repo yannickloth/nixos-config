@@ -58,7 +58,7 @@
     #
     # The ArtCraft "Crafting Apps" (packages/craft-apps — PhotoCraft,
     # VectorCraft, FilmCraft, LightCraft, PdfCraft, EffectCraft, DesignCraft,
-    # WordCraft, SoundCraft, DeckCraft, CADCraft, GridCraft) are installed for
+    # FigCraft, WordCraft, SoundCraft, DeckCraft, CADCraft, GridCraft) are installed for
     # all users. They are imported directly (not callPackage: that would wrap
     # the returned attrset with lib.makeOverridable and leak `override` /
     # `overrideDerivation` functions into home.packages below) so they land for
