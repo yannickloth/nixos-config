@@ -137,6 +137,7 @@
       kdePackages.kpat
       kdePackages.kshisen
       kdePackages.ksudoku
+      gnuplot # Command-line plotter for computed numbers (functions, data)
       keepassxc
       # keybase-gui
       # kgraphviewer
@@ -147,6 +148,7 @@
       libreoffice
       #microsoft-edge
       lutris
+      maxima # Computer algebra system: integrate, solve, limit, sum, ODEs (CLI `maxima`)
       mousai # Identify any songs in seconds
       obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
       pantheon.sideload

@@ -372,6 +372,7 @@ in
     kid3-qt # A simple and powerful audio tag editor
     kodi
     krita
+    gnuplot # Command-line plotter for computed numbers (functions, data)
     # Qt6/KDE build of the same 25.8.5.2: the plain `libreoffice` ships only the
     # gen+gtk3 VCL plugins, so on this Wayland/KDE session it reads the user's
     # dark GTK theme (adw-gtk3-dark) even though Plasma is BreezeLight, and its
@@ -382,6 +383,7 @@ in
     lua
     lutris
     mastodon
+    maxima # Computer algebra system: integrate, solve, limit, sum, ODEs (CLI `maxima`)
     meld # Visual diff and merge tool
     mousai # Identify any songs in seconds
     musescore

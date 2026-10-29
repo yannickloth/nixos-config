@@ -69,8 +69,20 @@
     # (Mesa, VA-API, PipeWire/PulseAudio ALSA config): the CachyOS laptop-p16
     # deployment has no /run/opengl-driver, the NixOS hosts do and keep the
     # plain build.
+    # Calculator trio for every user: `qalc` (units, currency, diff/solve/
+    # factor, statistics, dates, number bases — no integration, that needs
+    # maxima/sympy), `numbat` (dimension-checked science — unit errors are type
+    # errors) and `bc` (POSIX arithmetic in scripts; ships `dc` too). The
+    # harness rule is "compute, never in your head" (llm-harness-plugins
+    # general-skills), so the engines must be on PATH for the agents running as
+    # these users.
+    # `qalc` comes from `libqalculate`. The `qalculate-qt`/`qalculate-gtk`
+    # packages installed for the desktop (users/hyprland.nix, nicky-hm.nix,
+    # aeiuno-hm.nix) are the GUIs: their output contains only `qalculate-qt`/
+    # `qalculate-gtk`, so libqalculate sits in the closure but the CLI never
+    # reaches PATH.
     home.packages =
-      [ pkgs.zoxide ]
+      [ pkgs.zoxide pkgs.libqalculate pkgs.numbat pkgs.bc ]
       ++ builtins.attrValues (import ../packages/craft-apps {
         inherit (pkgs) lib appimageTools fetchurl;
         cachyos = config.commonHm.isCachyOS;
