@@ -108,7 +108,7 @@ in
         $DRY_RUN_CMD ${pkgs.bash}/bin/bash -o pipefail -c '
           env UNSLOTH_SKIP_AUTOSTART=1 NO_COLOR=1 ${pkgs.bash}/bin/sh ${pkgs.fetchurl {
             url = "https://unsloth.ai/install.sh";
-            sha256 = "05krswbirv8k9pjp5ydllvnydkgxay4p5jsivggkmkd35jjql33g";
+            sha256 = "009bsnwk81qwg4zg8fi1n3hgahkmd7yvfw79645k9nxq8f313h6d";
           }}
         ' </dev/null || echo "unsloth-studio: installer failed (network/upstream); continuing" >&2
       fi
