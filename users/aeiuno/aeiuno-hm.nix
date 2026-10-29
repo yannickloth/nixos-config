@@ -125,6 +125,7 @@
       kdePackages.kalk
       kdePackages.kate
       kdePackages.okular
+      (pkgs.callPackage ../../packages/masterpdfeditor { })
       # KDE mini-games: adults get them natively, kids via gated flatpak
       # (apps.flatpak.apps) — never both for the same user (see games/games.nix).
       kdePackages.granatier

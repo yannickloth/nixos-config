@@ -49,7 +49,7 @@ masterpdfeditor.overrideAttrs (old: rec {
     substituteInPlace masterpdfeditor5.desktop \
       --replace 'Exec=/opt/master-pdf-editor-5' "Exec=$out/bin" \
       --replace 'Path=/opt/master-pdf-editor-5' "Path=$p" \
-      --replace 'Icon=/opt/master-pdf-editor-5' "Icon=masterpdfeditor5"
+      --replace 'Icon=/opt/master-pdf-editor-5/masterpdfeditor5.png' "Icon=masterpdfeditor5"
 
     install -Dm644 -t $out/share/pixmaps      masterpdfeditor5.png
     echo -e '\nStartupWMClass=net.code-industry.masterpdfeditor5' >> masterpdfeditor5.desktop
