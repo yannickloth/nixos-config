@@ -77,10 +77,9 @@
     # general-skills), so the engines must be on PATH for the agents running as
     # these users.
     # `qalc` comes from `libqalculate`. The `qalculate-qt`/`qalculate-gtk`
-    # packages installed for the desktop (users/hyprland.nix, nicky-hm.nix,
-    # aeiuno-hm.nix) are the GUIs: their output contains only `qalculate-qt`/
-    # `qalculate-gtk`, so libqalculate sits in the closure but the CLI never
-    # reaches PATH.
+    # packages installed for the desktop (nicky-hm.nix, aeiuno-hm.nix) are the
+    # GUIs: their output contains only `qalculate-qt`/`qalculate-gtk`, so
+    # libqalculate sits in the closure but the CLI never reaches PATH.
     home.packages =
       [ pkgs.zoxide pkgs.libqalculate pkgs.numbat pkgs.bc ]
       ++ builtins.attrValues (import ../packages/craft-apps {
@@ -298,16 +297,6 @@
             ignoreAllDups = true;
             ignoreSpace = true;
           };
-          # The CachyOS SDDM Wayland (KWin) greeter leaves WAYLAND_DISPLAY in
-          # the session environment. Plasma's launcher (startplasma-wayland)
-          # unsets it so KWin takes DRM, but Hyprland's start-hyprland does not,
-          # and aquamarine then runs nested (black screen). SDDM starts the
-          # session via `$SHELL --login`, which sources ~/.zprofile, so clearing
-          # it here makes the Hyprland session behave like Plasma. Only needed
-          # on CachyOS (the NixOS config does not leak the variable).
-          profileExtra = lib.mkIf config.commonHm.isCachyOS ''
-            unset WAYLAND_DISPLAY
-          '';
         };
         command-not-found.enable = true;
         # Client side of the family identities: the key installed by

@@ -5,7 +5,6 @@
     ../common-hm.nix
     ../emacs-adult.nix
     ../opencode.nix
-    ../hyprland.nix
     ../../packages/orca/home.nix
     ../../packages/browseros/home.nix
     ../../packages/libreoffice-mcp/home.nix
@@ -19,11 +18,6 @@
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
-
-  # Omarchy-style Hyprland session (users/hyprland.nix), full config; the
-  # session is registered system-wide in desktop/hyprland.nix.
-  hyprland.enable = true;
-  hyprland.omarchy = true;
 
   # Global opencode provider/model config (deepseek, Z.AI GLM Coding Plan
   # subscription, Kimi, Hetzner).

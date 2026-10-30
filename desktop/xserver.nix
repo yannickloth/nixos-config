@@ -20,6 +20,11 @@ with lib;
           enable = true; # Enable the KDE Plasma 6 Desktop Environment.
         };
       };
+      # GTK apps (Firefox, …) use gvfs for trash/MTP/network locations.
+      # nixpkgs' Plasma module enables the udisks2 service itself, but not
+      # gvfs, so the service is declared here (it was previously carried by
+      # the now-removed desktop/hyprland.nix).
+      gvfs.enable = true;
       displayManager = {
         defaultSession = "plasma";# = "gnome";
         sddm={

@@ -170,7 +170,7 @@ in
 
     # Enforce session time limits at login for sven/aaron via pam_malcontent.
     # It must be attached to every entry point to a session: `login` covers the
-    # TTY, `sddm` the graphical login (Plasma/Hyprland use SDDM, so a rule on
+    # TTY, `sddm` the graphical login (Plasma uses SDDM, so a rule on
     # `login` alone would leave the limits unenforced at the GUI).
     security.pam.services = mkIf (config.users.users ? sven || config.users.users ? aaron) {
       login.rules.account.malcontent = {
