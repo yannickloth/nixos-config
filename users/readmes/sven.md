@@ -19,8 +19,8 @@ NixOS flake.
 - You can only log in between **06:00 and 22:00** each day
 - The apps you can run are limited to a safe list (parental controls)
 - The internet is filtered by the family-safe DNS
-- The AI chat (where available) has a safety gate — try asking it fun,
-  school-related questions! Your account is the one mum or dad made for you.
+- You can chat with the family AI assistant for fun, school-related questions.
+  Ask mum or dad if you are unsure about an answer.
 
 ## Screen-time reminder
 

@@ -66,18 +66,29 @@ identity are derived automatically.
   are committed only as encrypted `.age` files. Back the host's SSH key up in
   KeePassXC so a fresh host keeps its device ID stable.
 
-### AI chat
+### AI chat and LLM provider keys
 
-Family AI chat (Open WebUI) runs on every host at `http://localhost:8080`
-(`services/ai-chat.nix`). Providers are OpenAI-compatible; base URLs are kept in
-git, API keys decrypted from `secrets/open-webui.env.age` to
-`/etc/secrets/open-webui.env` (see `secrets-structure/README.md`):
+The local chat UI is Unsloth Studio (`http://localhost:8888`; per-user module
+`packages/unsloth-studio/home.nix`, one instance per host, run as nicky).
+
+opencode talks to OpenAI-compatible providers. Base URLs and models are kept in
+git (`users/opencode.nix`); API keys are decrypted by agenix from
+`secrets/opencode-keys.env.age` to `/etc/secrets/opencode-keys.env`, and the
+home-manager activation materializes them as per-provider key files (see
+`secrets-structure/README.md`):
 
 | Provider | Base URL |
 | --- | --- |
 | DeepSeek | `https://api.deepseek.com` |
 | Kimi for Coding | `https://api.kimi.com/coding/v1` |
 | Hetzner AI | `https://inference.hetzner.com/api/v1` |
+| z.ai / GLM | `https://api.z.ai/api/coding/paas/v4` |
+| Unsloth Studio (local) | `http://127.0.0.1:8888/v1` |
+| Cheaper Inference | `https://api.cheaperinference.com/v1` |
+
+The z.ai key may be stored in `OPENAI_API_KEYS` under either the coding-plan
+URL or the general `https://api.z.ai/api/paas/v4/` URL; both resolve to the
+same key file.
 
 
 ## External resources used for this config

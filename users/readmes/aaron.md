@@ -18,8 +18,8 @@ delete or change it**. Source of truth: `users/readmes/aaron.md`.
 - You can use the computer between **06:00 and 22:00**
 - You can only run the apps and games your parents chose (parental controls)
 - The internet is filtered so you stay safe
-- The AI chat (where available) has a safety gate — you can ask it fun
-  questions about animals, space or school! Use the account mum or dad made.
+- You can chat with the family AI assistant for fun questions about animals,
+  space or school. Ask mum or dad if you are unsure about an answer.
 
 ## Sharing files
 

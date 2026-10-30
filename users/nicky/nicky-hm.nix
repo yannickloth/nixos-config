@@ -57,7 +57,7 @@ let
   # the NixOS host it is provided by hosts/laptop-p16/ instead. Gating keeps
   # the CachyOS-only activation out of a future NixOS install.
   isCachyOS = config.commonHm.isCachyOS;
-  # Runtime path of nicky's agenix-decrypted AI-chat API keys (see age.secrets).
+  # Runtime path of nicky's agenix-decrypted personal API keys (see age.secrets).
   nickyApiKeysPath = config.age.secrets."nicky.nix".path;
 in
 {
@@ -83,7 +83,7 @@ in
   # keys from the home-manager agenix secret decrypted with ~/.ssh/agenix_nicky
   # (see the `age` block below). On NixOS hosts keep the default /etc/secrets.
   opencode.envFile =
-    lib.mkIf config.commonHm.isCachyOS config.age.secrets."open-webui.env".path;
+    lib.mkIf config.commonHm.isCachyOS config.age.secrets."opencode-keys.env".path;
 
   # Orca (agent development environment): the desktop client on every host, and
   # on laptop-p16 the single always-on runtime server (`orca-ide serve`) that
@@ -535,7 +535,7 @@ in
   #
   home.sessionVariables = {
     MOZ_ENABLE_WAYLAND = "1"; # for Firefox in Wayland sessions
-    # AI-chat API keys (ZAI_CODING_PLAN_API_KEY, DEEPSEEK_API_KEY) are sourced
+    # Personal API keys (ZAI_CODING_PLAN_API_KEY, DEEPSEEK_API_KEY) are sourced
     # at shell init from the agenix-decrypted file (see programs.zsh.initContent).
     # Pretty man pages via bat: strips the raw formatting and syntax-highlights
     # the man source. `-l man` tells bat the language, `-p` plain (no header).
@@ -543,7 +543,7 @@ in
   };
   home.shellAliases = { };
 
-  # agenix (home-manager module): decrypt nicky's AI-chat API keys at activation
+  # agenix (home-manager module): decrypt nicky's personal API keys at activation
   # to $XDG_RUNTIME_DIR/agenix/nicky.nix, then sourced by the shell. The key is
   # ~/.ssh/agenix_nicky, whose public key is the `user-nicky` agenix recipient
   # (see secrets.nix and ssh-keys/users/nicky). ~/.ssh/id_ed25519 is nicky's
@@ -555,11 +555,11 @@ in
       file = ../../secrets/nicky.nix.age;
       mode = "0400";
     };
-    # Shared family provider keys (OPENAI_API_KEYS JSON), also mounted here so
-    # opencode can materialize its per-provider key files on standalone
+    # Shared LLM provider keys for opencode (OPENAI_API_KEYS JSON), also mounted
+    # here so opencode can materialize its per-provider key files on standalone
     # home-manager hosts with no system agenix (CachyOS). See opencode.envFile.
-    secrets."open-webui.env" = {
-      file = ../../secrets/open-webui.env.age;
+    secrets."opencode-keys.env" = {
+      file = ../../secrets/opencode-keys.env.age;
       mode = "0400";
     };
   };
@@ -572,7 +572,7 @@ in
         unset __HM_SESS_VARS_SOURCED
         . "${config.home.profileDirectory}/etc/profile.d/hm-session-vars.sh"
 
-        # Source agenix-decrypted AI-chat API keys if present (see age.secrets).
+        # Source agenix-decrypted personal API keys if present (see age.secrets).
         if [ -f "${nickyApiKeysPath}" ]; then
           set -a
           . "${nickyApiKeysPath}"

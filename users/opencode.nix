@@ -5,7 +5,7 @@
 # API keys are NOT stored here or in the nix store. They are read at runtime via
 # opencode's `{file:...}` substitution from per-key files that the
 # setupOpenCodeKeys activation script materializes out of
-# /etc/secrets/open-webui.env (itself decrypted by agenix, see
+# /etc/secrets/opencode-keys.env (itself decrypted by agenix, see
 # services/secrets.nix). The activation runs as the user, who can read that file
 # through the `secrets` group.
 #
@@ -264,7 +264,7 @@ let
         baseURL = "http://127.0.0.1:8888/v1";
         # Studio requires an API key even for the local server. The key
         # is read from ~/.config/opencode/keys/unsloth.key (materialized
-        # by setupOpenCodeKeys from /etc/secrets/open-webui.env).
+        # by setupOpenCodeKeys from /etc/secrets/opencode-keys.env).
         apiKey = keyfile "unsloth";
       };
       models = {
@@ -487,7 +487,7 @@ in
     enable = mkEnableOption "opencode provider/model config (keys read from the env file below)";
     envFile = mkOption {
       type = types.str;
-      default = "/etc/secrets/open-webui.env";
+      default = "/etc/secrets/opencode-keys.env";
       description = ''
         Path to the OPENAI_API_KEYS env file the per-provider key files are
         materialized from. Defaults to the system agenix path (NixOS). Standalone
@@ -646,11 +646,11 @@ in
     xdg.configFile."opencode/node_modules".source =
       lib.mkIf (pkgs ? open-code-ocr-plugin) "${pkgs.open-code-ocr-plugin}/node_modules";
 
-    # Materialize per-provider API key files from a decrypted Open WebUI env
+    # Materialize per-provider API key files from the decrypted provider-key env
     # file (OPENAI_API_KEYS JSON). Source resolution, first existing wins:
     #   1. config.opencode.envFile — an `age.secrets` path on standalone
     #      home-manager hosts (CachyOS), or the system path on NixOS.
-    #   2. /etc/secrets/open-webui.env — the system agenix path (NixOS hosts).
+    #   2. /etc/secrets/opencode-keys.env — the system agenix path (NixOS hosts).
     # Skipped silently when neither exists.
     home.activation.setupOpenCodeKeys = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" '${config.opencode.envFile}' <<'PYEOF'
@@ -659,7 +659,7 @@ in
       home = sys.argv[1]
       # expandvars so an agenix $XDG_RUNTIME_DIR/... path is resolved from the
       # activation environment rather than by bash before Python sees it.
-      candidates = [os.path.expandvars(p) for p in (sys.argv[2], "/etc/secrets/open-webui.env") if p]
+      candidates = [os.path.expandvars(p) for p in (sys.argv[2], "/etc/secrets/opencode-keys.env") if p]
       envfile = next((p for p in candidates if p and os.path.exists(p)), None)
       keydir = os.path.join(home, ".config", "opencode", "keys")
       mapping = {
@@ -667,7 +667,7 @@ in
           "https://api.kimi.com/coding/v1": "kimi.key",
           "https://inference.hetzner.com/api/v1": "hetzner.key",
           # The GLM Coding Plan key is stored in the secret's OPENAI_API_KEYS
-          # JSON under the *general* Z.AI URL (open-webui still lists that base
+          # JSON under the *general* Z.AI URL (the secret still lists that base
           # URL), so both spellings map to the same key file. The provider above
           # talks to the coding-plan endpoint; this dict is only the secret
           # lookup key, never the URL opencode requests.

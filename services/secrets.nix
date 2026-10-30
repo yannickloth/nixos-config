@@ -16,8 +16,8 @@ with lib;
 {
   config = {
     # Runtime directory for secrets shared by services (same group model as the
-    # old provisioning script, kept so existing consumers and the ai-chat module
-    # continue to work unchanged).
+    # old provisioning script, kept so existing consumers continue to work
+    # unchanged).
     users.groups.secrets = {
       members = [ "nicky" "aeiuno" ];
     };
@@ -35,6 +35,9 @@ with lib;
       "A /etc/secrets - - - - u:syncthing:--x"
     ];
 
+    # Versioned instructions for the secrets dir (linked into /etc/secrets).
+    environment.etc."secrets/README.md".source = ./secrets-README.md;
+
     # agenix secrets. Each decrypts on this host (using its SSH host key) to the
     # conventional runtime path the consuming service reads.
     age.secrets = {
@@ -47,10 +50,12 @@ with lib;
         group = "syncthing";
       };
 
-      # Family AI-chat provider keys (Open WebUI), read via EnvironmentFile.
-      open-webui-env = {
-        file = ../secrets/open-webui.env.age;
-        path = "/etc/secrets/open-webui.env";
+      # Shared LLM provider keys for opencode (OPENAI_API_KEYS JSON). The
+      # home-manager activation in users/opencode.nix materializes the
+      # per-provider key files from it (see /etc/secrets/README.md).
+      opencode-keys-env = {
+        file = ../secrets/opencode-keys.env.age;
+        path = "/etc/secrets/opencode-keys.env";
         mode = "0660";
         owner = "root";
         group = "secrets";

@@ -17,10 +17,9 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 ## Your account
 
 - Admin (sudo/wheel) — you can install software and change the system
-- Key groups: `wheel`, `secrets` (may edit
-  /etc/secrets where AI chat is enabled), `kvm`/`libvirtd` (VMs), `podman`,
-  `networkmanager`, `lp`/`scanner`, `yubikey`, `tss`, `gamemode`, `syncthing`,
-  `filedrop`, `cfo`
+- Key groups: `wheel`, `secrets` (may edit /etc/secrets), `kvm`/`libvirtd`
+  (VMs), `podman`, `networkmanager`, `lp`/`scanner`, `yubikey`, `tss`,
+  `gamemode`, `syncthing`, `filedrop`, `cfo`
 - Home-manager config: `users/<your-name>/`
 
 ## System highlights
@@ -28,8 +27,8 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 - btrfs + LUKS full-disk encryption; each user's Steam games live in their
   own library and btrfs deduplication keeps one physical copy
   (`games/steam.nix`, `roles/bees.nix`)
-- Family AI chat (Open WebUI, on every host) — see `/etc/secrets/README.md`
-  and `services/ai-chat/`
+- Family AI chat (Unsloth Studio, on every host at http://localhost:8888) —
+  see `packages/unsloth-studio/home.nix` and `/etc/secrets/README.md`
 - Secrets: /etc/secrets (group `secrets`), never in
   git
 - Family-safe DNS (malware + adult-content filtering) where configured
@@ -39,10 +38,10 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 
 ## Services & where things live
 
-- **AI chat (Open WebUI):** http://localhost:8080 — the first account that
-  signs in becomes the admin, so **sign in as a parent first**, then create the
-  kids' accounts (Admin Settings → Users). No password is stored in the config;
-  each account's password is chosen on first login.
+- **AI chat (Unsloth Studio):** http://localhost:8888 — one instance per host
+  runs as nicky's user service, and it survives logout. Everyone on the machine
+  uses that same instance. The shared LLM provider keys live in
+  `/etc/secrets/opencode-keys.env` (see the README in `/etc/secrets`).
 - **Syncthing:** web UI at http://this-host:8384, synced data lives in `/sync`,
   config in `/var/lib/syncthing` (group `syncthing`). Login is the shared
   account user `nicky` + the password in `/etc/secrets/syncthing-gui-password`
@@ -190,8 +189,9 @@ make it a flatpak; if it needs groups/GPU/policies, keep it native.**
 - Parental controls via malcontent: login window 06:00–22:00, flatpak
   allowlist, OARS content-rating filter (no sexual / narcotics / gambling)
 - Kid-safe DNS applies machine-wide where configured
-- AI chat is available to them with the auto-seeded kid-safety
-  gate (`services/ai-chat/filters/kid-safety.py`)
+- AI chat is available to them through Unsloth Studio
+  (http://localhost:8888). Note: Studio has no child-safety filter; supervision
+  and the family DNS filter apply instead.
 - Steam: each kid installs and plays games in their own library (own Wine
   prefix); `/sync` is
   blocked for them; shared files pass through `/filedrop`
