@@ -1,9 +1,17 @@
 # Natural (inverse) scrolling for all mice and touchpads.
 #
-# KDE Plasma reads ~/.config/kcminputrc at login and applies the input settings
-# to every pointer/touchpad device. The NaturalScroll.java script merges the
-# natural-scroll keys into the existing file (preserving the user's other
-# settings) via a Java 25 compact source file.
+# In Plasma 6 KWin reads ~/.config/kcminputrc at session start and on every
+# device connect (kwin src/backends/libinput/connection.cpp): per-device
+# sections [Libinput][vendor][product][name] (written by System Settings)
+# take precedence, with class defaults from
+# [Libinput][Defaults][Pointer] (all mice) and
+# [Libinput][Defaults][Touchpad] (all touchpads), key NaturalScroll. The
+# Plasma-5-era [Mouse]/[Touchpad] + XLbInptNaturalScroll keys are written too
+# (KWin 6 ignores them; harmless, keeps Plasma 5 hosts correct).
+#
+# The NaturalScroll.java script merges those keys into the existing file
+# (preserving the user's other settings, including per-device overrides) as a
+# Java 25 compact source file.
 { config, lib, pkgs, ... }:
 
 {
