@@ -77,7 +77,8 @@ in
     ../../packages/herdr/home.nix
   ];
 
-  # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
+  # Global opencode provider/model config (deepseek, Z.AI GLM Coding Plan
+  # subscription, Kimi, Hetzner).
   opencode.enable = true;
   # On CachyOS there is no system agenix / /etc/secrets, so source the provider
   # keys from the home-manager agenix secret decrypted with ~/.ssh/agenix_nicky

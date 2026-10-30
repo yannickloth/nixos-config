@@ -11,7 +11,13 @@
 #
 # Provider/model research (2026-08; Kimi corrected 2026-09):
 #   deepseek  https://api.deepseek.com          V4 flash/pro: 1M ctx, 384K out
-#   z.ai/GLM  https://api.z.ai/api/paas/v4/     glm-5.3 / glm-5.3-flash: 1M ctx, 128K out
+#   z.ai/GLM  https://api.z.ai/api/coding/paas/v4   GLM Coding Plan (subscription,
+#                                               ZAI_CODING_PLAN_API_KEY); glm-5.3 /
+#                                               glm-5.3-flash: 1M ctx, 131072 out.
+#                                               NOT the pay-per-token API endpoint
+#                                               (https://api.z.ai/api/paas/v4/) — a
+#                                               coding-plan key is rejected there and
+#                                               never draws the subscription quota.
 #   Kimi      https://api.kimi.com/coding/v1    Kimi Code plan (subscription) IDs: k3 (1M ctx on
 #                                               Allegretto+, else 256K), k3-256k, kimi-for-coding
 #                                               (K2.8 Preview, 1M ctx), kimi-for-coding-highspeed
@@ -89,10 +95,16 @@ in
                   };
                 };
               };
+              # Z.AI GLM Coding Plan (subscription), not the pay-per-token API:
+              # the coding-plan endpoint is the only one that spends the
+              # subscription quota, and it is not interchangeable with
+              # https://api.z.ai/api/paas/v4/. OpenAI Chat Completions protocol,
+              # hence @ai-sdk/openai-compatible (the Anthropic protocol would be
+              # https://api.z.ai/api/anthropic).
               zai = {
                 npm = "@ai-sdk/openai-compatible";
                 options = {
-                  baseURL = "https://api.z.ai/api/paas/v4/";
+                  baseURL = "https://api.z.ai/api/coding/paas/v4";
                   apiKey = keyfile "zai";
                 };
                 models = {
@@ -101,7 +113,7 @@ in
                     reasoning = true;
                     limit = {
                       context = 1000000;
-                      output = 128000;
+                      output = 131072;
                     };
                   };
                   "glm-5.3-flash" = {
@@ -110,7 +122,7 @@ in
                     attachment = true;
                     limit = {
                       context = 1000000;
-                      output = 128000;
+                      output = 131072;
                     };
                   };
                 };
@@ -561,7 +573,13 @@ in
           "https://api.deepseek.com": "deepseek.key",
           "https://api.kimi.com/coding/v1": "kimi.key",
           "https://inference.hetzner.com/api/v1": "hetzner.key",
+          # The GLM Coding Plan key is stored in the secret's OPENAI_API_KEYS
+          # JSON under the *general* Z.AI URL (open-webui still lists that base
+          # URL), so both spellings map to the same key file. The provider above
+          # talks to the coding-plan endpoint; this dict is only the secret
+          # lookup key, never the URL opencode requests.
           "https://api.z.ai/api/paas/v4/": "zai.key",
+          "https://api.z.ai/api/coding/paas/v4": "zai.key",
           "http://127.0.0.1:8888/v1": "unsloth.key",
           "https://api.cheaperinference.com/v1": "cheaperinference.key",
       }

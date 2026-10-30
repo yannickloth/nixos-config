@@ -25,7 +25,8 @@
   hyprland.enable = true;
   hyprland.omarchy = true;
 
-  # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
+  # Global opencode provider/model config (deepseek, Z.AI GLM Coding Plan
+  # subscription, Kimi, Hetzner).
   opencode.enable = true;
   # CachyOS has no system agenix / /etc/secrets, so decrypt the shared provider
   # keys with aeiuno's user agenix key and materialize opencode's per-provider
