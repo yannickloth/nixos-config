@@ -70,21 +70,12 @@ with lib;
     # lutris
     mangohud # A Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load and more
     obs-studio-plugins.obs-vkcapture # OBS Linux Vulkan/OpenGL game capture
-    (prismlauncher.override { # Free, open source launcher for Minecraft
-      # Add binary required by some mod
-      additionalPrograms = [ 
-        ffmpeg
-        optifine # Minecraft 1.21.1 optimization mod
-      ];
-      controllerSupport = true; # default: stdenv.hostPlatform.isLinux. Turn on/off support for controllers on Linux.
-      gamemodeSupport = true; # default: stdenv.hostPlatform.isLinux. Turn on/off support for GameMode on Linux.
-      # Change Java runtimes available to Prism Launcher
-      jdks = [
-        graalvmPackages.graalvm-ce
-        jdk
-        jdk25
-      ];
-    }) 
+    # Free, open source launcher for Minecraft. System-wide on NixOS, so every
+    # user on the host gets it; the standalone CachyOS deployment installs the
+    # same package per-user (users/common-hm.nix). The shared setup (extra
+    # binaries for mods, controller and GameMode support, Java runtimes) lives
+    # in packages/prismlauncher.
+    (callPackage ../packages/prismlauncher { })
     protonup-qt # Install and manage Proton-GE and Luxtorpeda for Steam and Wine-GE for Lutris with this graphical user interface.
     ptyxis # A terminal for GNOME with first-class support for containers
     quake3e

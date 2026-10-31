@@ -106,7 +106,17 @@
         ioskeley-mono.normal-term
         ioskeley-mono.normal-NL-NF
         ioskeley-mono.normal-term-NF
-      ]);
+      ])
+      # Prism Launcher (Minecraft), CachyOS only. The NixOS hosts install the
+      # same package system-wide (games/games.nix), which every user already
+      # sees; the standalone CachyOS deployment has no NixOS modules, so this
+      # is the only place it can come from there. Gating on isCachyOS keeps the
+      # NixOS hosts free of a second per-user copy. The shared launcher setup
+      # (mod binaries, controller/GameMode support, Java runtimes) is in
+      # packages/prismlauncher.
+      ++ lib.optionals config.commonHm.isCachyOS [
+        (pkgs.callPackage ../packages/prismlauncher { })
+      ];
 
     # Let home-manager take over an existing plain ~/.zshrc (e.g. one created
     # by zsh-newuser-install); otherwise the zsh module's .zshrc would be a
