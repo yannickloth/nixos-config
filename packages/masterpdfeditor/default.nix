@@ -24,10 +24,10 @@
 
 masterpdfeditor.overrideAttrs (old: rec {
   pname = "masterpdfeditor";
-  version = "5.8.70";
+  version = "5.9.99";
   src = fetchurl {
     url = "https://code-industry.net/public/master-pdf-editor-${version}-qt5.x86_64.tar.gz";
-    sha256 = "sha256-mheHvHU7Z1jUxFWEEfXv2kVO51t/edTK3xV82iteUXM=";
+    sha256 = "sha256-JeXmonbyvbh0SZjtExsJB+2s+5MPGf/Y7IzDNZfVuSE=";
   };
 
   # Keep fixup enabled (autoPatchelfHook lives there and the prebuilt binary
@@ -55,8 +55,18 @@ masterpdfeditor.overrideAttrs (old: rec {
     echo -e '\nStartupWMClass=net.code-industry.masterpdfeditor5' >> masterpdfeditor5.desktop
     install -Dm644 -t $out/share/applications masterpdfeditor5.desktop
     install -Dm755 -t "$p"                    masterpdfeditor5
-    install -Dm644 license.txt $out/share/licenses/$pname/LICENSE
+    # The license file name follows the shipped UI language: 5.8 used
+    # license.txt, 5.9 ships license_en.txt.
+    if [ -f license_en.txt ]; then
+      install -Dm644 license_en.txt $out/share/licenses/$pname/LICENSE
+    else
+      install -Dm644 license.txt $out/share/licenses/$pname/LICENSE
+    fi
     cp -r stamps templates lang fonts "$p"
+    # Color profiles arrived in 5.9; keep the app's own tree layout.
+    if [ -d icc_profiles ]; then
+      cp -r icc_profiles "$p"
+    fi
     ln -s "$p/masterpdfeditor5" $out/bin/masterpdfeditor5
 
     runHook postInstall

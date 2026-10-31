@@ -108,7 +108,7 @@ in
         $DRY_RUN_CMD ${pkgs.bash}/bin/bash -o pipefail -c '
           env UNSLOTH_SKIP_AUTOSTART=1 NO_COLOR=1 ${pkgs.bash}/bin/sh ${pkgs.fetchurl {
             url = "https://unsloth.ai/install.sh";
-            sha256 = "009bsnwk81qwg4zg8fi1n3hgahkmd7yvfw79645k9nxq8f313h6d";
+            sha256 = "0pzw2gasl17dzwm73cprdxxj2x8ljgc2g51nvbpcnp4kbl2v47rs";
           }}
         ' </dev/null || echo "unsloth-studio: installer failed (network/upstream); continuing" >&2
       fi
@@ -134,8 +134,8 @@ in
         # Pinned release (fetchurl verifies the hash): "releases/latest"
         # downloaded and installed whatever GitHub served at switch time.
         UNSLOTH_DESKTOP_APPIMAGE=${pkgs.fetchurl {
-          url = "https://github.com/unslothai/unsloth/releases/download/v0.1.910-beta/Unsloth-Desktop-Linux.AppImage";
-          sha256 = "sha256-5Ak9Z/oqc0jKdz4J9bxZgjLWBdIaAa9RfuoIgO1zbR8=";
+          url = "https://github.com/unslothai/unsloth/releases/download/v0.1.913-beta/Unsloth-Desktop-Linux.AppImage";
+          sha256 = "sha256-lL5KIaEO+Ap9wvz7VpoKE87h9FPQjMWRLntKvQrl7G4=";
         }}
         $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -Dm0755 "$UNSLOTH_DESKTOP_APPIMAGE" "$app"
       fi

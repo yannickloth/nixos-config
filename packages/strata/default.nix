@@ -17,7 +17,7 @@
 # libraries, so no NVIDIA pip wheels are needed either.
 #
 # Since Strata 0.2.0 the tree holds three separately versioned products: the
-# engine (0.1.51 in this release), the Terminal/CLI (strata.py + strata_cli,
+# engine (0.1.55 in this release), the Terminal/CLI (strata.py + strata_cli,
 # what `strata launch`, `strata models` and `strata update` run) and the desktop
 # app (apps/). This package ships the engine plus the Python source that the
 # setup and serve paths need: setup.py now imports strata_control/ (and, through
@@ -126,10 +126,10 @@
   # workarounds that have no flag. Empty by default; see
   # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.6 (4b9e05a2;
-  # tag object ff91dd77 peeled to that commit).
-  # That tag's engine is 0.1.51 (see engine.nix; since 0.2.4 the release's engine
-  # packages carry their own version, the CMake project version says 0.1.51), a drop-in
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.9 (c62d5e3a;
+  # tag object d94bac6a peeled to that commit).
+  # That tag's engine is 0.1.55 (see engine.nix; since 0.2.4 the release's engine
+  # packages carry their own version, the CMake project version says 0.1.55), a drop-in
   # swap for the 0.1.47 this package was last tuned against: the engine the 0.2 line ships is the
   # same Qwen3.8-Flash-Next path with the 0.2 features (Gyro trellis experts,
   # GPU roles, the NUMA-split CPU pool, `--parallel` driven from serve/) left
@@ -161,8 +161,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "4b9e05a2a806a3fe24f7b2560d98626c37dade35";  # v0.2.6 (tag object ff91dd77 peeled); engine 0.1.51
-    hash = "sha256-HLlmKl+RDIP84KdifVUzduQ+ZN+51DbGaw9t+ITJkm8=";
+    rev = "c62d5e3a15b40ea51c96aae9e8d36928965f53ab";  # v0.2.9 (tag object d94bac6a peeled); engine 0.1.55
+    hash = "sha256-eFuyhZQQNoskUXGB/RkaPvBslg16PZjCS3c8xyl4oZk=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -176,11 +176,11 @@
 let
   # The Strata release this package is pinned to (its app version); the engine
   # it builds has its own version - see engineVersion below.
-  version = "0.2.6";
+  version = "0.2.9";
   # CMakeLists.txt's project(VERSION ...) in that tree. BUILD.json has to report
   # the ENGINE's version: setup.py compares it against MIN_ENGINE and against
   # the `engine=X.Y.Z` string compiled into the binary (stale_binary()).
-  engineVersion = "0.1.51";
+  engineVersion = "0.1.55";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
@@ -369,7 +369,7 @@ let
         # engines as-is, and "nix_built": true is what ./setup-trust-nix-engine.patch
         # checks before it returns this engine instead of rebuilding it (and
         # before engine_update_note() calls it old). version is the ENGINE's
-        # version (0.1.51), not the app's: setup.py compares it with MIN_ENGINE
+        # version (0.1.55), not the app's: setup.py compares it with MIN_ENGINE
         # and with the `engine=X.Y.Z` string compiled into the binary. The
         # symlinks track store rebuilds.
         mkdir -p "$STRATA_HOME/engine"
