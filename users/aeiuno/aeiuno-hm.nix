@@ -27,11 +27,11 @@
   # key files from it; NixOS hosts keep the default /etc/secrets path (and must
   # not try to decrypt with the user key).
   opencode.envFile =
-    lib.mkIf config.commonHm.isCachyOS config.age.secrets."open-webui.env".path;
+    lib.mkIf config.commonHm.isCachyOS config.age.secrets."opencode-keys.env".path;
   age = lib.mkIf config.commonHm.isCachyOS {
     identityPaths = [ "${config.home.homeDirectory}/.ssh/agenix_aeiuno" ];
-    secrets."open-webui.env" = {
-      file = ../../secrets/open-webui.env.age;
+    secrets."opencode-keys.env" = {
+      file = ../../secrets/opencode-keys.env.age;
       mode = "0400";
     };
   };

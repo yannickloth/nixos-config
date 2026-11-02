@@ -15,8 +15,9 @@ with lib;
 
 {
   config = {
-    # Group that may read/edit the shared secrets (opencode's key
-    # materialization reads open-webui.env as the user through this group).
+    # Runtime directory for secrets shared by services (same group model as the
+    # old provisioning script, kept so existing consumers continue to work
+    # unchanged).
     users.groups.secrets = {
       members = [ "nicky" "aeiuno" ];
     };
@@ -34,8 +35,8 @@ with lib;
       "A /etc/secrets - - - - u:syncthing:--x"
     ];
 
-    # Versioned instructions for the secrets dir (symlinked into /etc/secrets).
-    environment.etc."secrets/README.md".source = ./etc-secrets-README.md;
+    # Versioned instructions for the secrets dir (linked into /etc/secrets).
+    environment.etc."secrets/README.md".source = ./secrets-README.md;
 
     # agenix secrets. Each decrypts on this host (using its SSH host key) to the
     # conventional runtime path the consuming service reads.
@@ -49,12 +50,12 @@ with lib;
         group = "syncthing";
       };
 
-      # Family AI provider keys (OPENAI_API_KEYS JSON), consumed by the
-      # opencode / pi key materialization (users/opencode.nix). The file name
-      # is historical: it used to be Open WebUI's EnvironmentFile.
-      open-webui-env = {
-        file = ../secrets/open-webui.env.age;
-        path = "/etc/secrets/open-webui.env";
+      # Shared LLM provider keys for opencode (OPENAI_API_KEYS JSON). The
+      # home-manager activation in users/opencode.nix materializes the
+      # per-provider key files from it (see /etc/secrets/README.md).
+      opencode-keys-env = {
+        file = ../secrets/opencode-keys.env.age;
+        path = "/etc/secrets/opencode-keys.env";
         mode = "0660";
         owner = "root";
         group = "secrets";

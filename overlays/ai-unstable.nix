@@ -82,14 +82,14 @@ final: prev: {
   # source derivation 404'd and the whole switch failed — the override then
   # re-pointed the 3.8.1.88030 source at the working host. nixpkgs has since
   # (rev fe13242281) fixed the URL itself, so the override's only job now is
-  # the version bump to 3.9.0.88839 (released 2026-10-19). Drop this override
-  # once nixpkgs-unstable carries 3.9.0.
+  # the version bump to 3.9.1.89198 (released 2026-10-30). Drop this override
+  # once nixpkgs-unstable carries 3.9.1.
   jetbrains-toolbox =
     let
-      newVersion = "3.9.0.88839";
+      newVersion = "3.9.1.89198";
       fixedSrc = unstablePkgs.fetchzip {
         url = "https://download.jetbrains.com/toolbox/jetbrains-toolbox-${newVersion}.tar.gz";
-        hash = "sha256-Nqov5++wuLy4r08N6inyBmdr9eTdQknrc1AFf0jywTs=";
+        hash = "sha256-21MTezmZpvxgilxdkFCciUBG6gYi7CYFCYmz2jGcfP4=";
       };
       base = unstablePkgs.jetbrains-toolbox;
     in

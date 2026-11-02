@@ -5,7 +5,7 @@
 # API keys are NOT stored here or in the nix store. They are read at runtime via
 # opencode's `{file:...}` substitution from per-key files that the
 # setupOpenCodeKeys activation script materializes out of
-# /etc/secrets/open-webui.env (itself decrypted by agenix, see
+# /etc/secrets/opencode-keys.env (itself decrypted by agenix, see
 # services/secrets.nix). The activation runs as the user, who can read that file
 # through the `secrets` group.
 #
@@ -241,8 +241,8 @@ let
     # Local Unsloth Studio server: OpenAI-compatible API on localhost
     # (:8888). The model list below is the server's *local library*
     # (`curl -H "Authorization: Bearer $KEY"
-    # http://127.0.0.1:8888/v1/models`, captured 2026-10-20), minus the
-    # two local models that cannot answer a chat completion:
+    # http://127.0.0.1:8888/api/inference/models`, captured 2026-10-31),
+    # minus the two local models that cannot answer a chat completion:
     #   unsloth/orpheus-3b-0.1-ft    TTS
     #   unsloth/Qwen-Image-2.1-GGUF  text-to-image
     #
@@ -258,26 +258,36 @@ let
     # naming a downloaded model loads it; on laptop-p16 the
     # llama-server handoff wrapper unloads Strata first
     # (packages/unsloth-studio/home.nix).
+    #
+    # Context policy (2026-10-31): every context below is the model's
+    # *native* window, capped at 524288 (512k) where the native window
+    # is larger. Where the Studio override sat below the native window
+    # (translation models pinned at 32768 since 2026-10-20, Qwythos
+    # fitted at 512768), the override was raised to match on 2026-10-31
+    # via PUT /api/settings/openai-auto-switch/overrides. The fits were
+    # priced with Studio's /api/inference/estimate-memory (4 slots,
+    # q8_0 KV): the totals still land inside the 12 GB card plus pinned
+    # RAM on this host.
     unsloth-studio = {
       npm = "@ai-sdk/openai-compatible";
       options = {
         baseURL = "http://127.0.0.1:8888/v1";
         # Studio requires an API key even for the local server. The key
         # is read from ~/.config/opencode/keys/unsloth.key (materialized
-        # by setupOpenCodeKeys from /etc/secrets/open-webui.env).
+        # by setupOpenCodeKeys from /etc/secrets/opencode-keys.env).
         apiKey = keyfile "unsloth";
       };
       models = {
         # --- translation ------------------------------------------
-        # Served at 32768 tokens (native 262144 / 131072): Studio's
-        # 8192 default was raised with a custom_context_length
-        # override on 2026-10-20 so a multi-page document fits in one
-        # request. Raise the Studio override and this number together
-        # - never this one alone.
+        # Native windows (262144 Hy-MT2, 131072 TranslateGemma), now
+        # loaded at native: the 2026-10-20 32768 overrides (one
+        # multi-page document per request) were raised on 2026-10-31.
+        # KV still fits the card (estimate-memory: 11.0 GB and
+        # 12.9 GB total, 4 slots, q8_0 KV).
         "unsloth/Hy-MT2-1.8B-GGUF" = {
           name = "Hy-MT2 1.8B translation (local)";
           limit = {
-            context = 32768;
+            context = 262144;
             output = 8192;
           };
         };
@@ -285,34 +295,16 @@ let
           name = "TranslateGemma 4B IT translation (local)";
           attachment = true; # ships an mmproj: image -> translated text
           limit = {
-            context = 32768;
+            context = 131072;
             output = 8192;
           };
         };
 
         # --- chat -------------------------------------------------
-        # The one model here already pinned to 131072 in Studio
-        # (override on the UD-IQ3_XXS quant).
         "unsloth/LFM2.5-24B-A2B-GGUF" = {
           name = "LFM2.5 24B-A2B (local)";
           limit = {
-            context = 131072;
-            output = 32768;
-          };
-        };
-        "unsloth/Llama-3.2-3B-Instruct-GGUF" = {
-          name = "Llama 3.2 3B Instruct (local)";
-          limit = {
-            context = 103424;
-            output = 32768;
-          };
-        };
-        "ornith-ai/Ornith-1.5-9B-GGUF" = {
-          name = "Ornith-1.5-9B (local)";
-          reasoning = true;
-          attachment = true; # mmproj (vision)
-          limit = {
-            context = 103424;
+            context = 131072; # native; Studio override (UD-IQ3_XXS) matches
             output = 32768;
           };
         };
@@ -320,38 +312,49 @@ let
           name = "Qwythos-9B Claude-Mythos 1M (local)";
           attachment = true; # mmproj (vision)
           limit = {
-            context = 103424;
+            # Native is 1M (1048576), but 1M needs ~44 GB (25 GB KV at
+            # 4 slots); this card carries 512k (29 GB total, the rest
+            # pinned in RAM). The override was the fitted 512768; it was
+            # raised to the round 524288 on 2026-10-31.
+            context = 524288;
+            output = 32768;
+          };
+        };
+        "LiquidAI/LFM3-Omni-2B-GGUF" = {
+          name = "LFM3-Omni-2B (local)";
+          reasoning = true; # /api/inference/status: supports_reasoning
+          attachment = true; # mmproj (vision); the model also takes video/audio
+          limit = {
+            context = 128000; # native; Studio override (Q8_0) matches
+            output = 32768;
+          };
+        };
+        "ukisai/Swift-Bonsai-2-GGUF" = {
+          name = "Swift-Bonsai-2 (local)";
+          limit = {
+            context = 262144; # native; Studio override (PQ2_0) matches
             output = 32768;
           };
         };
 
         # --- decisions --------------------------------------------
-        # System One family. Kev is the only download that is a
-        # decoder, so it is the only one that also answers
-        # /v1/chat/completions. Its native context is 262144; the
-        # 16384 here matches the Studio override, which is the
-        # useful ceiling on a 12 GB card.
-        #
-        # Do NOT add the mys/laya-* GGUFs here. Both carry
+        # The System One family has no chat-completion model in this
+        # instance's serving list anymore (ggml-org/Kev-4B-GGUF was
+        # dropped from Studio's library; the old 16384 pin went with
+        # it). Do NOT add the mys/laya-* GGUFs here. Both carry
         # general.architecture = "ggmlc", which llama.cpp rejects
         # ("unknown model architecture"). They are private-format
         # exports, not llama.cpp GGUFs, and a request for them
         # wedges Studio's model switch. Laya runs through the
-        # Decision API instead, with catalog ids
-        # "laya-multilingual" / "laya-typed-decisions"; the
-        # /v1/systemone route answers "Unknown model" for repo ids.
-        "ggml-org/Kev-4B-GGUF" = {
-          name = "Kev 4B decisions (local)";
-          limit = {
-            context = 16384;
-            output = 4096;
-          };
-        };
+        # Decision API instead (the systemone MCP below), with
+        # catalog ids "laya-multilingual" / "laya-typed-decisions";
+        # the /v1/systemone route answers "Unknown model" for repo
+        # ids.
 
         # --- vision / OCR ----------------------------------------
-        # Single image in, short text out; the 131072 Studio setting
-        # from 2026-09-17 has to be re-entered (its override row is
-        # gone), or this number overstates what Studio serves.
+        # Single image in, short text out. The 131072 max_seq_length
+        # override is stored (verified 2026-10-31), so this number
+        # matches what Studio serves.
         "unsloth/GLM-OCR" = {
           name = "GLM-OCR (local)";
           attachment = true;
@@ -487,7 +490,7 @@ in
     enable = mkEnableOption "opencode provider/model config (keys read from the env file below)";
     envFile = mkOption {
       type = types.str;
-      default = "/etc/secrets/open-webui.env";
+      default = "/etc/secrets/opencode-keys.env";
       description = ''
         Path to the OPENAI_API_KEYS env file the per-provider key files are
         materialized from. Defaults to the system agenix path (NixOS). Standalone
@@ -646,12 +649,11 @@ in
     xdg.configFile."opencode/node_modules".source =
       lib.mkIf (pkgs ? open-code-ocr-plugin) "${pkgs.open-code-ocr-plugin}/node_modules";
 
-    # Materialize per-provider API key files from a decrypted provider-keys
-    # env file (OPENAI_API_KEYS JSON). The file name is historical (Open
-    # WebUI's old EnvironmentFile). Source resolution, first existing wins:
+    # Materialize per-provider API key files from the decrypted provider-key env
+    # file (OPENAI_API_KEYS JSON). Source resolution, first existing wins:
     #   1. config.opencode.envFile — an `age.secrets` path on standalone
     #      home-manager hosts (CachyOS), or the system path on NixOS.
-    #   2. /etc/secrets/open-webui.env — the system agenix path (NixOS hosts).
+    #   2. /etc/secrets/opencode-keys.env — the system agenix path (NixOS hosts).
     # Skipped silently when neither exists.
     home.activation.setupOpenCodeKeys = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" '${config.opencode.envFile}' <<'PYEOF'
@@ -660,7 +662,7 @@ in
       home = sys.argv[1]
       # expandvars so an agenix $XDG_RUNTIME_DIR/... path is resolved from the
       # activation environment rather than by bash before Python sees it.
-      candidates = [os.path.expandvars(p) for p in (sys.argv[2], "/etc/secrets/open-webui.env") if p]
+      candidates = [os.path.expandvars(p) for p in (sys.argv[2], "/etc/secrets/opencode-keys.env") if p]
       envfile = next((p for p in candidates if p and os.path.exists(p)), None)
       keydir = os.path.join(home, ".config", "opencode", "keys")
       mapping = {
@@ -668,10 +670,10 @@ in
           "https://api.kimi.com/coding/v1": "kimi.key",
           "https://inference.hetzner.com/api/v1": "hetzner.key",
           # The GLM Coding Plan key is stored in the secret's OPENAI_API_KEYS
-          # JSON under the *general* Z.AI URL (the spelling the old Open WebUI
-          # service listed), so both spellings map to the same key file. The
-          # provider above talks to the coding-plan endpoint; this dict is
-          # only the secret lookup key, never the URL opencode requests.
+          # JSON under the *general* Z.AI URL (the secret still lists that base
+          # URL), so both spellings map to the same key file. The provider above
+          # talks to the coding-plan endpoint; this dict is only the secret
+          # lookup key, never the URL opencode requests.
           "https://api.z.ai/api/paas/v4/": "zai.key",
           "https://api.z.ai/api/coding/paas/v4": "zai.key",
           "http://127.0.0.1:8888/v1": "unsloth.key",
