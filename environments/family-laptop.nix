@@ -11,7 +11,7 @@
 # the home-manager user wiring) stay in hosts/<host>/<host>.nix. Current deltas:
 #   laptop-hera: apps/benchmark.nix
 #   laptop-p16:  apps/benchmark.nix, apps/obs-studio.nix, apps/wine.nix
-#   laptop-xps: apps/noson.nix, desktop/plasma.nix
+#   laptop-xps:  apps/noson.nix, apps/wine.nix, desktop/plasma.nix
 { ... }:
 
 {

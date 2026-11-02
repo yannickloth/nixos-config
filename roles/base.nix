@@ -10,7 +10,6 @@ with lib;
     ./home-readme.nix
     ../security/kids.nix
     ../services/snapshots.nix
-    ../services/home-quota.nix
     ../services/usb-scan.nix
     ../services/secrets.nix
   ];

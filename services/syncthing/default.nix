@@ -158,9 +158,9 @@ in
       "A /sync/sven 2770 syncthing syncthing - u::rwx,u:sven:rwx,g::rwx,o::---,d:u::rwx,d:u:sven:rwx,d:g::rwx,d:o::---"
       "d /sync/aaron 2770 syncthing syncthing -"
       "A /sync/aaron 2770 syncthing syncthing - u::rwx,u:aaron:rwx,g::rwx,o::---,d:u::rwx,d:u:aaron:rwx,d:g::rwx,d:o::---"
-      # RetroArch ROM library (games/retroarch-hm.nix points the BIOS/system
-      # directory at roms/BIOS): every user must be able to read it, so the
-      # kids get read+traverse here (files r, dirs rx). Quoted path: the
+      # RetroArch ROM library (games/games.nix points RetroArch's
+      # system_directory at roms/BIOS): every user must be able to read it, so
+      # the kids get read+traverse here (files r, dirs rx). Quoted path: the
       # synced folder name contains spaces (systemd tmpfiles quoting).
       "d \"/sync/90-99 - Public stuff/roms\" 2770 syncthing syncthing -"
       "A \"/sync/90-99 - Public stuff/roms\" - - - - u::rwx,u:sven:rX,u:aaron:rX,g::rwx,o::---,d:u::rwx,d:u:sven:rX,d:u:aaron:rX,d:g::rwx,d:o::---"

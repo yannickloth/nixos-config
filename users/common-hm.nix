@@ -6,8 +6,9 @@
 {
   imports = [
     ./shell-aliases.nix
-    # Per-user RetroArch baseline config (games/games.nix installs the app
-    # system-wide): run-ahead/frame delay, RetroAchievements, shared ROM dir.
+    # Per-user RetroArch glue (games/games.nix installs the app + baseline
+    # system-wide): seeds the family Xbox 360 controller profile and
+    # re-points RetroArch's writable dirs out of the read-only store.
     ../games/retroarch-hm.nix
   ];
 

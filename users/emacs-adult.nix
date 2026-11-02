@@ -16,8 +16,10 @@
 { pkgs, ... }:
 
 {
-  # The shared Emacs configuration (same for kids and adults).
-  imports = [ ../emacs.nix ];
+  # The shared Emacs configuration (same for kids and adults). Sits in this
+  # same users/ directory, so no ../ (the kids' per-user dirs are one level
+  # deeper, which is why they import ../emacs.nix).
+  imports = [ ./emacs.nix ];
 
   # Language servers, installed on the PATH for LSP clients.
   home.packages = with pkgs; [

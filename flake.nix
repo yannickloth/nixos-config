@@ -375,6 +375,24 @@
               # from zsh-newuser-install) instead of failing activation.
               home-manager.backupFileExtension = "backup";
             }
+            # home-manager's per-user activation units (home-manager-<user>)
+            # hardcode TimeoutStartSec=5m. The first Unsloth Studio install
+            # (packages/unsloth-studio/home.nix) downloads a multi-GB torch +
+            # Python + llama.cpp, so on a modest line the 5m budget is killed
+            # mid-download; a retry on the next switch would resume from the
+            # uv cache, but the headroom spares that first-switch failure.
+            # 15m caps how long a wedged install can stall boot (these units
+            # gate multi-user.target). mkForce: home-manager defines the unit
+            # with plain (priority 1000) definitions.
+            {
+              systemd.services = pkgs.lib.mapAttrs (_: _: {
+                serviceConfig = {
+                  TimeoutStartSec = pkgs.lib.mkForce "15m";
+                };
+              }) (pkgs.lib.genAttrs
+                (map (u: "home-manager-${u}") [ "nicky" "aeiuno" "sven" "aaron" ])
+                (_: { }));
+            }
           ];
 
           # One host: its configuration module + any host-only modules, on top

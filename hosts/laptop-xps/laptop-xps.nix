@@ -10,8 +10,10 @@ with lib;
     ../../environments/family-laptop.nix
 
     # laptop-xps-only modules (SONOS controller + extra Plasma packages; the
-    # 16 GiB host also runs the lighter Plasma session).
+    # 16 GiB host also runs the lighter Plasma session). apps/wine.nix puts
+    # wine in PATH so Lutris's system check finds a default runner.
     ../../apps/noson.nix
+    ../../apps/wine.nix
     ../../desktop/plasma.nix
 
     # commonHm.hostName: home-manager modules cannot reach

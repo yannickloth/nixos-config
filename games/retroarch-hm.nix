@@ -1,74 +1,108 @@
-# Per-user RetroArch baseline configuration.
+# Per-user RetroArch glue: controller profile + writable-dir fixes.
 #
-# RetroArch is installed system-wide (games/games.nix) with the retro cores
-# bundled (retroarch.withCores), so every user can start it; this module only
-# ships the per-user ~/.config/retroarch/retroarch.cfg baseline:
+# The RetroArch install and its baseline settings live system-wide in
+# games/games.nix (retroarch-bare.wrapper settings). This module handles the
+# things that are per-user, or that RetroArch owns at runtime:
 #
-#   - low-latency settings (run-ahead + frame delay)
-#   - RetroAchievements enabled (hardcore mode on)
-#   - system/BIOS directory pointed at the shared ROM library
+#   1. The family Xbox 360 wireless receiver controller profile is installed
+#      (copy-once) into ~/.config/retroarch/autoconfig/ — the per-user dir
+#      that games/games.nix points joypad_autoconfig_dir at. After the
+#      install, RetroArch owns the file: "Save Controller Configuration"
+#      (menu) rewrites it in place, so it must be a real user-writable file,
+#      not a home-manager-managed symlink into the read-only store.
 #
-# WHY A COPY-ONCE ACTIVATION AND NOT A home-manager-MANAGED FILE: RetroArch
-# rewrites retroarch.cfg completely on every exit (menu settings, core options)
-# AND stores the RetroAchievements login token in it. A managed symlink to the
-# nix store is read-only, so the rewrite fails silently and the login token is
-# lost on every restart. The baseline is therefore installed as a real file
-# once, after which RetroArch owns the file (the baseline keys persist because
-# RetroArch round-trips them).
+#   2. Existing users' ~/.config/retroarch/retroarch.cfg are re-pointed once
+#      for the writable dirs the earlier wrapper pinned to read-only store
+#      paths. RA's config hashmap keeps the FIRST occurrence of each key
+#      (verified in the v1.22.2 source, config_file.c), so a user's cfg
+#      beats the system append config for any key it contains — for users
+#      who already ran RetroArch (and therefore have a cfg full of effective
+#      values, store paths included) the first-launch seed alone would never
+#      take effect. The rewrite is one-shot: RA round-trips every path
+#      setting back into the cfg on every exit (config_save_file), so the
+#      fixed values persist and the grep guard makes every later activation
+#      a no-op.
 #
-# Home-manager symlinks the same baseline next to it (00-baseline.cfg) so a
-# "reset my baseline" is possible by copying it over retroarch.cfg by hand.
-#
-# NOTE: if a user had ALREADY run RetroArch before this module landed, the
-# retrofit step below respects the values already in their config (it only
-# appends missing keys). Turn achievements on once via the menu in that case.
+# Both steps are idempotent; they run on every activation and converge.
 { config, lib, pkgs, ... }:
 
+let
+  # The family Xbox 360 wireless receiver profile, captured from
+  # /home/nicky/.config/retroarch/autoconfig (RA-saved, known-good mapping;
+  # vendor 1118 = 0x045e Microsoft, product 673 = 0x02a1 Xbox 360 receiver).
+  # (Name without spaces: it becomes part of the nix store path, which the
+  # activation script interpolates unquoted.)
+  controllerProfile = pkgs.writeText "retroarch-xbox360-receiver.cfg" ''
+    input_driver = "udev"
+    input_device = "Xbox 360 Wireless Receiver"
+    input_vendor_id = "1118"
+    input_product_id = "673"
+    input_b_btn = "0"
+    input_y_btn = "2"
+    input_select_btn = "6"
+    input_start_btn = "8"
+    input_up_btn = "11"
+    input_down_btn = "12"
+    input_left_btn = "13"
+    input_right_btn = "14"
+    input_a_btn = "1"
+    input_x_btn = "3"
+    input_l_btn = "4"
+    input_r_btn = "5"
+    input_l2_axis = "+2"
+    input_r2_axis = "+5"
+    input_l_x_plus_axis = "+0"
+    input_l_x_minus_axis = "-0"
+    input_l_y_plus_axis = "+1"
+    input_l_y_minus_axis = "-1"
+    input_r_x_plus_axis = "+3"
+    input_r_x_minus_axis = "-3"
+    input_r_y_plus_axis = "+4"
+    input_r_y_minus_axis = "-4"
+  '';
+in
 {
   options.commonHm.retroarch = lib.mkOption {
     type = lib.types.bool;
     default = true;
-    description = "Whether to install the per-user RetroArch baseline configuration (copy-once retroarch.cfg with run-ahead/frame delay and RetroAchievements defaults).";
+    description = "Install the per-user RetroArch controller profile and re-point RetroArch's writable directories out of the nix store.";
   };
 
   config = lib.mkIf config.commonHm.retroarch {
-    xdg.configFile."retroarch/00-baseline.cfg".source = pkgs.writeText "retroarch-baseline.cfg" ''
-      # Baseline installed by games/retroarch-hm.nix (copy-once). RetroArch
-      # round-trips every key below into its own retroarch.cfg.
-      # --- Low latency ---
-      run_ahead = "true"
-      run_ahead_frames = "1"
-      run_ahead_hide_warnings = "true"
-      frame_delay = "0" # 0 = auto; tune 0-3 if a core drops frames
-      # --- RetroAchievements (retroachievements.org) ---
-      cheevos_enable = "true"
-      cheevos_hardcore_mode_enable = "true"
-      # --- Directories ---
-      # System/BIOS files of the shared family ROM library. ~/sync links to
-      # /sync, but an absolute path keeps working no matter how the content
-      # is browsed (and on hosts where /sync is absent it is simply unused).
-      system_directory = "/sync/90-99 - Public stuff/roms/BIOS"
-    '';
+    home.activation.retroarchAutoconfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      autoconfigDir="$HOME/.config/retroarch/autoconfig"
+      cfg="$HOME/.config/retroarch/retroarch.cfg"
 
-    home.activation.retroarchBaseline = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      cfgDir="$HOME/.config/retroarch"
-      cfg="$cfgDir/retroarch.cfg"
-      mkdir -p "$cfgDir"
-      if [ ! -f "$cfg" ]; then
-        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 644 "$cfgDir/00-baseline.cfg" "$cfg"
-      else
-        # Retrofit missing baseline keys into an existing config: existing
-        # values (a saved RetroAchievements token, personal tweaks) are kept,
-        # so appending is safe. Only key lines from the baseline are checked;
-        # comments and the appended order do not matter to RetroArch.
-        while IFS= read -r line; do
-          [ "''${line:0:1}" = "#" ] && continue
-          key="''${line%% =*}"
-          [ -n "$key" ] || continue
-          $DRY_RUN_CMD ${pkgs.gnugrep}/bin/grep -q "^$key =" "$cfg" \
-            || printf '%s\n' "$line" >> "$cfg"
-        done < "$cfgDir/00-baseline.cfg"
+      # 1) Family controller profile (copy-once; RA owns it afterwards).
+      $DRY_RUN_CMD ${pkgs.coreutils}/bin/mkdir -p "$autoconfigDir"
+      if [ ! -f "$autoconfigDir/Xbox 360 Wireless Receiver.cfg" ]; then
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 644 "${controllerProfile}" "$autoconfigDir/Xbox 360 Wireless Receiver.cfg"
       fi
+
+      # 2) Re-point the writable dirs in an existing cfg (no-op once fixed).
+      #    RA writes these as `key = "value"`, one per line.
+      fix_key() {
+        key=$1; val=$2
+        [ -f "$cfg" ] || return 0
+        target=$(printf '%s = "%s"' "$key" "$val")
+        ${pkgs.gnugrep}/bin/grep -qF -- "$target" "$cfg" && return 0
+        if [ -n "''${DRY_RUN_CMD:-}" ]; then
+          echo "retroarchAutoconfig: would set: $target" >&2
+          return 0
+        fi
+        if ${pkgs.gnugrep}/bin/grep -q "^$key = " "$cfg"; then
+          ${pkgs.gawk}/bin/awk -v k="$key" -v v="$target" \
+            '$0 ~ ("^" k " = ") { print v; next } { print }' \
+            "$cfg" > "$cfg.tmp" && ${pkgs.coreutils}/bin/mv "$cfg.tmp" "$cfg"
+        else
+          printf '\n%s\n' "$target" >> "$cfg"
+        fi
+      }
+      # Where "Save Controller Configuration" writes profiles. `~` expands
+      # to each user's $HOME inside RetroArch at load time.
+      fix_key joypad_autoconfig_dir "~/.config/retroarch/autoconfig"
+      # Shared family BIOS directory (matches the system-wide baseline).
+      fix_key system_directory "/sync/90-99 - Public stuff/roms/BIOS"
     '';
   };
 }

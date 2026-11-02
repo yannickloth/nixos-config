@@ -46,6 +46,8 @@ with lib;
     duperemove # A simple tool for finding duplicated extents and submitting them for deduplication
     endless-sky
     gamemode # Optimise Linux system performance on demand. CLI app.
+    gamescope # Fullscreen compositor that wraps games (Lutris/Steam use it for
+              # exclusive fullscreen); Lutris's system check looks it up in PATH.
     gogdl # GOG Downloading module for Heroic Games Launcher
     # handheld-daemon # Linux support for handheld gaming devices like the Legion Go, ROG Ally, and GPD Win
     #hedgewars # caution, is compiled for install
@@ -79,26 +81,80 @@ with lib;
     protonup-qt # Install and manage Proton-GE and Luxtorpeda for Steam and Wine-GE for Lutris with this graphical user interface.
     ptyxis # A terminal for GNOME with first-class support for containers
     quake3e
-    (retroarch.withCores (cores: with cores; [ # RetroArch with the retro cores bundled
-      # NOTE: withCores takes a FUNCTION applied to the libretro set (see
-      # pkgs/by-name/re/retroarch-bare/wrapper.nix), not a bare list — a list
-      # would be applied as a function and fail evaluation.
-      # All core names below verified against the libretro scope
-      # (pkgs/applications/emulators/libretro/default.nix) of the pinned
-      # nixpkgs rev in flake.lock.
-      mesen             # NES (also SNES/GB/GBC accuracy pick)
-      snes9x            # SNES
-      bsnes             # SNES cycle-accurate
-      genesis-plus-gx   # SEGA Mega Drive / Genesis, Master System, Game Gear
-      mgba              # Game Boy, Game Boy Color, Game Boy Advance
-      mupen64plus       # Nintendo 64
-      beetle-pce-fast   # PC Engine / TurboGrafx-16 (mednafen fast core)
-      beetle-wswan      # WonderSwan / WonderSwan Color
-      beetle-ngp        # Neo Geo Pocket / Color
-      beetle-vb         # Virtual Boy
-      beetle-lynx       # Atari Lynx
-      virtualjaguar     # Atari Jaguar
-    ]))
+    # RetroArch with the retro cores bundled AND a declarative baseline
+    # configuration. retroarch-bare.wrapper writes `settings` into a
+    # read-only retroarch.cfg in the nix store and wraps the binary with
+    # --appendconfig=<that file>.
+    #
+    # PRECEDENCE (verified in the v1.22.2 source, config_file.c): the config
+    # hashmap keeps the FIRST occurrence of each key, so for any key it
+    # contains, a user's ~/.config/retroarch/retroarch.cfg wins over this
+    # append config. RetroArch rewrites the user's cfg on every exit with ALL
+    # effective settings (config_save_file), so after the first run each
+    # user's cfg is self-sustaining and this append config only acts as the
+    # first-launch seed for users without a cfg yet. (games/retroarch-hm.nix
+    # additionally re-points the writable dirs in existing user cfgs once.)
+    # The per-user RetroAchievements login token lives only in the user's
+    # cfg, which RA never deletes, so it survives every launch and rebuild.
+    #
+    # `~` in path values is expanded to each user's $HOME at load time
+    # (config_get_path -> fill_pathname_expand_special), and abbreviated back
+    # on save — that is how the per-user dirs below work from one shared
+    # system-wide config.
+    #
+    # The wrapper also adds -L <cores dir>: RetroArch v1.22.2 treats a
+    # directory argument to -L as its libretro search directory (it sets
+    # libretro_directory), so `retroarch file.gba` auto-picks the right core
+    # by extension. retroarch-bare's wrapper passthru
+    # (pkgs/by-name/re/retroarch-bare/package.nix) merges three read-only
+    # store-path resource dirs (assets, joypad autoconfig, core info) into
+    # the settings below; only joypad_autoconfig_dir is overridden here, to
+    # the per-user home dir, because "Save Controller Configuration" writes
+    # to it (config_save_autoconf_profile) and a read-only store path breaks
+    # saving.
+    #
+    # All core names below verified against the libretro scope
+    # (pkgs/applications/emulators/libretro/default.nix) of the pinned
+    # nixpkgs rev in flake.lock.
+    (retroarch-bare.wrapper {
+      cores = with libretro; [
+        mesen             # NES (also SNES/GB/GBC accuracy pick)
+        snes9x            # SNES
+        bsnes             # SNES cycle-accurate
+        genesis-plus-gx   # SEGA Mega Drive / Genesis, Master System, Game Gear
+        mgba              # Game Boy, Game Boy Color, Game Boy Advance
+        mupen64plus       # Nintendo 64
+        beetle-pce-fast   # PC Engine / TurboGrafx-16 (mednafen fast core)
+        beetle-wswan      # WonderSwan / WonderSwan Color
+        beetle-ngp        # Neo Geo Pocket / Color
+        beetle-vb         # Virtual Boy
+        beetle-lynx       # Atari Lynx
+        virtualjaguar     # Atari Jaguar
+      ];
+      # Family baseline: first-launch seed (fresh users). RA writes the
+      # effective values into the user's retroarch.cfg on first exit, from
+      # where they persist (RA round-trips every key).
+      settings = {
+        # --- Low latency ---
+        run_ahead = "true";
+        run_ahead_frames = "1";
+        run_ahead_hide_warnings = "true";
+        frame_delay = "0"; # 0 = auto; tune 0-3 if a core drops frames
+        # --- RetroAchievements (retroachievements.org) ---
+        cheevos_enable = "true";
+        cheevos_hardcore_mode_enable = "true";
+        # --- Directories ---
+        # System/BIOS files of the shared family ROM library. (On a host
+        # where /sync is absent the path simply goes unused.)
+        system_directory = "/sync/90-99 - Public stuff/roms/BIOS";
+        # Controller profiles: per-user home dir, NOT the read-only store
+        # default from the wrapper passthru. Profile files load from here
+        # (and the driver-specific subdir if present), and "Save Controller
+        # Configuration" writes here. games/retroarch-hm.nix seeds the
+        # family Xbox 360 profile into it.
+        joypad_autoconfig_dir = "~/.config/retroarch/autoconfig";
+      };
+    })
     #quake3hires
     #speed_dreams
     vkbasalt # A Vulkan post processing layer for Linux

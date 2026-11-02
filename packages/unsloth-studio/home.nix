@@ -105,12 +105,33 @@ in
         # The installer script itself is pinned by hash (fetched by Nix at
         # build time); only the payload it downloads from upstream remains
         # mutable. pipefail: a failed fetch must not be masked by `sh`.
+        #
+        # The activation runs as the home-manager system service, whose PATH
+        # is a fixed handful of coreutils/findutils/grep/sed/systemd bins -
+        # no curl, awk, tar, gzip or xz. install.sh hard-fails its dependency
+        # check without curl (or wget) and uses awk for its space check, so
+        # on a NixOS host the first run dies with "missing: curl (or wget)"
+        # and "awk: command not found" (2026-11-02 on laptop-xps). It only
+        # ever worked on hosts where install.sh ran from a normal user
+        # environment (laptop-p16 is CachyOS, /usr/bin has all of this).
+        # Prepend the standard tools it needs; the rest (find, sed, grep,
+        # coreutils) the activation PATH already carries.
         $DRY_RUN_CMD ${pkgs.bash}/bin/bash -o pipefail -c '
+          export PATH=${lib.makeBinPath [
+            pkgs.bash
+            pkgs.curl
+            pkgs.gawk
+            pkgs.gnutar
+            pkgs.gzip
+            pkgs.xz
+            pkgs.git
+            pkgs.python3
+          ]}:$PATH
           env UNSLOTH_SKIP_AUTOSTART=1 NO_COLOR=1 ${pkgs.bash}/bin/sh ${pkgs.fetchurl {
             url = "https://unsloth.ai/install.sh";
             sha256 = "0pzw2gasl17dzwm73cprdxxj2x8ljgc2g51nvbpcnp4kbl2v47rs";
           }}
-        ' </dev/null || echo "unsloth-studio: installer failed (network/upstream); continuing" >&2
+        ' </dev/null || echo "unsloth-studio: installer failed (see output above); continuing" >&2
       fi
     '';
 
