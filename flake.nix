@@ -107,8 +107,6 @@
               self.nixosConfigurations.laptop-xps.config.systemd.services.home-readmes.script;
             syncthing-acl = pkgs.writeText "syncthing-acl.sh"
               self.nixosConfigurations.laptop-xps.config.system.activationScripts."syncthing-acl".text;
-            btrfs-user-quotas = pkgs.writeText "btrfs-user-quotas.sh"
-              self.nixosConfigurations.laptop-xps.config.system.activationScripts."btrfs-user-quotas".text;
             hera-syncthing-data = pkgs.writeText "hera-syncthing-data.sh"
               self.nixosConfigurations.laptop-hera.config.systemd.services.syncthing-hera-data-dir.script;
             usb-scan = pkgs.writeText "usb-scan.sh" (builtins.readFile ./services/usb-scan.sh);

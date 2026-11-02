@@ -87,12 +87,6 @@ in
     expectedError.msg = "malformed app ref";
   };
 
-  testGibToKiB = {
-    # 50 GiB in quota-tools' 1024-byte block units.
-    expr = helpers.gibToKiB 50;
-    expected = 52428800;
-  };
-
   testPrivateNetRulesTcpOnly = {
     expr = builtins.length (builtins.filter builtins.isString (builtins.split "\n" (helpers.privateNetRules { tcp = [ "22" ]; })));
     expected = 2;

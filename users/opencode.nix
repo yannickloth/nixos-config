@@ -646,8 +646,9 @@ in
     xdg.configFile."opencode/node_modules".source =
       lib.mkIf (pkgs ? open-code-ocr-plugin) "${pkgs.open-code-ocr-plugin}/node_modules";
 
-    # Materialize per-provider API key files from a decrypted Open WebUI env
-    # file (OPENAI_API_KEYS JSON). Source resolution, first existing wins:
+    # Materialize per-provider API key files from a decrypted provider-keys
+    # env file (OPENAI_API_KEYS JSON). The file name is historical (Open
+    # WebUI's old EnvironmentFile). Source resolution, first existing wins:
     #   1. config.opencode.envFile — an `age.secrets` path on standalone
     #      home-manager hosts (CachyOS), or the system path on NixOS.
     #   2. /etc/secrets/open-webui.env — the system agenix path (NixOS hosts).
@@ -667,10 +668,10 @@ in
           "https://api.kimi.com/coding/v1": "kimi.key",
           "https://inference.hetzner.com/api/v1": "hetzner.key",
           # The GLM Coding Plan key is stored in the secret's OPENAI_API_KEYS
-          # JSON under the *general* Z.AI URL (open-webui still lists that base
-          # URL), so both spellings map to the same key file. The provider above
-          # talks to the coding-plan endpoint; this dict is only the secret
-          # lookup key, never the URL opencode requests.
+          # JSON under the *general* Z.AI URL (the spelling the old Open WebUI
+          # service listed), so both spellings map to the same key file. The
+          # provider above talks to the coding-plan endpoint; this dict is
+          # only the secret lookup key, never the URL opencode requests.
           "https://api.z.ai/api/paas/v4/": "zai.key",
           "https://api.z.ai/api/coding/paas/v4": "zai.key",
           "http://127.0.0.1:8888/v1": "unsloth.key",

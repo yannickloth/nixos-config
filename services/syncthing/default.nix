@@ -158,6 +158,12 @@ in
       "A /sync/sven 2770 syncthing syncthing - u::rwx,u:sven:rwx,g::rwx,o::---,d:u::rwx,d:u:sven:rwx,d:g::rwx,d:o::---"
       "d /sync/aaron 2770 syncthing syncthing -"
       "A /sync/aaron 2770 syncthing syncthing - u::rwx,u:aaron:rwx,g::rwx,o::---,d:u::rwx,d:u:aaron:rwx,d:g::rwx,d:o::---"
+      # RetroArch ROM library (games/retroarch-hm.nix points the BIOS/system
+      # directory at roms/BIOS): every user must be able to read it, so the
+      # kids get read+traverse here (files r, dirs rx). Quoted path: the
+      # synced folder name contains spaces (systemd tmpfiles quoting).
+      "d \"/sync/90-99 - Public stuff/roms\" 2770 syncthing syncthing -"
+      "A \"/sync/90-99 - Public stuff/roms\" - - - - u::rwx,u:sven:rX,u:aaron:rX,g::rwx,o::---,d:u::rwx,d:u:sven:rX,d:u:aaron:rX,d:g::rwx,d:o::---"
       "d /var/lib/syncthing 0700 syncthing syncthing -"
       # Device identity (agenix writes cert.pem/key.pem here as 0640
       # root:syncthing, so the daemon can read them).
@@ -191,6 +197,26 @@ in
           chmod 2770 /sync/${folder}
           chown syncthing:syncthing /sync/${folder}
         '') syncedPersonFolders}
+
+        # RetroArch ROM library: create the skeleton (see roms/README.md) and
+        # re-grant the kids' read ACLs on every switch. Deliberately NOT inside
+        # the .acl-stamp block: unlike the whole /sync tree this folder is
+        # small, so the recursive pass is cheap and any ROM dropped in from
+        # another host between switches gets fixed on the next one.
+        romsDir="/sync/90-99 - Public stuff/roms"
+        mkdir -p "$romsDir"
+        chmod 2770 "$romsDir"
+        chown syncthing:syncthing "$romsDir"
+        for sysDir in BIOS NES SNES "Mega Drive" "Master System" "Game Gear" \
+                      "Game Boy" "Game Boy Advance" "Nintendo 64" "PC Engine" \
+                      "WonderSwan" "Neo Geo Pocket" "Virtual Boy" "Atari Lynx" \
+                      "Atari Jaguar"; do
+          mkdir -p "$romsDir/$sysDir/Homebrew"
+          chmod 2770 "$romsDir/$sysDir" "$romsDir/$sysDir/Homebrew"
+          chown syncthing:syncthing "$romsDir/$sysDir" "$romsDir/$sysDir/Homebrew"
+        done
+        ${pkgs.acl}/bin/setfacl -R -m u:sven:rX,u:aaron:rX "$romsDir"
+        ${pkgs.acl}/bin/setfacl -R -d -m u:sven:rX,u:aaron:rX "$romsDir"
 
         # Expensive part: recursively repair ACLs on existing synced content
         # (can take minutes on large photo/music trees). Only on first run or

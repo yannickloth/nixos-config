@@ -66,17 +66,19 @@ identity are derived automatically.
   are committed only as encrypted `.age` files. Back the host's SSH key up in
   KeePassXC so a fresh host keeps its device ID stable.
 
-### AI chat
+### AI provider keys (opencode / pi)
 
-Family AI chat (Open WebUI) runs on every host at `http://localhost:8080`
-(`services/ai-chat.nix`). Providers are OpenAI-compatible; base URLs are kept in
-git, API keys decrypted from `secrets/open-webui.env.age` to
-`/etc/secrets/open-webui.env` (see `secrets-structure/README.md`):
+The family's AI provider API keys (OpenAI-compatible APIs) live in
+`/etc/secrets/open-webui.env` (name is historical — it was Open WebUI's old
+EnvironmentFile), decrypted from `secrets/open-webui.env.age` by agenix (see
+`secrets-structure/README.md`). `users/opencode.nix` materializes per-provider
+key files from it at login:
 
 | Provider | Base URL |
 | --- | --- |
 | DeepSeek | `https://api.deepseek.com` |
 | Kimi for Coding | `https://api.kimi.com/coding/v1` |
+| Z.AI GLM Coding Plan | `https://api.z.ai/api/coding/paas/v4` |
 | Hetzner AI | `https://inference.hetzner.com/api/v1` |
 
 

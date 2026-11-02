@@ -1,5 +1,6 @@
-;;; kid-emacs-config.el
-;;; Dead-simple, friendly Emacs configuration for the kids (aaron, sven).
+;;; emacs-config.el
+;;; Dead-simple, friendly Emacs configuration shared by everyone: the kids
+;;; (aaron, sven) and the adults (nicky, aeiuno, via users/emacs-adult.nix).
 ;;;
 ;;; Everything is clickable and nothing needs configuring. The goal is to
 ;;; gradually grow into Emacs, so the familiar menus, toolbars and the

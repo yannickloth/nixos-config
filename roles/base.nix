@@ -10,7 +10,6 @@ with lib;
     ./home-readme.nix
     ../security/kids.nix
     ../services/snapshots.nix
-    ../services/home-quota.nix
     ../services/usb-scan.nix
     ../services/secrets.nix
   ];
@@ -84,10 +83,9 @@ with lib;
       "kernel.kexec_load_disabled" = 1;
     };
 
-    # Python interpreter available to every user (kids' programming, Open WebUI
-    # filter payloads). The repo's own scripts are Java 25 compact source files
-    # (users/NaturalScroll.java, services/MalcontentMerge.java,
-    # services/ai-chat/SeedGates.java).
+    # Python interpreter available to every user (kids' programming). The
+    # repo's own scripts are Java 25 compact source files
+    # (users/NaturalScroll.java, services/MalcontentMerge.java).
     environment.systemPackages = [ pkgs.python3 ];
 
     # Flatpak apps installed per-user that malcontent's allowlist gates for the

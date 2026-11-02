@@ -22,15 +22,22 @@ in {
   config = {
     # Allow unfree packages
     nixpkgs.config.allowUnfree = true;
-    # openclaw is marked insecure by nixpkgs (LLM-based agent parses untrusted
-    # content with full system access); explicitly accepted by the user.
+    # Some nixpkgs packages are marked meta.insecure/EOL and refuse to install
+    # unless explicitly listed here.
     # NOTE: `nixpkgs.config.permittedInsecurePackages` does NOT merge across
     # modules — the last definition silently wins. Keep ALL entries here;
     # do not set the option elsewhere (electron: xps, dotnet: naps2/scanning).
     nixpkgs.config.permittedInsecurePackages = [
-      "openclaw-2026.5.7"
       "electron-36.9.5"
       "dotnet-sdk-6.0.428"
+      # electron-42.11.18 (added 2026-11-02): podman-desktop uses the
+      # electron_42 package, which the nixpkgs snapshot from the 2026-10-31
+      # flake.lock refresh now marks EOL (meta.insecure "Electron version
+      # 42.11.18 is EOL"). The version did not change (electron_42 =
+      # 42.11.18 in both the old and the new pin) — only the EOL annotation
+      # is new. Revisit when podman-desktop bumps electron_42 (or upstream
+      # ends the package's own EOL status).
+      "electron-42.11.18"
     ];
     home-manager.useGlobalPkgs = true; # with this, HomeManager will use the same pkgs config as nixos, amongst others the same value for config.allowUnfree
 
@@ -90,7 +97,6 @@ in {
       #geogebra
       #geogebra6
       #gitFull
-      gnome-tweaks
       gparted
       htop
       killall
@@ -98,7 +104,6 @@ in {
       kdePackages.kfind
       mpv
       nixd # Nix language server
-      openclaw # self-hosted AI assistant/agent (https://openclaw.ai)
       nixdoc # Generate documentation for Nix functions
       ocrmypdf
       p7zip # A new p7zip fork with additional codecs and improvements

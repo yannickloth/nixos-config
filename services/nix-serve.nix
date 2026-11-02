@@ -7,7 +7,7 @@ let
   # `nix-store --generate-binary-cache-key <host>-cache-1`); the matching
   # public key is trusted in roles/nix.nix. Hosts without a key keep serving
   # unsigned narinfos (and peers ignore their paths).
-  cacheKeyFile = ../../secrets/nix-cache-${config.networking.hostName}.key.age;
+  cacheKeyFile = ../secrets/nix-cache-${config.networking.hostName}.key.age;
   hasCacheKey = builtins.pathExists cacheKeyFile;
 in
 {

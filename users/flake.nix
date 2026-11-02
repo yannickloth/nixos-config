@@ -35,13 +35,21 @@
   outputs = { nixpkgs, nixpkgs-unstable, home-manager, agenix, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
     let
       system = "x86_64-linux";
+      # Keep in sync with roles/system.nix: podman-desktop pulls electron_42,
+      # which newer nixpkgs marks EOL (only the annotation is new; see the
+      # comment there).
+      permittedInsecure = [
+        "electron-42.11.18"
+      ];
       stablePkgs = import nixpkgs {
         inherit system;
         config.allowUnfree = true;
+        config.permittedInsecurePackages = permittedInsecure;
       };
       unstablePkgs = import nixpkgs-unstable {
         inherit system;
         config.allowUnfree = true;
+        config.permittedInsecurePackages = permittedInsecure;
       };
       hermesAgent = unstablePkgs.callPackage ../packages/hermes-agent {
         inherit uv2nix pyproject-nix pyproject-build-systems;

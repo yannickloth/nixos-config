@@ -6,6 +6,9 @@
 {
   imports = [
     ./shell-aliases.nix
+    # Per-user RetroArch baseline config (games/games.nix installs the app
+    # system-wide): run-ahead/frame delay, RetroAchievements, shared ROM dir.
+    ../games/retroarch-hm.nix
   ];
 
   # Whether to enable the shared developer-tools programs/services

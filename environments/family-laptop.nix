@@ -1,7 +1,7 @@
 # Shared module set for every family laptop (laptop-hera, laptop-p16,
 # laptop-xps).
 #
-# IVP: these 53 modules have the same change-driver set
+# IVP: these 52 modules have the same change-driver set
 # {D-SERVICE, D-APP, D-DESKTOP, D-HARDWARE, D-SECURITY, D-SYSTEM} — they change
 # when a service/app/desktop-stack/peripheral/security/base policy changes, not
 # when a *host* changes. They used to be copy-pasted into each host file (and
@@ -67,7 +67,6 @@
     ../security/yubikey.nix
 
     # Services.
-    ../services/ai-chat.nix
     ../services/avahi.nix
     ../services/clamav.nix
     ../services/libvirt.nix

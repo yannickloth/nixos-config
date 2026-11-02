@@ -18,7 +18,7 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 
 - Admin (sudo/wheel) — you can install software and change the system
 - Key groups: `wheel`, `secrets` (may edit
-  /etc/secrets where AI chat is enabled), `kvm`/`libvirtd` (VMs), `podman`,
+  /etc/secrets, the AI provider keys), `kvm`/`libvirtd` (VMs), `podman`,
   `networkmanager`, `lp`/`scanner`, `yubikey`, `tss`, `gamemode`, `syncthing`,
   `filedrop`, `cfo`
 - Home-manager config: `users/<your-name>/`
@@ -28,10 +28,8 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 - btrfs + LUKS full-disk encryption; each user's Steam games live in their
   own library and btrfs deduplication keeps one physical copy
   (`games/steam.nix`, `roles/bees.nix`)
-- Family AI chat (Open WebUI, on every host) — see `/etc/secrets/README.md`
-  and `services/ai-chat/`
-- Secrets: /etc/secrets (group `secrets`), never in
-  git
+- Secrets: /etc/secrets (group `secrets`), never in git — AI provider keys
+  for opencode/pi, see `/etc/secrets/README.md`
 - Family-safe DNS (malware + adult-content filtering) where configured
 - Kernel hardening via sysctls on the (linux-zen) kernel: dmesg/pointer/BPF
   restrictions (`roles/base.nix`); the system journal is persistent, so kids'
@@ -39,10 +37,6 @@ parent's home (`nicky`, `aeiuno`) on every family host. Source of truth:
 
 ## Services & where things live
 
-- **AI chat (Open WebUI):** http://localhost:8080 — the first account that
-  signs in becomes the admin, so **sign in as a parent first**, then create the
-  kids' accounts (Admin Settings → Users). No password is stored in the config;
-  each account's password is chosen on first login.
 - **Syncthing:** web UI at http://this-host:8384, synced data lives in `/sync`,
   config in `/var/lib/syncthing` (group `syncthing`). Login is the shared
   account user `nicky` + the password in `/etc/secrets/syncthing-gui-password`
@@ -190,13 +184,9 @@ make it a flatpak; if it needs groups/GPU/policies, keep it native.**
 - Parental controls via malcontent: login window 06:00–22:00, flatpak
   allowlist, OARS content-rating filter (no sexual / narcotics / gambling)
 - Kid-safe DNS applies machine-wide where configured
-- AI chat is available to them with the auto-seeded kid-safety
-  gate (`services/ai-chat/filters/kid-safety.py`)
 - Steam: each kid installs and plays games in their own library (own Wine
   prefix); `/sync` is
   blocked for them; shared files pass through `/filedrop`
-- Disk quotas: each kid is capped at 50 GiB on `/home`
-  (`services/home-quota.nix`)
 - Nightly read-only btrfs snapshots of `/home` into `/.snapshots/home` (14 kept)
   for rollback (`services/snapshots.nix`; snapshots only run where `/home` is
   its own subvolume)

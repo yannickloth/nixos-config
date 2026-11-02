@@ -53,9 +53,6 @@ rec {
   optArg = v: if v == null then "none" else toString v;
   jsonArg = v: if v == null then "none" else builtins.toJSON v;
 
-  # quota-tools' `setquota -P` block limits are in 1024-byte units.
-  gibToKiB = gib: gib * 1024 * 1024;
-
   # Private source ranges used by the scoped service rules (LAN + CGNAT +
   # link-local for IPv4; ULA + link-local for IPv6).
   privateV4 = "192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10";

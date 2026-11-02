@@ -572,7 +572,8 @@ in
         unset __HM_SESS_VARS_SOURCED
         . "${config.home.profileDirectory}/etc/profile.d/hm-session-vars.sh"
 
-        # Source agenix-decrypted AI-chat API keys if present (see age.secrets).
+        # Source agenix-decrypted AI provider API keys if present (see
+        # age.secrets).
         if [ -f "${nickyApiKeysPath}" ]; then
           set -a
           . "${nickyApiKeysPath}"

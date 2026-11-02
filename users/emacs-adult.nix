@@ -1,40 +1,25 @@
 # Shared GNU Emacs setup for adults (nicky, aeiuno).
 #
-# Uses a prebuilt GUI Emacs (pkgs.emacs-gtk) pulled from the binary cache,
-# so nothing needs to be compiled. All Elisp packages are also provided by
-# Nix (programs.emacs.extraPackages), so the config performs no package
-# fetching or compilation at runtime. Language servers (eglot) are provided
-# via home.packages so they end up in the user's PATH.
+# The adults use the same shared minimal Emacs as the kids
+# (users/emacs.nix: prebuilt emacs-gtk + which-key + emacs-config.el),
+# imported below so the two can't drift apart.
+# The previous heavy setup (auctex, magit, vertico, ...) was dropped:
+# nixpkgs 26.05's default Emacs (30.2) is built with native compilation, so
+# every entry in extraPackages gets natively recompiled at build time, and
+# those per-Emacs wrappers are not in cache.nixos.org - every `nix flake
+# update` triggered a slow local build (auctex was the worst of it). The old
+# rich config is kept in adult-emacs-config.el, no longer wired up.
+#
+# Language servers are still provided via home.packages so they end up in the
+# user's PATH (usable by other LSP clients; eglot is not configured in the
+# kid-style init file).
 { pkgs, ... }:
 
 {
-  programs.emacs = {
-    enable = true;
-    package = pkgs.emacs-gtk;
-    extraPackages = epkgs: with epkgs; [
-      auctex
-      csharp-mode
-      consult
-      corfu
-      go-mode
-      haskell-mode
-      marginalia
-      markdown-mode
-      magit
-      nix-mode
-      orderless
-      purescript-mode
-      rust-mode
-      typst-ts-mode
-      typescript-mode
-      vertico
-      which-key
-    ];
-    extraConfig = builtins.readFile ./adult-emacs-config.el;
-  };
+  # The shared Emacs configuration (same for kids and adults).
+  imports = [ ../emacs.nix ];
 
-  # Language servers used by eglot. Each server is matched to a major mode in
-  # adult-emacs-config.el.
+  # Language servers, installed on the PATH for LSP clients.
   home.packages = with pkgs; [
     clang-tools # clangd for C/C++
     csharp-ls # C# (OmniSharp)

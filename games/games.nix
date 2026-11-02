@@ -88,6 +88,26 @@ with lib;
     protonup-qt # Install and manage Proton-GE and Luxtorpeda for Steam and Wine-GE for Lutris with this graphical user interface.
     ptyxis # A terminal for GNOME with first-class support for containers
     quake3e
+    (retroarch.withCores (cores: with cores; [ # RetroArch with the retro cores bundled
+      # NOTE: withCores takes a FUNCTION applied to the libretro set (see
+      # pkgs/by-name/re/retroarch-bare/wrapper.nix), not a bare list — a list
+      # would be applied as a function and fail evaluation.
+      # All core names below verified against the libretro scope
+      # (pkgs/applications/emulators/libretro/default.nix) of the pinned
+      # nixpkgs rev in flake.lock.
+      mesen             # NES (also SNES/GB/GBC accuracy pick)
+      snes9x            # SNES
+      bsnes             # SNES cycle-accurate
+      genesis-plus-gx   # SEGA Mega Drive / Genesis, Master System, Game Gear
+      mgba              # Game Boy, Game Boy Color, Game Boy Advance
+      mupen64plus       # Nintendo 64
+      beetle-pce-fast   # PC Engine / TurboGrafx-16 (mednafen fast core)
+      beetle-wswan      # WonderSwan / WonderSwan Color
+      beetle-ngp        # Neo Geo Pocket / Color
+      beetle-vb         # Virtual Boy
+      beetle-lynx       # Atari Lynx
+      virtualjaguar     # Atari Jaguar
+    ]))
     #quake3hires
     #speed_dreams
     vkbasalt # A Vulkan post processing layer for Linux

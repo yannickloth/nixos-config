@@ -11,7 +11,7 @@
 #
 # STRATEGY: per-secret recipient sets — there is no global "all" union. Each
 # secret is encrypted only to the keys that must decrypt it:
-#   - host-wide system secrets (syncthing GUI password, Open WebUI keys, login
+#   - host-wide system secrets (syncthing GUI password, AI provider keys, login
 #     password hashes) -> `hosts` (every host key)
 #   - a host's Syncthing device identity -> that host's key only
 #   - nicky's personal API keys -> `user-nicky` + `hosts` (for recovery)
@@ -65,7 +65,8 @@ in
   "nix-cache-laptop-hera.key.age".publicKeys = [ host-laptop-hera ];
   "nix-cache-laptop-xps.key.age".publicKeys = [ host-laptop-xps ];
 
-  # Family AI-chat provider keys (Open WebUI). Also readable by user-nicky and
+  # Family AI provider keys (OPENAI_API_KEYS JSON; file name is historical —
+  # old Open WebUI env file). Also readable by user-nicky and
   # user-aeiuno so standalone home-manager on CachyOS (p16, no system agenix,
   # no /etc/secrets) can decrypt it for opencode via their user keys
   # (~/.ssh/agenix_<user>); see users/{nicky,aeiuno}/*-hm.nix and
