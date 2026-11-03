@@ -17,7 +17,7 @@
 # libraries, so no NVIDIA pip wheels are needed either.
 #
 # Since Strata 0.2.0 the tree holds three separately versioned products: the
-# engine (0.1.55 in this release), the Terminal/CLI (strata.py + strata_cli,
+# engine (0.1.56 in this release), the Terminal/CLI (strata.py + strata_cli,
 # what `strata launch`, `strata models` and `strata update` run) and the desktop
 # app (apps/). This package ships the engine plus the Python source that the
 # setup and serve paths need: setup.py now imports strata_control/ (and, through
@@ -126,15 +126,21 @@
   # workarounds that have no flag. Empty by default; see
   # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.9 (c62d5e3a;
-  # tag object d94bac6a peeled to that commit).
-  # That tag's engine is 0.1.55 (see engine.nix; since 0.2.4 the release's engine
-  # packages carry their own version, the CMake project version says 0.1.55), a drop-in
-  # swap for the 0.1.47 this package was last tuned against: the engine the 0.2 line ships is the
-  # same Qwen3.8-Flash-Next path with the 0.2 features (Gyro trellis experts,
-  # GPU roles, the NUMA-split CPU pool, `--parallel` driven from serve/) left
-  # unset or opt-in, so the calibrated knobs and the bench numbers above carry
-  # over. Two measured comparisons behind that, kept as history:
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.10 (ffa80d73;
+  # tag object db0500a5 peeled to that commit).
+  # That tag's engine is 0.1.56 (see engine.nix; since 0.2.4 the release's engine
+  # packages carry their own version, the CMake project version says 0.1.56).
+  # Engine 0.1.55 -> 0.1.56 changed one default that matters on this card:
+  # DFlash2 is now the default drafter for Qwen3.8 on sm_86 (drafting "Auto"
+  # picks it; first start downloads ~1.2 GB and builds the drafter file locally
+  # instead of taking the 5.2 GB MTP layer). The bench numbers above were
+  # measured with the MTP drafter, so a DFlash2 number for this host is not
+  # established yet. The 0.2.10 all-cards split engine needs exactly two
+  # sm_86/sm_120 cards and does not apply (one A3000 here); its new 131,072
+  # default context is overridden by this package's explicit --max-context.
+  # The 0.2 line's engine was a drop-in swap for the 0.1.47 this package was
+  # last tuned against (the calibrated knobs and the bench numbers above carry
+  # over); two measured comparisons behind that note, kept as history:
   # The 0.1.44 decode regression this package rolled back from (5c1a1db) did not
   # hold up. The first measurement, 2026-10-14 morning, put 0.1.43.1 at 38-42
   # tok/s and 84-86% draft acceptance against 0.1.44.1's 29-35 tok/s and 74-84%
@@ -161,8 +167,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "c62d5e3a15b40ea51c96aae9e8d36928965f53ab";  # v0.2.9 (tag object d94bac6a peeled); engine 0.1.55
-    hash = "sha256-eFuyhZQQNoskUXGB/RkaPvBslg16PZjCS3c8xyl4oZk=";
+    rev = "ffa80d73133ea5c548aefe57889a16e8085a938f";  # v0.2.10 (tag object db0500a5 peeled); engine 0.1.56
+    hash = "sha256-cIBcdKRYVH78bu4sElF0XK/wedcLTK8tu12c0Alzlw8=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -176,11 +182,11 @@
 let
   # The Strata release this package is pinned to (its app version); the engine
   # it builds has its own version - see engineVersion below.
-  version = "0.2.9";
+  version = "0.2.10";
   # CMakeLists.txt's project(VERSION ...) in that tree. BUILD.json has to report
   # the ENGINE's version: setup.py compares it against MIN_ENGINE and against
   # the `engine=X.Y.Z` string compiled into the binary (stale_binary()).
-  engineVersion = "0.1.55";
+  engineVersion = "0.1.56";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
@@ -369,7 +375,7 @@ let
         # engines as-is, and "nix_built": true is what ./setup-trust-nix-engine.patch
         # checks before it returns this engine instead of rebuilding it (and
         # before engine_update_note() calls it old). version is the ENGINE's
-        # version (0.1.55), not the app's: setup.py compares it with MIN_ENGINE
+        # version (0.1.56), not the app's: setup.py compares it with MIN_ENGINE
         # and with the `engine=X.Y.Z` string compiled into the binary. The
         # symlinks track store rebuilds.
         mkdir -p "$STRATA_HOME/engine"

@@ -70,10 +70,13 @@
 # (STRATA_IQ256_GATHER, upstream PR #622) is upstream as of 0.1.40, behind
 # per-thread selection (see packages/strata/default.nix). The engine-lifecycle
 # API this comment used to mention is upstream as of 0.1.31 (--idle-unload).
-# Pinned to Strata 0.2.9 (c62d5e3a), whose engine is 0.1.55: the 0.2 releases
+# Pinned to Strata 0.2.10 (ffa80d73), whose engine is 0.1.56: the 0.2 releases
 # split the engine from the app/Terminal (separately versioned from now on) and
-# bumped the engine to 0.1.46 -> 0.1.47 -> 0.1.48 -> 0.1.50 -> 0.1.51 -> 0.1.55 - Gyro trellis experts on CUDA/HIP/SYCL/
-# Metal, GPU roles, the NUMA-split CPU pool, an optional API key. Two engine
+# bumped the engine to 0.1.46 -> 0.1.47 -> 0.1.48 -> 0.1.50 -> 0.1.51 -> 0.1.55 -> 0.1.56 -
+# Gyro trellis experts on CUDA/HIP/SYCL/Metal, GPU roles, the NUMA-split CPU pool, an
+# optional API key; 0.1.56 adds the DFlash2 drafter (the default for Qwen3.8 on
+# sm_86 under drafting Auto; see default.nix) and the all-cards split engine
+# (two-card machines, not this host). Two engine
 # changes matter to this package: the K-quant MMQ prompt kernels moved into
 # libstrata_kq.so, which the engine dlopens from its own folder (installed
 # beside the binary below; without it those experts take the FP16 prompt path),
@@ -103,14 +106,15 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "c62d5e3a15b40ea51c96aae9e8d36928965f53ab";  # v0.2.9; engine 0.1.55
-    hash = "sha256-eFuyhZQQNoskUXGB/RkaPvBslg16PZjCS3c8xyl4oZk=";
+    rev = "ffa80d73133ea5c548aefe57889a16e8085a938f";  # v0.2.10; engine 0.1.56
+    hash = "sha256-cIBcdKRYVH78bu4sElF0XK/wedcLTK8tu12c0Alzlw8=";
   },
   # The engine's own version (CMakeLists.txt's project(VERSION ...)), passed from
   # default.nix. Since Strata 0.2.0 the engine is versioned apart from the app:
-  # the v0.2.9 tree builds engine 0.1.55 while the app is 0.2.9 (since 0.2.4 the
-  # releases also ship separately versioned engine packages, 0.1.55 in v0.2.9).
-  engineVersion ? "0.1.55",
+  # the v0.2.10 tree builds engine 0.1.56 while the app is 0.2.10 (since 0.2.4
+  # the releases also ship separately versioned engine packages, 0.1.56 in
+  # v0.2.10).
+  engineVersion ? "0.1.56",
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
     repo = "llama.cpp";

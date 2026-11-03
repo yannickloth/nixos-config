@@ -39,16 +39,16 @@
 }:
 
 let
-  # Release v0.2.9. Since 0.2.5 there is one Linux artifact per release, named
+  # Release v0.2.10. Since 0.2.5 there is one Linux artifact per release, named
   # Strata-<version>-linux-x86_64.AppImage (the NVIDIA CUDA 13 lane is gone:
   # the AppImage ships no engine; engines are separate component packages).
-  tag = "v0.2.9";
-  version = "0.2.9";
+  tag = "v0.2.10";
+  version = "0.2.10";
 
   src = fetchurl {
     name = "Strata-${version}-linux-x86_64.AppImage";
     url = "https://github.com/Niko1221/Strata/releases/download/${tag}/Strata-${version}-linux-x86_64.AppImage";
-    hash = "sha256-xSgxE8Mg5Ve/eWjZreYm3WHOowD8sbi2LvTV435tLak=";
+    hash = "sha256-4KX4QCFIp8BbXqwsIft8fMP7bWOVOAhOX3moMhd76JU=";
   };
 
   # 128x128@2x = what a 256x256 hicolor entry wants. fetchurl refuses a file
