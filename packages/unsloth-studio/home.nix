@@ -96,9 +96,22 @@ in
     # "Start now?" prompt also only appears on a tty, so hm activation is
     # non-interactive either way); the service below starts Studio instead.
     # timeout prevents a hung switch.
+    #
+    # The trigger is a health probe, not just file existence: an interrupted
+    # install (a laptop sleeping or the lid closing mid-run) leaves every
+    # file the -x checks see but the venv half-resolved - on 2026-11-02 an
+    # update interrupted on laptop-xps left it without the backend's web
+    # stack, and every `unsloth studio` boot died on `import uvicorn` in a
+    # 15 s crash loop until a rebuild re-ran the installer. The probe
+    # imports exactly the two modules the backend needs to serve (no torch,
+    # so it is fast on a healthy venv); a miss re-runs install.sh, whose
+    # manifest/cache make that a targeted repair of the missing packages
+    # rather than a full reinstall.
     home.activation.installUnsloth = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      if [ ! -x "$HOME/.local/bin/unsloth" ] || [ ! -x "$HOME/.unsloth/studio/unsloth_studio/bin/unsloth" ]; then
-        echo "Installing Unsloth Studio..."
+      venv_python="$HOME/.unsloth/studio/unsloth_studio/bin/python"
+      if [ ! -x "$HOME/.local/bin/unsloth" ] || [ ! -x "$venv_python" ] \
+         || ! "$venv_python" -c "import uvicorn, fastapi" >/dev/null 2>&1; then
+        echo "Installing Unsloth Studio (or repairing a broken install)..."
         # One bash -c with pipefail so a curl failure is not masked by the
         # right-hand sh (and so $DRY_RUN_CMD guards the whole pipeline, not
         # just the left side). The installer env vars go on the sh side.
@@ -116,6 +129,17 @@ in
         # environment (laptop-p16 is CachyOS, /usr/bin has all of this).
         # Prepend the standard tools it needs; the rest (find, sed, grep,
         # coreutils) the activation PATH already carries.
+        #
+        # nodejs_24 is there on purpose: without a suitable Node on PATH the
+        # installer downloads a prebuilt nodejs.org binary, which is a
+        # dynamically linked glibc executable that NixOS refuses to run
+        # (2026.11 laptop-xps: /lib64/ld-linux-x86-64.so.2 is the stub-ld
+        # stub, the node step died with "NixOS cannot run dynamically linked
+        # executables", and the failed setup rolled the whole install back).
+        # setup.sh has a documented system-Node path instead ("install Node
+        # >= 20.19 with npm >= 11 yourself and re-run"), so we hand it one.
+        # It must be 24, not 22: node 22 ships npm 10, below the npm >= 11
+        # floor, and the decision code rejects it.
         $DRY_RUN_CMD ${pkgs.bash}/bin/bash -o pipefail -c '
           export PATH=${lib.makeBinPath [
             pkgs.bash
@@ -126,12 +150,20 @@ in
             pkgs.xz
             pkgs.git
             pkgs.python3
+            pkgs.nodejs_24
           ]}:$PATH
           env UNSLOTH_SKIP_AUTOSTART=1 NO_COLOR=1 ${pkgs.bash}/bin/sh ${pkgs.fetchurl {
             url = "https://unsloth.ai/install.sh";
             sha256 = "0pzw2gasl17dzwm73cprdxxj2x8ljgc2g51nvbpcnp4kbl2v47rs";
           }}
         ' </dev/null || echo "unsloth-studio: installer failed (see output above); continuing" >&2
+        # The line above swallows the installer's own failure, so verify the
+        # install actually landed: a failed repair must be reported as such
+        # here, not rediscovered as the next crash loop. (A venv that was
+        # never created reports the same way.)
+        if ! "$venv_python" -c "import uvicorn, fastapi" >/dev/null 2>&1; then
+          echo "unsloth-studio: install ran but the backend is still missing its web stack; re-run the rebuild to retry" >&2
+        fi
       fi
     '';
 
@@ -174,7 +206,14 @@ in
 
     home.file = {
       # Service launcher: no-op while Studio is not installed yet, so the
-      # unit never crash-loops during the first activation.
+      # unit never crash-loops during the first activation. The nixpkgs
+      # node is prepended because the backend resolves Node as
+      # system-on-PATH first, else the isolated install
+      # (utils/node_runtime.py) - and on NixOS the isolated one can never
+      # exist (the nodejs.org prebuilt hits the stub-ld wall, see the
+      # installer comment above), so the nixpkgs node is the runtime for
+      # the Node-backed features (OXC data-recipe validator, frontend
+      # rebuilds).
       ".local/bin/unsloth-studio-launcher.sh" = {
         executable = true;
         text = ''
@@ -183,6 +222,7 @@ in
             echo "unsloth CLI not installed; skipping" >&2
             exit 0
           fi
+          export PATH=${lib.makeBinPath [pkgs.nodejs_24]}:$PATH
           exec "$HOME/.local/bin/unsloth" studio -p ${toString cfg.port}
         '';
       };
@@ -418,7 +458,11 @@ in
       # Update wrapper for the systemd timer. The installer's own update path
       # is `unsloth studio update` (install.sh runs exactly that), so updates
       # go through the CLI, not a reinstall. Skips cleanly while not
-      # installed.
+      # installed. Same nodejs_24 PATH as the installer: the update re-runs
+      # setup.sh, whose node step probes PATH for a system Node before
+      # falling back to the prebuilt download - on NixOS that fallback can
+      # never work (stub-ld), so every weekly update would fail its setup
+      # and roll the environment back instead of applying the release.
       ".local/bin/unsloth-update.sh" = {
         executable = true;
         text = ''
@@ -427,6 +471,7 @@ in
             echo "unsloth CLI not installed; skipping update" >&2
             exit 0
           fi
+          export PATH=${lib.makeBinPath [pkgs.nodejs_24]}:$PATH
           exec "$HOME/.local/bin/unsloth" studio update
         '';
       };
