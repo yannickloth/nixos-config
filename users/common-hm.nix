@@ -240,6 +240,68 @@
       fi
     '';
 
+    # Symlink ~/roms to the shared RetroArch ROM library for every user. The
+    # adults reach it through the syncthing group; the kids only have read +
+    # traverse there (named ACLs in services/syncthing). RetroArch itself is
+    # wired to the absolute path (games/retroarch-hm.nix), so this is purely a
+    # file-manager convenience. Same guards as linkSyncDir: the synced folder
+    # may not exist yet (fresh host before first sync), so warn and skip.
+    home.activation.linkRomsDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      roms="/sync/90-99 - Public stuff/roms"
+      if [ -L "$HOME/roms" ]; then
+        $DRY_RUN_CMD ln -sfn "$roms" "$HOME/roms"
+      elif [ -e "$HOME/roms" ]; then
+        # A real directory/file here would be clobbered by `ln -sfn`, so leave
+        # it alone.
+        echo "warning: $HOME/roms exists and is not a symlink; leaving it alone" >&2
+      elif [ -d "$roms" ]; then
+        $DRY_RUN_CMD ln -s "$roms" "$HOME/roms"
+      else
+        echo "warning: $roms does not exist; not creating ~/roms symlink"
+      fi
+    '';
+
+    # Add ~/sync to Dolphin's Places panel (sidebar) for every user. The
+    # bookmark file is managed by Dolphin itself, so never clobber it: create
+    # it only when missing, and append the entry only when not already listed
+    # (idempotent, keeps user-added bookmarks and custom actions).
+    #
+    # Path note: this nixpkgs build sets no Qt organization name, so KDE apps
+    # use the org-less app-data dir ~/.local/share/<app> (verified live:
+    # ark/klipper/kate/... all land there, and ~/.local/share/kdeorg/ does not
+    # exist). The bookmarks file is INI, Version=4, entries N_name/N_url under
+    # the [Urls] section.
+    #
+    # Multi-step file edits cannot be expressed with the $DRY_RUN_CMD prefix
+    # (a prefixed redirect would still create/truncate the target), so the
+    # whole block is skipped on dry runs.
+    home.activation.dolphinSyncBookmark = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      if [ -z "$${DRY_RUN_CMD:-}" ]; then
+        dolphin_data="$HOME/.local/share/dolphin"
+        bookmarks="$dolphin_data/bookmarks"
+        url="file://$HOME/sync"
+        if [ ! -f "$bookmarks" ]; then
+          ${pkgs.coreutils}/bin/mkdir -p "$dolphin_data"
+          ${pkgs.coreutils}/bin/printf '[General]\nVersion=4\n\n[Urls]\n' > "$bookmarks"
+        elif ! ${pkgs.gnugrep}/bin/grep -q '^\[Urls\]$' "$bookmarks"; then
+          ${pkgs.coreutils}/bin/printf '\n[Urls]\n' >> "$bookmarks"
+        fi
+        if ! ${pkgs.gnugrep}/bin/grep -qF "_url=$${url}" "$bookmarks"; then
+          # Next free index, counting the existing N_url entries.
+          last=$(${pkgs.gnugrep}/bin/grep -oE '^[0-9]+_url=' "$bookmarks" | ${pkgs.coreutils}/bin/cut -d_ -f1 | ${pkgs.coreutils}/bin/sort -n | ${pkgs.coreutils}/bin/tail -n 1 || true)
+          if [ -n "$last" ]; then n=$((last + 1)); else n=0; fi
+          # Insert right after the [Urls] header, not at end of file: a
+          # trailing [Actions] section (Dolphin custom actions) would swallow
+          # the lines and they would not show up as bookmarks.
+          ${pkgs.gawk}/bin/awk -v n="$n" -v url="$url" '
+            { print }
+            /^\[Urls\]$/ { print n "_name=Sync"; print n "_url=" url }
+          ' "$bookmarks" > "$bookmarks.hm-new"
+          ${pkgs.coreutils}/bin/mv "$bookmarks.hm-new" "$bookmarks"
+        fi
+      fi
+    '';
+
     # British English by default for every user session. The OS/console locale
     # is already en_GB (roles/i18n/fr_BE.nix / /etc/locale.conf), but KDE
     # Plasma caches its own per-user language and formats in
