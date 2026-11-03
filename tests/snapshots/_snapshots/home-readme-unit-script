@@ -8,14 +8,14 @@ install_readme() {
     warn "refusing to replace non-regular $target"
     return 0
   fi
-  /nix/store/qzaizrfdzzyrvnpzbhkxyiwk8xq9x85r-e2fsprogs-1.47.4-bin/bin/chattr -i "$target" 2>/dev/null || true
-  /nix/store/bhv6xyvqw6gjs3j488gi1z6wdv18bdpa-coreutils-9.11/bin/install --no-target-directory -o root -g root -m 0444 "$src" "$target"
-  if ! /nix/store/qzaizrfdzzyrvnpzbhkxyiwk8xq9x85r-e2fsprogs-1.47.4-bin/bin/chattr +i "$target" 2>/dev/null; then
+  /nix/store/45lf9dy8rm8bx1z28ahnxlm5k3sgrxpf-e2fsprogs-1.47.4-bin/bin/chattr -i "$target" 2>/dev/null || true
+  /nix/store/kwc34h21my8mf7xbqm9gxs1xfx07xb4i-coreutils-9.11/bin/install --no-target-directory -o root -g root -m 0444 "$src" "$target"
+  if ! /nix/store/45lf9dy8rm8bx1z28ahnxlm5k3sgrxpf-e2fsprogs-1.47.4-bin/bin/chattr +i "$target" 2>/dev/null; then
     warn "chattr +i failed on $target (filesystem without immutable support); the README is not immutable"
   fi
 }
 
-install_readme "/home/aaron/README.md" /nix/store/ai55bsghhxly4bqlf3cfihq00mcmb9fb-aaron.md
-install_readme "/home/aeiuno/README.md" /nix/store/vvfpq2hzfnv3sal7krl8wqk8n3nk422y-parents.md
-install_readme "/home/nicky/README.md" /nix/store/vvfpq2hzfnv3sal7krl8wqk8n3nk422y-parents.md
-install_readme "/home/sven/README.md" /nix/store/yay9hqg3919zhp2f4d5d7gh78z608agf-sven.md
+install_readme "/home/aaron/README.md" /nix/store/4qr223whamhjka48vw51xd12pyzi7k82-aaron.md
+install_readme "/home/aeiuno/README.md" /nix/store/gwnrqqlm091gbwkqpwfff0i3jf4frkgv-parents.md
+install_readme "/home/nicky/README.md" /nix/store/gwnrqqlm091gbwkqpwfff0i3jf4frkgv-parents.md
+install_readme "/home/sven/README.md" /nix/store/bhpy8qwvzz60v0x0ylx48ycmhsvprjjp-sven.md
