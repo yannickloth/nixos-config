@@ -193,6 +193,10 @@ in
         # The root's full ACL (access + default, see syncRootAcl) on every
         # switch: self-heals if anything clobbers it between switches.
         ${pkgs.acl}/bin/setfacl -m ${syncRootAcl} /sync 2>/dev/null || true
+        # Traverse for the kids on the public-stuff folder so they can reach
+        # the roms library (rX below); the folder itself stays unlistable for
+        # them (it also holds non-public files).
+        ${pkgs.acl}/bin/setfacl -m u:sven:--x,u:aaron:--x "/sync/90-99 - Public stuff" 2>/dev/null || true
 
         # XDG subdirs for every user's syncthing folder: create if missing
         # (syncthing only creates the folder root at first start; nothing
@@ -253,8 +257,10 @@ in
           ${pkgs.acl}/bin/setfacl -R -d -x u:sven /sync 2>/dev/null || true
           ${pkgs.acl}/bin/setfacl -R -d -x u:aaron /sync 2>/dev/null || true
 
-          # Re-establish the root (the strip above removed its named entries).
+          # Re-establish the root (the strip above removed its named entries)
+          # and the kids' traverse on the public-stuff folder (see above).
           ${pkgs.acl}/bin/setfacl -m ${syncRootAcl} /sync 2>/dev/null || true
+          ${pkgs.acl}/bin/setfacl -m u:sven:--x,u:aaron:--x "/sync/90-99 - Public stuff" 2>/dev/null || true
 
           # Parents: recursive group rwx (synced files arrive with their
           # original permissions, often owner-only).

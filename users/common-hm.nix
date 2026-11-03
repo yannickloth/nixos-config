@@ -276,7 +276,7 @@
     # (a prefixed redirect would still create/truncate the target), so the
     # whole block is skipped on dry runs.
     home.activation.dolphinSyncBookmark = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      if [ -z "$${DRY_RUN_CMD:-}" ]; then
+      if [ -z "''${DRY_RUN_CMD:-}" ]; then
         dolphin_data="$HOME/.local/share/dolphin"
         bookmarks="$dolphin_data/bookmarks"
         url="file://$HOME/sync"
@@ -286,7 +286,7 @@
         elif ! ${pkgs.gnugrep}/bin/grep -q '^\[Urls\]$' "$bookmarks"; then
           ${pkgs.coreutils}/bin/printf '\n[Urls]\n' >> "$bookmarks"
         fi
-        if ! ${pkgs.gnugrep}/bin/grep -qF "_url=$${url}" "$bookmarks"; then
+        if ! ${pkgs.gnugrep}/bin/grep -qF "_url=''${url}" "$bookmarks"; then
           # Next free index, counting the existing N_url entries.
           last=$(${pkgs.gnugrep}/bin/grep -oE '^[0-9]+_url=' "$bookmarks" | ${pkgs.coreutils}/bin/cut -d_ -f1 | ${pkgs.coreutils}/bin/sort -n | ${pkgs.coreutils}/bin/tail -n 1 || true)
           if [ -n "$last" ]; then n=$((last + 1)); else n=0; fi
