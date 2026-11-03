@@ -3,8 +3,10 @@
 # One daemon runs for all users (system user `syncthing`); nicky and aeiuno get
 # access to the data via the `syncthing` group and to the web UI via a shared
 # GUI password. Kids have no access to the family data: sven/aaron only get
-# named-user ACLs on /sync/sven and /sync/aaron respectively (plus traverse
-# access on the /sync root), so they can reach their own folder and nothing else.
+# read on the /sync root (they see the folder names), named-user ACLs on
+# /sync/sven and /sync/aaron respectively (rw), and rX on the public roms
+# library (~/roms for every user). The other folders stay unreadable: the kids
+# inherit traverse-only (--x) on them, so they can cd but never list or read.
 #
 # The folder/device set is the single source of truth in `./pool.nix`: every
 # host syncs all 37 folders to nestor and the other laptops (replication /
@@ -60,6 +62,13 @@ let
   # Stamp for the expensive recursive ACL repair: it only needs to run when the
   # folder set changes (or on a fresh install), not on every switch.
   aclStamp = helpers.aclStamp syncedPersonFolders [ "sven" "aaron" ];
+  # Full ACL (access + default) for the /sync root, shared between the
+  # tmpfiles rule (boot) and the activation script (every switch, and the
+  # full-tree repair below): the parents' group is rwx; the kids can list the
+  # root (r-x) so ~/sync is a working entry point, but NEW top-level folders
+  # inherit the default entries, where the kids stay traverse-only (--x) —
+  # a folder synced in from another host must not be readable for them.
+  syncRootAcl = "u::rwx,u:sven:r-x,u:aaron:r-x,g::rwx,o::---,d:u::rwx,d:u:sven:--x,d:u:aaron:--x,d:g::rwx,d:o::---";
 
   # Per-host identity dir. agenix decrypts the cert/key here from the
   # git-committed .age files (see age.secrets below); it lives outside the
@@ -133,10 +142,13 @@ in
 
     # --- Access control ---
     # Parents reach /sync via the syncthing group; kids are not in that group.
-    # sven/aaron reach /sync only to traverse into their own folder
-    # (/sync/sven, /sync/aaron), where a named ACL grants them rw. The web UI
-    # needs the shared GUI password, which is provisioned by services/secrets.nix
-    # from secrets/.
+    # sven/aaron can list the /sync root (r-x) to find their folder, have rw on
+    # their own folder (/sync/sven, /sync/aaron via named ACLs), and read the
+    # public roms library (~/roms -> /sync/90-99 - Public stuff/roms). The
+    # other folders stay unreadable: the kids inherit traverse-only (--x) on
+    # them, so they can cd into them but never list or read their contents.
+    # The web UI needs the shared GUI password, which is provisioned by
+    # services/secrets.nix from secrets/.
     users.groups.syncthing.members = [ "nicky" "aeiuno" ];
 
     # NOTE: the firewall ports live in the `networking.firewall` block next to
@@ -146,12 +158,11 @@ in
     systemd.tmpfiles.rules = [
       # 2770 (no "others"): only the syncthing group (parents) can reach /sync.
       "d /sync 2770 syncthing syncthing -"
-      # Default ACL: new synced files inherit group rwx and are never
-      # world-readable. sven/aaron get traverse-only (--x) so they can reach
-      # their own folder below without listing the rest of /sync. The `d:`
-      # entries are the *default* ACL entries that make new content inherit
-      # these permissions (without them only existing files are covered).
-      "A /sync 2770 syncthing syncthing - u::rwx,u:sven:--x,u:aaron:--x,g::rwx,o::---,d:u::rwx,d:u:sven:--x,d:u:aaron:--x,d:g::rwx,d:o::---"
+      # The root's full ACL lives in `syncRootAcl` (let block) so the boot
+      # rule and the activation script cannot drift apart. The `d:` entries
+      # are the *default* ACL entries that make new content inherit these
+      # permissions (without them only existing files are covered).
+      "A /sync 2770 syncthing syncthing - ${syncRootAcl}"
       # Per-kid folders: setgid (2770) so new content inherits group syncthing
       # (parents + syncthing daemon both rw), plus a named ACL so the kid is rw.
       "d /sync/sven 2770 syncthing syncthing -"
@@ -179,7 +190,9 @@ in
     system.activationScripts.syncthing-acl = stringAfter [ "users" "groups" "syncthing-data-dir" ] ''
       ACL_STAMP="${aclStamp}"
       if [ -d /sync ]; then
-        ${pkgs.acl}/bin/setfacl -m u:sven:--x,u:aaron:--x /sync 2>/dev/null || true
+        # The root's full ACL (access + default, see syncRootAcl) on every
+        # switch: self-heals if anything clobbers it between switches.
+        ${pkgs.acl}/bin/setfacl -m ${syncRootAcl} /sync 2>/dev/null || true
 
         # XDG subdirs for every user's syncthing folder: create if missing
         # (syncthing only creates the folder root at first start; nothing
@@ -218,11 +231,33 @@ in
         ${pkgs.acl}/bin/setfacl -R -m u:sven:rX,u:aaron:rX "$romsDir"
         ${pkgs.acl}/bin/setfacl -R -d -m u:sven:rX,u:aaron:rX "$romsDir"
 
-        # Expensive part: recursively repair ACLs on existing synced content
-        # (can take minutes on large photo/music trees). Only on first run or
-        # when the folder set changes; delete /var/lib/syncthing/.acl-stamp to
-        # force a full repair.
-        if [ "$(cat /var/lib/syncthing/.acl-stamp 2>/dev/null)" != "$ACL_STAMP" ]; then
+        # Expensive part: full-tree ACL repair (can take minutes on large
+        # photo/music trees). Runs when the .acl-strip-v1 marker is missing
+        # (ONE-TIME repair: the tree inherited from the original laptop-p16
+        # setup carries r-x named entries for the kids on every top-level
+        # folder, leaking the parents' folder/file NAMES to them) or when the
+        # folder set changes (.acl-stamp). Deleting either file under
+        # /var/lib/syncthing forces a full repair.
+        #
+        # The repair strips the kids' named entries from the whole tree and
+        # re-grants exactly the intended set, so the end state is identical
+        # no matter what the tree contained: parents' group rwx everywhere,
+        # the kids rw on their own folder, rX under the roms, nothing else.
+        if [ ! -f /var/lib/syncthing/.acl-strip-v1 ] \
+          || [ "$(cat /var/lib/syncthing/.acl-stamp 2>/dev/null)" != "$ACL_STAMP" ]; then
+          # Strip the kids' named entries wherever they leaked in. Files
+          # without an entry make setfacl error per file — expected and
+          # suppressed; the pass continues.
+          ${pkgs.acl}/bin/setfacl -R -x u:sven /sync 2>/dev/null || true
+          ${pkgs.acl}/bin/setfacl -R -x u:aaron /sync 2>/dev/null || true
+          ${pkgs.acl}/bin/setfacl -R -d -x u:sven /sync 2>/dev/null || true
+          ${pkgs.acl}/bin/setfacl -R -d -x u:aaron /sync 2>/dev/null || true
+
+          # Re-establish the root (the strip above removed its named entries).
+          ${pkgs.acl}/bin/setfacl -m ${syncRootAcl} /sync 2>/dev/null || true
+
+          # Parents: recursive group rwx (synced files arrive with their
+          # original permissions, often owner-only).
           ${pkgs.acl}/bin/setfacl -R -m g::rwx /sync 2>/dev/null || true
 
           # Kids are not in the syncthing group, so grant each of them rw on
@@ -236,7 +271,13 @@ in
             ${pkgs.acl}/bin/setfacl -R -d -m u:${d}:rwx /sync/${d} 2>/dev/null || true
           '') [ "sven" "aaron" ]}
 
+          # Roms: rX for the kids — the strip above removed what the
+          # per-switch pass set earlier in this script.
+          ${pkgs.acl}/bin/setfacl -R -m u:sven:rX,u:aaron:rX "$romsDir" 2>/dev/null || true
+          ${pkgs.acl}/bin/setfacl -R -d -m u:sven:rX,u:aaron:rX "$romsDir" 2>/dev/null || true
+
           ${pkgs.coreutils}/bin/mkdir -p /var/lib/syncthing
+          ${pkgs.coreutils}/bin/touch /var/lib/syncthing/.acl-strip-v1
           ${pkgs.coreutils}/bin/printf '%s\n' "$ACL_STAMP" > /var/lib/syncthing/.acl-stamp
         fi
       fi

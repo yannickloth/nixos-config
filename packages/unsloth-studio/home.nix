@@ -70,6 +70,26 @@
 with lib;
 let
   cfg = config.unsloth-studio;
+  # NixOS runtime for the installer's out-of-store prebuilts. They are
+  # generic Linux binaries and do not run as-is on NixOS (2026-11-03,
+  # laptop-xps):
+  #  - their PT_INTERP is /lib64/ld-linux-x86-64.so.2, which on NixOS
+  #    26.05 is the stub-ld stub, so the kernel refuses to start them
+  #    (llama-server exit 127, "Could not start dynamically linked
+  #    executable"); the fix is exec'ing them through the store's real
+  #    glibc interpreter (see llama-server-nixos below);
+  #  - their C/C++ runtimes are not on the standard library search path
+  #    (numpy 2.5: libstdc++.so.6, libz.so.1; torch / Unsloth's
+  #    llama.cpp build: libstdc++, libgomp, libssl/libcrypto), so the
+  #    service and update units get LD_LIBRARY_PATH (gcc.cc is the raw
+  #    compiler drv; its lib output is the gcc-15 runtime set).
+  unslothRuntimeLibs = lib.makeLibraryPath [
+    pkgs.openssl
+    pkgs.zlib
+    pkgs.gcc.cc.lib
+    pkgs.gcc.cc.libgcc
+  ];
+  realGlibcLd = "${pkgs.glibc}/lib/ld-linux-x86-64.so.2";
 in
 {
   imports = [ ./container.nix ./handoff.nix ];
@@ -160,6 +180,12 @@ in
             pkgs.python3
             pkgs.nodejs_24
           ]}:$PATH
+          # The PyPI wheels in the venv (numpy/torch) need the store C/C++
+          # runtimes to import; without this the installer `import torch`
+          # classification and any probe against the venv fail on NixOS.
+          # (Bare $VAR on purpose: a dollar-brace form would be a Nix
+          # interpolation inside this string.)
+          export LD_LIBRARY_PATH=${unslothRuntimeLibs}:$LD_LIBRARY_PATH
           env UNSLOTH_SKIP_AUTOSTART=1 NO_COLOR=1 ${pkgs.bash}/bin/sh ${pkgs.fetchurl {
             url = "https://unsloth.ai/install.sh";
             sha256 = "0pzw2gasl17dzwm73cprdxxj2x8ljgc2g51nvbpcnp4kbl2v47rs";
@@ -287,6 +313,44 @@ in
           exec "$real" "$@"
         '';
       };
+      # Interpreter shim for the non-Strata (NixOS) hosts: Studio spawns this
+      # instead of the managed llama-server (LLAMA_SERVER_PATH, set on the
+      # unit below). Unsloth's prebuilt llama.cpp is a generic Linux binary
+      # whose PT_INTERP is /lib64/ld-linux-x86-64.so.2 - the stub-ld stub on
+      # NixOS 26.05 - so the kernel refuses to start it (exit 127, 2026-11-03
+      # on laptop-xps: "Could not start dynamically linked executable").
+      # exec'ing the binary through the store's real glibc interpreter is
+      # equivalent, and LD_LIBRARY_PATH supplies the C/C++ runtimes the
+      # prebuilt links against (see the let-block). Same home as the handoff
+      # (build/bin) for the same libggml-glob / managed-binary reasons, and
+      # the same recovery if an update replaces build/bin: the pin comes back
+      # on the next switch.
+      #
+      # The cd before exec is load-bearing: executed through an explicit
+      # interpreter, the kernel reports the INTERPRETER as /proc/self/exe,
+      # and llama.cpp's backend discovery (ggml-backend-reg.cpp) enumerates
+      # the exe's directory for libggml-cpu-*.so - it would scan the glibc
+      # store dir, find nothing, and die "no backends are loaded" (silent in
+      # release builds). Its documented fallback search path is the current
+      # directory, so run from the binary's own dir (2026-11-03, laptop-xps).
+      ".unsloth/llama.cpp/build/bin/llama-server-nixos" = lib.mkIf (!cfg.strataGpuHandoff) {
+        executable = true;
+        text = ''
+          #!/usr/bin/env bash
+          bin_dir="$(cd "$(dirname "$0")" && pwd)"
+          real="$bin_dir/llama-server"
+          if [ ! -x "$real" ] || [ "$real" = "$0" ]; then
+            echo "llama-server-nixos: no real llama-server at $real" >&2
+            exit 127
+          fi
+          export LD_LIBRARY_PATH=${unslothRuntimeLibs}:$LD_LIBRARY_PATH
+          # llama.cpp finds its ggml backends via the exe dir or the cwd;
+          # through an explicit interpreter the exe dir is the glibc store
+          # dir, so the cwd has to be the binary's own directory.
+          cd "$bin_dir" || exit 127
+          exec ${realGlibcLd} "$real" "$@"
+        '';
+      };
       # Update wrapper for the systemd timer. The installer's own update path
       # is `unsloth studio update` (install.sh runs exactly that), so updates
       # go through the CLI, not a reinstall. Skips cleanly while not
@@ -348,11 +412,18 @@ in
           # unit; the helper logs what it found. (If a STRATA_API_KEY is ever
           # set, the curl needs to send it.)
           ExecStartPre = optional cfg.strataGpuHandoff "-${config.home.homeDirectory}/.local/bin/unsloth-studio-free-gpu.sh";
-          # Every model load starts here, so the Strata engine is unloaded at
-          # the moment a model is chosen rather than only at service start.
-          # See the llama-server-handoff file above.
-          Environment = optional cfg.strataGpuHandoff
-            "LLAMA_SERVER_PATH=${config.home.homeDirectory}/.unsloth/llama.cpp/build/bin/llama-server-handoff";
+          # NixOS runtime for the prebuilts (see the let-block): the backend
+          # process itself imports the venv's numpy/torch, which need the
+          # store C/C++ runtimes. Every model load starts through the
+          # pinned llama-server: the Strata handoff on the Strata host (the
+          # engine is unloaded at the moment a model is chosen), the
+          # interpreter shim on the NixOS hosts.
+          Environment =
+            [ "LD_LIBRARY_PATH=${unslothRuntimeLibs}" ]
+            ++ optional cfg.strataGpuHandoff
+              "LLAMA_SERVER_PATH=${config.home.homeDirectory}/.unsloth/llama.cpp/build/bin/llama-server-handoff"
+            ++ optional (!cfg.strataGpuHandoff)
+              "LLAMA_SERVER_PATH=${config.home.homeDirectory}/.unsloth/llama.cpp/build/bin/llama-server-nixos";
           Restart = "on-failure";
           RestartSec = "15s";
         };
@@ -368,6 +439,11 @@ in
         Service = {
           Type = "oneshot";
           ExecStart = "${config.home.homeDirectory}/.local/bin/unsloth-update.sh";
+          # The update re-runs setup.sh, which imports the venv's numpy/torch
+          # to classify the environment - same store runtimes as the service
+          # (see the let-block), or the update dies on the same
+          # libstdc++.so.6 ImportError.
+          Environment = [ "LD_LIBRARY_PATH=${unslothRuntimeLibs}" ];
           # Large torch/venv downloads can take a while.
           TimeoutStartSec = "1h";
         };
