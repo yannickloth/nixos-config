@@ -36,10 +36,19 @@ in
       # Without an authentication method any local process can drive the
       # daemon; the nftables kid-block is not authentication.
       CookieAuthentication = true;
-      SocksPort = socksPort;
+      # No settings.SOCKSPort here: client.socksListenAddress below is the
+      # Socks listener. A bare settings.SocksPort on the same port is a
+      # duplicate (tor keywords are case-insensitive), the second bind
+      # fails and the daemon exits - that crash-looped tor.service
+      # (start-limit-hit) since 2026-11-02.
     };
     client = {
       enable = true;
+      socksListenAddress = {
+        addr = "127.0.0.1";
+        port = socksPort;
+        IsolateDestAddr = true;
+      };
       # SOCKS-on-demand only: do NOT route all system traffic through Tor
       # via the transparent proxy (heavy on RAM/CPU, affects everything).
       transparentProxy.enable = false;
