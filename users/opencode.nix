@@ -509,7 +509,14 @@ in
     # configured below (via `ocr config provider`, or delegation mode) — it is
     # not a provider itself (open-codereview.ai serves no LLM API; see
     # packages/open-code-review).
-    home.packages = [ pkgs.nodejs ] ++ lib.optional (pkgs ? open-code-review) pkgs.open-code-review;
+    # openspec (openspec.dev) is the spec-driven workflow CLI: `openspec init
+    # --tools opencode` in a project writes .opencode/skills/openspec-* and
+    # .opencode/commands/opsx-*.md, and `openspec update` refreshes them. It is
+    # not an MCP server and not a provider, so it only needs to be on PATH.
+    home.packages =
+      [ pkgs.nodejs ]
+      ++ lib.optional (pkgs ? open-code-review) pkgs.open-code-review
+      ++ lib.optional (pkgs ? openspec) pkgs.openspec;
 
     xdg.configFile."opencode/opencode.json" = {
       text =
