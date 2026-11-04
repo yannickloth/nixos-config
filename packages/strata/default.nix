@@ -191,12 +191,20 @@ let
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
   # otherwise fills VRAM completely.
-  vramReserveMiB = if vision then 2800 else 1800;
+  # Tuned 2026-11-03 on the RTX A3000 12GB (bench sweep, engine 0.1.56): 512 MiB
+  # measured +9.6% chat decode, +8.9% 16K prefill, +11.0% two-client throughput
+  # and +22.0% agent decode against 2800 MiB, at 2388-2392 cache slots instead
+  # of 1025. 512 is the engine's own recommended floor on this card (#2065);
+  # 300-512 is a flat plateau, and 400 gave the best two-client figure (36.1).
+  vramReserveMiB = 512;
   # The reserve a config that serves images needs, when `vision` is false but
   # the encoder is shipped: a config can still carry a "vision" block (setup
   # answered yes, or the app turned images on). config_patch.py applies this
   # per config, so the text-only budget is not spent on encoder activations.
-  vramVisionReserveMiB = 2800;
+  # Kept equal to the text reserve: the measured configs kept --vision on, so
+  # image requests carry the same headroom as text ones. Raise this alone if
+  # image requests are seen to run out of VRAM.
+  vramVisionReserveMiB = 512;
 
   # What engine/BUILD.json records for images: the encoder binary is there
   # whenever the package ships it. "cpu"/"gpu" say which reader setup picks by

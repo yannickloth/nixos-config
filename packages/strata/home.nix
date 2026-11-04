@@ -257,6 +257,20 @@ in
       '';
     };
 
+    allowedHosts = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      description = ''
+        Extra `Host:` values the server accepts (`STRATA_ALLOWED_HOSTS`). Strata
+        answers 403 to anything else as DNS-rebinding protection, so a client
+        that reaches it under a name other than localhost must be listed here —
+        e.g. `host.containers.internal` for the Unsloth Studio container, which
+        arrives through pasta's host-loopback mapping. Setting an API key turns
+        the check off instead.
+      '';
+      example = [ "host.containers.internal" "169.254.1.2" ];
+    };
+
     beforeLoad = mkOption {
       type = types.str;
       default = "";
@@ -345,6 +359,7 @@ in
             "STRATA_IDLE_UNLOAD=${toString cfg.idleUnloadSeconds}"
           ]
           ++ optional (cfg.minFreeVramMib > 0) "STRATA_MIN_FREE_VRAM=${toString cfg.minFreeVramMib}"
+          ++ optional (cfg.allowedHosts != [ ]) "STRATA_ALLOWED_HOSTS=${concatStringsSep "," cfg.allowedHosts}"
           ++ optional (cfg.beforeLoad != "") "STRATA_BEFORE_LOAD=${cfg.beforeLoad}"
           ++ optional (cfg.defaultConfig != "") "STRATA_CONFIG=${cfg.defaultConfig}";
           # MAP_HUGETLB for the expert arena is charged to RLIMIT_MEMLOCK.

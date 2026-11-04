@@ -116,8 +116,12 @@
               self.nixosConfigurations.laptop-p16.config.home-manager.users.nicky.home.file.".local/bin/unsloth-studio-free-gpu.sh".text;
             unsloth-unload = pkgs.writeText "unsloth-unload.sh"
               self.nixosConfigurations.laptop-p16.config.home-manager.users.nicky.home.file.".local/bin/unsloth-studio-unload.sh".text;
-            llama-handoff = pkgs.writeText "llama-handoff.sh"
-              self.nixosConfigurations.laptop-p16.config.home-manager.users.nicky.home.file.".unsloth/llama.cpp/build/bin/llama-server-handoff".text;
+            # No llama-server-handoff entry: it is the native-only in-load shim
+            # (packages/unsloth-studio/home.nix), and laptop-p16 - the only host
+            # with strataGpuHandoff - runs the container backend, where llama.cpp
+            # is baked into the image (see packages/unsloth-studio/handoff.nix).
+            # The file therefore exists in no configuration; referencing it broke
+            # this check.
           };
 
           # Scripts that are already derivations (built by writeShellScript).

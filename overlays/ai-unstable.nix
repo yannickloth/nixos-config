@@ -69,6 +69,13 @@ final: prev: {
   # REA (rea-agents): MCP+CLI reverse-engineering toolkit, published only on
   # npm, packaged in-tree from the registry tarball (packages/rea).
   rea = unstablePkgs.callPackage ../packages/rea { };
+  # OpenSpec (openspec.dev, Fission-AI/OpenSpec): spec-driven workflow CLI that
+  # generates the openspec-* skills and opsx-* commands an agent invokes. It is
+  # in nixpkgs, but the stable channel (nixos-26.05) still carries 1.4.1 while
+  # the 1.x line moves fast, so it follows the rest of the AI tooling from
+  # unstable. Installed by users/opencode.nix next to the ocr CLI; the
+  # per-project skills and commands come from `openspec init --tools opencode`.
+  openspec = unstablePkgs.openspec;
   # Orca (ADE): not in nixpkgs and only shipped as a prebuilt Electron AppImage,
   # wrapped as a normal derivation in packages/orca. Exposed here so the adults
   # (nicky, aeiuno) get `pkgs.orca` on every host.

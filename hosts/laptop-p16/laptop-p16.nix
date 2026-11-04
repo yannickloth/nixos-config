@@ -14,6 +14,10 @@ with lib;
     ../../apps/obs-studio.nix
     ../../apps/wine.nix
 
+    # /data: second LUKS+btrfs volume, carries podman's graphroot (see the file
+    # header). The CachyOS install uses hosts/laptop-p16/cachyos/
+    # automount-data.sh for the same thing.
+    ./data-volume.nix
     # commonHm.hostName: home-manager modules cannot reach
     # config.networking.hostName, so the host name is passed explicitly. It
     # gates host-specific HM (Unsloth/Strata/CLM on laptop-p16).
@@ -43,6 +47,13 @@ with lib;
     }
   ];
   # In this file comes everything that is specific to this host.
+  # GPU passthrough for the Unsloth Studio container
+  # (packages/unsloth-studio/container.nix, --device nvidia.com/gpu=all): the
+  # module writes the CDI spec at boot (/var/run/cdi) and registers it in
+  # containers.conf. The CachyOS install gets the same from the distro's
+  # nvidia-container-toolkit instead, so this line only matters on NixOS.
+  hardware.nvidia-container-toolkit.enable = true;
+
   networking.hostName = "laptop-p16"; # Define your hostname.
 
   # Syncthing device name for this host (see services/syncthing/pool.nix).

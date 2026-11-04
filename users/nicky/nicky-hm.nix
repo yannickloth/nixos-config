@@ -156,10 +156,26 @@ in
   # localhost endpoint. Hosts set users.users.nicky.linger = true so the API
   # survives logout.
   unsloth-studio.enable = true;
-  # On the Strata host, pin Studio's llama-server to the handoff wrapper so
-  # picking a model unloads the 125B engine before VRAM is computed (the other
-  # hosts have no `strata` unit and no llama.cpp tree yet, where a pinned path
-  # would only get in discovery's way).
+  # CachyOS deployment: run upstream's image under rootless podman instead of
+  # install.sh into $HOME (packages/unsloth-studio/container.nix). Studio is
+  # built for a normal userland — its installer, in-place llama.cpp rebuilds,
+  # audio/image engine swaps and self-update all assume one — and this laptop is
+  # the host that must keep working. NixOS hosts stay on the native backend.
+  # Gated on isP16 alone: the container needs GPU CDI and a filesystem with room
+  # for the ~10 GB image. laptop-p16 has both on either OS (A3000, /data); no
+  # other host in the family does.
+  unsloth-studio.backend = lib.mkIf isP16 "container";
+  unsloth-studio.podmanStorageRoot = lib.mkIf isP16 "/data/containers/nicky";
+  unsloth-studio.dataDir = lib.mkIf isP16 "/data/unsloth";
+  # Only the CachyOS install has the distro podman: there it shares conmon,
+  # netavark and the CDI spec with the `podman` in the shell. On NixOS the
+  # module's default (pkgs.podman) is used, and the host enables
+  # hardware.nvidia-container-toolkit for the CDI spec.
+  unsloth-studio.podman = lib.mkIf (isCachyOS && isP16) "/usr/bin/podman";
+  # On the Strata host, free the card before Studio allocates (packages/
+  # unsloth-studio/handoff.nix). The helper is a host script, so it serves both
+  # backends; the in-load half of the handoff (LLAMA_SERVER_PATH) is native-only,
+  # because inside the container llama.cpp is baked into the image.
   unsloth-studio.strataGpuHandoff = isP16;
 
   # Strata (Qwen3.8-Flash-Next 125B MoE inference, OpenAI/Anthropic API on
@@ -235,6 +251,11 @@ in
     # above is 900, so Strata holds the card deliberately long - a Studio turn
     # inside that window is exactly the case this covers.
     minFreeVramMib = 8000;
+    # The Studio container reaches Strata through pasta's host loopback
+    # (packages/unsloth-studio/container.nix, option hostLoopback), so requests
+    # arrive with this Host header. Strata 403s anything but localhost otherwise
+    # (DNS-rebinding protection).
+    allowedHosts = [ "host.containers.internal" "169.254.1.2" ];
     beforeLoad = "${config.home.homeDirectory}/.local/bin/unsloth-studio-unload.sh";
     # STRATA_ADAPT_OVERLAP stays at the upstream default (off): 0.1.43 defaulted
     # it on for Linux CUDA, which cost ~2.7x decode on this rig (small expert
