@@ -32,6 +32,11 @@ let
   desktop = pkgs.callPackage ./desktop.nix { };
 in
 {
+  # The `ai.slice` both inference stacks run in (see ../ai-slice.nix). Imported
+  # here, not from a user's config, so any host that enables either stack gets
+  # the same resource budget.
+  imports = [ ../ai-slice.nix ];
+
   options.strata = {
     enable = mkEnableOption "Strata (local Qwen3.8-Flash-Next 125B MoE inference, OpenAI/Anthropic API on localhost)";
 
@@ -352,6 +357,16 @@ in
         Install = mkIf cfg.autoStart { WantedBy = [ "default.target" ]; };
         Service = {
           Type = "simple";
+          # Yield to the desktop while it is in use (packages/ai-slice.nix):
+          # CPUWeight 20 against app.slice/session.slice's 100, so the 15-thread
+          # expert pool and the CUDA kernel lose to the compositor and the
+          # browser only when both want the CPU. Nice orders this unit against
+          # the other threads of the same slice; the I/O class keeps a model
+          # load (tens of GB) behind interactive reads.
+          Slice = "ai.slice";
+          Nice = 10;
+          IOSchedulingClass = "best-effort";
+          IOSchedulingPriority = 7;
           ExecStart = "${cfg.package}/bin/strata-server";
           Environment = [
             "BROWSER=true" # never open a browser from the service

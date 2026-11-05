@@ -92,7 +92,9 @@ let
   realGlibcLd = "${pkgs.glibc}/lib/ld-linux-x86-64.so.2";
 in
 {
-  imports = [ ./container.nix ./handoff.nix ];
+  # The `ai.slice` both inference stacks run in (see ../ai-slice.nix), imported
+  # here so the budget follows the package instead of one user's config.
+  imports = [ ./container.nix ./handoff.nix ../ai-slice.nix ];
 
   options.unsloth-studio = {
     enable = mkEnableOption "Unsloth Studio (local inference web UI + API; Decision API for System One models)";
@@ -405,6 +407,14 @@ in
         };
         Service = {
           Type = "simple";
+          # Yield to the desktop while it is in use (packages/ai-slice.nix):
+          # the backend loads numpy/torch and picks one llama.cpp thread per
+          # core, so it joins the same slice as the container backend below
+          # (./container.nix) and Strata (packages/strata/home.nix).
+          Slice = "ai.slice";
+          Nice = 10;
+          IOSchedulingClass = "best-effort";
+          IOSchedulingPriority = 7;
           ExecStart = "${config.home.homeDirectory}/.local/bin/unsloth-studio-launcher.sh";
           # On the Strata host, Studio's models own the GPU while it runs: ask
           # the Strata server (if up) to unload its 125B engine first. The '-'
@@ -426,6 +436,10 @@ in
               "LLAMA_SERVER_PATH=${config.home.homeDirectory}/.unsloth/llama.cpp/build/bin/llama-server-nixos";
           Restart = "on-failure";
           RestartSec = "15s";
+          # ExecStartPre runs the GPU handoff (see ./container.nix): it waits
+          # for Strata to unload, which blocks while Strata is generating. The
+          # user manager's 15 s default would kill it and fail the unit.
+          TimeoutStartSec = "360s";
         };
       };
 

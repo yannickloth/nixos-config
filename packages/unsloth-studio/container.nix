@@ -276,6 +276,14 @@ in
       };
       Service = {
         Type = "simple";
+        # Yield to the desktop while it is in use (packages/ai-slice.nix):
+        # llama.cpp spawns one thread per core inside the container, so the
+        # podman scope needs the same slice, weight and nice value as the
+        # native unit in ./home.nix.
+        Slice = "ai.slice";
+        Nice = 10;
+        IOSchedulingClass = "best-effort";
+        IOSchedulingPriority = 7;
         ExecStart = "${home}/.local/bin/unsloth-studio-container.sh";
         # The run script detaches and waits, so stopping the unit must stop the
         # container explicitly (SIGTERM to `podman wait` alone leaves it running).
@@ -286,6 +294,17 @@ in
         ExecStartPre = optional cfg.strataGpuHandoff "-${home}/.local/bin/unsloth-studio-free-gpu.sh";
         Restart = "always";
         RestartSec = "15s";
+        # The ExecStartPre handoff intentionally waits for Strata to drop the
+        # 125B engine: its unload call blocks while a request runs, and the
+        # helper then polls /health until the VRAM is back (up to
+        # STRATA_UNLOAD_WAIT + 30 s for the call, then ~2 s × (wait + 60)/2).
+        # At the user manager's 15 s default this pre-start was killed - the
+        # unit failed and restarted forever whenever Strata was generating
+        # (2026-11-05: Strata in a 391K-token turn, Studio stuck in
+        # "activating (start-pre)"). 360 s covers the 120 s default wait with
+        # margin; tune STRATA_UNLOAD_WAIT in the environment file to shorten
+        # the gate.
+        TimeoutStartSec = "360s";
         # podman needs a stop that outlasts supervisord's own studio stop wait.
         TimeoutStopSec = "180s";
       };
