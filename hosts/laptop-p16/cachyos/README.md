@@ -34,6 +34,49 @@ The NixOS host config in `hosts/laptop-p16/` (`hardware-configuration.nix`,
 reinstalled with NixOS; nothing in the shared home-manager modules depends on
 which of the two is in use.
 
+## nix-serve cache (nicky user service)
+
+The peer Nix cache the other laptops substitute from (`roles/nix.nix` lists
+`http://laptop-p16.bee-blues.ts.net:5000/`) is a **nicky user service**
+managed by the standalone home-manager deployment (`users/nix-serve.nix`);
+the NixOS `services/nix-serve.nix` system unit does not apply on CachyOS. It
+starts at login and keeps running after logout because the orca-server
+activation (`packages/orca/home.nix`) enables lingering for nicky.
+
+One-time signing-key setup. The key is encrypted to the `host-laptop-p16`
+recipient only (`secrets.nix`); without it the cache serves unsigned narinfos
+that peers (`require-sigs`, the default) ignore. First check that p16's
+current SSH host key is still that recipient:
+
+```sh
+ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub   # fingerprint must match
+grep host-laptop-p16 ~/code/nixos-config/secrets.nix
+```
+
+Then decrypt the key (as nicky):
+
+```sh
+mkdir -p ~/.local/share/nix-serve && chmod 700 ~/.local/share/nix-serve
+age -d -i /etc/ssh/ssh_host_ed25519_key \
+    ~/code/nixos-config/secrets/nix-cache-laptop-p16.key.age \
+    > ~/.local/share/nix-serve/laptop-p16-cache.key
+chmod 600 ~/.local/share/nix-serve/laptop-p16-cache.key
+```
+
+If the fingerprints do not match, the CachyOS install rotated the host key:
+restore the `host-laptop-p16` private key (KeePassXC backup, see
+`secrets-structure/`) and pass it as the `-i` identity instead.
+
+Apply and verify:
+
+```sh
+home-manager switch --flake ~/code/nixos-config/users#nicky
+systemctl --user status nix-serve
+curl -s http://127.0.0.1:5000/nix-cache-info
+# from a peer laptop (xps/hera):
+curl -s http://laptop-p16.bee-blues.ts.net:5000/nix-cache-info
+```
+
 ## /data automount (`automount-data.sh`)
 
 `/data` is a second LUKS volume (`nvme0n1p1`, btrfs, fs UUID

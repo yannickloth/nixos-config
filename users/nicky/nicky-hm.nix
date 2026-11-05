@@ -67,6 +67,7 @@ in
     ../../packages/strata/home.nix
     ../../packages/unsloth-studio/home.nix
     ../natural-scroll.nix
+    ../nix-serve.nix
     ../opencode.nix
     ../../packages/orca/home.nix
     ../../packages/browseros/home.nix
