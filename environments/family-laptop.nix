@@ -88,4 +88,20 @@
   # Distribute the family SSH identities + authorized_keys on every laptop
   # (see services/ssh-user-keys.nix).
   services.sshUserKeys.enable = true;
+
+  # Unsloth Studio's container backend (packages/unsloth-studio/container.nix)
+  # keeps podman's graphroot at /data/containers/nicky and the model data at
+  # /data/unsloth on every host. /data is a separate LUKS+btrfs volume on
+  # laptop-p16 and laptop-hera; laptop-xps has no second drive, so on that
+  # host these rules also create /data itself as a plain root-disk directory
+  # (tmpfiles creates the leading dir as root, the subdirs below as nicky).
+  # tmpfiles runs after local-fs.target, so on the volume hosts the rules
+  # apply to the mounted content; on p16 they also trip the x-systemd.automount
+  # at boot, which only makes the graphroot ready earlier (the lazy first
+  # access and the nofail recovery path stay in place). 0700 on the model
+  # dir: the HF cache holds a token.
+  systemd.tmpfiles.rules = [
+    "d /data/unsloth 0700 nicky nicky -"
+    "d /data/containers 0755 nicky nicky -"
+  ];
 }

@@ -51,6 +51,25 @@ with lib;
   # logged in — same reason laptop-p16 lingers nicky (Orca runtime server).
   users.users.nicky.linger = true;
 
+  # Rootless podman (the Unsloth Studio container backend) maps the user's
+  # UIDs through /etc/subuid; nixpkgs' virtualisation.podman does not manage
+  # these files, and without them a user's `podman run` fails with "no subuid
+  # ranges found". Values match what was already on disk (manual step,
+  # 2026-11-04), so this manages the existing files without remapping. The
+  # other hosts get the same when their rootless storage is first created.
+  environment.etc."subuid".text = ''
+    nicky:100000:65536
+    aeiuno:165536:65536
+    sven:231072:65536
+    aaron:296608:65536
+  '';
+  environment.etc."subgid".text = ''
+    nicky:100000:65536
+    aeiuno:165536:65536
+    sven:231072:65536
+    aaron:296608:65536
+  '';
+
   # Syncthing device name for this host (see services/syncthing/pool.nix).
   services.syncthing.self = "laptop-xps";
 

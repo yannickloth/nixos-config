@@ -48,10 +48,11 @@ let
     fi
     image="$(cat "$image_file")"
 
-    # dataDir lives on a separate LUKS+btrfs volume on this host (see
-    # hosts/laptop-p16/cachyos/automount-data.sh). Touching it first trips the
-    # automount unit when it is not mounted yet, and fails here with a readable
-    # reason instead of deep inside podman as "permission denied".
+    # dataDir lives under /data: a separate LUKS+btrfs volume on laptop-p16
+    # (see hosts/laptop-p16/cachyos/automount-data.sh) and laptop-hera, a
+    # root-disk directory on laptop-xps. Touching it first trips the p16
+    # automount unit when it is not mounted yet, and fails here with a
+    # readable reason instead of deep inside podman as "permission denied".
     if ! ${pkgs.coreutils}/bin/mkdir -p ${escapeShellArg cfg.dataDir}/hf ${escapeShellArg cfg.dataDir}/host 2>/dev/null; then
       echo "unsloth-studio: cannot create ${cfg.dataDir} - is /data unlocked and mounted?" >&2
       exit 1

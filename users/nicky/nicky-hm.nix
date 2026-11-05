@@ -156,21 +156,27 @@ in
   # localhost endpoint. Hosts set users.users.nicky.linger = true so the API
   # survives logout.
   unsloth-studio.enable = true;
-  # CachyOS deployment: run upstream's image under rootless podman instead of
-  # install.sh into $HOME (packages/unsloth-studio/container.nix). Studio is
-  # built for a normal userland — its installer, in-place llama.cpp rebuilds,
-  # audio/image engine swaps and self-update all assume one — and this laptop is
-  # the host that must keep working. NixOS hosts stay on the native backend.
-  # Gated on isP16 alone: the container needs GPU CDI and a filesystem with room
-  # for the ~10 GB image. laptop-p16 has both on either OS (A3000, /data); no
-  # other host in the family does.
-  unsloth-studio.backend = lib.mkIf isP16 "container";
-  unsloth-studio.podmanStorageRoot = lib.mkIf isP16 "/data/containers/nicky";
-  unsloth-studio.dataDir = lib.mkIf isP16 "/data/unsloth";
+  # Container backend on every host (packages/unsloth-studio/container.nix):
+  # Studio is built for a normal Linux userland — its installer, in-place
+  # llama.cpp rebuilds, audio/image engine swaps and self-update all assume
+  # one — so the upstream image under rootless podman is the supported path,
+  # and the native install.sh backend (backend = "native") stays available as
+  # the fallback for a host that cannot run it. /data holds the graphroot and
+  # the model data (family-laptop.nix tmpfiles): a separate LUKS+btrfs volume
+  # on laptop-p16 and laptop-hera, a root-disk directory on laptop-xps, which
+  # has no second drive.
+  unsloth-studio.backend = "container";
+  unsloth-studio.podmanStorageRoot = "/data/containers/nicky";
+  unsloth-studio.dataDir = "/data/unsloth";
+  # GPU passthrough only where the card is at or above the image's sm_75
+  # (Turing) floor: laptop-p16's A3000 (sm_86), with the CDI spec from
+  # hardware.nvidia-container-toolkit. laptop-hera's GTX 1050 Ti is Pascal
+  # (sm_61) — the image's entrypoint exits 1 when it sees such a card — and
+  # laptop-xps has no NVIDIA card at all; both run the image in CPU mode.
+  unsloth-studio.gpu = isP16;
   # Only the CachyOS install has the distro podman: there it shares conmon,
   # netavark and the CDI spec with the `podman` in the shell. On NixOS the
-  # module's default (pkgs.podman) is used, and the host enables
-  # hardware.nvidia-container-toolkit for the CDI spec.
+  # module's default (pkgs.podman) is used.
   unsloth-studio.podman = lib.mkIf (isCachyOS && isP16) "/usr/bin/podman";
   # On the Strata host, free the card before Studio allocates (packages/
   # unsloth-studio/handoff.nix). The helper is a host script, so it serves both
