@@ -90,9 +90,16 @@ with lib;
   # Trim SSD (NVMe) weekly to keep free-space performance and endurance up.
   services.fstrim.enable = true;
 
-  # Family-safe DNS (Cloudflare Family 1.1.1.3 / 1.0.0.3, blocks malware + adult content).
+  # DNS: the Tailscale resolver MUST stay first. It is the only resolver that
+  # knows the .ts.net MagicDNS names (the peer nix-serve substituters in
+  # roles/nix.nix), and glibc treats the first NXDOMAIN as final, so a public
+  # resolver ahead of it made every peer name unresolvable. Behind it,
+  # Cloudflare Family (1.1.1.3 / 1.0.0.3, blocks malware + adult content) is
+  # the fallback. General queries are answered by the tailnet's upstream
+  # resolver; to keep family-safe filtering on those too, set the tailnet's
+  # custom resolver to 1.1.1.3/1.0.0.3 in the Tailscale admin console.
   # Note: DNS applies machine-wide, not per-user.
-  networking.networkmanager.insertNameservers = [ "1.1.1.3" "1.0.0.3" ];
+  networking.networkmanager.insertNameservers = [ "100.100.100.100" "1.1.1.3" "1.0.0.3" ];
 
   # Suspend on lid close. suspend-then-hibernate is NOT enabled because NixOS
   # cannot resume a hibernation image from a btrfs swapfile (no resume_offset
