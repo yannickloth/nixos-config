@@ -69,6 +69,7 @@ in
     ../natural-scroll.nix
     ../nix-serve.nix
     ../opencode.nix
+    ../graphrag-watch.nix
     ../../packages/orca/home.nix
     ../../packages/browseros/home.nix
     ../../packages/libreoffice-mcp/home.nix
@@ -80,6 +81,9 @@ in
   # Global opencode provider/model config (deepseek, Z.AI GLM Coding Plan
   # subscription, Kimi, Hetzner).
   opencode.enable = true;
+  # Standalone GraphRAG change detector: marks content edited outside opencode
+  # (pi, IDE, scripts) dirty so the next build picks it up. See graphrag-watch.nix.
+  graphragWatch.enable = true;
   # On CachyOS there is no system agenix / /etc/secrets, so source the provider
   # keys from the home-manager agenix secret decrypted with ~/.ssh/agenix_nicky
   # (see the `age` block below). On NixOS hosts keep the default /etc/secrets.
