@@ -32,7 +32,16 @@
 #                                        Studio enforces its own per-model context budget
 #   strata    http://127.0.0.1:8080/v1   local Strata server (laptop-p16 only); any
 #                                        key/model name, context = packages/strata's
-#                                        `strata.context` (default 524288)
+#                                        `strata.context` (default 524288), KV streamed
+#                                        from pinned RAM. This is the long-context path:
+#                                        Studio on this card serves ~10k (a few slots)
+#                                        to ~17k (one slot) with KV on the GPU.
+#                                        Both paths are configured on purpose: Studio is
+#                                        the default admission point; Strata stays
+#                                        available for work that needs the big window.
+#                                        A direct Strata request keeps the engine busy, so
+#                                        a concurrent Studio load can be refused ("busy")
+#                                        — use one path at a time, not both at once.
 { config, lib, pkgs, ... }:
 
 with lib;
@@ -336,6 +345,31 @@ let
             output = 32768;
           };
         };
+        # The 27B Swift 1.5 weights Strata serves, reached through Studio so
+        # that one service owns admission, eviction and GPU handoff. Model id
+        # is Studio's library id; quant variants (`:IQ3_XXS`, `:IQ3_S`) exist.
+        #
+        # `context` is Studio's SERVED window, measured 2026-11-06, not the
+        # native 262144: the 12 GB card holds the IQ3_XXS weights (10.4 GB) and
+        # almost nothing else, so Studio fits the KV cache into the remainder.
+        # Measured: 4 slots -> 9984 tokens, 1 slot -> 17152 tokens.
+        #
+        # PORTABILITY: the 17152 figure needs a per-host override persisted in
+        # Studio's own store (`PUT /api/settings/openai-auto-switch/overrides`
+        # with {"n_parallel":1,"custom_context_length":17152}); that store is
+        # runtime state, not this repo, so a fresh host serves the 9984 default.
+        # Keep this number at the value every host serves (9984). Raise it only
+        # together with the override on that host, and never past the served
+        # window: a larger value makes opencode ship prompts Studio truncates.
+        "ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF" = {
+          name = "Swift 1.5 27B IQ3_XXS (local, via Studio)";
+          reasoning = true;
+          attachment = false;
+          limit = {
+            context = 9984;
+            output = 32768;
+          };
+        };
 
         # --- decisions --------------------------------------------
         # The System One family has no chat-completion model in this
@@ -367,15 +401,21 @@ let
     };
     # Local Strata server (packages/strata, laptop-p16 only):
     # Qwen3.8-Flash-Next 125B MoE, OpenAI-compatible API on localhost.
-    # The server accepts ANY API key and model name (chat.py sends
-    # "strata"), so no key file is needed. Context is advisory (opencode
-    # uses it for compaction thresholds) and must track the single
-    # server context: packages/strata defaults to 524288 (yarn factor 2,
-    # 8-bit KV streamed from pinned RAM; see strata.context). Vision is
-    # OFF (vision = false): the strata-vision encoder drops throughput
-    # from ~35 to ~22 tok/s, so attachments are disabled on both models.
-    # reasoning=true: the model thinks before answering; tune via
-    # reasoning effort.
+    # Kept ALONGSIDE the Studio provider on purpose (2026-11-06): Studio fits
+    # the KV cache into the 12 GB card and therefore serves ~10k (4 slots) to
+    # ~17k (1 slot) tokens, while Strata streams 8-bit KV from pinned RAM and
+    # reaches 524288. Long-paper work needs the latter. Studio remains the
+    # default admission point; use exactly one path at a time — a live Strata
+    # request makes Studio's unload answer "busy", and its load then fails.
+    #
+    # The server accepts ANY API key and model name (chat.py sends "strata"),
+    # so no key file is needed. Context is advisory (opencode uses it for
+    # compaction thresholds) and must track the single server context:
+    # packages/strata defaults to 524288 (yarn factor 2, 8-bit KV streamed from
+    # pinned RAM; see strata.context). Vision is OFF (vision = false): the
+    # strata-vision encoder drops throughput from ~35 to ~22 tok/s, so
+    # attachments are disabled on both models. reasoning=true: the model thinks
+    # before answering; tune via reasoning effort.
     strata-local = {
       npm = "@ai-sdk/openai-compatible";
       options = {
@@ -628,7 +668,12 @@ in
           };
         in
         builtins.toJSON (baseConfig // optionalAttrs isP16 {
-          # Default model on laptop-p16: the local Strata swift-1.5 IQ3_XXS quant.
+          # Default model on laptop-p16. 2026-11-06: back to the direct Strata
+          # path, because this host's Studio cannot serve the window long-paper
+          # work needs (KV on the 12 GB card: ~10k-17k tokens) while Strata
+          # streams KV from pinned RAM at 524288. Studio stays configured for
+          # its own models and as an alternative admission point; flip this one
+          # line to the Studio id when a task fits the small window.
           model = "strata-local/swift-1.5-iq3_xxs";
         });
     };
@@ -741,11 +786,12 @@ in
     '';
 
     # pi rewrites ~/.pi/agent/settings.json from its TUI, so that file cannot be
-    # a store symlink. Repair the one stale value this repo shipped instead:
+    # a store symlink. Repair the one stale value this repo shipped:
     # defaultModel "deepseek-v4-flash" matches no catalog id (the ids are
     # deepseek-flash / deepseek-v4-pro), so pi silently fell back on every
     # start. Any other value — including one chosen later in the TUI — is left
-    # untouched.
+    # untouched. (The strata-local -> Studio rewrite added on 2026-11-06 was
+    # reverted with the same day's decision to keep both local paths.)
     home.activation.piSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" <<'PYEOF'
       import json, os, sys
@@ -759,9 +805,11 @@ in
       except Exception as exc:
           print(f"pi: cannot parse {path}: {exc}; leaving it untouched", file=sys.stderr)
           sys.exit(0)
-      if settings.get("defaultModel") != "deepseek-v4-flash":
+      stale = {"deepseek-v4-flash": "deepseek-flash"}
+      current = settings.get("defaultModel")
+      if current not in stale:
           sys.exit(0)
-      settings["defaultModel"] = "deepseek-flash"
+      settings["defaultModel"] = stale[current]
       fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
       os.fchmod(fd, 0o600)
       with os.fdopen(fd, "w", encoding="utf-8") as fh:
