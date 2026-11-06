@@ -10,10 +10,11 @@
 # and trust laptop-p16-cache-1 (roles/nix.nix), so only the server is missing
 # on the CachyOS install.
 #
-# Signing key (one-time setup, see hosts/laptop-p16/cachyos/README.md):
-#   ~/.local/share/nix-serve/laptop-p16-cache.key
-# = secrets/nix-cache-laptop-p16.key.age decrypted with the host-laptop-p16
-# key. Without it the service still runs, serving unsigned narinfos that peers
+# Signing key: secrets/nix-cache-laptop-p16.key.age is encrypted to the
+# host-laptop-p16 key (the NixOS agenix path) AND user-nicky, so the
+# home-manager agenix module (see `age.secrets` below) decrypts it to a
+# user-local path on every switch — no manual key setup on CachyOS. Without
+# the key the service still runs, serving unsigned narinfos that peers
 # (require-sigs, the default) ignore — the same degradation as the NixOS
 # module.
 { config, pkgs, lib, ... }:
@@ -25,7 +26,7 @@ let
   enabled = config.commonHm.hostName == "laptop-p16"
     && config.commonHm.isCachyOS
     && config.home.username == "nicky";
-  keyPath = "${config.home.homeDirectory}/.local/share/nix-serve/laptop-p16-cache.key";
+  keyPath = config.age.secrets."nix-cache-laptop-p16.key".path;
   start = pkgs.writeShellScriptBin "nix-serve-start" ''
     key="${keyPath}"
     if [ -s "$key" ]; then
@@ -39,9 +40,22 @@ let
 in
 {
   config = lib.mkIf enabled {
+    # Decrypt the cache signing key with nicky's user agenix identity
+    # (~/.ssh/agenix_nicky, distributed by services/ssh-user-keys.nix — the
+    # same mechanism the opencode provider keys use on this host).
+    age.secrets."nix-cache-laptop-p16.key" = {
+      file = ../secrets/nix-cache-laptop-p16.key.age;
+      mode = "0400";
+    };
+
     systemd.user.services.nix-serve = {
       Unit = {
         Description = "Nix binary cache for Tailscale peers (nix-serve)";
+        # The signing key is materialized by the agenix user oneshot (agenix
+        # home-manager module, same default.target) and nix-serve reads it once
+        # at startup; without this ordering a boot race would run it unsigned
+        # until the next restart.
+        After = [ "agenix.service" ];
       };
       Install = {
         WantedBy = [ "default.target" ];

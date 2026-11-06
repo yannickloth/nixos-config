@@ -58,10 +58,13 @@ in
   "ssh-user-sven.key.age".publicKeys = hosts;
   "ssh-user-aaron.key.age".publicKeys = hosts;
 
-  # Per-host nix-serve binary-cache signing keys. Encrypted to the owning host
-  # only; the matching public keys are trusted in roles/nix.nix so the peers
-  # accept each other's (now signed) store paths.
-  "nix-cache-laptop-p16.key.age".publicKeys = [ host-laptop-p16 ];
+  # Per-host nix-serve binary-cache signing keys. Encrypted to the owning host;
+  # the matching public keys are trusted in roles/nix.nix so the peers accept
+  # each other's (now signed) store paths. laptop-p16 additionally accepts
+  # user-nicky: that host runs CachyOS (no system agenix), and the standalone
+  # home-manager deployment decrypts the key with nicky's user identity
+  # (users/nix-serve.nix, `age.secrets`).
+  "nix-cache-laptop-p16.key.age".publicKeys = [ host-laptop-p16 user-nicky ];
   "nix-cache-laptop-hera.key.age".publicKeys = [ host-laptop-hera ];
   "nix-cache-laptop-xps.key.age".publicKeys = [ host-laptop-xps ];
 

@@ -43,29 +43,13 @@ the NixOS `services/nix-serve.nix` system unit does not apply on CachyOS. It
 starts at login and keeps running after logout because the orca-server
 activation (`packages/orca/home.nix`) enables lingering for nicky.
 
-One-time signing-key setup. The key is encrypted to the `host-laptop-p16`
-recipient only (`secrets.nix`); without it the cache serves unsigned narinfos
-that peers (`require-sigs`, the default) ignore. First check that p16's
-current SSH host key is still that recipient:
-
-```sh
-ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub   # fingerprint must match
-grep host-laptop-p16 ~/code/nixos-config/secrets.nix
-```
-
-Then decrypt the key (as nicky):
-
-```sh
-mkdir -p ~/.local/share/nix-serve && chmod 700 ~/.local/share/nix-serve
-age -d -i /etc/ssh/ssh_host_ed25519_key \
-    ~/code/nixos-config/secrets/nix-cache-laptop-p16.key.age \
-    > ~/.local/share/nix-serve/laptop-p16-cache.key
-chmod 600 ~/.local/share/nix-serve/laptop-p16-cache.key
-```
-
-If the fingerprints do not match, the CachyOS install rotated the host key:
-restore the `host-laptop-p16` private key (KeePassXC backup, see
-`secrets-structure/`) and pass it as the `-i` identity instead.
+The signing key needs no manual setup: `secrets/nix-cache-laptop-p16.key.age`
+is encrypted to the `host-laptop-p16` key (for a future NixOS reinstall)
+**and** `user-nicky`, so home-manager's agenix module decrypts it on every
+switch with nicky's user identity `~/.ssh/agenix_nicky` (distributed by
+`services/ssh-user-keys.nix`; the same mechanism the opencode provider keys
+use on this host). Without the key the cache would serve unsigned narinfos
+that peers (`require-sigs`, the default) ignore.
 
 Apply and verify:
 
