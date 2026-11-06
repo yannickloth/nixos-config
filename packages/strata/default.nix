@@ -126,10 +126,10 @@
   # workarounds that have no flag. Empty by default; see
   # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.10 (ffa80d73;
-  # tag object db0500a5 peeled to that commit).
-  # That tag's engine is 0.1.56 (see engine.nix; since 0.2.4 the release's engine
-  # packages carry their own version, the CMake project version says 0.1.56).
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.11 (c3b3f503;
+  # tag object 4a416016 peeled to that commit).
+  # That tag's engine is 0.1.57 (see engine.nix; since 0.2.4 the release's engine
+  # packages carry their own version, the CMake project version says 0.1.57).
   # Engine 0.1.55 -> 0.1.56 changed one default that matters on this card:
   # DFlash2 is now the default drafter for Qwen3.8 on sm_86 (drafting "Auto"
   # picks it; first start downloads ~1.2 GB and builds the drafter file locally
@@ -138,6 +138,9 @@
   # established yet. The 0.2.10 all-cards split engine needs exactly two
   # sm_86/sm_120 cards and does not apply (one A3000 here); its new 131,072
   # default context is overridden by this package's explicit --max-context.
+  # Engine 0.1.57 (v0.2.11) adds Unsloth's 11-04 "Dynamic v3.1" Qwen3.8 GGUFs
+  # (a new Q5_0 expert format) and prompt-speed changes aimed at the split and
+  # Radeon paths, so the single-card CUDA path keeps the knobs tuned above.
   # The 0.2 line's engine was a drop-in swap for the 0.1.47 this package was
   # last tuned against (the calibrated knobs and the bench numbers above carry
   # over); two measured comparisons behind that note, kept as history:
@@ -167,8 +170,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "ffa80d73133ea5c548aefe57889a16e8085a938f";  # v0.2.10 (tag object db0500a5 peeled); engine 0.1.56
-    hash = "sha256-cIBcdKRYVH78bu4sElF0XK/wedcLTK8tu12c0Alzlw8=";
+    rev = "c3b3f5035506f3e966f1b4b7b188aeaabae92f1d";  # v0.2.11 (tag object 4a416016 peeled); engine 0.1.57
+    hash = "sha256-YTKrlOqN97ISsaNZfpEqzLBAvglOI8Lq5G2KFTKQXWE=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -182,11 +185,11 @@
 let
   # The Strata release this package is pinned to (its app version); the engine
   # it builds has its own version - see engineVersion below.
-  version = "0.2.10";
+  version = "0.2.11";
   # CMakeLists.txt's project(VERSION ...) in that tree. BUILD.json has to report
   # the ENGINE's version: setup.py compares it against MIN_ENGINE and against
   # the `engine=X.Y.Z` string compiled into the binary (stale_binary()).
-  engineVersion = "0.1.56";
+  engineVersion = "0.1.57";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
@@ -383,7 +386,7 @@ let
         # engines as-is, and "nix_built": true is what ./setup-trust-nix-engine.patch
         # checks before it returns this engine instead of rebuilding it (and
         # before engine_update_note() calls it old). version is the ENGINE's
-        # version (0.1.56), not the app's: setup.py compares it with MIN_ENGINE
+        # version (0.1.57), not the app's: setup.py compares it with MIN_ENGINE
         # and with the `engine=X.Y.Z` string compiled into the binary. The
         # symlinks track store rebuilds.
         mkdir -p "$STRATA_HOME/engine"

@@ -26,7 +26,7 @@
 }:
 
 let
-  version = "0.2.1-rc.5";
+  version = "0.2.2-rc.1";
 
   # Replaces node-addon-require-builtin at require time. The real addon's
   # `requireBuiltin` is only ever used to obtain internal loaders
@@ -59,14 +59,14 @@ buildNpmPackage {
 
   src = fetchurl {
     url = "https://registry.npmjs.org/@deepseek-ai/dsh/-/dsh-${version}.tgz";
-    hash = "sha256-YJh1ZvGeDe0feRjACmXBnFbqJfWXfuC/1Wl8XBE+xOE=";
+    hash = "sha256-rSGWiu0DN6MmuFNQeiOzDqy77E1nqwfztv3mm3WxnNY=";
   };
 
   postPatch = ''
     cp ${./package-lock.json} package-lock.json
   '';
 
-  npmDepsHash = "sha256-IqQ8HIdmSXHfBeVlsDPpsEmAs2eUaPE1jlsGwjhN7E4=";
+  npmDepsHash = "sha256-i0i9ihPjhUa9u6/pDA57axxw41f/kg7o4nTOyHoIDLQ=";
 
   dontNpmBuild = true;
 

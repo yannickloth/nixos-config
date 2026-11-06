@@ -19,7 +19,7 @@
     namaka.inputs.nixpkgs.follows = "nixpkgs";
     namaka.inputs.haumea.inputs.nixpkgs.follows = "nixpkgs";
     # Strata (github.com/Niko1221/Strata) is not a flake input: packages/strata
-    # fetches it directly with fetchFromGitHub, pinned to v0.2.10 (engine 0.1.56;
+    # fetches it directly with fetchFromGitHub, pinned to v0.2.11 (engine 0.1.57;
     # the app and the engine are versioned separately since 0.2.0) in
     # engine.nix/default.nix. (It used to be the private yannickloth/forks-Strata
     # fork's sm_86 branch; upstream 0.1.40.3 now carries every engine change the

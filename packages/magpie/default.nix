@@ -20,18 +20,19 @@
 
 buildGoModule rec {
   pname = "magpie";
-  version = "0.1.2359";
+  version = "0.1.3171";
 
   src = fetchFromGitHub {
     owner = "yetone";
     repo = "magpie";
-    rev = "4d6bd346ce371ba859c477cc8357ce51d8144f03"; # v0.1.2359
-    hash = "sha256-hlM9LXDwTwXGoPbDlXuLKFeLajtWKbIyKqNOzp6PPL0=";
+    rev = "650bf8412860041e821053ad1f8008854639319a"; # v0.1.3171
+    hash = "sha256-gAHYTxRhevLiq2D8rKPCwOK601Jxd+dOAhiJ4ISB/uM=";
   };
 
   # go.mod/go.sum moved again by v0.1.2359 (the earlier v0.1.1294 -> v0.1.1554
-  # span left them alone).
-  vendorHash = "sha256-CSFUYQB28DBs0oQSObJEqu07+b7T7DKxINQVu+lHNUw=";
+  # span left them alone); v0.1.3171 adds h265 and jsonschema/v6, so the
+  # vendorHash moved with it.
+  vendorHash = "sha256-tYSKQMQa3cdhED4Yss/Frxd5midK6o2WND7/fRUtSuc=";
 
   # Terminal-only build: no cgo, no WebKit/GTK. Cross-compiles cleanly and
   # avoids the broken WebKit rendering path on NVIDIA/Plasma/Wayland.

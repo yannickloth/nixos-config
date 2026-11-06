@@ -131,92 +131,92 @@ in
 {
   photocraft = mkCraftApp {
     pname = "photocraft";
-    version = "0.18.0";
-    hash = "sha256-gwdXrK6Htd6iDyUgA5LeEYoUOjXcG1IEGjUmEgJn5oQ=";
+    version = "0.20.2";
+    hash = "sha256-vhjRdaCmJ4wwEkJBeTu3ezV++WBG2B8dgYnkksFLwK4=";
     description = "Image editor: layers, masks, adjustment layers, type, vectors and real PSD files (clean-room Photoshop reimplementation)";
   };
 
   vectorcraft = mkCraftApp {
     pname = "vectorcraft";
-    version = "0.19.0";
-    hash = "sha256-GGlVS6/UKNs7No+kBbirSIsl0yTTgOdyvAsRi7rLNMU=";
+    version = "0.21.1";
+    hash = "sha256-eGVCmEYRl3Lb1d2TlcuojHGQz/W5KxexQRA65yhcmeA=";
     description = "Vector illustration: SVG and PDF drawing (clean-room Illustrator reimplementation)";
   };
 
   filmcraft = mkCraftApp {
     pname = "filmcraft";
-    version = "0.15.0";
-    hash = "sha256-S8sRnBqmDfVM4zONeqSOPxTWFWn3vGOFGgC9yJJJZHs=";
+    version = "0.17.1";
+    hash = "sha256-D1JJdbxUyRd6yAbby5y+HZ97+xifpfbLSfVnIkY3fi8=";
     description = "Non-linear video editor (clean-room Premiere Pro reimplementation)";
   };
 
   lightcraft = mkCraftApp {
     pname = "lightcraft";
-    version = "0.16.0";
-    hash = "sha256-DKHp5YUAjKbAAnFoq8bfJqGgyuiybXMYG7U+LOMuXXc=";
+    version = "0.18.1";
+    hash = "sha256-NGz4TCYjIpNLSou+6fvX2zjxWRfJPy3QQJeS0Rv6fbA=";
     description = "Photo library and raw developer (clean-room Lightroom reimplementation)";
   };
 
   pdfcraft = mkCraftApp {
     pname = "pdfcraft";
-    version = "0.16.1";
-    hash = "sha256-JTWmipwhVpRsvHzT/+RwSj0shAohHObMLZzqYtNtylM=";
+    version = "0.18.2";
+    hash = "sha256-vtsfgXPn65+h1YALZbQe07Wletk+VmHGqSGipFAkIpE=";
     description = "PDF workbench: read, organize, combine, split and secure";
   };
 
   effectcraft = mkCraftApp {
     pname = "effectcraft";
-    version = "0.19.0";
-    hash = "sha256-nIuMWzPx8EJA3q68hUzFO5l82kjPKezXFztDyYBJ8ME=";
+    version = "0.21.1";
+    hash = "sha256-W9VdQHYJugst9IPjqVUFQiOY0rh0MV2lBr6x9NWVjzw=";
     description = "Motion graphics and visual effects (clean-room After Effects reimplementation)";
   };
 
   designcraft = mkCraftApp {
     pname = "designcraft";
-    version = "0.15.2";
-    hash = "sha256-bUbhD458J0a22qTFZcbGqFMpweYZLgqgu/UmupGj76A=";
+    version = "0.17.2";
+    hash = "sha256-MOnSpasyK+5HmAAQq2ihaBBh2alwDqmJoz2lTwg5cw8=";
     description = "Page layout and publishing (clean-room InDesign reimplementation)";
   };
 
   figcraft = mkCraftApp {
     pname = "figcraft";
-    version = "0.13.1";
-    hash = "sha256-L6RO/fSHjep+t5sSJ/J0vMspiqtkMdeNDoNw6mwSVHQ=";
+    version = "0.15.1";
+    hash = "sha256-9wvCPup0rNp1kC4VxkJqQ21mRKCDQOU9S2N4dCefW4c=";
     description = "Interface design and prototyping (clean-room Figma reimplementation)";
   };
 
   wordcraft = mkCraftApp {
     pname = "wordcraft";
-    version = "0.13.2";
-    hash = "sha256-8l1Ox7568z/PRQAtm3UOxzURfETaMELgQ655NX1ERTM=";
+    version = "0.15.2";
+    hash = "sha256-dJMrxn/l9TVTBah7eertnlq4NvaF4WM69JkhYeR/gKQ=";
     description = "Word processing (clean-room Microsoft Word reimplementation)";
   };
 
   soundcraft = mkCraftApp {
     pname = "soundcraft";
-    version = "0.15.0";
-    hash = "sha256-EHpZf9P21F2SEEevJ05VDe3u+017yME+w2iAkTCfgSY=";
+    version = "0.17.1";
+    hash = "sha256-hRg4ou2zv3ssoS4cVGDR5rTDa77yBQrwN32W5MJxiJw=";
     description = "Digital audio workstation: recording, editing and mixing (clean-room Pro Tools reimplementation)";
   };
 
   deckcraft = mkCraftApp {
     pname = "deckcraft";
-    version = "0.13.1";
-    hash = "sha256-4sv5Nzj8swj+nMhCLeB/tgkFc0FW39VrN3/Sp4qRiyA=";
+    version = "0.15.1";
+    hash = "sha256-+VV9FTGJWXg5pFYTPc+XJyuqwVIDGHH60K7DttZWB4U=";
     description = "Presentations and slide shows (clean-room PowerPoint reimplementation)";
   };
 
   cadcraft = mkCraftApp {
     pname = "cadcraft";
-    version = "0.15.1";
-    hash = "sha256-iK5haVhBO4+lYlnfb3D7aVq5C0cuTGPPlVrmpkcbsR0=";
+    version = "0.17.1";
+    hash = "sha256-I+XPzjIcitvMVtuB/6LkftnfpESRjbuqo2LWeBAPnlk=";
     description = "Computer-aided design and drafting (clean-room AutoCAD reimplementation)";
   };
 
   gridcraft = mkCraftApp {
     pname = "gridcraft";
-    version = "0.14.2";
-    hash = "sha256-B0DyFDObOGq0XAdv6fb2TkmGxWwh2PvWu+XQvgPufys=";
+    version = "0.16.1";
+    hash = "sha256-l7atP75HHS3pTeqqfbMSYko53WPl7h679rOFY9Yqrlc=";
     description = "Spreadsheets and data analysis (clean-room Excel reimplementation)";
   };
 }

@@ -190,7 +190,7 @@ in
           export LD_LIBRARY_PATH=${unslothRuntimeLibs}:$LD_LIBRARY_PATH
           env UNSLOTH_SKIP_AUTOSTART=1 NO_COLOR=1 ${pkgs.bash}/bin/sh ${pkgs.fetchurl {
             url = "https://unsloth.ai/install.sh";
-            sha256 = "0pzw2gasl17dzwm73cprdxxj2x8ljgc2g51nvbpcnp4kbl2v47rs";
+            sha256 = "sha256-bnV8OcVEcBLTBVuxWhFNUb1h6EhX787VBEdfcao0JFQ=";
           }}
         ' </dev/null || echo "unsloth-studio: installer failed (see output above); continuing" >&2
         # The line above swallows the installer's own failure, so verify the
@@ -223,8 +223,8 @@ in
         # Pinned release (fetchurl verifies the hash): "releases/latest"
         # downloaded and installed whatever GitHub served at switch time.
         UNSLOTH_DESKTOP_APPIMAGE=${pkgs.fetchurl {
-          url = "https://github.com/unslothai/unsloth/releases/download/v0.1.913-beta/Unsloth-Desktop-Linux.AppImage";
-          sha256 = "sha256-lL5KIaEO+Ap9wvz7VpoKE87h9FPQjMWRLntKvQrl7G4=";
+          url = "https://github.com/unslothai/unsloth/releases/download/v0.1.915-beta/Unsloth-Desktop-Linux.AppImage";
+          sha256 = "sha256-EPxE4lAy+byiQsTtPdYfYhFfRrNaX0yHX/mJzgUEYe8=";
         }}
         $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -Dm0755 "$UNSLOTH_DESKTOP_APPIMAGE" "$app"
       fi

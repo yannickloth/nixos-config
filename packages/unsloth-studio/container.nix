@@ -143,7 +143,7 @@ in
       default = "docker.io/unsloth/unsloth:studio";
       description = ''
         Image reference seeded into imageFile on first activation. `:studio` is
-        the rolling tag (equal to the newest nightly); `:v0.1.913-beta` and the
+        the rolling tag (equal to the newest nightly); `:v0.1.915-beta` and the
         nightly-YYYY.MM.DD tags pin a release, `:core` is the smaller image for
         --user runs. After the seed the file wins, so changing this option does
         not redirect an existing install.

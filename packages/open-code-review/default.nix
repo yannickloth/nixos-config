@@ -24,13 +24,13 @@
 
 buildGoModule rec {
   pname = "open-code-review";
-  version = "1.13.3";
+  version = "1.13.6";
 
   src = fetchFromGitHub {
     owner = "alibaba";
     repo = "open-code-review";
     rev = "v${version}";
-    hash = "sha256-dDKNxjI0pWoJGabUvsGTERYKvKtvEm3UGD/FLPKpfnw=";
+    hash = "sha256-cMYsqLOwpVI6zQF6q9bzlZRO21XUMSNYcEvavDRdLkA=";
   };
 
   vendorHash = "sha256-LpqnNp6gxHatHH68pM59ESQICDDSVrkZm7AJLVvYTao=";
@@ -42,7 +42,7 @@ buildGoModule rec {
   # supported_file_types.json) and its path-to-rule map into the binary with
   # //go:embed, so markdown cannot be enabled at run time — `ocr review
   # --preview` reports every .md file as `unsupported_ext`. Upstream main still
-  # ships no markdown (checked 2026-10-25, v1.13.3 included), so it is patched
+  # ships no markdown (checked 2026-11-06, v1.13.6 included), so it is patched
   # in here. Markdown carries the skills, agent prompts, and AGENTS.md files
   # that drive every other artifact in these repos; reviewing them is the point.
   postPatch = ''

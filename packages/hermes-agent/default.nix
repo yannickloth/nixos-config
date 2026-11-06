@@ -35,12 +35,12 @@
 }:
 
 let
-  # Pin: v0.22.5 (2026-10-23).
+  # Pin: v0.23.0 (2026-11-05).
   src = fetchFromGitHub {
     owner = "NousResearch";
     repo = "hermes-agent";
-    rev = "bf0203a794a07aac3ff764972ab9087baa4e4f4e";
-    hash = "sha256-n6HfR4dydeITXx+ITkQr0l8LiKkUhZPVBvJu2ZwQxdk=";
+    rev = "2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19";
+    hash = "sha256-PzkocTi9jbkuht4cvpmXu/hTIAUNtE/xyivPoncNq8Y=";
   };
 
   workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = src; };
@@ -103,7 +103,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "hermes-agent";
-  version = "0.22.5";
+  version = "0.23.0";
 
   dontUnpack = true;
   dontBuild = true;
