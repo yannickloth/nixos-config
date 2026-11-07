@@ -286,6 +286,21 @@ in
       '';
     };
 
+    dataOnDataVolume = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Store Strata's runtime data (models, packs, venv, configs, logs) on the
+        separate `/data` LUKS+btrfs volume instead of the home partition. When
+        enabled, creates a symlink `~/.local/share/strata` → `/data/strata`.
+        First run: the directory `/data/strata` is created on activation and
+        `~/.local/share/strata` becomes a symlink. If `~/.local/share/strata`
+        already contains data (from a previous install), the activation script
+        moves it to `/data/strata` and creates the symlink so no data is lost.
+        Requires the `/data` volume to be mounted.
+      '';
+    };
+
     defaultConfig = mkOption {
       type = types.str;
       default = "";
@@ -385,6 +400,37 @@ in
           RestartSec = "10s";
         };
       };
+
+      # Move runtime data to the /data volume and symlink into ~/.local/share.
+      # Follows the same pattern as ~/sync and ~/roms in common-hm.nix.
+      activation.strata-dataOnDataVolume = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        if [ "${lib.boolToString cfg.dataOnDataVolume}" != "true" ]; then
+          exit 0
+        fi
+        if ! mountpoint -q /data 2>/dev/null; then
+          echo "warning: strata.dataOnDataVolume = true but /data is not mounted" >&2
+          exit 0
+        fi
+        DATA_DIR="/data/strata"
+        LINK_DIR="$HOME/.local/share/strata"
+        # Create the target on /data if it does not exist yet.
+        $DRY_RUN_CMD mkdir -p "$DATA_DIR"
+        # If ~/.local/share/strata already exists and is a directory with data,
+        # move it to /data/strata so nothing is lost on the first migration.
+        if [ -d "$LINK_DIR" ] && [ ! -L "$LINK_DIR" ]; then
+          echo "Strata: migrating ~/.local/share/strata to /data/strata ..." >&2
+          $DRY_RUN_CMD mv "$LINK_DIR"/* "$DATA_DIR"/ 2>/dev/null || true
+          $DRY_RUN_CMD mv "$LINK_DIR"/.* "$DATA_DIR"/ 2>/dev/null || true
+          $DRY_RUN_CMD rmdir "$LINK_DIR"
+        fi
+        # Create the symlink so Strata's STRATA_HOME resolves to /data/strata.
+        $DRY_RUN_CMD ln -sfn "$DATA_DIR" "$LINK_DIR"
+        if [ -L "$LINK_DIR" ]; then
+          echo "Strata: runtime data -> $DATA_DIR" >&2
+        else
+          echo "warning: could not create symlink $LINK_DIR -> $DATA_DIR" >&2
+        fi
+      '';
     })
 
     # The desktop app only makes sense beside the package it shares models and

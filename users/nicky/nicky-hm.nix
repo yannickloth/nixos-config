@@ -268,6 +268,11 @@ in
     # (DNS-rebinding protection).
     allowedHosts = [ "host.containers.internal" "169.254.1.2" ];
     beforeLoad = "${config.home.homeDirectory}/.local/bin/unsloth-studio-unload.sh";
+    # Store Strata's runtime data (venv, configs, engine setup) on the /data
+    # volume instead of the ~200 GB home partition. The ~70-84 GB model files
+    # are already in Studio's HF cache on /data and symlinked into
+    # ~/.local/share/strata/models/; this catches the rest (~2-3 GB).
+    dataOnDataVolume = true;
     # STRATA_ADAPT_OVERLAP stays at the upstream default (off): 0.1.43 defaulted
     # it on for Linux CUDA, which cost ~2.7x decode on this rig (small expert
     # cache, --adapt-every 1), and 0.1.43.1 made it opt-in again. The interleaved
