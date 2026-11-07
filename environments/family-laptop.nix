@@ -76,6 +76,7 @@
     ../services/openssh.nix
     ../services/plantuml.nix
     ../services/podman.nix
+    ../services/postgresql.nix
     ../services/printing.nix
     ../services/samba.nix
     ../services/scanning.nix
@@ -89,19 +90,14 @@
   # (see services/ssh-user-keys.nix).
   services.sshUserKeys.enable = true;
 
-  # Unsloth Studio's container backend (packages/unsloth-studio/container.nix)
-  # keeps podman's graphroot at /data/containers/nicky and the model data at
-  # /data/unsloth on every host. /data is a separate LUKS+btrfs volume on
-  # laptop-p16 and laptop-hera; laptop-xps has no second drive, so on that
-  # host these rules also create /data itself as a plain root-disk directory
-  # (tmpfiles creates the leading dir as root, the subdirs below as nicky).
-  # tmpfiles runs after local-fs.target, so on the volume hosts the rules
-  # apply to the mounted content; on p16 they also trip the x-systemd.automount
-  # at boot, which only makes the graphroot ready earlier (the lazy first
-  # access and the nofail recovery path stay in place). 0700 on the model
-  # dir: the HF cache holds a token.
+  # /data is a separate LUKS+btrfs volume on laptop-p16 and laptop-hera;
+  # laptop-xps has no second drive, so on that host these rules also create
+  # /data itself as a plain root-disk directory (tmpfiles creates the leading
+  # dir as root, the subdirs below as the appropriate user).
   systemd.tmpfiles.rules = [
-    "d /data/unsloth 0700 nicky nicky -"
-    "d /data/containers 0755 nicky nicky -"
+    "d /data 0755 root root -"                       # root FS dir on xps; mount point on hera/p16
+    "d /data/postgres 0750 postgres postgres -"       # PostgreSQL 18 cluster on all hosts
+    "d /data/unsloth 0700 nicky nicky -"              # Unsloth Studio model data
+    "d /data/containers 0755 nicky nicky -"           # Podman graphroot
   ];
 }

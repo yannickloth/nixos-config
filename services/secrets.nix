@@ -61,6 +61,18 @@ with lib;
         group = "secrets";
       };
 
+      # PostgreSQL nicky role password.
+      # Mounted for root:postgres so the systemd oneshot (system) can read it.
+      # Decrypted from the same .age file that home-manager reads — the file is
+      # encrypted to both host SSH keys and the user SSH key.
+      pg-nicky-password = {
+        file = ../secrets/pg-nicky-password.age;
+        path = "/run/agenix/pg-nicky-password";
+        mode = "0640";
+        owner = "root";
+        group = "postgres";
+      };
+
       # CIFS client credentials for the nestor mount. NOTE: services/cifs-nestor.nix
       # is not currently imported by any host; enable this once the mount is wired up.
       # cifs-nestor = {

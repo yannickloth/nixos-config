@@ -599,7 +599,29 @@ in
       file = ../../secrets/opencode-keys.env.age;
       mode = "0400";
     };
+    # PostgreSQL nicky role password — mounted at $XDG_RUNTIME_DIR/agenix/pg-
+    # nicky-password so home-manager can wire ~/.pgpass.  The .age file is the
+    # same one used by the NixOS service (encrypted to both host keys and the
+    # user key).
+    secrets."pg-nicky-password" = {
+      file = ../../secrets/pg-nicky-password.age;
+      mode = "0400";
+    };
   };
+
+  # Wire ~/.pgpass so Datagrip and other IDE clients authenticate over TCP
+  # without prompting for a password.  The raw secret is mounted at
+  # $XDG_RUNTIME_DIR/agenix/pg-nicky-password by the home-manager age block
+  # above.  Written inside the home.activation directory so $DRY_RUN_CMD is
+  # honoured during dry-run.
+  home.activation.pgpass = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    pw_file="$XDG_RUNTIME_DIR/agenix/pg-nicky-password"
+    if [ -f "$pw_file" ]; then
+      pw=$($DRY_RUN_CMD cat "$pw_file")
+      $DRY_RUN_CMD printf 'localhost:5432:*:nicky:%s\n' "$pw" > "$out"
+      $DRY_RUN_CMD chmod 0600 "$out"
+    fi
+  '';
 
   programs = {
     zsh = {
