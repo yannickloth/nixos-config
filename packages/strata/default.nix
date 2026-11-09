@@ -17,7 +17,7 @@
 # libraries, so no NVIDIA pip wheels are needed either.
 #
 # Since Strata 0.2.0 the tree holds three separately versioned products: the
-# engine (0.1.56 in this release), the Terminal/CLI (strata.py + strata_cli,
+# engine (0.1.58 in this release), the Terminal/CLI (strata.py + strata_cli,
 # what `strata launch`, `strata models` and `strata update` run) and the desktop
 # app (apps/). This package ships the engine plus the Python source that the
 # setup and serve paths need: setup.py now imports strata_control/ (and, through
@@ -126,21 +126,26 @@
   # workarounds that have no flag. Empty by default; see
   # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.11 (c3b3f503;
-  # tag object 4a416016 peeled to that commit).
-  # That tag's engine is 0.1.57 (see engine.nix; since 0.2.4 the release's engine
-  # packages carry their own version, the CMake project version says 0.1.57).
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.12 (146df3c4;
+  # tag object 123bad4a peeled to that commit).
+  # That tag's engine is 0.1.58 (see engine.nix; since 0.2.4 the release's engine
+  # packages carry their own version, the CMake project version says 0.1.58).
   # Engine 0.1.55 -> 0.1.56 changed one default that matters on this card:
-  # DFlash2 is now the default drafter for Qwen3.8 on sm_86 (drafting "Auto"
-  # picks it; first start downloads ~1.2 GB and builds the drafter file locally
+  # DFlash2 became the default drafter for Qwen3.8 on sm_86 (drafting "Auto"
+  # picked it; first start downloads ~1.2 GB and builds the drafter file locally
   # instead of taking the 5.2 GB MTP layer). The bench numbers above were
   # measured with the MTP drafter, so a DFlash2 number for this host is not
   # established yet. The 0.2.10 all-cards split engine needs exactly two
   # sm_86/sm_120 cards and does not apply (one A3000 here); its new 131,072
   # default context is overridden by this package's explicit --max-context.
-  # Engine 0.1.57 (v0.2.11) adds Unsloth's 11-04 "Dynamic v3.1" Qwen3.8 GGUFs
-  # (a new Q5_0 expert format) and prompt-speed changes aimed at the split and
-  # Radeon paths, so the single-card CUDA path keeps the knobs tuned above.
+  # Engine 0.1.58 (v0.2.12) brings a tuned DFlash2 drafter (+2.4-5.0% decode
+  # on some cards), faster 12 GB card prompts (UD-IQ4_XS-v31 x3 at 2K),
+  # tool-call fixes, and a 12 GB start-up change: the second check no longer
+  # counts the engine's own memory as free, so it usually stops switching to
+  # the slower file cache (STRATA_FILE_TIER_HONEST=0 restores the old
+  # behaviour). Auto now starts MTP for IQ3_S and the tuned DFlash2 for
+  # UD-IQ4_XS-v31 on 12 GB cards; the Swift IQ3_XXS pack used here is not
+  # named in the notes, so what Auto picks for it on sm_86 is not established.
   # The 0.2 line's engine was a drop-in swap for the 0.1.47 this package was
   # last tuned against (the calibrated knobs and the bench numbers above carry
   # over); two measured comparisons behind that note, kept as history:
@@ -170,8 +175,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "c3b3f5035506f3e966f1b4b7b188aeaabae92f1d";  # v0.2.11 (tag object 4a416016 peeled); engine 0.1.57
-    hash = "sha256-YTKrlOqN97ISsaNZfpEqzLBAvglOI8Lq5G2KFTKQXWE=";
+    rev = "146df3c468739147f520ac3816de806f71232571";  # v0.2.12 (tag object 123bad4a peeled); engine 0.1.58
+    hash = "sha256-iMjGRmrr2luO7O0x5QF4iIWpOVRQp1mlSeTWFDGZEVo=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -185,11 +190,11 @@
 let
   # The Strata release this package is pinned to (its app version); the engine
   # it builds has its own version - see engineVersion below.
-  version = "0.2.11";
+  version = "0.2.12";
   # CMakeLists.txt's project(VERSION ...) in that tree. BUILD.json has to report
   # the ENGINE's version: setup.py compares it against MIN_ENGINE and against
   # the `engine=X.Y.Z` string compiled into the binary (stale_binary()).
-  engineVersion = "0.1.57";
+  engineVersion = "0.1.58";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
@@ -386,7 +391,7 @@ let
         # engines as-is, and "nix_built": true is what ./setup-trust-nix-engine.patch
         # checks before it returns this engine instead of rebuilding it (and
         # before engine_update_note() calls it old). version is the ENGINE's
-        # version (0.1.57), not the app's: setup.py compares it with MIN_ENGINE
+        # version (0.1.58), not the app's: setup.py compares it with MIN_ENGINE
         # and with the `engine=X.Y.Z` string compiled into the binary. The
         # symlinks track store rebuilds.
         mkdir -p "$STRATA_HOME/engine"

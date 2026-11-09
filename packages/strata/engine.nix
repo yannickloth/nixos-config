@@ -70,15 +70,17 @@
 # (STRATA_IQ256_GATHER, upstream PR #622) is upstream as of 0.1.40, behind
 # per-thread selection (see packages/strata/default.nix). The engine-lifecycle
 # API this comment used to mention is upstream as of 0.1.31 (--idle-unload).
-# Pinned to Strata 0.2.11 (c3b3f503), whose engine is 0.1.57: the 0.2 releases
+# Pinned to Strata 0.2.12 (146df3c4), whose engine is 0.1.58: the 0.2 releases
 # split the engine from the app/Terminal (separately versioned from now on) and
-# bumped the engine to 0.1.46 -> 0.1.47 -> 0.1.48 -> 0.1.50 -> 0.1.51 -> 0.1.55 -> 0.1.56 -> 0.1.57 -
+# bumped the engine to 0.1.46 -> 0.1.47 -> 0.1.48 -> 0.1.50 -> 0.1.51 -> 0.1.55 -> 0.1.56 -> 0.1.57 -> 0.1.58 -
 # Gyro trellis experts on CUDA/HIP/SYCL/Metal, GPU roles, the NUMA-split CPU pool, an
 # optional API key; 0.1.56 adds the DFlash2 drafter (the default for Qwen3.8 on
-# sm_86 under drafting Auto; see default.nix) and the all-cards split engine
+# sm_86 under drafting Auto as of that release; see default.nix) and the all-cards split engine
 # (two-card machines, not this host); 0.1.57 adds Unsloth's "Dynamic v3.1"
 # files with the Q5_0 expert format and prompt-path speed work for the split
-# and Radeon engines. Two engine
+# and Radeon engines; 0.1.58 adds a tuned DFlash2 drafter and faster 12 GB card
+# prompts, and fixes the 12 GB start-up check that counted its own memory as
+# free. Two engine
 # changes matter to this package: the K-quant MMQ prompt kernels moved into
 # libstrata_kq.so, which the engine dlopens from its own folder (installed
 # beside the binary below; without it those experts take the FP16 prompt path),
@@ -108,15 +110,15 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "c3b3f5035506f3e966f1b4b7b188aeaabae92f1d";  # v0.2.11; engine 0.1.57
-    hash = "sha256-YTKrlOqN97ISsaNZfpEqzLBAvglOI8Lq5G2KFTKQXWE=";
+    rev = "146df3c468739147f520ac3816de806f71232571";  # v0.2.12 (tag object 123bad4a peeled); engine 0.1.58
+    hash = "sha256-iMjGRmrr2luO7O0x5QF4iIWpOVRQp1mlSeTWFDGZEVo=";
   },
   # The engine's own version (CMakeLists.txt's project(VERSION ...)), passed from
   # default.nix. Since Strata 0.2.0 the engine is versioned apart from the app:
-  # the v0.2.11 tree builds engine 0.1.57 while the app is 0.2.11 (since 0.2.4
-  # the releases also ship separately versioned engine packages, 0.1.57 in
-  # v0.2.11).
-  engineVersion ? "0.1.57",
+  # the v0.2.12 tree builds engine 0.1.58 while the app is 0.2.12 (since 0.2.4
+  # the releases also ship separately versioned engine packages, 0.1.58 in
+  # v0.2.12).
+  engineVersion ? "0.1.58",
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
     repo = "llama.cpp";
