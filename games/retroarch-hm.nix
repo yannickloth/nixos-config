@@ -101,8 +101,15 @@ in
       # Where "Save Controller Configuration" writes profiles. `~` expands
       # to each user's $HOME inside RetroArch at load time.
       fix_key joypad_autoconfig_dir "~/.config/retroarch/autoconfig"
-      # Shared family BIOS directory (matches the system-wide baseline).
-      fix_key system_directory "/sync/90-99 - Public stuff/roms/BIOS"
+      # Shared family BIOS directory (matches the system-wide baseline). The
+      # sync root is resolved like users/common-hm.nix does: the /sync mount
+      # on NixOS, a real ~/sync on CachyOS (no system Syncthing there).
+      if [ -d ${lib.escapeShellArg config.commonHm.syncDir} ]; then
+        syncRoot=${lib.escapeShellArg config.commonHm.syncDir}
+      else
+        syncRoot="$HOME/sync"
+      fi
+      fix_key system_directory "$syncRoot"/${lib.escapeShellArg config.commonHm.romsSubdir}/BIOS
     '';
   };
 }

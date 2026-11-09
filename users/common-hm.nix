@@ -52,6 +52,29 @@
     description = "True when built by the standalone CachyOS home-manager flake.";
   };
 
+  # Where the shared syncthing tree is mounted. NixOS hosts get
+  # services.syncthing's dataDir (/sync, root-owned, reached through the
+  # syncthing group); CachyOS has no Syncthing system module, so the tree
+  # lives directly in the home directory. The activation scripts below probe
+  # this at run time and fall back to ~/sync, so the same module serves both.
+  options.commonHm.syncDir = lib.mkOption {
+    type = lib.types.str;
+    default = "/sync";
+    description = ''
+      Absolute path of the shared syncthing data directory. When it does not
+      exist at activation time, ~/sync is used instead.
+    '';
+  };
+
+  # Path of the shared RetroArch library inside the sync tree. Shared by the
+  # ~/roms symlink below and the user's RetroArch cfg (games/retroarch-hm.nix).
+  # A string rather than a Nix path so activation can resolve it at run time.
+  options.commonHm.romsSubdir = lib.mkOption {
+    type = lib.types.str;
+    default = "90-99 - Public stuff/roms";
+    description = "Directory of the shared ROM library, relative to commonHm.syncDir.";
+  };
+
   config = {
     home.stateVersion = "26.05";
 
@@ -223,31 +246,41 @@
         fi
       '');
 
-    # Symlink ~/sync to the shared syncthing data directory (/sync is created by the
-    # system services.syncthing module, so create the symlink at activation time).
+    # Symlink ~/sync to the shared syncthing data directory (commonHm.syncDir,
+    # /sync, created by the system services.syncthing module). Hosts without
+    # that module (CachyOS) have no /sync: there ~/sync is a real directory and
+    # is left alone.
     home.activation.linkSyncDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      syncRoot=${lib.escapeShellArg config.commonHm.syncDir}
       if [ -L "$HOME/sync" ]; then
-        $DRY_RUN_CMD ln -sfn /sync "$HOME/sync"
+        $DRY_RUN_CMD ln -sfn "$syncRoot" "$HOME/sync"
       elif [ -e "$HOME/sync" ]; then
-        # A real directory/file here means the pre-migration layout (or a
-        # user-created dir); `ln -sfn` would nest a link inside it or delete
-        # a file, so leave it alone.
-        echo "warning: $HOME/sync exists and is not a symlink; leaving it alone" >&2
-      elif [ -d /sync ]; then
-        $DRY_RUN_CMD ln -s /sync "$HOME/sync"
+        # A real directory here is a working tree, not a mistake: on hosts
+        # without a system Syncthing dataDir (CachyOS, see commonHm.syncDir)
+        # ~/sync IS the sync folder. Leave it alone.
+        echo "note: $HOME/sync exists and is not a symlink; using it as the sync root" >&2
+      elif [ -d "$syncRoot" ]; then
+        $DRY_RUN_CMD ln -s "$syncRoot" "$HOME/sync"
       else
-        echo "warning: /sync does not exist; not creating ~/sync symlink"
+        echo "warning: $syncRoot does not exist; not creating ~/sync symlink" >&2
       fi
     '';
 
     # Symlink ~/roms to the shared RetroArch ROM library for every user. The
     # adults reach it through the syncthing group; the kids only have read +
     # traverse there (named ACLs in services/syncthing). RetroArch itself is
-    # wired to the absolute path (games/retroarch-hm.nix), so this is purely a
+    # wired to the same path (games/retroarch-hm.nix), so this is purely a
     # file-manager convenience. Same guards as linkSyncDir: the synced folder
     # may not exist yet (fresh host before first sync), so warn and skip.
     home.activation.linkRomsDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      roms="/sync/90-99 - Public stuff/roms"
+      # Resolve the sync root the same way linkSyncDir does: the mount when it
+      # exists, otherwise a real ~/sync (CachyOS has no system Syncthing).
+      if [ -d ${lib.escapeShellArg config.commonHm.syncDir} ]; then
+        syncRoot=${lib.escapeShellArg config.commonHm.syncDir}
+      else
+        syncRoot="$HOME/sync"
+      fi
+      roms="$syncRoot"/${lib.escapeShellArg config.commonHm.romsSubdir}
       if [ -L "$HOME/roms" ]; then
         $DRY_RUN_CMD ln -sfn "$roms" "$HOME/roms"
       elif [ -e "$HOME/roms" ]; then
@@ -257,7 +290,7 @@
       elif [ -d "$roms" ]; then
         $DRY_RUN_CMD ln -s "$roms" "$HOME/roms"
       else
-        echo "warning: $roms does not exist; not creating ~/roms symlink"
+        echo "warning: $roms does not exist; not creating ~/roms symlink" >&2
       fi
     '';
 
