@@ -32,3 +32,5 @@ ssh-keys-backup-*.tar.gz*
 # Imported syncthing config dumps from physical hosts (plaintext cert/key).
 laptop-*-dotconfig-syncthing/
 laptop-*-dotconfig-syncthing.zip
+# Home network inventory (MAC addresses, IPs, SSIDs). Keep local only.
+network-devices.md
