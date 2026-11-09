@@ -20,19 +20,20 @@
 
 buildGoModule rec {
   pname = "magpie";
-  version = "0.1.3171";
+  version = "0.1.3383";
 
   src = fetchFromGitHub {
     owner = "yetone";
     repo = "magpie";
-    rev = "650bf8412860041e821053ad1f8008854639319a"; # v0.1.3171
-    hash = "sha256-gAHYTxRhevLiq2D8rKPCwOK601Jxd+dOAhiJ4ISB/uM=";
+    rev = "9dd7aabca8af76c9467039979076e58d59d3f03b"; # v0.1.3383
+    # fetchzip recursive hash of the unpacked source tree (fetchFromGitHub's
+    # default for public repos); not the hash of the .tar.gz bytes.
+    hash = "sha256-wJWgFaNKqXXVnuKMYwcizFxYM8TQ3o0LELTkUhYZI58=";
   };
 
-  # go.mod/go.sum moved again by v0.1.2359 (the earlier v0.1.1294 -> v0.1.1554
-  # span left them alone); v0.1.3171 adds h265 and jsonschema/v6, so the
-  # vendorHash moved with it.
-  vendorHash = "sha256-tYSKQMQa3cdhED4Yss/Frxd5midK6o2WND7/fRUtSuc=";
+  # SRI hash of the vendored dependencies (the recursive output of `go mod
+  # vendor`, computed by buildGoModule) - not the hash of go.sum.
+  vendorHash = "sha256-9x4oBEHBN1gbREjzwLrPKjwlCq3847nLjP5QHBFEy4E=";
 
   # Terminal-only build: no cgo, no WebKit/GTK. Cross-compiles cleanly and
   # avoids the broken WebKit rendering path on NVIDIA/Plasma/Wayland.
