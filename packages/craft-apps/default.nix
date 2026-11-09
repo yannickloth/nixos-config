@@ -1,4 +1,4 @@
-# ArtCraft "Crafting Apps" (https://getartcraft.com/apps): thirteen pure-Rust,
+# ArtCraft "Crafting Apps" (https://getartcraft.com/apps): sixteen pure-Rust,
 # clean-room reimplementations of familiar creative tools, published by
 # storytold as prebuilt Linux AppImages (no source build we want to pay for:
 # each is a large Rust + wgpu workspace).
@@ -185,6 +185,20 @@ in
     description = "Interface design and prototyping (clean-room Figma reimplementation)";
   };
 
+  texturecraft = mkCraftApp {
+    pname = "texturecraft";
+    version = "0.5.0";
+    hash = "sha256-so8Kf2ldQfWAn6UbhYjXG5k388X1hi7GEJB9CW7lzQA=";
+    description = "3D texture painting: paint PBR materials onto models in layers, bake mesh maps and export for any engine";
+  };
+
+  materialcraft = mkCraftApp {
+    pname = "materialcraft";
+    version = "0.3.0";
+    hash = "sha256-rKIn8H0AR7xi3tj83mPdzDwQUZYPWTwCkZTW6d1Kaz0=";
+    description = "Node-based procedural materials: tileable PBR maps from noises, patterns and filters with live 2D/3D preview";
+  };
+
   wordcraft = mkCraftApp {
     pname = "wordcraft";
     version = "0.16.0";
@@ -218,5 +232,12 @@ in
     version = "0.17.0";
     hash = "sha256-BFXIY1NYItlRoakf3ujdApNp4PL5P3rJnEkW73Cod2E=";
     description = "Spreadsheets and data analysis (clean-room Excel reimplementation)";
+  };
+
+  craft-anything = mkCraftApp {
+    pname = "craft-anything";
+    version = "0.6.0";
+    hash = "sha256-mswr764Dgd7p3OvSVbzcdZKxafTvR3nC4tQj8Xz2vzk=";
+    description = "Software exploration and creation: study websites, apps, games and files, then build your own version with a coding agent";
   };
 }

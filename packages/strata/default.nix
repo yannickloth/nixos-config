@@ -17,7 +17,7 @@
 # libraries, so no NVIDIA pip wheels are needed either.
 #
 # Since Strata 0.2.0 the tree holds three separately versioned products: the
-# engine (0.1.58 in this release), the Terminal/CLI (strata.py + strata_cli,
+# engine (0.1.59 in this release), the Terminal/CLI (strata.py + strata_cli,
 # what `strata launch`, `strata models` and `strata update` run) and the desktop
 # app (apps/). This package ships the engine plus the Python source that the
 # setup and serve paths need: setup.py now imports strata_control/ (and, through
@@ -126,10 +126,10 @@
   # workarounds that have no flag. Empty by default; see
   # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.12 (146df3c4;
-  # tag object 123bad4a peeled to that commit).
-  # That tag's engine is 0.1.58 (see engine.nix; since 0.2.4 the release's engine
-  # packages carry their own version, the CMake project version says 0.1.58).
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.13 (d2f0964;
+  # tag object fb57f74 peeled to that commit).
+  # That tag's engine is 0.1.59 (see engine.nix; since 0.2.4 the release's engine
+  # packages carry their own version, the CMake project version says 0.1.59).
   # Engine 0.1.55 -> 0.1.56 changed one default that matters on this card:
   # DFlash2 became the default drafter for Qwen3.8 on sm_86 (drafting "Auto"
   # picked it; first start downloads ~1.2 GB and builds the drafter file locally
@@ -138,14 +138,15 @@
   # established yet. The 0.2.10 all-cards split engine needs exactly two
   # sm_86/sm_120 cards and does not apply (one A3000 here); its new 131,072
   # default context is overridden by this package's explicit --max-context.
-  # Engine 0.1.58 (v0.2.12) brings a tuned DFlash2 drafter (+2.4-5.0% decode
+  # Engine 0.1.58 (v0.2.12) brought a tuned DFlash2 drafter (+2.4-5.0% decode
   # on some cards), faster 12 GB card prompts (UD-IQ4_XS-v31 x3 at 2K),
   # tool-call fixes, and a 12 GB start-up change: the second check no longer
-  # counts the engine's own memory as free, so it usually stops switching to
-  # the slower file cache (STRATA_FILE_TIER_HONEST=0 restores the old
-  # behaviour). Auto now starts MTP for IQ3_S and the tuned DFlash2 for
-  # UD-IQ4_XS-v31 on 12 GB cards; the Swift IQ3_XXS pack used here is not
-  # named in the notes, so what Auto picks for it on sm_86 is not established.
+  # counts the engine's own memory as free.
+  # Engine 0.1.59 (v0.2.13) adds new DFlash2 defaults per card (Strix Halo,
+  # UD-Q4_K_XL +5.2%; RTX PRO 5000 72 GB +2.8%), faster app start (3.12 MB ->
+  # 0.76 MB binary), Strix Halo Terminal launch fix, Linux expert store via
+  # file cache fix (#5327), Qwen4 groundwork (new engine download shapes),
+  # and removes several opt-in switches from finished experiments.
   # The 0.2 line's engine was a drop-in swap for the 0.1.47 this package was
   # last tuned against (the calibrated knobs and the bench numbers above carry
   # over); two measured comparisons behind that note, kept as history:
@@ -175,8 +176,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "146df3c468739147f520ac3816de806f71232571";  # v0.2.12 (tag object 123bad4a peeled); engine 0.1.58
-    hash = "sha256-iMjGRmrr2luO7O0x5QF4iIWpOVRQp1mlSeTWFDGZEVo=";
+    rev = "d2f096475817d4666c364c820b0ca830f751cfc5";  # v0.2.13 (tag object fb57f74 peeled); engine 0.1.59
+    hash = "sha256-ygLtDYyrwfRKez46xKnPkO7BtY0Q4uMwxlvh3JyUHbE=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -190,11 +191,11 @@
 let
   # The Strata release this package is pinned to (its app version); the engine
   # it builds has its own version - see engineVersion below.
-  version = "0.2.12";
+  version = "0.2.13";
   # CMakeLists.txt's project(VERSION ...) in that tree. BUILD.json has to report
   # the ENGINE's version: setup.py compares it against MIN_ENGINE and against
   # the `engine=X.Y.Z` string compiled into the binary (stale_binary()).
-  engineVersion = "0.1.58";
+  engineVersion = "0.1.59";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer
@@ -267,12 +268,12 @@ let
   };
 
   # The Python side of the repo (setup.py, the API server, the Terminal/CLI, the
-  # packing tools and their static data), kept read-only in the store. chat.py is
-  # stdlib only; serve/, tools/, strata_control/ and strata_cli/ use exactly the
-  # packages setup.py installs into the venv on first run. Since Strata 0.2.0
-  # setup.py imports strata_control/ (acquisition, atomic, draft_layer,
-  # discovery, user_args) and serve/server.py imports strata_cli/ too, so both
-  # trees have to sit beside setup.py.
+  # packing tools and their static data), kept read-only in the store.
+  # tools/chat.py is stdlib only; serve/, tools/, strata_control/ and strata_cli/
+  # use exactly the packages setup.py installs into the venv on first run. Since
+  # Strata 0.2.0 setup.py imports strata_control/ (acquisition, atomic,
+  # draft_layer, discovery, user_args) and serve/server.py imports strata_cli/
+  # too, so both trees have to sit beside setup.py.
   #
   # runtimeTrees/runtimeFiles are the single list of what the runtime directory
   # needs: the derivation installs exactly them and the `strata` wrapper copies
@@ -281,7 +282,6 @@ let
   runtimeFiles = [
     "setup.py"
     "strata.py"
-    "chat.py"
     # source_version() reads project(VERSION ...) from it, and stale_binary()
     # compares that with the `engine=X.Y.Z` string in the binary: without the
     # file the engine would look stale (and source_version() would raise). It is
@@ -391,7 +391,7 @@ let
         # engines as-is, and "nix_built": true is what ./setup-trust-nix-engine.patch
         # checks before it returns this engine instead of rebuilding it (and
         # before engine_update_note() calls it old). version is the ENGINE's
-        # version (0.1.58), not the app's: setup.py compares it with MIN_ENGINE
+        # version (0.1.59), not the app's: setup.py compares it with MIN_ENGINE
         # and with the `engine=X.Y.Z` string compiled into the binary. The
         # symlinks track store rebuilds.
         mkdir -p "$STRATA_HOME/engine"
@@ -570,7 +570,7 @@ let
           exit 1
         fi
         cd "$STRATA_HOME"
-        exec "$STRATA_HOME/.venv/bin/python" chat.py "$@"
+        exec "$STRATA_HOME/.venv/bin/python" tools/chat.py "$@"
       '';
   };
 
