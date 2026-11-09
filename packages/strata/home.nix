@@ -403,7 +403,7 @@ in
 
       # Move runtime data to the /data volume and symlink into ~/.local/share.
       # Follows the same pattern as ~/sync and ~/roms in common-hm.nix.
-      activation.strata-dataOnDataVolume = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      home.activation.strata-dataOnDataVolume = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         if [ "${lib.boolToString cfg.dataOnDataVolume}" != "true" ]; then
           exit 0
         fi
