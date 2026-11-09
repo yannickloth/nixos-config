@@ -47,19 +47,22 @@ let
   #
   # Update: bump skillRev to the new `v<version>` tag (== default.nix version)
   # and refresh skillHashes from that release's manifest.
-  skillRev = "v1.4.240";
+  skillRev = "v1.4.254";
 
   skillHashes = {
-    "computer-use" = "sha256-KDmTP9NSFoRUYUZkA+YGFIgAX231cSbQzQ92nqRXU/M=";
+    # Renamed from "computer-use" to "orca-computer-use" in v1.4.254 (the
+    # repo path and the app's manifest both use the new name).
+    "orca-computer-use" = "sha256-aTdkVhhUg+pJTrNUvgm85bi96dHHkujLHOdodpHRoCE=";
     "jira-tickets" = "sha256-VTTaQAD09Mh/fbsmM0WiEwaMAJmhRAGGreqGXhfZDf4=";
     "linear-tickets" = "sha256-4YH4YHPaZcSSNhRp1QT+FeeuYbyZmQvEG+pHqhNFVhk=";
-    "orca-cli" = "sha256-qnb4ZQUBAJbo6p7doXBaeKrnr0XlRIXz/gRgZkwdnko=";
+    "orca-cli" = "sha256-6XWa6mZPVFYZRu60CmMoAxMwhgzaCBfywqos9SnVwbM=";
     "orca-emulator" = "sha256-PacZEXnkbLDhpqk28etUJU9umOw4hJ4clfDhEHMHa0g=";
     "orca-emulator-android" = "sha256-Ot5Ob48nF8qJn9hB5h8RaWOkBulScBW4A4VMFtAS4ng=";
     "orca-jira" = "sha256-yoPEZi+8IwbvuQQ2dJmLDKWrrMeOwuX4Xl24Aojmd3o=";
     "orca-linear" = "sha256-jaI++WRwkGMVys6P+E+AViVe430bLV24TYt7MnCgug8=";
     "orca-per-workspace-env" = "sha256-wAXRJqE9KRM1FHLwdpDxwaZg1PKG4qXyGGSu4pT0Ns4=";
-    "orchestration" = "sha256-zRs2S/NXgbrQa/dasXZq+o1s7GnLIGBSlpHYmHGiCYo=";
+    "orca-plugin-authoring" = "sha256-Yz2bjdF6dAandUFjPhA5HZXf4QoMJfzQ4E1qJI6i9Zc=";
+    "orchestration" = "sha256-Sz5obLKxBsLbjsq1PUsAC0NWzKY9Sn9+PPbbh5jDj+0=";
   };
 
   skillFile = name: hash:
@@ -109,10 +112,10 @@ in
       type = types.listOf (types.enum (attrNames skillHashes));
       default = [
         "orca-cli"
-        "computer-use"
+        "orca-computer-use"
         "orchestration"
       ];
-      example = literalExpression ''[ "orca-cli" "orchestration" "computer-use" ]'';
+      example = literalExpression ''[ "orca-cli" "orchestration" "orca-computer-use" ]'';
       description = ''
         Orca skill guides to install declaratively into the agent skill
         directories (`~/.agents/skills` plus `~/.claude` and `~/.hermes`).
