@@ -116,6 +116,11 @@
               self.nixosConfigurations.laptop-p16.config.home-manager.users.nicky.home.file.".local/bin/unsloth-studio-free-gpu.sh".text;
             unsloth-unload = pkgs.writeText "unsloth-unload.sh"
               self.nixosConfigurations.laptop-p16.config.home-manager.users.nicky.home.file.".local/bin/unsloth-studio-unload.sh".text;
+            # The Strata /data migration (packages/strata/home.nix): it moves
+            # ~116 GB of model files, so its shell logic is checked here rather
+            # than in someone's live session.
+            strata-data-volume = pkgs.writeText "strata-data-volume.sh"
+              self.nixosConfigurations.laptop-p16.config.home-manager.users.nicky.home.activation.strata-dataOnDataVolume.data;
             # No llama-server-handoff entry: it is the native-only in-load shim
             # (packages/unsloth-studio/home.nix), and laptop-p16 - the only host
             # with strataGpuHandoff - runs the container backend, where llama.cpp

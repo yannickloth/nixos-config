@@ -5,10 +5,12 @@
 #
 # Installs `strata` (first-run setup + foreground start), `strata-chat` and
 # `strata-server`. The first `strata` run asks the model/size/context questions
-# and downloads the ~70-84 GB model into ~/.local/share/strata (override the
-# directory with STRATA_HOME). The engine policy below (context, KV format, rope
-# scaling, VRAM reserve) overrides whatever setup answered, whenever a config is
-# written or served.
+# and downloads the model (~70-84 GB per quantization) into Strata's data
+# folder, ~/.local/share/Strata-data (models/, packs/, mtp/, dflash2/); the
+# runtime tree it runs from is ~/.local/share/strata (override with
+# STRATA_HOME). `dataOnDataVolume = true` puts both on the /data volume.
+# The engine policy below (context, KV format, rope scaling, VRAM reserve)
+# overrides whatever setup answered, whenever a config is written or served.
 #
 # `strata-server` is the always-on, engine-optional server behind the Unsloth
 # Studio integration (Studio's Custom provider points at
@@ -290,13 +292,21 @@ in
       type = types.bool;
       default = false;
       description = ''
-        Store Strata's runtime data (models, packs, venv, configs, logs) on the
-        separate `/data` LUKS+btrfs volume instead of the home partition. When
-        enabled, creates a symlink `~/.local/share/strata` → `/data/strata`.
-        First run: the directory `/data/strata` is created on activation and
-        `~/.local/share/strata` becomes a symlink. If `~/.local/share/strata`
-        already contains data (from a previous install), the activation script
-        moves it to `/data/strata` and creates the symlink so no data is lost.
+        Store everything Strata reads and writes - the model files (the data
+        folder `~/.local/share/Strata-data`: models/, packs/, mtp/, dflash2/)
+        and the runtime tree (`~/.local/share/strata`: venv, engine links, run
+        configs, logs) - on the separate `/data` LUKS+btrfs volume instead of
+        the home partition. The activation script moves each tree to `/data`
+        and leaves a symlink in its place, so Strata keeps using the
+        `~/.local/share` paths its settings and run configs already name, and a
+        fresh setup downloads straight to `/data`. Nothing is rewritten: the
+        absolute `--native`/`--pack`/`--mtp` paths in the run configs resolve
+        through the symlinks.
+        First run on a host that already has data: `strata.service` is stopped
+        for the move (the engine mmaps the model files), so close the desktop
+        app too. The move is a copy, not a rename: it takes minutes per 100 GB
+        and needs that much free space on `/data`, which the script checks
+        first and warns about instead of starting a move it cannot finish.
         Requires the `/data` volume to be mounted.
       '';
     };
@@ -401,8 +411,14 @@ in
         };
       };
 
-      # Move runtime data to the /data volume and symlink into ~/.local/share.
-      # Follows the same pattern as ~/sync and ~/roms in common-hm.nix.
+      # Put both Strata trees on the /data volume and leave a symlink in each
+      # old place. Follows the same pattern as ~/sync and ~/roms in
+      # common-hm.nix. The symlinks are the whole migration: the model files,
+      # packs and MTP layers move to /data, and every path Strata has already
+      # written down - `data_dir` in ~/.config/strata/settings.json, the
+      # `--native`/`--pack`/`--mtp`/tokenizer paths in each strata-*.json -
+      # keeps resolving through them, so no config needs rewriting and a fresh
+      # setup downloads to /data too.
       home.activation.strata-dataOnDataVolume = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         if [ "${lib.boolToString cfg.dataOnDataVolume}" != "true" ]; then
           exit 0
@@ -411,25 +427,74 @@ in
           echo "warning: strata.dataOnDataVolume = true but /data is not mounted" >&2
           exit 0
         fi
-        DATA_DIR="/data/strata"
-        LINK_DIR="$HOME/.local/share/strata"
-        # Create the target on /data if it does not exist yet.
-        $DRY_RUN_CMD mkdir -p "$DATA_DIR"
-        # If ~/.local/share/strata already exists and is a directory with data,
-        # move it to /data/strata so nothing is lost on the first migration.
-        if [ -d "$LINK_DIR" ] && [ ! -L "$LINK_DIR" ]; then
-          echo "Strata: migrating ~/.local/share/strata to /data/strata ..." >&2
-          $DRY_RUN_CMD mv "$LINK_DIR"/* "$DATA_DIR"/ 2>/dev/null || true
-          $DRY_RUN_CMD mv "$LINK_DIR"/.* "$DATA_DIR"/ 2>/dev/null || true
-          $DRY_RUN_CMD rmdir "$LINK_DIR"
+        # systemctl --user talks to the user manager over its private socket,
+        # which XDG_RUNTIME_DIR names. Home-manager's activation does not
+        # always carry it, so set the standard location when it is missing.
+        XDG_RUNTIME_DIR=''${XDG_RUNTIME_DIR:-/run/user/''$(id -u)}
+        export XDG_RUNTIME_DIR
+        SYSTEMCTL=$(command -v systemctl 2>/dev/null || true)
+        STOPPED=0
+        # No bus, no stop: say so loudly, because moving the files under a
+        # running engine is the one case this script cannot make safe.
+        if [ -n "$SYSTEMCTL" ] && ! "$SYSTEMCTL" --user is-system-running >/dev/null 2>/dev/null; then
+          echo "warning: cannot reach the user systemd: strata.service is NOT stopped for the move. Stop the model first: systemctl --user stop strata, and close the desktop app." >&2
+          SYSTEMCTL=""
         fi
-        # Create the symlink so Strata's STRATA_HOME resolves to /data/strata.
-        $DRY_RUN_CMD ln -sfn "$DATA_DIR" "$LINK_DIR"
-        if [ -L "$LINK_DIR" ]; then
-          echo "Strata: runtime data -> $DATA_DIR" >&2
-        else
-          echo "warning: could not create symlink $LINK_DIR -> $DATA_DIR" >&2
+        # The engine mmaps the model files, and a reload half-way through the
+        # copy would find them missing: stop the server once, before the first
+        # move.
+        stop_strata() {
+          if [ "$STOPPED" = 1 ] || [ -z "$SYSTEMCTL" ]; then
+            return 0
+          fi
+          if "$SYSTEMCTL" --user is-active --quiet strata.service 2>/dev/null; then
+            $DRY_RUN_CMD "$SYSTEMCTL" --user stop strata.service
+            STOPPED=1
+          fi
+          return 0
+        }
+        # name of the folder under ~/.local/share : the folder on /data.
+        $DRY_RUN_CMD mkdir -p "$HOME/.local/share"
+        for tree in strata:/data/strata Strata-data:/data/Strata-data; do
+          name=''${tree%%:*}
+          data_dir=''${tree#*:}
+          link_dir="$HOME/.local/share/$name"
+          $DRY_RUN_CMD mkdir -p "$data_dir"
+          if [ -L "$link_dir" ] && [ "$(readlink -f "$link_dir" 2>/dev/null)" = "$data_dir" ]; then
+            continue
+          fi
+          if [ -e "$link_dir" ] && [ ! -L "$link_dir" ]; then
+            # A real tree with data in it: move the contents out, then drop the
+            # symlink onto the directory the move emptied.
+            stop_strata
+            need=$(du -sk "$link_dir" 2>/dev/null | cut -f1) || need=""
+            avail=$(df -Pk /data 2>/dev/null | awk 'NR == 2 { print $4 }') || avail=""
+            if [ -n "$need" ] && [ -n "$avail" ] && [ "$need" -gt "$avail" ]; then
+              echo "warning: /data has $avail KB free, $link_dir needs $need KB: leaving it on the home partition" >&2
+              continue
+            fi
+            echo "Strata: moving $link_dir to $data_dir (the engine is stopped; close the desktop app too)..." >&2
+            $DRY_RUN_CMD mv "$link_dir"/* "$data_dir"/ 2>/dev/null || true
+            $DRY_RUN_CMD mv "$link_dir"/.[!.]* "$data_dir"/ 2>/dev/null || true
+            $DRY_RUN_CMD mv "$link_dir"/..?* "$data_dir"/ 2>/dev/null || true
+            if ! $DRY_RUN_CMD rmdir "$link_dir" 2>/dev/null; then
+              echo "warning: $link_dir is not empty after the move: keeping the directory, no symlink" >&2
+              continue
+            fi
+          fi
+          $DRY_RUN_CMD ln -sfn "$data_dir" "$link_dir"
+          echo "Strata: $link_dir -> $data_dir" >&2
+        done
+        ${lib.optionalString cfg.autoStart ''
+        if [ "$STOPPED" = 1 ]; then
+          $DRY_RUN_CMD "$SYSTEMCTL" --user start strata.service
         fi
+        ''}
+        ${lib.optionalString (!cfg.autoStart) ''
+        if [ "$STOPPED" = 1 ]; then
+          echo "Strata: strata.service was stopped for the move and stays stopped (strata.autoStart = false): systemctl --user start strata" >&2
+        fi
+        ''}
       '';
     })
 

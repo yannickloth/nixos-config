@@ -192,15 +192,19 @@ in
   # Strata (Qwen3.8-Flash-Next 125B MoE inference, OpenAI/Anthropic API on
   # localhost). GPU-gated to laptop-p16: the engine is built for the
   # A3000's sm_86 and the runtime wants its 12 GB of VRAM plus 34-50 GB of
-  # RAM for the expert arena. First `strata` run downloads the ~70-84 GB
-  # model into ~/.local/share/strata (STRATA_HOME overrides the directory).
+  # RAM for the expert arena. The first `strata` run downloads the model
+  # (~70-84 GB per quantization) into Strata's data folder,
+  # ~/.local/share/Strata-data - the sibling of STRATA_HOME (~/.local/share/
+  # strata, the runtime tree it runs from). `dataOnDataVolume` keeps both on
+  # /data; see the option comment below.
   # Strata (Qwen3.8-Flash-Next 125B MoE) — re-enabled 2026-09-28: measured
   # against Unsloth Studio on the same model (IQ2_XS, expert offload),
   # Studio produces ~2 tok/s vs Strata's ~6 tok/s — Strata's MTP speculative
   # decoding + expert cache + PLE are worth 3x here. Studio keeps the fast 9B
-  # and 27B models; Strata is the 125B endpoint. The model files live in
-  # Studio's HF cache and are symlinked into ~/.local/share/strata/models/,
-  # so both tools read the same bytes (no duplicate disk). See
+  # and 27B models; Strata is the 125B endpoint. The two stacks keep separate
+  # copies: Strata's models are its own files in its data folder (measured
+  # 2026-11-09: 116 GiB, plain files, not links into Studio's cache), while
+  # Studio's HF cache on /data holds its own 80 GB. See
   # packages/strata/engine.nix for the full measurement matrix.
   # Hardware tuning measured on this laptop by tools/calibrate.py (see the
   # bench/results/2026-10-02-rtx-a3000-i7-12850hx entry in forks-Strata):
@@ -268,10 +272,17 @@ in
     # (DNS-rebinding protection).
     allowedHosts = [ "host.containers.internal" "169.254.1.2" ];
     beforeLoad = "${config.home.homeDirectory}/.local/bin/unsloth-studio-unload.sh";
-    # Store Strata's runtime data (venv, configs, engine setup) on the /data
-    # volume instead of the ~200 GB home partition. The ~70-84 GB model files
-    # are already in Studio's HF cache on /data and symlinked into
-    # ~/.local/share/strata/models/; this catches the rest (~2-3 GB).
+    # Store everything Strata reads and writes on the /data volume: the
+    # runtime tree (~/.local/share/strata -> /data/strata) and the model files
+    # (~/.local/share/Strata-data -> /data/Strata-data). Measured 2026-11-09:
+    # 116 GiB of models/packs/mtp sit on the 1.9 TB home partition, which has
+    # 6 GiB free, while /data has 160 GiB free. The activation moves each tree
+    # and symlinks it back, so the data_dir in ~/.config/strata/settings.json
+    # and the absolute --native/--pack/--mtp paths in every strata-*.json keep
+    # resolving unchanged, and a fresh setup downloads to /data. The first run
+    # stops strata.service for the copy: 116 GiB takes ~10 min at 200 MB/s
+    # (~5 min at 400 MB/s, ~21 min at 100 MB/s), so run the rebuild from a
+    # terminal, not from a chat session that is using the model.
     dataOnDataVolume = true;
     # STRATA_ADAPT_OVERLAP stays at the upstream default (off): 0.1.43 defaulted
     # it on for Linux CUDA, which cost ~2.7x decode on this rig (small expert
