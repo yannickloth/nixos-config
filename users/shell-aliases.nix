@@ -104,5 +104,21 @@
     # jc: cd using fzf (interactive dir picker). zd: same but with zoxide's rank.
     jc() { cd "$(fd --type d | fzf)" ; }
     zd() { cd "$(zoxide query --list | fzf)" ; }
+
+    # --- Word navigation and deletion ----------------------------------------
+    # Ctrl+Left/Right: move by one word
+    bindkey '^[[1;5D' backward-word
+    bindkey '^[[1;5C' forward-word
+    # Ctrl+Backspace (via terminal sequence): delete the word before cursor
+    bindkey '^[[3;5~' delete-word
+    # Ctrl+H (Backspace key in many terminals): delete the word before cursor
+    bindkey '^H' backward-delete-word
+
+    # --- Terminal ↔ GUI hand-memory bridges ----------------------------------
+    # Scrollback (matches Ctrl+Home/End in Word, Excel, browsers)
+    bindkey '^[[1;5H' beginning-of-buffer-or-history
+    bindkey '^[[1;5F' end-of-buffer-or-history
+    # Ctrl+Shift+Backspace: delete previous word (matches many GUI editors)
+    bindkey '^[[2;5~' delete-word
   '';
 }
