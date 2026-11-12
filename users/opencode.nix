@@ -24,7 +24,8 @@
 #                                               (256K, Allegretto+). The pay-per-token platform API
 #                                               (api.moonshot.ai) uses different IDs (kimi-k3,
 #                                               kimi-k2.7-code, kimi-k2.7-code-highspeed, kimi-k2.6).
-#   Hetzner   https://inference.hetzner.com/api/v1   Qwen3.6-35B-A3B / Qwen3.8-27B: 256K ctx
+#   Hetzner   https://inference.hetzner.com/v1    Qwen3.6-35B-A3B / Qwen3.8-27B: 256K ctx
+#             (the `/api` prefix 404s: GET /api/v1/models -> "route not found")
 #   cheaper   https://api.cheaperinference.com/v1   wallet-backed
 #             OpenAI/Anthropic-compatible gateway (ci_live_... keys); model ids
 #             vary, list them from GET /v1/models (no auto-discovery)
@@ -56,33 +57,50 @@ let
   providers = {
     # deepseek is a built-in opencode provider whose key already lives in
     # opencode auth; only refine the researched context/output limits.
-    deepseek.models = {
-      deepseek-v4-pro = {
-        name = "DeepSeek V4 Pro";
-        reasoning = true;
-        limit = {
-          context = 1000000;
-          output = 384000;
-        };
+    deepseek = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "https://api.deepseek.com/v1";
+        apiKey = keyfile "deepseek";
       };
-      deepseek-flash = {
-        name = "DeepSeek Flash";
-        reasoning = true;
-        limit = {
-          context = 1000000;
-          output = 384000;
+      models = {
+        deepseek-v4-pro = {
+          name = "DeepSeek V4 Pro";
+          reasoning = true;
+          limit = {
+            context = 1000000;
+            output = 384000;
+          };
+        };
+        deepseek-flash = {
+          name = "DeepSeek Flash";
+          reasoning = true;
+          limit = {
+            context = 1000000;
+            output = 384000;
+          };
         };
       };
     };
-    # Z.AI GLM Coding Plan (subscription), not the pay-per-token API:
-    # the coding-plan endpoint is the only one that spends the
-    # subscription quota, and it is not interchangeable with
-    # https://api.z.ai/api/paas/v4/. OpenAI Chat Completions protocol,
-    # hence @ai-sdk/openai-compatible (the Anthropic protocol would be
+    # Z.AI GLM Coding Plan (subscription), not the pay-per-token API.
+    #
+    # Two provider ids matter here and they are NOT interchangeable:
+    #   zai-coding-plan  the subscription. Only glm-5.3 / glm-5.3-flash /
+    #                    glm-5.3-highspeed. This is what the Coding Plan key
+    #                    spends.
+    #   zai              the paid per-token catalog (~23 models: glm-4.5 ...
+    #                    glm-5.2, glm-5.3-flashx, ...). The subscription does
+    #                    not cover it, so it must stay disabled: see
+    #                    `disabledProviders` below.
+    #
+    # The key lives on zai-coding-plan. The endpoint is the coding-plan one
+    # (a subscription key is rejected on https://api.z.ai/api/paas/v4/ and
+    # never draws subscription quota). OpenAI Chat Completions protocol, hence
+    # the openai-compatible package (the Anthropic protocol would be
     # https://api.z.ai/api/anthropic).
-    zai = {
-      npm = "@ai-sdk/openai-compatible";
-      options = {
+    zai-coding-plan = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
         baseURL = "https://api.z.ai/api/coding/paas/v4";
         apiKey = keyfile "zai";
       };
@@ -107,8 +125,8 @@ let
       };
     };
     kimi = {
-      npm = "@ai-sdk/openai-compatible";
-      options = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
         baseURL = "https://api.kimi.com/coding/v1";
         apiKey = keyfile "kimi";
       };
@@ -152,9 +170,11 @@ let
       };
     };
     hetzner = {
-      npm = "@ai-sdk/openai-compatible";
-      options = {
-        baseURL = "https://inference.hetzner.com/api/v1";
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        # The inference API is served at the root, not under /api: /v1/models
+        # answers 200 while /api/v1/models returns "route not found".
+        baseURL = "https://inference.hetzner.com/v1";
         apiKey = keyfile "hetzner";
       };
       models = {
@@ -180,9 +200,9 @@ let
     # providers, so every model you want MUST be listed here with the
     # exact id from `GET https://api.cheaperinference.com/v1/models`.
     cheaperinference = {
-      npm = "@ai-sdk/openai-compatible";
+      package = "aisdk:@ai-sdk/openai-compatible";
       name = "Cheaper Inference";
-      options = {
+      settings = {
         baseURL = "https://api.cheaperinference.com/v1";
         apiKey = keyfile "cheaperinference";
       };
@@ -278,8 +298,8 @@ let
     # q8_0 KV): the totals still land inside the 12 GB card plus pinned
     # RAM on this host.
     unsloth-studio = {
-      npm = "@ai-sdk/openai-compatible";
-      options = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
         baseURL = "http://127.0.0.1:8888/v1";
         # Studio requires an API key even for the local server. The key
         # is read from ~/.config/opencode/keys/unsloth.key (materialized
@@ -364,7 +384,6 @@ let
         "ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF" = {
           name = "Swift 1.5 27B IQ3_XXS (local, via Studio)";
           reasoning = true;
-          attachment = false;
           limit = {
             context = 9984;
             output = 32768;
@@ -410,25 +429,25 @@ let
     #
     # The server accepts ANY API key and model name (chat.py sends "strata"),
     # so no key file is needed. Context is advisory (opencode uses it for
-    # compaction thresholds) and must track the single server context:
-    # packages/strata defaults to 524288 (yarn factor 2, 8-bit KV streamed from
-    # pinned RAM; see strata.context). Vision is OFF (vision = false): the
-    # strata-vision encoder drops throughput from ~35 to ~22 tok/s, so
-    # attachments are disabled on both models. reasoning=true: the model thinks
-    # before answering; tune via reasoning effort.
+    # compaction thresholds) and must track the single server context: this
+    # host leaves the window to `strata --setup` (strata.context = null in
+    # users/nicky/nicky-hm.nix), and the served config currently holds 393216
+    # (384K). Both entries below use that number. Vision is OFF
+    # (vision = false): the strata-vision encoder drops throughput from ~35 to
+    # ~22 tok/s, so attachments are disabled on both models. The model supports
+    # reasoning: tune via reasoning effort.
     strata-local = {
-      npm = "@ai-sdk/openai-compatible";
-      options = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
         baseURL = "http://127.0.0.1:8080/v1";
         apiKey = "strata";
       };
       models = {
         "qwen3.8-flash-next-125b" = {
           name = "Strata Qwen3.8-Flash-Next 125B (local)";
-          reasoning = true;
           attachment = false;
           limit = {
-            context = 524288;
+            context = 393216;
             output = 65536;
           };
         };
@@ -436,7 +455,8 @@ let
           name = "Strata swift 1.5 IQ3_XXS (local)";
           attachment = false;
           limit = {
-            context = 524288;
+            # 384K, matching strata.context on laptop-p16 (384 * 1024).
+            context = 393216;
             output = 65536;
           };
         };
@@ -458,7 +478,7 @@ let
   # says "kimi-coding" (Kimi For Coding, same https://api.kimi.com/coding/v1).
   piNativeIds = {
     deepseek = "deepseek";
-    zai = "zai";
+    zai-coding-plan = "zai";
     kimi = "kimi-coding";
   };
 
@@ -490,7 +510,7 @@ let
         let
           provider = providers.${name};
           nativeId = piNativeIds.${name} or null;
-          options = provider.options or { };
+          options = provider.settings or { };
           value =
             if nativeId != null then
               (optionalAttrs (options ? apiKey) { apiKey = piKey options.apiKey; })
@@ -559,110 +579,133 @@ in
       ++ lib.optional (pkgs ? openspec) pkgs.openspec;
 
     xdg.configFile."opencode/opencode.json" = {
+      # opencode (and anything else that opens the file) replaces the store
+      # symlink with a regular file, so a stale opencode.json.backup from an
+      # earlier `-b backup` run made every later switch stop at
+      # checkFilesChanged. force overwrites the file instead of backing it up:
+      # this repo is the only writer, and a manual edit is discarded on purpose.
+      force = true;
       text =
         let
+          # Strip V1-only model fields (reasoning, attachment) that opencode V2
+          # ignores, while keeping them in the source `providers` for pi.
+          stripV1 = provider:
+            if provider ? package then
+              provider // {
+                models = lib.mapAttrs (id: model:
+                  removeAttrs model [ "reasoning" "attachment" ]
+                ) provider.models;
+              }
+            else
+              provider;
           baseConfig = {
             "$schema" = "https://opencode.ai/config.json";
-            provider = providers;
-
+            providers = lib.mapAttrs (_name: stripV1) providers;
+            # Hide OpenCode's built-in pay-per-token Z.AI catalog. Without this
+            # the model picker lists "Z.AI" with ~23 glm-4.x/glm-5.x models the
+            # Coding Plan subscription does not cover, next to the correct
+            # "Z.AI Coding Plan" entry. The subscription is configured above as
+            # `zai-coding-plan`; `zai` is only ever the paid catalog.
             # System One decision tools come from Unsloth Studio only. The old
             # packages/laya MCP server (a separate streamable-HTTP endpoint on
             # port 8765) is gone with the package: Studio's Decision API serves
             # the same shape locally, so there is nothing else to register.
             mcp = optionalAttrs isP16 {
-              # System One decision tools straight from local Unsloth Studio, so
-              # decisional prompts stay on this machine. Studio serves this
-              # itself: routes/systemone.py builds a FastMCP ("Unsloth
-              # Decisions") mounted at /mcp/decisions with stateless_http and
-              # json_response, exposing one tool, `decide(state, questions)`,
-              # whose schema documents the noul / choice / score question types.
-              # So there is no vendor client and no npx package to pin; the
-              # endpoint runs Laya on CPU (see packages/unsloth-studio/home.nix).
-              #
-              # Auth is the owner's Studio key — the same file the
-              # unsloth-studio provider reads. /mcp/decisions is wrapped in
-              # RequireStudioAuth, which calls security() directly and so
-              # bypasses keyless admission: a dummy bearer gets 401 (verified),
-              # the real key gets 200. oauth = false because this is a header
-              # credential, not an OAuth server.
-              #
-              # Tools surface as systemone_<tool> (here systemone_decide). If the
-              # connection reports 401, the `{file:}` substitution is not being
-              # applied inside headers on this OpenCode build; switch to
-              # "Bearer {env:UNSLOTH_API_KEY}" and export that variable.
-              systemone = {
-                type = "remote";
-                url = "http://127.0.0.1:8888/mcp/decisions/";
-                oauth = false;
-                enabled = true;
-                headers = {
-                  Authorization = "Bearer ${keyfile "unsloth"}";
+              servers = {
+                # System One decision tools straight from local Unsloth Studio, so
+                # decisional prompts stay on this machine. Studio serves this
+                # itself: routes/systemone.py builds a FastMCP ("Unsloth
+                # Decisions") mounted at /mcp/decisions with stateless_http and
+                # json_response, exposing one tool, `decide(state, questions)`,
+                # whose schema documents the noul / choice / score question types.
+                # So there is no vendor client and no npx package to pin; the
+                # endpoint runs Laya on CPU (see packages/unsloth-studio/home.nix).
+                #
+                # Auth is the owner's Studio key — the same file the
+                # unsloth-studio provider reads. /mcp/decisions is wrapped in
+                # RequireStudioAuth, which calls security() directly and so
+                # bypasses keyless admission: a dummy bearer gets 401 (verified),
+                # the real key gets 200. oauth = false because this is a header
+                # credential, not an OAuth server.
+                #
+                # Tools surface as systemone_<tool> (here systemone_decide). If the
+                # connection reports 401, the `{file:}` substitution is not being
+                # applied inside headers on this OpenCode build; switch to
+                # "Bearer {env:UNSLOTH_API_KEY}" and export that variable.
+                systemone = {
+                  type = "remote";
+                  url = "http://127.0.0.1:8888/mcp/decisions/";
+                  oauth = false;
+                  disabled = false;
+                  headers = {
+                    Authorization = "Bearer ${keyfile "unsloth"}";
+                  };
                 };
-              };
 
-              # No Jev MCP here on purpose. The `@jkudish/jev-mcp` stdio server
-              # shipped 12 prompt decompositions (screen, verify, noul, find,
-              # rerank, classify, decide, compare, extract, audit, review, gate)
-              # over the same local System One primitive `systemone_decide`
-              # exposes raw — so it added a third-party `npx -y` package that
-              # executes JS against this state, and nothing the local plugin
-              # does not cover. Those workflows now live in the systemone plugin
-              # (llm-harness-plugins/systemone) against the local decision API.
-              # Do not re-add a hosted Jev client here: it would send local
-              # judgment prompts to a third party.
-            } // optionalAttrs (pkgs ? rea) {
-              # REA (packages/rea): reverse-engineering toolkit (native binaries,
-              # JS/Electron, .NET, websites, ...) served over stdio MCP. Only
-              # registered where the AI-unstable overlay provides pkgs.rea
-              # (nicky, aeiuno). Set enabled = false to hide its large tool
-              # catalog from every session.
-              rea = {
-                type = "local";
-                command = [ "${pkgs.rea}/bin/rea" "mcp" ];
-                enabled = true;
-              };
-            } // optionalAttrs (config.browseros.enable or false) {
-              # BrowserOS neo: agent-driven browser exposing a local MCP server
-              # (claw-server) on :9010. Agents drive the real browser (with the
-              # user's imported Chrome logins) over typed MCP tool calls.
-              browseros-neo = {
-                type = "remote";
-                url = "http://127.0.0.1:9010/mcp";
-                enabled = true;
-              };
-            } // optionalAttrs (config.libreofficeMcp.enable or false) {
-              # LibreOffice MCP (packages/libreoffice-mcp): the extension serves
-              # streamable HTTP from inside the running soffice process, so its
-              # tools act on the document the user has open, not on a copy.
-              # Upstream exposes /, /health (liveness only) and /mcp (the MCP
-              # endpoint) on the configured port; /health is not MCP.
-              #
-              # Local-only, by design: the server binds IPv4 loopback (the
-              # artifact pins Host=127.0.0.1) and upstream's tunnel support is
-              # left off. The URL spells out 127.0.0.1 rather than "localhost"
-              # because this host resolves localhost to ::1 first, which the
-              # server does not listen on — the numeric address makes client and
-              # socket agree without relying on Happy Eyeballs fallback.
-              #
-              # The generated cert has to reach Node-based MCP clients: the
-              # extension serves TLS with a self-signed cert (SAN localhost +
-              # 127.0.0.1, generated into ~/.config/libreoffice/mcp-certs on
-              # first start, which also keeps browser-origin requests out — the
-              # server sends Access-Control-Allow-Origin: *).
-              # packages/libreoffice-mcp/home.nix exports it as
-              # NODE_EXTRA_CA_CERTS, which is how opencode's Node fetch trusts
-              # it. Without that variable the connection fails with a
-              # self-signed certificate error, so a failed connection here
-              # usually means: env var missing (app started outside the HM
-              # session), LibreOffice closed, or the extension not loaded.
-              #
-              # The port comes from the same option that is patched into the
-              # extension (libreofficeMcp.port), never a hardcoded 8765, so two
-              # users on one host do not attach to each other's documents.
-              libreoffice = {
-                type = "remote";
-                url = "https://127.0.0.1:${toString config.libreofficeMcp.port}/mcp";
-                enabled = true;
+                # No Jev MCP here on purpose. The `@jkudish/jev-mcp` stdio server
+                # shipped 12 prompt decompositions (screen, verify, noul, find,
+                # rerank, classify, decide, compare, extract, audit, review, gate)
+                # over the same local System One primitive `systemone_decide`
+                # exposes raw — so it added a third-party `npx -y` package that
+                # executes JS against this state, and nothing the local plugin
+                # does not cover. Those workflows now live in the systemone plugin
+                # (llm-harness-plugins/systemone) against the local decision API.
+                # Do not re-add a hosted Jev client here: it would send local
+                # judgment prompts to a third party.
+              } // optionalAttrs (pkgs ? rea) {
+                # REA (packages/rea): reverse-engineering toolkit (native binaries,
+                # JS/Electron, .NET, websites, ...) served over stdio MCP. Only
+                # registered where the AI-unstable overlay provides pkgs.rea
+                # (nicky, aeiuno). Set disabled = false to hide its large tool
+                # catalog from every session.
+                rea = {
+                  type = "local";
+                  command = [ "${pkgs.rea}/bin/rea" "mcp" ];
+                  disabled = false;
+                };
+              } // optionalAttrs (config.browseros.enable or false) {
+                # BrowserOS neo: agent-driven browser exposing a local MCP server
+                # (claw-server) on :9010. Agents drive the real browser (with the
+                # user's imported Chrome logins) over typed MCP tool calls.
+                browseros-neo = {
+                  type = "remote";
+                  url = "http://127.0.0.1:9010/mcp";
+                  disabled = false;
+                };
+              } // optionalAttrs (config.libreofficeMcp.enable or false) {
+                # LibreOffice MCP (packages/libreoffice-mcp): the extension serves
+                # streamable HTTP from inside the running soffice process, so its
+                # tools act on the document the user has open, not on a copy.
+                # Upstream exposes /, /health (liveness only) and /mcp (the MCP
+                # endpoint) on the configured port; /health is not MCP.
+                #
+                # Local-only, by design: the server binds IPv4 loopback (the
+                # artifact pins Host=127.0.0.1) and upstream's tunnel support is
+                # left off. The URL spells out 127.0.0.1 rather than "localhost"
+                # because this host resolves localhost to ::1 first, which the
+                # server does not listen on — the numeric address makes client and
+                # socket agree without relying on Happy Eyeballs fallback.
+                #
+                # The generated cert has to reach Node-based MCP clients: the
+                # extension serves TLS with a self-signed cert (SAN localhost +
+                # 127.0.0.1, generated into ~/.config/libreoffice/mcp-certs on
+                # first start, which also keeps browser-origin requests out — the
+                # server sends Access-Control-Allow-Origin: *).
+                # packages/libreoffice-mcp/home.nix exports it as
+                # NODE_EXTRA_CA_CERTS, which is how opencode's Node fetch trusts
+                # it. Without that variable the connection fails with a
+                # self-signed certificate error, so a failed connection here
+                # usually means: env var missing (app started outside the HM
+                # session), LibreOffice closed, or the extension not loaded.
+                #
+                # The port comes from the same option that is patched into the
+                # extension (libreofficeMcp.port), never a hardcoded 8765, so two
+                # users on one host do not attach to each other's documents.
+                libreoffice = {
+                  type = "remote";
+                  url = "https://127.0.0.1:${toString config.libreofficeMcp.port}/mcp";
+                  disabled = false;
+                };
               };
             };
           };
@@ -707,7 +750,18 @@ in
     #      home-manager hosts (CachyOS), or the system path on NixOS.
     #   2. /etc/secrets/opencode-keys.env — the system agenix path (NixOS hosts).
     # Skipped silently when neither exists.
-    home.activation.setupOpenCodeKeys = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    # Bun standalone can't resolve bundled @opencode/ai providers via dynamic
+    # import — it falls back to filesystem resolution. The binary adds
+    # ~/.node_modules to module resolution paths AND looks at ~/@opencode/ for
+    # scoped packages. Install @opencode/ai in both locations.
+    home.activation.setupOpenCodeAIDeps = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      for dir in "${config.home.homeDirectory}/.node_modules" "${config.home.homeDirectory}/@opencode"; do
+        mkdir -p "$dir"
+        ${pkgs.bun}/bin/bun --cwd "$dir" install @opencode/ai 2>&1 || true
+      done
+    '';
+
+    home.activation.setupOpenCodeKeys = lib.hm.dag.entryAfter [ "writeBoundary" "setupOpenCodeAIDeps" ] ''
       ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" '${config.opencode.envFile}' <<'PYEOF'
       import json, os, sys
 

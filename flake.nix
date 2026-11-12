@@ -291,7 +291,24 @@
             fi
             grep -q -- '"1800"' "$STRATA_HOME/strata-vis.json"
 
-            # 6. last, because this file makes EVERY later run fail: an
+            # 6. a null module context (argv[1] = "none"): the runtime owns the
+            #    window, so --max-context and the rope flags must survive in
+            #    "args" AND a hand-set --max-context in "user_args" must not be
+            #    dropped (the flags leave the POLICY set in that mode).
+            printf '{"args":["--max-context","4096","--rope-scaling","linear","--rope-scale","3"],"user_args":["--max-context","2048"]}' > "$STRATA_HOME/strata-null.json"
+            python3 ${./packages/strata/config_patch.py} none kv8 0 none 1800 none none none none none false '{}' false ${strataShare}
+            python3 -c '
+            import json, sys
+            cfg = json.load(open(sys.argv[1]))
+            a = cfg["args"]
+            assert a[a.index("--max-context") + 1] == "4096", a
+            assert a[a.index("--rope-scaling") + 1] == "linear", a
+            assert a[a.index("--rope-scale") + 1] == "3", a
+            ua = cfg.get("user_args") or []
+            assert ua[ua.index("--max-context") + 1] == "2048", ua
+            ' "$STRATA_HOME/strata-null.json"
+
+            # 7. last, because this file makes EVERY later run fail: an
             #    unreadable config is a hard failure, since this script is the
             #    enforcement point of the policy and must not fail open with
             #    stale settings.

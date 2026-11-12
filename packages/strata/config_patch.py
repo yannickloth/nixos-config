@@ -22,10 +22,19 @@
 # args do not have was added by hand"). This script leaves such a file without
 # "args_written" rather than inventing it, because inventing it would mark those
 # hand edits as generated - and the next `strata --setup` would drop them.
+#
+# The window is optional. argv[1] = "none" (module option `strata.context = null`)
+# means the module does not own --max-context or the rope flags: `strata --setup`
+# and the app's settings form keep what they wrote, and this script does not touch
+# either flag or drop them from "user_args".
 import glob, json, os, sys
 
-ctx, kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, tail, env_json, vision_encoder = (
-    int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5]),
+# "none" means the module does NOT own the window: `strata --setup` (or the
+# app's settings form) wrote --max-context/--rope-*, and this script leaves
+# them alone (packages/strata/home.nix, `strata.context = null`).
+ctx = None if sys.argv[1] == "none" else int(sys.argv[1])
+kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, tail, env_json, vision_encoder = (
+    sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5]),
     sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10],
     sys.argv[11] == "true", sys.argv[12], sys.argv[13] == "true")
 # The reserve a config that serves images needs (encoder activations). Optional
@@ -47,9 +56,13 @@ from strata_control import user_args as UA
 # module options at engine start. Options the module leaves at null ("not set":
 # the engine's own default) are NOT listed: a hand-set value is kept for those.
 POLICY = {
-    "--max-context", "--kv", "--kv-resident", "--rope-scaling", "--rope-scale",
-    "--vram-reserve-mib", "--spec-min-p",
+    "--kv", "--kv-resident", "--vram-reserve-mib", "--spec-min-p",
 }
+# The window and its rope rescaling are the module's only when it sets a
+# context; with `strata.context = null` the runtime keeps them (a hand-set
+# value in "user_args" must survive, so the flags stay out of POLICY too).
+if ctx is not None:
+    POLICY.update({"--max-context", "--rope-scaling", "--rope-scale"})
 if pcie != "none":
     POLICY.add("--pcie-frac")
 if workers != "none":
@@ -113,7 +126,7 @@ for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
         # at 2, unreachable for a probability, i.e. the verify window is not
         # extended on a draft-confidence basis.
         a = set_opt(a, "--spec-min-p", 2 if spec == "none" else spec)
-        if ctx > 0:
+        if ctx is not None:
             a = set_opt(a, "--max-context", ctx)
         if kv:
             a = set_opt(a, "--kv", kv)
@@ -122,14 +135,16 @@ for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
             a = set_opt(a, "--kv-resident", None)
         else:
             a = set_opt(a, "--kv-resident", kv_res)
-        # past the trained 262144 the angles must be rescaled; inside it,
-        # keep the model completely stock (no rope flags at all)
-        if ctx > 262144:
-            a = set_opt(a, "--rope-scaling", rope)
-            a = set_opt(a, "--rope-scale", f"{ctx / 262144:g}")
-        else:
-            a = set_opt(a, "--rope-scaling", None)
-            a = set_opt(a, "--rope-scale", None)
+        # Past the trained 262144 the angles must be rescaled; inside it, keep
+        # the model completely stock (no rope flags at all). With ctx = None the
+        # runtime owns both, so neither is touched.
+        if ctx is not None:
+            if ctx > 262144:
+                a = set_opt(a, "--rope-scaling", rope)
+                a = set_opt(a, "--rope-scale", f"{ctx / 262144:g}")
+            else:
+                a = set_opt(a, "--rope-scaling", None)
+                a = set_opt(a, "--rope-scale", None)
         # Images can be on for THIS config even when the module default is off:
         # with the encoder shipped, `strata --setup --vision yes` (or the app's
         # images switch) writes a "vision" block. Such a config needs the larger

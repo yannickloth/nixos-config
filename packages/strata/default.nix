@@ -97,7 +97,9 @@
   # Engine config policy, enforced on every engine config the package writes
   # (see configPatch below). Default: one 512K-context Strata - the model's
   # trained 262144 extended by yarn factor 2 - with the KV cache 8-bit and
-  # streamed from pinned RAM. See packages/strata/home.nix for the options.
+  # streamed from pinned RAM. null leaves the window to `strata --setup` (the
+  # wrapper passes no --context, and the patcher leaves --max-context and the
+  # rope flags alone). See packages/strata/home.nix for the options.
   , context ? 524288
   , kv ? "int8"
   , kvResident ? 32768
@@ -241,7 +243,7 @@ let
     # used to move the policy between "args", "user_args" and "args_written"
     # exactly the way serve/server.py and setup.py do.
     text = ''
-      python3 - ${toString context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.boolToString promptCacheTail} ${lib.escapeShellArg (builtins.toJSON engineEnv)} ${lib.boolToString visionEncoder} ${lib.escapeShellArg share} ${toString vramVisionReserveMiB} <<'PY'
+      python3 - ${optArg context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.boolToString promptCacheTail} ${lib.escapeShellArg (builtins.toJSON engineEnv)} ${lib.boolToString visionEncoder} ${lib.escapeShellArg share} ${toString vramVisionReserveMiB} <<'PY'
       ${builtins.readFile ./config_patch.py}
       PY
     '';
@@ -489,13 +491,16 @@ let
         # First-run setup must write this context too, not whatever the
         # interactive default offers (setup.py then derives the matching yarn
         # factor itself). An explicit --context on the command line still wins;
-        # configPatch above re-normalizes KV and rope args regardless.
+        # configPatch above re-normalizes KV and rope args regardless. With
+        # `strata.context = null` the module passes nothing and setup's answer
+        # is the one that stays.
+        module_context='${optArg context}'
         want_context=0
         for arg in "$@"; do
           case "$arg" in --context | --context=*) want_context=1 ;; esac
         done
-        if [ "$want_context" = 0 ]; then
-          set -- "$@" --context "${toString context}"
+        if [ "$want_context" = 0 ] && [ "$module_context" != none ]; then
+          set -- "$@" --context "$module_context"
         fi
 
         # The model wants the A3000's full 12 GB of VRAM and tens of GB of
@@ -663,7 +668,12 @@ symlinkJoin {
   # strata_control/user_args.py through here (a stub would not notice an upstream
   # API change, and this file's whole job is to drive that API). It points at the
   # runtime derivation only, so the check does not pull in the CUDA engine.
-  passthru = { runtimeShare = share; };
+  #
+  # `wrapper` exposes the `strata` shell wrapper on its own, so its generated
+  # text can be inspected (and shellcheck-ed) without the CUDA engine:
+  #   nix build --no-link --print-out-paths --expr \
+  #     '(pkgs.callPackage ./packages/strata { context = null; }).wrapper'
+  passthru = { runtimeShare = share; wrapper = strata; };
   meta = with lib; {
     description = "Strata: local Qwen3.8-Flash-Next (125B MoE) inference with an OpenAI/Anthropic-compatible API";
     homepage = "https://github.com/Niko1221/Strata";

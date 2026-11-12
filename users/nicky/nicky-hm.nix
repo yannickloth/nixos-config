@@ -224,6 +224,14 @@ in
   # enable stays gated on laptop-p16 (isP16).
   strata = lib.mkIf isP16 {
     enable = true;
+    # The engine window is owned at runtime, not here: null tells the package
+    # to stop passing --context to setup and to leave --max-context / the rope
+    # flags alone, so `strata --setup` (or the app's settings form) decides and
+    # the answer survives every restart. The shipped default stays 524288; this
+    # host currently serves 393216 (384K, yarn factor 1.5) as written by setup.
+    # The client limits in users/opencode.nix (strata-local) must name whatever
+    # the served config holds, since they are advisory (compaction thresholds).
+    context = null;
     # Keep the engine resident far longer than the 5-minute default: a reload
     # puts the weights back in VRAM in ~27-30 s before decode can start, and at
     # the old 300 s every >5-minute gap cost that stall. 900 s holds ~55 GB of
@@ -627,6 +635,7 @@ in
   # honoured during dry-run.
   home.activation.pgpass = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     pw_file="$XDG_RUNTIME_DIR/agenix/pg-nicky-password"
+    out="$HOME/.pgpass"
     if [ -f "$pw_file" ]; then
       pw=$($DRY_RUN_CMD cat "$pw_file")
       $DRY_RUN_CMD printf 'localhost:5432:*:nicky:%s\n' "$pw" > "$out"

@@ -108,7 +108,7 @@ in
     };
 
     context = mkOption {
-      type = types.ints.positive;
+      type = types.nullOr types.ints.positive;
       default = 524288;
       description = ''
         Engine KV/state capacity (`--max-context`). Past the model's trained
@@ -116,6 +116,11 @@ in
         `context / 262144` (524288 -> factor 2). Enforced on every Strata config
         the package writes or serves, so `strata --setup` cannot leave it at a
         different value.
+
+        null leaves the window to the runtime: the wrapper stops passing
+        `--context` to setup, and the config patcher leaves `--max-context` and
+        the rope flags exactly as `strata --setup` or the app's settings form
+        wrote them. Use it when the person, not this module, owns the window.
       '';
     };
 
@@ -326,8 +331,8 @@ in
     (mkIf cfg.enable {
       assertions = [
         {
-          assertion = cfg.ropeScaling != "none" || cfg.context <= 262144;
-          message = "strata.ropeScaling = \"none\" needs strata.context <= 262144: the engine refuses --rope-scale with no scaling past the trained context.";
+          assertion = cfg.ropeScaling != "none" || cfg.context == null || cfg.context <= 262144;
+          message = "strata.ropeScaling = \"none\" needs strata.context <= 262144 (or null, when the runtime owns the window): the engine refuses --rope-scale with no scaling past the trained context.";
         }
         {
           assertion = cfg.kvResident == 0 || cfg.kvResident >= 20480;

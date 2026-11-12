@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [
+  "plugins": [
     "../llm-harness-plugins/guardrail-chain/opencode",
     "../llm-harness-plugins/session-lifecycle/opencode",
     "../llm-harness-plugins/agentmem/opencode",
@@ -13,46 +13,81 @@
     "../llm-harness-plugins/systemone/opencode",
     "../llm-harness-plugins/general-skills/opencode"
   ],
-  "agent": {
+  "agents": {
     "driver-identifier": {
-      "mode": "subagent",
       "model": "deepseek/deepseek-v4-pro",
-      "thinking": {
-        "type": "enabled"
-      },
-      "prompt": "{file:../llm-harness-plugins/ivp/agents/driver-identifier.md}"
+      "mode": "subagent",
+      "system": "{file:../llm-harness-plugins/ivp/agents/driver-identifier.md}",
+      "variants": [
+        {
+          "id": "default",
+          "body": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        }
+      ]
     },
     "driver-assignment-auditor": {
-      "mode": "subagent",
       "model": "deepseek/deepseek-v4-pro",
-      "thinking": {
-        "type": "enabled"
-      },
-      "prompt": "{file:../llm-harness-plugins/ivp/agents/driver-assignment-auditor.md}"
+      "mode": "subagent",
+      "system": "{file:../llm-harness-plugins/ivp/agents/driver-assignment-auditor.md}",
+      "variants": [
+        {
+          "id": "default",
+          "body": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        }
+      ]
     },
     "gamma-modularizer": {
-      "mode": "subagent",
       "model": "deepseek/deepseek-v4-pro",
-      "thinking": {
-        "type": "enabled"
-      },
-      "prompt": "{file:../llm-harness-plugins/ivp/agents/gamma-modularizer.md}"
+      "mode": "subagent",
+      "system": "{file:../llm-harness-plugins/ivp/agents/gamma-modularizer.md}",
+      "variants": [
+        {
+          "id": "default",
+          "body": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        }
+      ]
     },
     "nest-decider": {
-      "mode": "subagent",
       "model": "deepseek/deepseek-v4-pro",
-      "thinking": {
-        "type": "enabled"
-      },
-      "prompt": "{file:../llm-harness-plugins/ivp/agents/nest-decider.md}"
+      "mode": "subagent",
+      "system": "{file:../llm-harness-plugins/ivp/agents/nest-decider.md}",
+      "variants": [
+        {
+          "id": "default",
+          "body": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        }
+      ]
     },
     "ivp-refactor-auditor": {
-      "mode": "subagent",
       "model": "deepseek/deepseek-v4-pro",
-      "thinking": {
-        "type": "enabled"
-      },
-      "prompt": "{file:../llm-harness-plugins/ivp/agents/ivp-refactor-auditor.md}"
+      "mode": "subagent",
+      "system": "{file:../llm-harness-plugins/ivp/agents/ivp-refactor-auditor.md}",
+      "variants": [
+        {
+          "id": "default",
+          "body": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        }
+      ]
     }
   }
 }
