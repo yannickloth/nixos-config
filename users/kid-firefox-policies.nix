@@ -20,8 +20,10 @@
     AutofillAddressEnabled = false;
     AutofillCreditCardEnabled = false;
 
-    # Locked tracking protection
-    TrackingProtection = {
+    # Locked tracking protection (the policy key is EnableTrackingProtection;
+    # "TrackingProtection" is silently ignored by Firefox).
+    EnableTrackingProtection = {
+      Value = true;
       Locked = true;
       Cryptomining = true;
       Fingerprinting = true;
@@ -35,6 +37,7 @@
       Highlights = false;
       Pocket = false;
       Snippets = false;
+      Locked = true;
     };
 
     # No about:config / devtools
@@ -47,8 +50,9 @@
     OverrideFirstRunPage = "";
     OverridePostUpdatePage = "";
 
-    # Always ask where to save downloads (system policy already sends to temp)
-    PromptForDownloadLocation = true;
+    # No prompt: the system policy already sends opened files to a temp dir,
+    # and a picker would let the kids save straight into the synced folder.
+    PromptForDownloadLocation = false;
 
     # DoH locked to the family filter (otherwise Firefox could bypass the
     # network DNS filtering via an unfiltered DoH resolver).
@@ -83,14 +87,14 @@
     # Read-only family bookmarks.
     ManagedBookmarks = [
       { toplevel_name = "Family"; }
-      { title = "Gmail"; url = "https://mail.google.com"; }
-      { title = "Qwant"; url = "https://www.qwant.com"; }
-      { title = "DuckDuckGo"; url = "https://duckduckgo.com"; }
-      { title = "Typing (Dance Mat)"; url = "https://www.dancemattyping.org"; }
-      { title = "Typing (TypingClub)"; url = "https://www.typingclub.com"; }
-      { title = "Disney+"; url = "https://www.disneyplus.com"; }
-      { title = "Prime Video"; url = "https://www.primevideo.com"; }
-      { title = "Netflix"; url = "https://www.netflix.com"; }
+      { name = "Gmail"; url = "https://mail.google.com"; }
+      { name = "Qwant"; url = "https://www.qwant.com"; }
+      { name = "DuckDuckGo"; url = "https://duckduckgo.com"; }
+      { name = "Typing (Dance Mat)"; url = "https://www.dancemattyping.org"; }
+      { name = "Typing (TypingClub)"; url = "https://www.typingclub.com"; }
+      { name = "Disney+"; url = "https://www.disneyplus.com"; }
+      { name = "Prime Video"; url = "https://www.primevideo.com"; }
+      { name = "Netflix"; url = "https://www.netflix.com"; }
     ];
 
     # uBlock Origin: force-installed and locked; block all other add-ons.

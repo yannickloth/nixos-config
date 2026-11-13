@@ -6,6 +6,10 @@
 {
   imports = [
     ./shell-aliases.nix
+    # Per-user RetroArch glue (games/games.nix installs the app + baseline
+    # system-wide): seeds the family Xbox 360 controller profile and
+    # re-points RetroArch's writable dirs out of the read-only store.
+    ../games/retroarch-hm.nix
   ];
 
   # Whether to enable the shared developer-tools programs/services
@@ -48,6 +52,29 @@
     description = "True when built by the standalone CachyOS home-manager flake.";
   };
 
+  # Where the shared syncthing tree is mounted. NixOS hosts get
+  # services.syncthing's dataDir (/sync, root-owned, reached through the
+  # syncthing group); CachyOS has no Syncthing system module, so the tree
+  # lives directly in the home directory. The activation scripts below probe
+  # this at run time and fall back to ~/sync, so the same module serves both.
+  options.commonHm.syncDir = lib.mkOption {
+    type = lib.types.str;
+    default = "/sync";
+    description = ''
+      Absolute path of the shared syncthing data directory. When it does not
+      exist at activation time, ~/sync is used instead.
+    '';
+  };
+
+  # Path of the shared RetroArch library inside the sync tree. Shared by the
+  # ~/roms symlink below and the user's RetroArch cfg (games/retroarch-hm.nix).
+  # A string rather than a Nix path so activation can resolve it at run time.
+  options.commonHm.romsSubdir = lib.mkOption {
+    type = lib.types.str;
+    default = "90-99 - Public stuff/roms";
+    description = "Directory of the shared ROM library, relative to commonHm.syncDir.";
+  };
+
   config = {
     home.stateVersion = "26.05";
 
@@ -58,7 +85,8 @@
     #
     # The ArtCraft "Crafting Apps" (packages/craft-apps — PhotoCraft,
     # VectorCraft, FilmCraft, LightCraft, PdfCraft, EffectCraft, DesignCraft,
-    # WordCraft, SoundCraft, DeckCraft, CADCraft, GridCraft) are installed for
+    # FigCraft, TextureCraft, MaterialCraft, WordCraft, SoundCraft, DeckCraft,
+    # CADCraft, GridCraft, Craft Anything) are installed for
     # all users. They are imported directly (not callPackage: that would wrap
     # the returned attrset with lib.makeOverridable and leak `override` /
     # `overrideDerivation` functions into home.packages below) so they land for
@@ -69,12 +97,54 @@
     # (Mesa, VA-API, PipeWire/PulseAudio ALSA config): the CachyOS laptop-p16
     # deployment has no /run/opengl-driver, the NixOS hosts do and keep the
     # plain build.
+    # Calculator trio for every user: `qalc` (units, currency, diff/solve/
+    # factor, statistics, dates, number bases — no integration, that needs
+    # maxima/sympy), `numbat` (dimension-checked science — unit errors are type
+    # errors) and `bc` (POSIX arithmetic in scripts; ships `dc` too). The
+    # harness rule is "compute, never in your head" (llm-harness-plugins
+    # general-skills), so the engines must be on PATH for the agents running as
+    # these users.
+    # `qalc` comes from `libqalculate`. The `qalculate-qt`/`qalculate-gtk`
+    # packages installed for the desktop (nicky-hm.nix, aeiuno-hm.nix) are the
+    # GUIs: their output contains only `qalculate-qt`/`qalculate-gtk`, so
+    # libqalculate sits in the closure but the CLI never reaches PATH.
     home.packages =
-      [ pkgs.zoxide ]
+      [ pkgs.zoxide pkgs.libqalculate pkgs.numbat pkgs.bc ]
       ++ builtins.attrValues (import ../packages/craft-apps {
         inherit (pkgs) lib appimageTools fetchurl;
         cachyos = config.commonHm.isCachyOS;
-      });
+      })
+      # Ioskeley Mono, CachyOS only. roles/fonts.nix installs it system-wide via
+      # the NixOS `fonts.packages` option, which does not exist here: the
+      # standalone flake (users/flake.nix) builds only home-manager modules, so
+      # that option never runs. Linking the faces into ~/.nix-profile/share/fonts
+      # instead works because the CachyOS system fontconfig scans the XDG data
+      # dirs. Gated on isCachyOS so the NixOS hosts do not install a second copy.
+      # The user-level fontconfig module is NOT a usable lever here (see
+      # sven-hm.nix: config.fonts.fontconfig.enable is false off-NixOS).
+      #
+      # Same six variants as roles/fonts.nix. The *-unhinted builds are left
+      # out: they reuse both the file names and the family name of the hinted
+      # ones, so buildEnv rejects the pair and fontconfig could not tell them
+      # apart anyway.
+      ++ lib.optionals config.commonHm.isCachyOS (with pkgs; [
+        ioskeley-mono.normal
+        ioskeley-mono.normal-NL
+        ioskeley-mono.normal-NF
+        ioskeley-mono.normal-term
+        ioskeley-mono.normal-NL-NF
+        ioskeley-mono.normal-term-NF
+      ])
+      # Prism Launcher (Minecraft), CachyOS only. The NixOS hosts install the
+      # same package system-wide (games/games.nix), which every user already
+      # sees; the standalone CachyOS deployment has no NixOS modules, so this
+      # is the only place it can come from there. Gating on isCachyOS keeps the
+      # NixOS hosts free of a second per-user copy. The shared launcher setup
+      # (mod binaries, controller/GameMode support, Java runtimes) is in
+      # packages/prismlauncher.
+      ++ lib.optionals config.commonHm.isCachyOS [
+        (pkgs.callPackage ../packages/prismlauncher { })
+      ];
 
     # Let home-manager take over an existing plain ~/.zshrc (e.g. one created
     # by zsh-newuser-install); otherwise the zsh module's .zshrc would be a
@@ -106,13 +176,163 @@
       enable = config.gtk.enable && config.gtk.gtk4.enable;
     };
 
-    # Symlink ~/sync to the shared syncthing data directory (/sync is created by the
-    # system services.syncthing module, so create the symlink at activation time).
+    # ~/.ssh/config must be a real file owned by the user. ssh refuses one it does
+    # not own ("Bad owner or permissions"), and home-manager can only deploy its
+    # generated config as a symlink into /nix/store — where files are owned by
+    # `nobody` on the CachyOS deployment, so every ssh invocation fails. (A NixOS
+    # host keeps root-owned store files, which ssh does accept, but a real file
+    # works there too and keeps one code path for both.)
+    #
+    # So home-manager's own deployment of the file is disabled and the same
+    # generated content is installed as a real 0600 file at activation instead:
+    # the content stays declared through programs.ssh (settings), only the
+    # deployment step differs. `enable = false` is a plain boolean — `lib.mkIf
+    # false` would drop the definition and leave the default `true` — and it is
+    # harmless for sven/aaron, who have no ssh module and so no source to read
+    # (home-manager filters disabled entries out before it reads one, like the
+    # gtk entries above). It also keeps home-manager from ever moving a real
+    # ~/.ssh/config aside to ~/.ssh/config.backup, so a hand-written config that
+    # predates this stays where it is.
+    home.file.".ssh/config".enable = false;
+    # Gate on the same condition that produces the source (programs.ssh with
+    # settings), not on the developer-tools flag: otherwise a user with ssh
+    # enabled but without developer tools gets no ~/.ssh/config at all.
+    home.activation.sshConfigRealFile = lib.mkIf
+      (config.programs.ssh.enable && config.home.file.".ssh/config".source != null)
+      (
+        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -d -m 700 "$HOME/.ssh"
+          # Never clobber a hand-written config: keep a backup when the file on
+          # disk differs from the generated one.
+          if [ -f "$HOME/.ssh/config" ] && [ ! -L "$HOME/.ssh/config" ] \
+            && ! ${pkgs.diffutils}/bin/cmp -s ${config.home.file.".ssh/config".source} "$HOME/.ssh/config"; then
+            $DRY_RUN_CMD ${pkgs.coreutils}/bin/mv -f "$HOME/.ssh/config" "$HOME/.ssh/config.bak"
+            echo "sshConfigRealFile: existing ~/.ssh/config backed up to ~/.ssh/config.bak" >&2
+          fi
+          # install (not cp) replaces the destination with the wanted mode; the
+          # source is home-manager's generated text file, which stays in the store.
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 600 ${config.home.file.".ssh/config".source} "$HOME/.ssh/config"
+        ''
+      );
+
+    # Standalone home-manager only (this CachyOS host): NixOS hosts get the key
+    # from the system unit (services/ssh-user-keys.nix) at boot/switch, so HM
+    # must not touch keys there. On CachyOS there is no system agenix, so decrypt
+    # the identity with the machine's host key (root-only -> sudo; prompts once
+    # if sudo is not passwordless) and install it. Existing keys are never
+    # touched; no sudo -> a warning with the manual one-liner.
+    home.activation.installFamilySshKey = lib.mkIf
+      (config.commonHm.isCachyOS && builtins.elem config.home.username [ "nicky" "aeiuno" "sven" "aaron" ])
+      (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        key="$HOME/.ssh/agenix_${config.home.username}"
+        secret=${../secrets/ssh-user-${config.home.username}.key.age}
+        if [ ! -f "$key" ]; then
+          if [ -z "''${DRY_RUN_CMD:-}" ]; then
+            mkdir -p -m 700 "$HOME/.ssh"
+            # Plain sudo: silent when wheel is passwordless, otherwise it asks
+            # once (the key is then present and this never runs again). No tty
+            # -> sudo fails fast and the warning below prints the manual command.
+            if ( umask 077; sudo ${pkgs.age}/bin/age --decrypt \
+                   -i /etc/ssh/ssh_host_ed25519_key "$secret" > "$key" ) \
+               && [ -s "$key" ]; then
+              chmod 600 "$key"
+              echo "installFamilySshKey: installed $key using the host key" >&2
+            else
+              rm -f "$key"
+              echo "installFamilySshKey: could not decrypt $secret with the host key" >&2
+            fi
+          else
+            echo "installFamilySshKey: $key missing; run once: sudo ${pkgs.age}/bin/age -d -i /etc/ssh/ssh_host_ed25519_key $secret > ~/.ssh/agenix_${config.home.username}" >&2
+          fi
+        fi
+      '');
+
+    # Symlink ~/sync to the shared syncthing data directory (commonHm.syncDir,
+    # /sync, created by the system services.syncthing module). Hosts without
+    # that module (CachyOS) have no /sync: there ~/sync is a real directory and
+    # is left alone.
     home.activation.linkSyncDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      if [ -d /sync ]; then
-        $DRY_RUN_CMD ln -sfn /sync "$HOME/sync"
+      syncRoot=${lib.escapeShellArg config.commonHm.syncDir}
+      if [ -L "$HOME/sync" ]; then
+        $DRY_RUN_CMD ln -sfn "$syncRoot" "$HOME/sync"
+      elif [ -e "$HOME/sync" ]; then
+        # A real directory here is a working tree, not a mistake: on hosts
+        # without a system Syncthing dataDir (CachyOS, see commonHm.syncDir)
+        # ~/sync IS the sync folder. Leave it alone.
+        echo "note: $HOME/sync exists and is not a symlink; using it as the sync root" >&2
+      elif [ -d "$syncRoot" ]; then
+        $DRY_RUN_CMD ln -s "$syncRoot" "$HOME/sync"
       else
-        echo "warning: /sync does not exist; not creating ~/sync symlink"
+        echo "warning: $syncRoot does not exist; not creating ~/sync symlink" >&2
+      fi
+    '';
+
+    # Symlink ~/roms to the shared RetroArch ROM library for every user. The
+    # adults reach it through the syncthing group; the kids only have read +
+    # traverse there (named ACLs in services/syncthing). RetroArch itself is
+    # wired to the same path (games/retroarch-hm.nix), so this is purely a
+    # file-manager convenience. Same guards as linkSyncDir: the synced folder
+    # may not exist yet (fresh host before first sync), so warn and skip.
+    home.activation.linkRomsDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      # Resolve the sync root the same way linkSyncDir does: the mount when it
+      # exists, otherwise a real ~/sync (CachyOS has no system Syncthing).
+      if [ -d ${lib.escapeShellArg config.commonHm.syncDir} ]; then
+        syncRoot=${lib.escapeShellArg config.commonHm.syncDir}
+      else
+        syncRoot="$HOME/sync"
+      fi
+      roms="$syncRoot"/${lib.escapeShellArg config.commonHm.romsSubdir}
+      if [ -L "$HOME/roms" ]; then
+        $DRY_RUN_CMD ln -sfn "$roms" "$HOME/roms"
+      elif [ -e "$HOME/roms" ]; then
+        # A real directory/file here would be clobbered by `ln -sfn`, so leave
+        # it alone.
+        echo "warning: $HOME/roms exists and is not a symlink; leaving it alone" >&2
+      elif [ -d "$roms" ]; then
+        $DRY_RUN_CMD ln -s "$roms" "$HOME/roms"
+      else
+        echo "warning: $roms does not exist; not creating ~/roms symlink" >&2
+      fi
+    '';
+
+    # Add ~/sync to Dolphin's Places panel (sidebar) for every user. The
+    # bookmark file is managed by Dolphin itself, so never clobber it: create
+    # it only when missing, and append the entry only when not already listed
+    # (idempotent, keeps user-added bookmarks and custom actions).
+    #
+    # Path note: this nixpkgs build sets no Qt organization name, so KDE apps
+    # use the org-less app-data dir ~/.local/share/<app> (verified live:
+    # ark/klipper/kate/... all land there, and ~/.local/share/kdeorg/ does not
+    # exist). The bookmarks file is INI, Version=4, entries N_name/N_url under
+    # the [Urls] section.
+    #
+    # Multi-step file edits cannot be expressed with the $DRY_RUN_CMD prefix
+    # (a prefixed redirect would still create/truncate the target), so the
+    # whole block is skipped on dry runs.
+    home.activation.dolphinSyncBookmark = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      if [ -z "''${DRY_RUN_CMD:-}" ]; then
+        dolphin_data="$HOME/.local/share/dolphin"
+        bookmarks="$dolphin_data/bookmarks"
+        url="file://$HOME/sync"
+        if [ ! -f "$bookmarks" ]; then
+          ${pkgs.coreutils}/bin/mkdir -p "$dolphin_data"
+          ${pkgs.coreutils}/bin/printf '[General]\nVersion=4\n\n[Urls]\n' > "$bookmarks"
+        elif ! ${pkgs.gnugrep}/bin/grep -q '^\[Urls\]$' "$bookmarks"; then
+          ${pkgs.coreutils}/bin/printf '\n[Urls]\n' >> "$bookmarks"
+        fi
+        if ! ${pkgs.gnugrep}/bin/grep -qF "_url=''${url}" "$bookmarks"; then
+          # Next free index, counting the existing N_url entries.
+          last=$(${pkgs.gnugrep}/bin/grep -oE '^[0-9]+_url=' "$bookmarks" | ${pkgs.coreutils}/bin/cut -d_ -f1 | ${pkgs.coreutils}/bin/sort -n | ${pkgs.coreutils}/bin/tail -n 1 || true)
+          if [ -n "$last" ]; then n=$((last + 1)); else n=0; fi
+          # Insert right after the [Urls] header, not at end of file: a
+          # trailing [Actions] section (Dolphin custom actions) would swallow
+          # the lines and they would not show up as bookmarks.
+          ${pkgs.gawk}/bin/awk -v n="$n" -v url="$url" '
+            { print }
+            /^\[Urls\]$/ { print n "_name=Sync"; print n "_url=" url }
+          ' "$bookmarks" > "$bookmarks.hm-new"
+          ${pkgs.coreutils}/bin/mv "$bookmarks.hm-new" "$bookmarks"
+        fi
       fi
     '';
 
@@ -163,6 +383,17 @@
 
     programs = lib.mkMerge [
       {
+        # The HM ssh module appends a `Host *` block of legacy default values
+        # while enableDefaultConfig is on (its default). Every value in that
+        # block equals OpenSSH's own built-in default, so switching it off does
+        # not change how ssh behaves; it only drops the block from the
+        # generated config and silences the module's evaluation warning. A
+        # branch of its own, not part of the family settings below: the module
+        # warns for every profile that imports it, including users who get no
+        # ssh settings there.
+        ssh.enableDefaultConfig = false;
+      }
+      {
         # Shared by all users
         zsh = {
           enable = true;
@@ -176,18 +407,22 @@
             ignoreAllDups = true;
             ignoreSpace = true;
           };
-          # The CachyOS SDDM Wayland (KWin) greeter leaves WAYLAND_DISPLAY in
-          # the session environment. Plasma's launcher (startplasma-wayland)
-          # unsets it so KWin takes DRM, but Hyprland's start-hyprland does not,
-          # and aquamarine then runs nested (black screen). SDDM starts the
-          # session via `$SHELL --login`, which sources ~/.zprofile, so clearing
-          # it here makes the Hyprland session behave like Plasma. Only needed
-          # on CachyOS (the NixOS config does not leak the variable).
-          profileExtra = lib.mkIf config.commonHm.isCachyOS ''
-            unset WAYLAND_DISPLAY
-          '';
         };
         command-not-found.enable = true;
+        # Client side of the family identities: the key installed by
+        # services/ssh-user-keys.nix is ~/.ssh/agenix_<user>, not the default
+        # id_ed25519 (which may be a personal key, e.g. nicky's GitHub
+        # identity). Point ssh at it for the family hosts.
+        ssh = lib.mkIf
+          (builtins.elem config.home.username [ "nicky" "aeiuno" "sven" "aaron" ])
+          {
+            enable = true;
+            settings = {
+              "laptop-hera laptop-p16 laptop-xps nestor" = {
+                IdentityFile = [ "~/.ssh/agenix_${config.home.username}" ];
+              };
+            };
+          };
       }
       # Shared developer tools (nicky + aeiuno)
       (lib.mkIf config.commonHm.enableDeveloperTools {
@@ -231,10 +466,6 @@
           '';
           viAlias = true;
           vimAlias = true;
-        };
-        ssh = {
-          enable = true;
-          enableDefaultConfig = false; # module defaults will be removed in the future
         };
         starship = {
           enable = true;

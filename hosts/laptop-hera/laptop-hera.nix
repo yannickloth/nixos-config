@@ -69,23 +69,34 @@ with lib;
   };
 
   # systemd mount units do not create their bind source, and activation runs
-  # before mounts at boot, hence the mountpoint guard. One-time migration: if
-  # the legacy /sync symlink is still there, swap it for the mount point dir
-  # (order-independent with the module's `mkdir -p /sync`, which no-ops on the
-  # resulting directory). Once /sync is the bind mount this branch never fires.
+  # before mounts at boot, so the bind source is created by a unit ordered
+  # between /data and /sync (the activation script below only handles the
+  # legacy /sync symlink migration at switch time).
+  systemd.services.syncthing-hera-data-dir = {
+    description = "Create the /data/syncthing bind source before /sync mounts";
+    wantedBy = [ "sync.mount" ];
+    requires = [ "data.mount" ];
+    after = [ "data.mount" ];
+    before = [ "sync.mount" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      mkdir -p /data/syncthing
+      chown syncthing:syncthing /data/syncthing
+      chmod 2770 /data/syncthing
+    '';
+  };
+
+  # One-time migration: if the legacy /sync symlink is still there, swap it for
+  # the mount point dir (the bind mount itself is handled by the unit above).
   system.activationScripts.syncthing-hera-data = {
     deps = [ "users" "groups" ];
     text = ''
-      if mountpoint -q /data; then
-        mkdir -p /data/syncthing
-        chown syncthing:syncthing /data/syncthing
-        chmod 2770 /data/syncthing
-        if [ -L /sync ]; then
-          rm /sync
-          mkdir -p /sync
-        fi
-      else
-        echo "syncthing-hera-data: /data not mounted; leaving /sync untouched" >&2
+      if [ -L /sync ]; then
+        rm /sync
+        mkdir -p /sync
       fi
     '';
   };

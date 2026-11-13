@@ -20,6 +20,7 @@ with lib;
       # 100.64.0.0/10) so the laptops can share builds; not from LAN/internet.
       firewall.extraInputRules = ''
         tcp dport 5000 ip saddr 100.64.0.0/10 accept
+        tcp dport 5000 ip6 saddr fd7a:115c:a1e0::/48 accept
       '';
     };
 }

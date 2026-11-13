@@ -1,0 +1,7 @@
+#string
+if [ -r "/run/agenix/ssh-user-nicky" ]; then
+  install -d -m 0700 -o nicky -g users "/home/nicky/.ssh"
+  install -m 0600 -o nicky -g users "/run/agenix/ssh-user-nicky" "/home/nicky/.ssh/agenix_nicky"
+else
+  echo "ssh-user-keys: /run/agenix/ssh-user-nicky missing; skipping nicky" >&2
+fi

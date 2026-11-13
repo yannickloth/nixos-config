@@ -25,4 +25,13 @@
 
   services.ipp-usb.enable = true; # enable ipp-usb, a daemon to turn an USB printer/scanner supporting IPP everywhere (aka AirPrint, WSD, AirScan) into a locally accessible network printer/scanner
   services.saned.enable = true; # Enable saned network daemon for remote connection to scanners.
+  # saned performs no authentication. `hardware.sane.openFirewall` only opens
+  # the port; this allow-list is what actually bounds who may use the scanner:
+  # private ranges (home LAN, CGNAT/Tailscale) only, never the internet.
+  services.saned.extraConfig = ''
+    192.168.0.0/16
+    10.0.0.0/8
+    172.16.0.0/12
+    100.64.0.0/10
+  '';
 }

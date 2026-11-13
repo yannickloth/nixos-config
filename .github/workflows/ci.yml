@@ -45,44 +45,30 @@ jobs:
         continue-on-error: true
         run: nix run nixpkgs#deadnix -- --fail .
 
-  # Evaluate each host's toplevel derivation: catches eval / module / option /
-  # merge errors without building the full closure.
-  #
-  # Strata is fetched directly by packages/strata (fetchFromGitHub), not via a
-  # flake input, so no --override-input is needed.
-  eval-hosts:
+  # All host-level checks in one job: evaluation of the three hosts, the pure
+  # helpers (nix-unit), generated-config snapshots (namaka), generated shell
+  # scripts (bash -n + shellcheck), AppArmor profiles, the strata patcher
+  # (compile + fail-closed behaviour) and syntax parsing.
+  checks:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        host: [laptop-xps, laptop-hera, laptop-p16]
     steps:
       - uses: actions/checkout@v5
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v23
 
-      - name: Eval host config
-        run: |
-          nix eval --accept-flake-config \
-            ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel.drvPath"
+      - name: Nix flake checks
+        run: nix flake check --keep-going
 
-  # Evaluate the standalone home-manager flake (users/) for every user: catches
-  # eval / option / type errors in the home configs, which the host eval above
-  # only reaches through home-manager.users and not for the standalone deploy.
-  eval-users:
+  # Standalone home-manager flake (CachyOS deployment): evaluation of the four
+  # users plus the CachyOS-only SSH key bootstrap script.
+  checks-users:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        user: [nicky, aeiuno, sven, aaron]
     steps:
       - uses: actions/checkout@v5
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v23
 
-      - name: Eval home config
-        run: |
-          nix eval --accept-flake-config \
-            "./users#homeConfigurations.${{ matrix.user }}.activationPackage.drvPath"
+      - name: Nix flake checks (standalone home-manager)
+        run: nix flake check ./users --keep-going

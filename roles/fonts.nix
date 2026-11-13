@@ -11,9 +11,11 @@ with lib;
       fontconfig = {
         enable = mkForce true;
         defaultFonts = {
-          monospace = ["Iosevka 11"];
-          sansSerif = ["Inter 11"];
-          serif = ["Roboto Slab 11"];
+          # Family names only: fontconfig matches these against the family,
+          # not the file/size ("Iosevka 11" is not a family name).
+          monospace = ["Iosevka"];
+          sansSerif = ["Inter"];
+          serif = ["Roboto Slab"];
         };
       };
       fontDir = {
@@ -42,9 +44,26 @@ with lib;
         inter
         iosevka
         iosevka-comfy.comfy
+        # Ioskeley Mono (compact geometric programming typeface built with
+        # Iosevka, inspired by Berkeley Mono). Six variants, each a distinct
+        # fontconfig family: the hinted default, plus the no-ligature (NL),
+        # Nerd Font (NF) and terminal-metric (term) cuts with their
+        # permutations.
+        #
+        # NOT the *-unhinted builds: nixpkgs' normal-unhinted ships the SAME
+        # file names (IoskeleyMono-Black.ttf) AND the same family name
+        # ("Ioskeley Mono") as normal, so buildEnv cannot merge the two and
+        # fontconfig could not tell them apart anyway. Adding one alongside its
+        # hinted sibling fails the whole system build with "two given paths
+        # contain a conflicting subpath". Pick one hinting per family.
+        ioskeley-mono.normal
+        ioskeley-mono.normal-NL
+        ioskeley-mono.normal-NF
+        ioskeley-mono.normal-term
+        ioskeley-mono.normal-NL-NF
+        ioskeley-mono.normal-term-NF
         liberation_ttf
         material-design-icons
-        material-icons
         merriweather
         montserrat
         mplus-outline-fonts.githubRelease

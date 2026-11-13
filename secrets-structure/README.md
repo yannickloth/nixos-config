@@ -11,8 +11,8 @@ belong to (plus a KeePassXC backup for reinstall recovery).
   per user (`ssh-keys/users/`).
 - **Per-secret scoping (no global union):** each `.age` file is encrypted only
   to the keys that must decrypt it (see the strategy note in `secrets.nix`):
-  - host-wide system secrets (Syncthing GUI password, Open WebUI keys) and the
-    user password hashes → the host keys (`hosts`);
+  - host-wide system secrets (Syncthing GUI password, opencode provider keys)
+    and the user password hashes → the host keys (`hosts`);
   - a host's Syncthing device identity → that host's key only;
   - nicky's personal API keys → `user-nicky` + the host keys (for recovery).
   A kid's (or another user's) key therefore cannot read a secret it has no
@@ -110,7 +110,7 @@ The decrypted secrets are mounted at the paths services already expect:
 | Secret | `.age` file | Mounted at |
 |--------|-------------|------------|
 | Syncthing web-UI password | `secrets/syncthing-gui-password.age` | `/etc/secrets/syncthing-gui-password` |
-| Open WebUI provider keys | `secrets/open-webui.env.age` | `/etc/secrets/open-webui.env` |
+| opencode provider keys | `secrets/opencode-keys.env.age` | `/etc/secrets/opencode-keys.env` |
 | Syncthing device cert (per host) | `secrets/syncthing/<host>/cert.pem.age` | `/etc/nixos/secrets/syncthing/<host>/cert.pem` |
 | Syncthing device key (per host) | `secrets/syncthing/<host>/key.pem.age` | `/etc/nixos/secrets/syncthing/<host>/key.pem` |
 | nicky's AI API keys (home-manager) | `secrets/nicky.nix.age` | `$XDG_RUNTIME_DIR/agenix/nicky.nix` |

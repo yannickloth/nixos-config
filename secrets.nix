@@ -11,8 +11,8 @@
 #
 # STRATEGY: per-secret recipient sets — there is no global "all" union. Each
 # secret is encrypted only to the keys that must decrypt it:
-#   - host-wide system secrets (syncthing GUI password, Open WebUI keys, login
-#     password hashes) -> `hosts` (every host key)
+#   - host-wide system secrets (syncthing GUI password, opencode provider keys,
+#     login password hashes) -> `hosts` (every host key)
 #   - a host's Syncthing device identity -> that host's key only
 #   - nicky's personal API keys -> `user-nicky` + `hosts` (for recovery)
 # So a kid's (or another user's) key cannot read a secret it has no business
@@ -48,12 +48,32 @@ in
   # Syncthing web-UI password, shared across all hosts.
   "syncthing-gui-password.age".publicKeys = hosts;
 
-  # Family AI-chat provider keys (Open WebUI). Also readable by user-nicky and
-  # user-aeiuno so standalone home-manager on CachyOS (p16, no system agenix,
-  # no /etc/secrets) can decrypt it for opencode via their user keys
+  # Family SSH identities (private halves), distributed by
+  # services/ssh-user-keys.nix: agenix decrypts them to /run/agenix on every
+  # host and the unit installs them as ~/.ssh/agenix_<user>. Encrypted to
+  # `hosts`, because automatic installation needs the host to decrypt them;
+  # the matching public keys are committed in users/ssh-public-keys.nix.
+  "ssh-user-nicky.key.age".publicKeys = hosts;
+  "ssh-user-aeiuno.key.age".publicKeys = hosts;
+  "ssh-user-sven.key.age".publicKeys = hosts;
+  "ssh-user-aaron.key.age".publicKeys = hosts;
+
+  # Per-host nix-serve binary-cache signing keys. Encrypted to the owning host;
+  # the matching public keys are trusted in roles/nix.nix so the peers accept
+  # each other's (now signed) store paths. laptop-p16 additionally accepts
+  # user-nicky: that host runs CachyOS (no system agenix), and the standalone
+  # home-manager deployment decrypts the key with nicky's user identity
+  # (users/nix-serve.nix, `age.secrets`).
+  "nix-cache-laptop-p16.key.age".publicKeys = [ host-laptop-p16 user-nicky ];
+  "nix-cache-laptop-hera.key.age".publicKeys = [ host-laptop-hera ];
+  "nix-cache-laptop-xps.key.age".publicKeys = [ host-laptop-xps ];
+
+  # Shared LLM provider keys for opencode (OPENAI_API_KEYS JSON). Also readable
+  # by user-nicky and user-aeiuno so standalone home-manager on CachyOS (no
+  # system agenix, no /etc/secrets) can decrypt it via their user keys
   # (~/.ssh/agenix_<user>); see users/{nicky,aeiuno}/*-hm.nix and
   # users/opencode.nix.
-  "open-webui.env.age".publicKeys = hosts ++ [ user-nicky user-aeiuno ];
+  "opencode-keys.env.age".publicKeys = hosts ++ [ user-nicky user-aeiuno ];
 
   # Per-host Syncthing device identity (cert.pem + key.pem). Encrypted to the
   # OWNING host only: the device key belongs to that host, so no other host or
@@ -72,7 +92,7 @@ in
   # --- User secrets --------------------------------------------------------
   # Decrypted via the home-manager agenix module with the user's key.
 
-  # nicky's AI-chat API keys (env-file format, KEY=VALUE lines). Scoped to
+  # nicky's personal API keys (env-file format, KEY=VALUE lines). Scoped to
   # nicky's own key + the host keys (recovery); NOT to the other users' keys.
   "nicky.nix.age".publicKeys = [ user-nicky ] ++ hosts;
 

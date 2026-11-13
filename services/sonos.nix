@@ -2,26 +2,26 @@
 with lib;
 {
   config = {
+    # The SSDP set/chain below only work with the nftables firewall backend, and
+    # `firewall.extraInputRules` is iptables syntax when nftables is off. Fail at
+    # evaluation instead of producing a broken or silently non-working firewall.
+    # (Must live inside `config`: a module that returns `config` cannot also set
+    # top-level options.)
+    assertions = [
+      {
+        assertion = config.networking.nftables.enable;
+        message = "services/sonos.nix: SONOS SSDP discovery requires networking.nftables.enable";
+      }
+      {
+        assertion = config.networking.firewall.enable;
+        message = "services/sonos.nix: SONOS SSDP discovery requires networking.firewall.enable";
+      }
+    ];
+
     networking = {
       firewall = {
-        # Open ports in the firewall.
-        allowedTCPPorts = [
-          445 # SONOS
-          1400 # SONOS
-          3445 # SONOS
-          3400 # SONOS
-          3401 # SONOS
-          3500 # SONOS
-          4444 # SONOS
-        ];
-        allowedTCPPortRanges = [
-          { from = 1400; to = 1499; } # SONOS
-        ];
-        allowedUDPPorts = [
-          1900 # SONOS
-          1901 # SONOS
-          6969 # SONOS
-        ];
+        # SONOS/SMB ports are scoped to private source ranges in
+        # extraInputRules below instead of being opened on every interface.
       };
 
       # nftables backend must be enabled for the SSDP rule below
@@ -57,7 +57,9 @@ with lib;
           flags timeout
           timeout 3s
         }
-        chain output {
+        # Unique chain name: nftables rejects two chains with the same name in
+        # one table, so never claim the generic name "output" in nixos-fw.
+        chain sonos-ssdp-out {
           type filter hook output priority 110; policy accept;
           # record each outbound SSDP query source (ip . sport)
           ip protocol udp udp dport 1900 ip daddr 239.255.255.250 \
@@ -71,6 +73,12 @@ with lib;
       # of input-allow, i.e. after the allowedTCP/UDPPort checks have failed
       # for the ephemeral reply port and before the input chain's policy drop.
       firewall.extraInputRules = ''
+        # SONOS/SMB control + media ports: home LAN / tailnet sources only.
+        ${(import ../lib).privateNetRules {
+          tcp = [ "445" "1400-1499" "3400-3401" "3445" "3500" "4444" ];
+          udp = [ "1900" "1901" "6969" ];
+        }}
+
         ip protocol udp ip daddr . udp dport @upnp accept
       '';
     };

@@ -13,6 +13,10 @@ with lib;
     # SSH login entirely (not just password auth — "prohibit-password", the
     # nixpkgs default, still allows root key login). Interactive root access is
     # via `sudo` from a wheel account.
-    services.openssh.settings.PermitRootLogin = mkDefault "no";
+    services.openssh.settings = {
+      PermitRootLogin = mkDefault "no";
+      # Password auth stays enabled (the default): keys are not installed on
+      # every laptop yet. Revisit once authorized_keys are deployed everywhere.
+    };
   };
 }

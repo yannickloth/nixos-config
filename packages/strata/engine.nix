@@ -33,9 +33,10 @@
 #   Upstream: "removing refusals removes a safety behaviour".  Off by default;
 #   keep it off unless that trade is wanted knowingly.
 #
-#   Remaining headroom is now ~2.3x to the desktop benchmark card's 64.6 tok/s
-#   (IQ3_XXS, RTX 5070) - consistent with 2x bandwidth and a 60-80W laptop
-#   part, rather than the 9x gap the stale pin suggested.
+#   Remaining headroom to the desktop benchmark card's 64.6 tok/s (IQ3_XXS,
+#   RTX 5070) is ~1.1x: 0.1.51 measures 56.9 tok/s short-chat decode here
+#   (2026-10-25; the ~2.3x note above was against the 0.1.18-era 28.4, and the
+#   9x gap the stale pin suggested is long gone).
 #
 # Two CUDA builds ship here:
 #   strata        - the inference engine (main target)
@@ -68,11 +69,24 @@
 # the fork (github.com/yannickloth/forks-Strata). The AVX2 IQ3 codebook gather
 # (STRATA_IQ256_GATHER, upstream PR #622) is upstream as of 0.1.40, behind
 # per-thread selection (see packages/strata/default.nix). The engine-lifecycle
-# API this comment used to mention is upstream as of 0.1.31 (--idle-unload);
-# pinned to 0.1.43.1 (a0116b2) after 0.1.44.1 measured ~20-25% slower decode on
-# this host (bench note in packages/strata/default.nix); 0.1.43.1 makes
-# STRATA_ADAPT_OVERLAP opt-in again (0.1.43's Linux-CUDA-on default cost
-# ~2.7x on this host; Niko1221/Strata#2010).
+# API this comment used to mention is upstream as of 0.1.31 (--idle-unload).
+# Pinned to Strata 0.2.13 (d2f0964), whose engine is 0.1.59: the 0.2 releases
+# split the engine from the app/Terminal (separately versioned from now on) and
+# bumped the engine to 0.1.46 -> 0.1.47 -> 0.1.48 -> 0.1.50 -> 0.1.51 -> 0.1.55 -> 0.1.56 -> 0.1.57 -> 0.1.58 -> 0.1.59 -
+# 0.1.58 added a tuned DFlash2 drafter and faster 12 GB card prompts;
+# 0.1.59 adds new DFlash2 defaults per card, faster app start, Strix Halo
+# Terminal launch fix, Linux expert store via file cache fix, and Qwen4 groundwork.
+# changes matter to this package: the K-quant MMQ prompt kernels moved into
+# libstrata_kq.so, which the engine dlopens from its own folder (installed
+# beside the binary below; without it those experts take the FP16 prompt path),
+# and --parallel is now driven by serve/ rather than by the engine config. Our
+# config does not set it, so the calibrated knobs and the bench numbers above
+# carry over.
+# The short-lived rollback to 0.1.43.1 (a0116b2) was for a 0.1.44.1 decode
+# regression that a later controlled A/B on this rig did not reproduce (bench
+# note in packages/strata/default.nix, Niko1221/Strata#2441/#2010).
+# STRATA_ADAPT_OVERLAP stays opt-in and off: 0.1.43's Linux-CUDA-on default cost
+# ~2.7x decode on this host (Niko1221/Strata#2010).
 {
   lib,
   stdenv,
@@ -91,12 +105,15 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "a0116b2782a5b82622358c04a06496485d12b2d6";  # v0.1.43.1 (main)
-    hash = "sha256-ouJseBgkuS0WxgHgHw8vxuNNqR/B3W5yjbjfBzkBpqA=";
+    rev = "d2f096475817d4666c364c820b0ca830f751cfc5";  # v0.2.13 (tag object fb57f74 peeled); engine 0.1.59
+    hash = "sha256-ygLtDYyrwfRKez46xKnPkO7BtY0Q4uMwxlvh3JyUHbE=";
   },
-  # Version of the pinned strataSrc above; passed from default.nix so the
-  # package and the engine always report the same version.
-  version ? "0.1.43.1",
+  # The engine's own version (CMakeLists.txt's project(VERSION ...)), passed from
+  # default.nix. Since Strata 0.2.0 the engine is versioned apart from the app:
+  # the v0.2.13 tree builds engine 0.1.59 while the app is 0.2.13 (since 0.2.4
+  # the releases also ship separately versioned engine packages, 0.1.59 in
+  # v0.2.13).
+  engineVersion ? "0.1.59",
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
     repo = "llama.cpp";
@@ -119,7 +136,7 @@ let
 
   engine = stdenv.mkDerivation {
     pname = "strata-engine";
-    inherit version;
+    version = engineVersion;
     src = strataSrc;
 
   stdenv = cudaPackages.stdenv;
@@ -145,11 +162,21 @@ let
     (lib.cmakeBool "STRATA_ENABLE_CUDA" true)
     (lib.cmakeBool "STRATA_BUILD_TESTS" false)
     (lib.cmakeBool "STRATA_PORTABLE" true)
-    # Upstream 0.1.32 gates the Q4_K/Q5_K/Q5_1 MMQ prompt kernels behind this
-    # option (OFF by default). With it, the UD-Q4_K_XL GGUF experts use int8
-    # tensor cores instead of dequant + cuBLAS; the IQ3_XXS native pack is
-    # unaffected. This is the fork's perf/am47 work, merged upstream.
+    # The K-quant MMQ prompt kernels (Q4_K/Q5_K/Q5_1; ON by default since the
+    # 0.2 line, and setup.py passes it explicitly). With it, the UD-Q4_K_XL GGUF
+    # experts use int8 tensor cores instead of dequant + cuBLAS; the IQ3_XXS
+    # native pack is unaffected. The kernels live in libstrata_kq.so, which the
+    # engine dlopens only for a model with those formats (installed below).
     (lib.cmakeBool "STRATA_MMQ_KQUANTS" true)
+    # The Q6_K gate/up expert kernels for the UD-Q6_K_XL files. ON upstream;
+    # named here so an upstream default change cannot silently change what this
+    # package builds (both are in setup.py's own cmake line).
+    (lib.cmakeBool "STRATA_Q6K_EXPERTS" true)
+    # STRATA_MMQ_TQ_OVERLAY stays at its default (ON): at configure time it
+    # writes patched copies of the pinned llama.cpp's ggml-cuda headers into the
+    # build tree (never into the read-only store checkout) so the Gyro trellis
+    # prompts use MMQ; it disables itself with a message when the pinned
+    # llama.cpp is not the one it knows.
     (lib.cmakeFeature "STRATA_GGML_DIR" "${llamaCpp}")
     (lib.cmakeFeature "CMAKE_CUDA_ARCHITECTURES" cudaArch)
     # Experiment 2026-09-27 (see matrix in the header): global --use_fast_math
@@ -160,6 +187,14 @@ let
   installPhase = ''
     runHook preInstall
     install -Dm755 strata $out/bin/strata
+    # libstrata_kq.so: the K-quant MMQ prompt kernels (STRATA_MMQ_KQUANTS), a
+    # shared library the engine dlopens from ITS OWN folder (/proc/self/exe's
+    # dir - $out/bin here) the first time a model asks for Q4_K/Q5_K/Q5_1/Q6_K
+    # experts. It is built as a dependency of the `strata` target; without it
+    # those experts silently take the FP16 prompt path (the engine says so once).
+    if [ -f libstrata_kq.so ]; then
+      install -Dm755 libstrata_kq.so $out/bin/libstrata_kq.so
+    fi
     runHook postInstall
   '';
 
@@ -176,6 +211,10 @@ let
       ln -sf /usr/lib/libnvidia-ml.so.1 $out/lib-driver/libnvidia-ml.so.1
     ''}
     patchelf --add-rpath $out/lib-driver $out/bin/strata
+    # the K-quant library links CUDA::cuda_driver (the host's libcuda) too
+    if [ -f $out/bin/libstrata_kq.so ]; then
+      patchelf --add-rpath $out/lib-driver $out/bin/libstrata_kq.so
+    fi
   '';
 
   meta = meta // { mainProgram = "strata"; };
@@ -183,7 +222,7 @@ let
 
   vision = stdenv.mkDerivation {
     pname = "strata-vision";
-    inherit version;
+    version = engineVersion;
     src = strataSrc;
     sourceRoot = "source/tools/vision";
 
@@ -230,7 +269,7 @@ let
   };
 in
 symlinkJoin {
-  name = "strata-${version}";
+  name = "strata-${engineVersion}";
   paths = [ engine ] ++ lib.optional withVision vision;
   inherit meta;
 }

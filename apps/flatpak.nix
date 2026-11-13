@@ -21,10 +21,8 @@ with lib;
 let
   cfg = config.apps.flatpak;
 
-  # "app/org.kde.krita/x86_64/stable" -> "org.kde.krita"
-  # builtins.split keeps empty lists at the separators, so filter for the
-  # string parts first.
-  appIdOf = ref: (builtins.elemAt (builtins.filter builtins.isString (builtins.split "/" ref)) 1);
+  # Ref parsing lives in lib/ so it is unit-tested (tests/unit.nix).
+  appIdOf = (import ../lib).parseAppRef;
 in
 {
   options.apps.flatpak = {
@@ -71,7 +69,7 @@ in
           }.${config.home.username} or [ ];
           userOverrides =
             let
-              ids = map appIdOf userApps;
+              ids = (import ../lib).appIdsOf userApps;
             in
             mapAttrsToList
               (id: args: {
@@ -84,7 +82,10 @@ in
             systemd.user.services.flatpak-install = {
               Unit = {
                 Description = "Install per-user flatpak apps for ${config.home.username}";
-                After = [ "network-online.target" ];
+                # No After=network-online.target here: that target lives in the
+                # system manager, so ordering on it from a *user* unit is inert.
+                # The installer retries instead (and runs again next login if it
+                # gave up).
               };
               Install.WantedBy = [ "default.target" ];
               Service = {
@@ -93,14 +94,25 @@ in
                 ExecStart = pkgs.writeShellScript "flatpak-install-user" ''
                   set -eu
                   FLATPAK="${pkgs.flatpak}/bin/flatpak"
-                  "$FLATPAK" remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+                  retry() {
+                    local i=0
+                    until "$@"; do
+                      i=$((i + 1))
+                      if [ "$i" -ge 3 ]; then
+                        echo "flatpak: giving up after $i attempts: $*" >&2
+                        return 1
+                      fi
+                      sleep 10
+                    done
+                  }
+                  retry "$FLATPAK" remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
                   ${concatStringsSep "\n" (map (app: ''
                     echo "flatpak: ensuring ${app} for ${config.home.username}"
-                    "$FLATPAK" install --user --noninteractive --or-update flathub ${app} || true
+                    retry "$FLATPAK" install --user --noninteractive --or-update flathub ${escapeShellArg app}
                   '') userApps)}
                   ${concatStringsSep "\n" (map (o: ''
-                    echo "flatpak: override ${o.id} ${toString o.args}"
-                    "$FLATPAK" override --user ${toString o.args} ${o.id} || true
+                    echo "flatpak: override ${o.id}"
+                    retry "$FLATPAK" override --user ${escapeShellArgs o.args} ${escapeShellArg o.id}
                   '') userOverrides)}
                 '';
               };

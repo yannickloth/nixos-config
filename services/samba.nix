@@ -1,7 +1,4 @@
 { config, pkgs, ... }:
-let
-  nestor_internal_ip = "192.168.178.200";
-in
 {
   networking = {
     firewall = {
@@ -34,10 +31,13 @@ in
           #use sendfile = yes
           #max protocol = smb2
           # note: localhost is the ipv6 localhost ::1
-          "hosts allow" = "192.168.178. 127.0.0.1 localhost";
-          "hosts deny" = "0.0.0.0/0";
+          # `hosts deny` must cover IPv6 too: Samba allows a client that
+          # matches neither list, so an IPv4-only deny is bypassable over IPv6.
+          "hosts allow" = "192.168.178. 127.0.0.1 localhost ::1";
+          "hosts deny" = "0.0.0.0/0 ::/0";
           "guest account" = "nobody";
-          "map to guest" = "bad user";
+          # Never turn an unknown login into a guest session.
+          "map to guest" = "never";
           #         load printers = yes
           #         printing = CUPS
           #         printcap name = cups
@@ -58,7 +58,7 @@ in
           browseable = "yes";
           "read only" = "no";
           "guest ok" = "no";
-          "valid users" = "nicky aeiuno sven aaron";
+          "valid users" = "@filedrop"; # single source of truth: the group
           # Keep files group-owned by filedrop (setgid on /filedrop), world hidden.
           "create mask" = "0660";
           "directory mask" = "2770";

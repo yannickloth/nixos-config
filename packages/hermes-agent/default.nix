@@ -35,12 +35,12 @@
 }:
 
 let
-  # Pin: v0.21.6 (2026-10-08).
+  # Pin: v0.23.0 (2026-11-05).
   src = fetchFromGitHub {
     owner = "NousResearch";
     repo = "hermes-agent";
-    rev = "818c13be1dc4fd28987e1e881a9408224afd4535";
-    hash = "sha256-nET4+PalQSZ4xfhdg2Rb5NB40XxINAkSvpUYHf947Io=";
+    rev = "2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19";
+    hash = "sha256-PzkocTi9jbkuht4cvpmXu/hTIAUNtE/xyivPoncNq8Y=";
   };
 
   workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = src; };
@@ -74,8 +74,8 @@ let
     });
   };
 
-  # requires-python = ">=3.11,<3.15", but v0.21.6's uv.lock narrows the
-  # resolution to supported-markers = ["python_full_version >= '3.14'"], and
+  # requires-python = ">=3.11,<3.15", but the pinned release's uv.lock narrows
+  # the resolution to supported-markers = ["python_full_version >= '3.14'"], and
   # uv2nix asserts the build environment satisfies one of them — so the base
   # interpreter must be 3.14. (The old 3.11 pin existed only for tflite-runtime's
   # cp311-only wheels; upstream dropped tflite-runtime from the lock.)
@@ -88,6 +88,13 @@ let
       ]
     );
 
+  # NOTE (verified 2026-10-21): uv2nix's `workspace.deps.all.<pkg>` is the list
+  # of *extra/group names* declared in the package's pyproject — uv2nix
+  # lib/workspace.nix:273-277 maps `attrNames optional-dependencies ++
+  # attrNames dev-dependencies` — not a list of expanded package names. So
+  # subtracting the extra names below really does disable those extras:
+  # upstream pyproject.toml declares kittentts/dingtalk/feishu as
+  # [project.optional-dependencies] keys.
   depsSelection = workspace.deps.all // {
     hermes-agent = lib.subtractLists [ "dingtalk" "feishu" "kittentts" ] workspace.deps.all.hermes-agent;
   };
@@ -96,7 +103,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "hermes-agent";
-  version = "0.21.6";
+  version = "0.23.0";
 
   dontUnpack = true;
   dontBuild = true;

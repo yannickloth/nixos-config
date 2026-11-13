@@ -3,15 +3,10 @@
 {
   imports = [
     ../common-hm.nix
-    ../emacs-kid.nix
+    ../emacs.nix
     ../kid-firefox-policies.nix
     ../natural-scroll.nix
-    ../hyprland.nix
   ];
-
-  # Base Omarchy-style Hyprland session (users/hyprland.nix); the session is
-  # registered system-wide in desktop/hyprland.nix. Plasma stays the default.
-  hyprland.enable = true;
 
   home = {
     username = "sven";
@@ -20,6 +15,7 @@
       digikam # photo management / organizer
       extremetuxracer # high-speed arctic penguin racing game
       gcompris # educational game suite for young children
+      google-chrome # web browser
       kdePackages.dolphin # native file manager (ACL access to /filedrop; see roles/base.nix)
       klavaro # full-featured touch typing tutor
       kdePackages.ktuberling # fun "potato head" constructor game for young kids
@@ -32,9 +28,11 @@
       supertuxkart # Tux kart racing
       tuxpaint # kid-friendly drawing
       tuxtype # touch typing tutor for kids
+      keepassxc # password manager
+      libreoffice-qt6 # office suite
     ];
     sessionVariables = {
-      MOZ_ENABLE_WAYLAND = 1;
+      MOZ_ENABLE_WAYLAND = "1";
     };
   };
 

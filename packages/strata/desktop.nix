@@ -1,0 +1,93 @@
+# The Strata desktop app (Tauri 2), installed as upstream's Linux AppImage.
+#
+# Upstream publishes the app only as prebuilt installers; the Linux artifact is
+# a Tauri AppImage that carries its own Node sidecar and its own Strata Control
+# (pinned CPython + hash-locked wheels). Since 0.2.5 it ships NO engine: the
+# engine component packages are separately versioned downloads (strata-engine-
+# 0.1.50-* in the v0.2.6 release) the app installs on demand. Consequences,
+# all from 0.2.6's `apps/host/server/`:
+#
+# - It does NOT reuse the systemd `strata.service` *process* or its port: the
+#   app starts its own server through its bundled Control (control-runtime.mjs:
+#   owner runtime, "leases that stop a second owner"; the start takes
+#   `--die-with-pid` so the server ends with the app). That only matters when a
+#   *local* model is loaded in the app. As a front end it is just a client: a
+#   saved API connection (model-providers.mjs, `kind: "custom"`) with any base
+#   URL and the openai-chat, openai-responses or anthropic protocol - which
+#   covers a running strata.service (http://127.0.0.1:8080/v1) and Unsloth
+#   Studio (http://127.0.0.1:8888/v1) with /models autodiscovery. In that mode
+#   nothing must be stopped; `wrapper` only frees the card on request.
+# - It does NOT reuse the Nix-built engine binary. bundled-engine.mjs looks for
+#   an engine *component package* under <components>/engine/ (checked against
+#   engine-component.json); packages/strata writes ~/.local/share/strata/engine
+#   with a BUILD.json instead, which is not that shape. The AppImage no longer
+#   bundles an engine (its engine-bundle/ is an empty placeholder), so first
+#   start downloads the component package (~1 GB); an installed component of
+#   the same or a newer version is never touched.
+# - It DOES share the models. Models folder, run configs, MTP layer and the
+#   inventory are one set for the app and the Terminal ("Desktop and Terminal
+#   share the same model inventory, profiles, runtime and agent sessions"), so
+#   ~/.local/share/Strata-data is used by both and nothing is re-downloaded.
+#
+# The AppImage is symlinked from ~/.local/opt (see home.nix), so upstream's
+# Settings > Update cannot rewrite a read-only store path: update by bumping
+# both pins here and packages/strata/default.nix's tag together.
+{
+  runCommand,
+  fetchurl,
+  writeShellScriptBin,
+}:
+
+let
+  # Release v0.2.13. Since 0.2.5 there is one Linux artifact per release, named
+  # Strata-<version>-linux-x86_64.AppImage (the NVIDIA CUDA 13 lane is gone:
+  # the AppImage ships no engine; engines are separate component packages).
+  tag = "v0.2.13";
+  version = "0.2.13";
+
+  src = fetchurl {
+    name = "Strata-${version}-linux-x86_64.AppImage";
+    url = "https://github.com/Niko1221/Strata/releases/download/${tag}/Strata-${version}-linux-x86_64.AppImage";
+    hash = "sha256-UoTjwfYnBpXIz4pgyX5oZJXVKZWp1f9dxKlLvTOt7sk=";
+  };
+
+  # 128x128@2x = what a 256x256 hicolor entry wants. fetchurl refuses a file
+  # name with an "@" in it, hence the explicit name.
+  icon = fetchurl {
+    name = "strata-desktop.png";
+    url = "https://raw.githubusercontent.com/Niko1221/Strata/${tag}/apps/desktop/src-tauri/icons/128x128@2x.png";
+    hash = "sha256-ycqt39GkVVvX6RWam2vcgGRTbYcXKUJVBB4RXq2r2Cc=";
+  };
+
+  # fetchurl's file is mode 444 and a home.file symlink adds no mode of its
+  # own, so hand out an executable copy in the store instead.
+  appImage = runCommand "Strata-${version}.AppImage" { } "install -m755 ${src} $out";
+in
+{
+  inherit appImage icon;
+
+  # The launcher the menu entry points at. By default it starts the app and
+  # changes nothing: the app may well be pointed at a running server or another
+  # API (see the header), and stopping that would break the very connection it
+  # uses. Only when the person intends to load a *local* model in the app - its
+  # own engine then needs the whole 12 GB card, and one owner holds it at a
+  # time - the module sets STRATA_APP_STOP_SERVER=1 and the launcher frees the
+  # GPU first, the way the `strata` wrapper does. Units missing on a host make
+  # systemctl fail there, which is expected and ignored.
+  wrapper = writeShellScriptBin "strata-app" ''
+    if [ "''${STRATA_APP_STOP_SERVER:-0}" = 1 ]; then
+      for unit in strata unsloth-studio; do
+        if systemctl --user is-active --quiet "$unit" 2>/dev/null; then
+          echo "Strata app: stopping $unit (frees VRAM/RAM for a local model)..." >&2
+          systemctl --user stop "$unit" || true
+        fi
+      done
+    fi
+    "${appImage}" "$@"
+    status=$?
+    if [ "''${STRATA_APP_STOP_SERVER:-0}" = 1 ]; then
+      echo "Strata app closed. Restart the server with: systemctl --user start strata.service" >&2
+    fi
+    exit $status
+  '';
+}

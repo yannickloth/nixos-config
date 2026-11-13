@@ -36,6 +36,10 @@
       owner = "root";
       group = "cfo";
       capabilities = "CAP_PERFMON+pe";
+      # File capabilities are not gated by the file mode: without restricting
+      # the wrapper, any local user could execute it and gain CAP_PERFMON
+      # (kernel perf-counter access), making the group entry decoration.
+      permissions = "u+rx,g+rx,o-rx"; # 0550: root + cfo only
       source = "${pkgs.intel-gpu-tools.out}/bin/intel_gpu_top";
     };
   };

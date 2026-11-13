@@ -5,10 +5,12 @@
     ../common-hm.nix
     ../emacs-adult.nix
     ../opencode.nix
-    ../hyprland.nix
     ../../packages/orca/home.nix
     ../../packages/browseros/home.nix
+    ../../packages/libreoffice-mcp/home.nix
+    ../../packages/opencode-desktop/home.nix
     ../../packages/rea/home.nix
+    ../../packages/herdr/home.nix
     # Unsloth Studio is deliberately NOT enabled for aeiuno (packages/
     # unsloth-studio/home.nix) — see the block after opencode.enable below.
     # ../../packages/unsloth-studio/home.nix
@@ -17,22 +19,19 @@
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
 
-  # Omarchy-style Hyprland session (users/hyprland.nix), full config; the
-  # session is registered system-wide in desktop/hyprland.nix.
-  hyprland.enable = true;
-  hyprland.omarchy = true;
-
-  # Global opencode provider/model config (deepseek, z.ai/GLM, Kimi, Hetzner).
+  # Global opencode provider/model config (deepseek, Z.AI GLM Coding Plan
+  # subscription, Kimi, Hetzner).
   opencode.enable = true;
   # CachyOS has no system agenix / /etc/secrets, so decrypt the shared provider
   # keys with aeiuno's user agenix key and materialize opencode's per-provider
-  # key files from it; NixOS hosts keep the default /etc/secrets path.
+  # key files from it; NixOS hosts keep the default /etc/secrets path (and must
+  # not try to decrypt with the user key).
   opencode.envFile =
-    lib.mkIf config.commonHm.isCachyOS config.age.secrets."open-webui.env".path;
-  age = {
-    identityPaths = [ "/home/aeiuno/.ssh/agenix_aeiuno" ];
-    secrets."open-webui.env" = {
-      file = ../../secrets/open-webui.env.age;
+    lib.mkIf config.commonHm.isCachyOS config.age.secrets."opencode-keys.env".path;
+  age = lib.mkIf config.commonHm.isCachyOS {
+    identityPaths = [ "${config.home.homeDirectory}/.ssh/agenix_aeiuno" ];
+    secrets."opencode-keys.env" = {
+      file = ../../secrets/opencode-keys.env.age;
       mode = "0400";
     };
   };
@@ -40,8 +39,25 @@
   # BrowserOS neo: agent-driven browser for AI assistants (MCP).
   browseros.enable = true;
 
+  # LibreOffice MCP extension (packages/libreoffice-mcp): MCP server inside the
+  # open LibreOffice window on https://localhost:<port>/mcp.
+  libreofficeMcp.enable = true;
+  # 8766, not the 8765 default: nicky's LibreOffice owns 8765 on this host, and
+  # a second instance on the same port adopts the other user's server instead of
+  # starting its own (see the port option in packages/libreoffice-mcp/home.nix).
+  libreofficeMcp.port = 8766;
+
+  # opencode Desktop: the GUI of the opencode v2 line, next to the `opencode`
+  # CLI in home.packages below.
+  opencode-desktop.enable = true;
+
   # REA: reverse-engineering MCP server + CLI (packages/rea/home.nix).
   rea.enable = true;
+
+  # herdr (packages/herdr/home.nix): terminal multiplexer / runtime for coding
+  # agents, plus its agent skill and the integrations for the agents installed
+  # here (opencode, pi, hermes).
+  herdr.enable = true;
 
   # Orca (agent development environment): desktop client only. Runs locally per
   # user; pair it to a running `orca serve` (e.g. nicky's on laptop-p16) from
@@ -104,6 +120,7 @@
       kdePackages.kalk
       kdePackages.kate
       kdePackages.okular
+      (pkgs.callPackage ../../packages/masterpdfeditor { })
       # KDE mini-games: adults get them natively, kids via gated flatpak
       # (apps.flatpak.apps) — never both for the same user (see games/games.nix).
       kdePackages.granatier
@@ -116,6 +133,7 @@
       kdePackages.kpat
       kdePackages.kshisen
       kdePackages.ksudoku
+      gnuplot # Command-line plotter for computed numbers (functions, data)
       keepassxc
       # keybase-gui
       # kgraphviewer
@@ -126,6 +144,7 @@
       libreoffice
       #microsoft-edge
       lutris
+      maxima # Computer algebra system: integrate, solve, limit, sum, ODEs (CLI `maxima`)
       mousai # Identify any songs in seconds
       obsidian # A powerful knowledge base that works on top of a local folder of plain text Markdown files
       pantheon.sideload
@@ -145,7 +164,7 @@
       zotero
     ];
     sessionVariables = {
-      MOZ_ENABLE_WAYLAND = 1; # for Firefox in Wayland sessions
+      MOZ_ENABLE_WAYLAND = "1"; # for Firefox in Wayland sessions
       # NIXOS_OZONE_WL = "1"; # for Electron apps in Wayland sessions (VSCode, Chrome...) # disabled because VSCode/Electron/Chromium does nothing with it (unknown option), except issue a warning about it being unknown.
     };
     /*shellAliases = {

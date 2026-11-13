@@ -20,16 +20,20 @@
 
 buildGoModule rec {
   pname = "magpie";
-  version = "0.1.1184";
+  version = "0.1.3383";
 
   src = fetchFromGitHub {
     owner = "yetone";
     repo = "magpie";
-    rev = "dde3a31a3d825de3dbbcfd614e20c386e83f0d03"; # v0.1.1184
-    hash = "sha256-aSKjk+HCMksiSrYyf80nPU3j4DC4lf52XaEpTZelscE=";
+    rev = "9dd7aabca8af76c9467039979076e58d59d3f03b"; # v0.1.3383
+    # fetchzip recursive hash of the unpacked source tree (fetchFromGitHub's
+    # default for public repos); not the hash of the .tar.gz bytes.
+    hash = "sha256-wJWgFaNKqXXVnuKMYwcizFxYM8TQ3o0LELTkUhYZI58=";
   };
 
-  vendorHash = "sha256-RevP93sHMwgwQxSh4WzKkNIupNQhU/sP3b/g/lpMS+E=";
+  # SRI hash of the vendored dependencies (the recursive output of `go mod
+  # vendor`, computed by buildGoModule) - not the hash of go.sum.
+  vendorHash = "sha256-9x4oBEHBN1gbREjzwLrPKjwlCq3847nLjP5QHBFEy4E=";
 
   # Terminal-only build: no cgo, no WebKit/GTK. Cross-compiles cleanly and
   # avoids the broken WebKit rendering path on NVIDIA/Plasma/Wayland.

@@ -107,7 +107,7 @@
                   {
                     type   = ladspa
                     name   = pitch
-                    plugin = "ladspa-rubberband"
+                    plugin = "librubberband-ladspa"
                     label  = "rubberband-live-pitchshifter-mono"
                     control = {
                       "Semitones" = -2.0
@@ -131,7 +131,7 @@
       '')
     ];
     # Makes rubberband's lib/ladspa available to filter-chain.service via
-    # LADSPA_PATH, so the bare `plugin = "ladspa-rubberband"` resolves.
+    # LADSPA_PATH, so the bare `plugin = "librubberband-ladspa"` resolves.
     extraLadspaPackages = [ pkgs.rubberband ];
   };
 

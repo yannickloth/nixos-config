@@ -25,6 +25,6 @@ with lib;
     ++ optionals config.virtualisation.podman.enable [ "podman" ]
     ++ optionals config.hardware.sane.enable [ "lp" "scanner" ] # scanning
     ++ optionals config.virtualisation.virtualbox.host.enable [ "vboxusers" ]
-    ++ optionals (config.users.extraGroups ? yubikey) [ "yubikey" ]
+    ++ optionals (config.users.groups ? yubikey) [ "yubikey" ]
     ++ optionals config.security.tpm2.enable [ "tss" ]; # tss group has access to TPM devices
 }

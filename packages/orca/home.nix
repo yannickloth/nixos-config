@@ -24,7 +24,7 @@ let
   # so the service does not hardcode an address that can change.
   serveLauncher = pkgs.writeShellScript "orca-serve-launch" ''
     set -eu
-    addr='${if cfg.server.pairingAddress != null then cfg.server.pairingAddress else ""}'
+    addr=${escapeShellArg (if cfg.server.pairingAddress != null then cfg.server.pairingAddress else "")}
     if [ -z "$addr" ] && command -v tailscale >/dev/null 2>&1; then
       addr="$(tailscale ip -4 2>/dev/null | ${pkgs.coreutils}/bin/head -n1 || true)"
     fi
@@ -47,17 +47,22 @@ let
   #
   # Update: bump skillRev to the new `v<version>` tag (== default.nix version)
   # and refresh skillHashes from that release's manifest.
-  skillRev = "v1.4.221";
+  skillRev = "v1.4.254";
 
   skillHashes = {
-    "computer-use" = "sha256-KDmTP9NSFoRUYUZkA+YGFIgAX231cSbQzQ92nqRXU/M=";
+    # Renamed from "computer-use" to "orca-computer-use" in v1.4.254 (the
+    # repo path and the app's manifest both use the new name).
+    "orca-computer-use" = "sha256-aTdkVhhUg+pJTrNUvgm85bi96dHHkujLHOdodpHRoCE=";
+    "jira-tickets" = "sha256-VTTaQAD09Mh/fbsmM0WiEwaMAJmhRAGGreqGXhfZDf4=";
     "linear-tickets" = "sha256-4YH4YHPaZcSSNhRp1QT+FeeuYbyZmQvEG+pHqhNFVhk=";
-    "orca-cli" = "sha256-qnb4ZQUBAJbo6p7doXBaeKrnr0XlRIXz/gRgZkwdnko=";
+    "orca-cli" = "sha256-6XWa6mZPVFYZRu60CmMoAxMwhgzaCBfywqos9SnVwbM=";
     "orca-emulator" = "sha256-PacZEXnkbLDhpqk28etUJU9umOw4hJ4clfDhEHMHa0g=";
     "orca-emulator-android" = "sha256-Ot5Ob48nF8qJn9hB5h8RaWOkBulScBW4A4VMFtAS4ng=";
+    "orca-jira" = "sha256-yoPEZi+8IwbvuQQ2dJmLDKWrrMeOwuX4Xl24Aojmd3o=";
     "orca-linear" = "sha256-jaI++WRwkGMVys6P+E+AViVe430bLV24TYt7MnCgug8=";
     "orca-per-workspace-env" = "sha256-wAXRJqE9KRM1FHLwdpDxwaZg1PKG4qXyGGSu4pT0Ns4=";
-    "orchestration" = "sha256-zRs2S/NXgbrQa/dasXZq+o1s7GnLIGBSlpHYmHGiCYo=";
+    "orca-plugin-authoring" = "sha256-Yz2bjdF6dAandUFjPhA5HZXf4QoMJfzQ4E1qJI6i9Zc=";
+    "orchestration" = "sha256-Sz5obLKxBsLbjsq1PUsAC0NWzKY9Sn9+PPbbh5jDj+0=";
   };
 
   skillFile = name: hash:
@@ -107,10 +112,10 @@ in
       type = types.listOf (types.enum (attrNames skillHashes));
       default = [
         "orca-cli"
-        "computer-use"
+        "orca-computer-use"
         "orchestration"
       ];
-      example = literalExpression ''[ "orca-cli" "orchestration" "computer-use" ]'';
+      example = literalExpression ''[ "orca-cli" "orchestration" "orca-computer-use" ]'';
       description = ''
         Orca skill guides to install declaratively into the agent skill
         directories (`~/.agents/skills` plus `~/.claude` and `~/.hermes`).
@@ -146,6 +151,15 @@ in
   };
 
   config = mkIf cfg.enable {
+    # `orca.server.enable` alone would otherwise evaluate cleanly but install
+    # nothing (the whole body is gated on `orca.enable`).
+    assertions = [
+      {
+        assertion = !cfg.server.enable || cfg.enable;
+        message = "orca.server.enable requires orca.enable = true";
+      }
+    ];
+
     home.packages = [ cfg.package ];
 
     # The desktop entry and hicolor icons now ship inside the package itself
@@ -163,8 +177,8 @@ in
     systemd.user.services.orca-server = mkIf cfg.server.enable {
       Unit = {
         Description = "Orca runtime server (headless `orca serve`)";
-        After = [ "network-online.target" ];
-        Wants = [ "network-online.target" ];
+        # No After=network-online.target: that unit lives in the system manager
+        # and is invisible to user units; the launcher retries instead.
       };
       Install = {
         WantedBy = [ "default.target" ];

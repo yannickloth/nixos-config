@@ -5,20 +5,27 @@
 # API keys are NOT stored here or in the nix store. They are read at runtime via
 # opencode's `{file:...}` substitution from per-key files that the
 # setupOpenCodeKeys activation script materializes out of
-# /etc/secrets/open-webui.env (itself decrypted by agenix, see
+# /etc/secrets/opencode-keys.env (itself decrypted by agenix, see
 # services/secrets.nix). The activation runs as the user, who can read that file
 # through the `secrets` group.
 #
 # Provider/model research (2026-08; Kimi corrected 2026-09):
 #   deepseek  https://api.deepseek.com          V4 flash/pro: 1M ctx, 384K out
-#   z.ai/GLM  https://api.z.ai/api/paas/v4/     glm-5.3 / glm-5.3-flash: 1M ctx, 128K out
+#   z.ai/GLM  https://api.z.ai/api/coding/paas/v4   GLM Coding Plan (subscription,
+#                                               ZAI_CODING_PLAN_API_KEY); glm-5.3 /
+#                                               glm-5.3-flash: 1M ctx, 131072 out.
+#                                               NOT the pay-per-token API endpoint
+#                                               (https://api.z.ai/api/paas/v4/) — a
+#                                               coding-plan key is rejected there and
+#                                               never draws the subscription quota.
 #   Kimi      https://api.kimi.com/coding/v1    Kimi Code plan (subscription) IDs: k3 (1M ctx on
 #                                               Allegretto+, else 256K), k3-256k, kimi-for-coding
 #                                               (K2.8 Preview, 1M ctx), kimi-for-coding-highspeed
 #                                               (256K, Allegretto+). The pay-per-token platform API
 #                                               (api.moonshot.ai) uses different IDs (kimi-k3,
 #                                               kimi-k2.7-code, kimi-k2.7-code-highspeed, kimi-k2.6).
-#   Hetzner   https://inference.hetzner.com/api/v1   Qwen3.6-35B-A3B / Qwen3.8-27B: 256K ctx
+#   Hetzner   https://inference.hetzner.com/v1    Qwen3.6-35B-A3B / Qwen3.8-27B: 256K ctx
+#             (the `/api` prefix 404s: GET /api/v1/models -> "route not found")
 #   cheaper   https://api.cheaperinference.com/v1   wallet-backed
 #             OpenAI/Anthropic-compatible gateway (ci_live_... keys); model ids
 #             vary, list them from GET /v1/models (no auto-discovery)
@@ -26,7 +33,16 @@
 #                                        Studio enforces its own per-model context budget
 #   strata    http://127.0.0.1:8080/v1   local Strata server (laptop-p16 only); any
 #                                        key/model name, context = packages/strata's
-#                                        `strata.context` (default 524288)
+#                                        `strata.context` (default 524288), KV streamed
+#                                        from pinned RAM. This is the long-context path:
+#                                        Studio on this card serves ~10k (a few slots)
+#                                        to ~17k (one slot) with KV on the GPU.
+#                                        Both paths are configured on purpose: Studio is
+#                                        the default admission point; Strata stays
+#                                        available for work that needs the big window.
+#                                        A direct Strata request keeps the engine busy, so
+#                                        a concurrent Studio load can be refused ("busy")
+#                                        — use one path at a time, not both at once.
 { config, lib, pkgs, ... }:
 
 with lib;
@@ -36,13 +52,505 @@ let
   # Unsloth Studio is only installed on laptop-p16 (see nicky-hm.nix isP16),
   # so gate the local provider on the same build-time condition.
   isP16 = config.commonHm.hostName == "laptop-p16";
+
+  # Provider/model definitions shared by opencode and pi
+  providers = {
+    # deepseek is a built-in opencode provider whose key already lives in
+    # opencode auth; only refine the researched context/output limits.
+    deepseek = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "https://api.deepseek.com/v1";
+        apiKey = keyfile "deepseek";
+      };
+      models = {
+        deepseek-v4-pro = {
+          name = "DeepSeek V4 Pro";
+          reasoning = true;
+          limit = {
+            context = 1000000;
+            output = 384000;
+          };
+        };
+        deepseek-flash = {
+          name = "DeepSeek Flash";
+          reasoning = true;
+          limit = {
+            context = 1000000;
+            output = 384000;
+          };
+        };
+      };
+    };
+    # Z.AI GLM Coding Plan (subscription), not the pay-per-token API.
+    #
+    # Two provider ids matter here and they are NOT interchangeable:
+    #   zai-coding-plan  the subscription. Only glm-5.3 / glm-5.3-flash /
+    #                    glm-5.3-highspeed. This is what the Coding Plan key
+    #                    spends.
+    #   zai              the paid per-token catalog (~23 models: glm-4.5 ...
+    #                    glm-5.2, glm-5.3-flashx, ...). The subscription does
+    #                    not cover it, so it must stay disabled: see
+    #                    `disabledProviders` below.
+    #
+    # The key lives on zai-coding-plan. The endpoint is the coding-plan one
+    # (a subscription key is rejected on https://api.z.ai/api/paas/v4/ and
+    # never draws subscription quota). OpenAI Chat Completions protocol, hence
+    # the openai-compatible package (the Anthropic protocol would be
+    # https://api.z.ai/api/anthropic).
+    zai-coding-plan = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "https://api.z.ai/api/coding/paas/v4";
+        apiKey = keyfile "zai";
+      };
+      models = {
+        "glm-5.3" = {
+          name = "GLM-5.3";
+          reasoning = true;
+          limit = {
+            context = 1000000;
+            output = 131072;
+          };
+        };
+        "glm-5.3-flash" = {
+          name = "GLM-5.3-Flash";
+          reasoning = true;
+          attachment = true;
+          limit = {
+            context = 1000000;
+            output = 131072;
+          };
+        };
+      };
+    };
+    kimi = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "https://api.kimi.com/coding/v1";
+        apiKey = keyfile "kimi";
+      };
+      models = {
+        k3 = {
+          name = "Kimi K3";
+          reasoning = true;
+          attachment = true;
+          limit = {
+            context = 1048576;
+            output = 131072;
+          };
+        };
+        "k3-256k" = {
+          name = "Kimi K3 256K";
+          reasoning = true;
+          attachment = true;
+          limit = {
+            context = 262144;
+            output = 131072;
+          };
+        };
+        "kimi-for-coding" = {
+          name = "Kimi K2.8 Preview";
+          reasoning = true;
+          attachment = true;
+          limit = {
+            context = 1048576;
+            output = 131072;
+          };
+        };
+        "kimi-for-coding-highspeed" = {
+          name = "Kimi K2.7 Code HighSpeed";
+          reasoning = true;
+          attachment = true;
+          limit = {
+            context = 262144;
+            output = 65536;
+          };
+        };
+      };
+    };
+    hetzner = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        # The inference API is served at the root, not under /api: /v1/models
+        # answers 200 while /api/v1/models returns "route not found".
+        baseURL = "https://inference.hetzner.com/v1";
+        apiKey = keyfile "hetzner";
+      };
+      models = {
+        "Qwen/Qwen3.6-35B-A3B-FP8" = {
+          name = "Qwen3.6-35B-A3B (Hetzner)";
+          limit = {
+            context = 262144;
+            output = 32768;
+          };
+        };
+        "Qwen3.8-27B" = {
+          name = "Qwen3.8-27B (Hetzner)";
+          limit = {
+            context = 262144;
+            output = 32768;
+          };
+        };
+      };
+    };
+    # Cheaper Inference: wallet-backed OpenAI/Anthropic-compatible
+    # gateway (https://cheaperinference.com). Keys look like
+    # `ci_live_...`. opencode does NOT auto-discover models for custom
+    # providers, so every model you want MUST be listed here with the
+    # exact id from `GET https://api.cheaperinference.com/v1/models`.
+    cheaperinference = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      name = "Cheaper Inference";
+      settings = {
+        baseURL = "https://api.cheaperinference.com/v1";
+        apiKey = keyfile "cheaperinference";
+      };
+      models = {
+        # Core combo, mapped to the tier-router roles. Effective
+        # prices are cheaperinference's discounted rates (2026-10).
+        # DeepSeek stays cheaper direct off-peak, so v4.1-flash here
+        # is for the 50% peak/cheap-tier discount + vision + speed.
+        "deepseek-v4.1-flash" = {
+          name = "DeepSeek V4.1 Flash (CI)";
+          reasoning = true;
+          attachment = true;
+          limit = {
+            context = 1048576;
+            output = 393216;
+          };
+        };
+        # Cheap GPT second-opinion: flash price, near-sonnet quality.
+        "gpt-5.6-luna" = {
+          name = "GPT-5.6 Luna (CI)";
+          reasoning = true;
+          attachment = true;
+          limit = {
+            context = 1050000;
+            output = 128000;
+          };
+        };
+        # Sonnet-tier workhorse reasoning/analysis (1M ctx, vision).
+        # 5.5 same price as 5.0 but faster (159 vs 91 tok/s) and more
+        # reliable (99.6% vs 95.9%).
+        "claude-sonnet-5.5" = {
+          name = "Claude Sonnet 5.5 (CI)";
+          reasoning = true;
+          attachment = true;
+          limit = {
+            context = 1000000;
+            output = 128000;
+          };
+        };
+        # Opus-tier deep formal reasoning (1M ctx, vision). 5.5 is
+        # cheaper and faster than 5 ($2.60/$13 vs $3.25/$16.25,
+        # 123 vs 78 tok/s).
+        "claude-opus-5.5" = {
+          name = "Claude Opus 5.5 (CI)";
+          reasoning = true;
+          attachment = true;
+          limit = {
+            context = 1000000;
+            output = 128000;
+          };
+        };
+        # Cheap 1M-in/1M-out reasoning cost-guard between flash and sonnet.
+        "glm-5.3" = {
+          name = "GLM-5.3 (CI)";
+          reasoning = true;
+          attachment = false;
+          limit = {
+            context = 1000000;
+            output = 1000000;
+          };
+        };
+      };
+    };
+  } // optionalAttrs isP16 {
+    # Local Unsloth Studio server: OpenAI-compatible API on localhost
+    # (:8888). The model list below is the server's *local library*
+    # (`curl -H "Authorization: Bearer $KEY"
+    # http://127.0.0.1:8888/api/inference/models`, captured 2026-10-31),
+    # minus the two local models that cannot answer a chat completion:
+    #   unsloth/orpheus-3b-0.1-ft    TTS
+    #   unsloth/Qwen-Image-2.1-GGUF  text-to-image
+    #
+    # `limit.context` is NOT the model's native window. Studio serves
+    # 8192 by default and only a per-model override
+    # (`custom_context_length` in Settings -> API, stored in
+    # studio.db's app_settings.openai_api_auto_switch_overrides) raises
+    # it; the live value is `context_length` in
+    # `/api/inference/status` (loaded) or `/v1/models/<id>` (GGUF,
+    # loaded). Keep this number <= that one: opencode compacts at
+    # `limit.context`, so an inflated value ships prompts Studio
+    # truncates. Auto-switch is on (openai_api_auto_switch_model), so
+    # naming a downloaded model loads it; on laptop-p16 the
+    # llama-server handoff wrapper unloads Strata first
+    # (packages/unsloth-studio/home.nix).
+    #
+    # Context policy (2026-10-31): every context below is the model's
+    # *native* window, capped at 524288 (512k) where the native window
+    # is larger. Where the Studio override sat below the native window
+    # (translation models pinned at 32768 since 2026-10-20, Qwythos
+    # fitted at 512768), the override was raised to match on 2026-10-31
+    # via PUT /api/settings/openai-auto-switch/overrides. The fits were
+    # priced with Studio's /api/inference/estimate-memory (4 slots,
+    # q8_0 KV): the totals still land inside the 12 GB card plus pinned
+    # RAM on this host.
+    unsloth-studio = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "http://127.0.0.1:8888/v1";
+        # Studio requires an API key even for the local server. The key
+        # is read from ~/.config/opencode/keys/unsloth.key (materialized
+        # by setupOpenCodeKeys from /etc/secrets/opencode-keys.env).
+        apiKey = keyfile "unsloth";
+      };
+      models = {
+        # --- translation ------------------------------------------
+        # Native windows (262144 Hy-MT2, 131072 TranslateGemma), now
+        # loaded at native: the 2026-10-20 32768 overrides (one
+        # multi-page document per request) were raised on 2026-10-31.
+        # KV still fits the card (estimate-memory: 11.0 GB and
+        # 12.9 GB total, 4 slots, q8_0 KV).
+        "unsloth/Hy-MT2-1.8B-GGUF" = {
+          name = "Hy-MT2 1.8B translation (local)";
+          limit = {
+            context = 262144;
+            output = 8192;
+          };
+        };
+        "mradermacher/translategemma-4b-it-GGUF" = {
+          name = "TranslateGemma 4B IT translation (local)";
+          attachment = true; # ships an mmproj: image -> translated text
+          limit = {
+            context = 131072;
+            output = 8192;
+          };
+        };
+
+        # --- chat -------------------------------------------------
+        "unsloth/LFM2.5-24B-A2B-GGUF" = {
+          name = "LFM2.5 24B-A2B (local)";
+          limit = {
+            context = 131072; # native; Studio override (UD-IQ3_XXS) matches
+            output = 32768;
+          };
+        };
+        "empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF" = {
+          name = "Qwythos-9B Claude-Mythos 1M (local)";
+          attachment = true; # mmproj (vision)
+          limit = {
+            # Native is 1M (1048576), but 1M needs ~44 GB (25 GB KV at
+            # 4 slots); this card carries 512k (29 GB total, the rest
+            # pinned in RAM). The override was the fitted 512768; it was
+            # raised to the round 524288 on 2026-10-31.
+            context = 524288;
+            output = 32768;
+          };
+        };
+        "LiquidAI/LFM3-Omni-2B-GGUF" = {
+          name = "LFM3-Omni-2B (local)";
+          reasoning = true; # /api/inference/status: supports_reasoning
+          attachment = true; # mmproj (vision); the model also takes video/audio
+          limit = {
+            context = 128000; # native; Studio override (Q8_0) matches
+            output = 32768;
+          };
+        };
+        "ukisai/Swift-Bonsai-2-GGUF" = {
+          name = "Swift-Bonsai-2 (local)";
+          limit = {
+            context = 262144; # native; Studio override (PQ2_0) matches
+            output = 32768;
+          };
+        };
+        # The 27B Swift 1.5 weights Strata serves, reached through Studio so
+        # that one service owns admission, eviction and GPU handoff. Model id
+        # is Studio's library id; quant variants (`:IQ3_XXS`, `:IQ3_S`) exist.
+        #
+        # `context` is Studio's SERVED window, measured 2026-11-06, not the
+        # native 262144: the 12 GB card holds the IQ3_XXS weights (10.4 GB) and
+        # almost nothing else, so Studio fits the KV cache into the remainder.
+        # Measured: 4 slots -> 9984 tokens, 1 slot -> 17152 tokens.
+        #
+        # PORTABILITY: the 17152 figure needs a per-host override persisted in
+        # Studio's own store (`PUT /api/settings/openai-auto-switch/overrides`
+        # with {"n_parallel":1,"custom_context_length":17152}); that store is
+        # runtime state, not this repo, so a fresh host serves the 9984 default.
+        # Keep this number at the value every host serves (9984). Raise it only
+        # together with the override on that host, and never past the served
+        # window: a larger value makes opencode ship prompts Studio truncates.
+        "ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF" = {
+          name = "Swift 1.5 27B IQ3_XXS (local, via Studio)";
+          reasoning = true;
+          limit = {
+            context = 9984;
+            output = 32768;
+          };
+        };
+
+        # --- decisions --------------------------------------------
+        # The System One family has no chat-completion model in this
+        # instance's serving list anymore (ggml-org/Kev-4B-GGUF was
+        # dropped from Studio's library; the old 16384 pin went with
+        # it). Do NOT add the mys/laya-* GGUFs here. Both carry
+        # general.architecture = "ggmlc", which llama.cpp rejects
+        # ("unknown model architecture"). They are private-format
+        # exports, not llama.cpp GGUFs, and a request for them
+        # wedges Studio's model switch. Laya runs through the
+        # Decision API instead (the systemone MCP below), with
+        # catalog ids "laya-multilingual" / "laya-typed-decisions";
+        # the /v1/systemone route answers "Unknown model" for repo
+        # ids.
+
+        # --- vision / OCR ----------------------------------------
+        # Single image in, short text out. The 131072 max_seq_length
+        # override is stored (verified 2026-10-31), so this number
+        # matches what Studio serves.
+        "unsloth/GLM-OCR" = {
+          name = "GLM-OCR (local)";
+          attachment = true;
+          limit = {
+            context = 131072;
+            output = 32768;
+          };
+        };
+      };
+    };
+    # Local Strata server (packages/strata, laptop-p16 only):
+    # Qwen3.8-Flash-Next 125B MoE, OpenAI-compatible API on localhost.
+    # Kept ALONGSIDE the Studio provider on purpose (2026-11-06): Studio fits
+    # the KV cache into the 12 GB card and therefore serves ~10k (4 slots) to
+    # ~17k (1 slot) tokens, while Strata streams 8-bit KV from pinned RAM and
+    # reaches 524288. Long-paper work needs the latter. Studio remains the
+    # default admission point; use exactly one path at a time — a live Strata
+    # request makes Studio's unload answer "busy", and its load then fails.
+    #
+    # The server accepts ANY API key and model name (chat.py sends "strata"),
+    # so no key file is needed. Context is advisory (opencode uses it for
+    # compaction thresholds) and must track the single server context: this
+    # host leaves the window to `strata --setup` (strata.context = null in
+    # users/nicky/nicky-hm.nix), and the served config currently holds 393216
+    # (384K). Both entries below use that number. Vision is OFF
+    # (vision = false): the strata-vision encoder drops throughput from ~35 to
+    # ~22 tok/s, so attachments are disabled on both models. The model supports
+    # reasoning: tune via reasoning effort.
+    strata-local = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "http://127.0.0.1:8080/v1";
+        apiKey = "strata";
+      };
+      models = {
+        "qwen3.8-flash-next-125b" = {
+          name = "Strata Qwen3.8-Flash-Next 125B (local)";
+          attachment = false;
+          limit = {
+            context = 393216;
+            output = 65536;
+          };
+        };
+        "swift-1.5-iq3_xxs" = {
+          name = "Strata swift 1.5 IQ3_XXS (local)";
+          attachment = false;
+          limit = {
+            # 384K, matching strata.context on laptop-p16 (384 * 1024).
+            context = 393216;
+            output = 65536;
+          };
+        };
+      };
+    };
+  };
+
+  # pi (pi-coding-agent) reads ~/.pi/agent/models.json. It speaks the same
+  # OpenAI-compatible endpoints, but a different schema: api/baseUrl instead of
+  # npm/options.baseURL, and contextWindow/maxTokens instead of
+  # limit.{context,output}. Its config is generated from `providers` above so
+  # the two agents cannot drift apart.
+  #
+  # pi already ships native catalogs for these providers, at the same base URLs
+  # and with the same model metadata as `providers`, so only their credential is
+  # emitted: a models.json entry under the native id overlays the built-in
+  # provider and keeps its catalog, while also defining `models` there would
+  # prune it to our subset. NOTE the Kimi id differs — opencode says "kimi", pi
+  # says "kimi-coding" (Kimi For Coding, same https://api.kimi.com/coding/v1).
+  piNativeIds = {
+    deepseek = "deepseek";
+    zai-coding-plan = "zai";
+    kimi = "kimi-coding";
+  };
+
+  # opencode stores keys as {file:...} interpolations; pi resolves a leading
+  # "!" as a command at request time. Reuse the very same key files (materialized
+  # by setupOpenCodeKeys) instead of exporting a parallel set of variables.
+  piKey = value:
+    let inner = removePrefix "{file:" value;
+    in
+    if inner != value && hasSuffix "}" inner then
+      "!cat ${removeSuffix "}" inner}"
+    else
+      value;
+
+  piModel = id: model: {
+    inherit id;
+    name = model.name or id;
+    reasoning = model.reasoning or false;
+    input = if model.attachment or false then [ "text" "image" ] else [ "text" ];
+    contextWindow = model.limit.context;
+    maxTokens = model.limit.output;
+  };
+
+  # Providers pi does not know natively (hetzner, cheaperinference, and the
+  # laptop-p16 locals) need their full definition; natives need only the key.
+  piProviders = listToAttrs (
+    concatMap
+      (name:
+        let
+          provider = providers.${name};
+          nativeId = piNativeIds.${name} or null;
+          options = provider.settings or { };
+          value =
+            if nativeId != null then
+              (optionalAttrs (options ? apiKey) { apiKey = piKey options.apiKey; })
+              // optionalAttrs (provider ? options && provider ? models) {
+                # Keep the native catalog (it carries extra ids we do not list)
+                # but align the metadata with the researched values above.
+                # Unknown ids are ignored by pi, so this cannot prune anything.
+                # Only for providers we define options for: a built-in-only entry
+                # such as deepseek carries no options, and its native metadata
+                # (e.g. image input on deepseek-flash) is more accurate than the
+                # subset of fields opencode records.
+                modelOverrides = mapAttrs (id: model: {
+                  name = model.name or id;
+                  reasoning = model.reasoning or false;
+                  input = if model.attachment or false then [ "text" "image" ] else [ "text" ];
+                  contextWindow = model.limit.context;
+                  maxTokens = model.limit.output;
+                }) provider.models;
+              }
+            else
+              {
+                api = "openai-completions";
+                baseUrl = options.baseURL;
+                apiKey = piKey options.apiKey;
+                models = mapAttrsToList piModel provider.models;
+              };
+        in
+        optional (value != { }) {
+          name = if nativeId != null then nativeId else name;
+          inherit value;
+        })
+      (attrNames providers)
+  );
 in
 {
   options.opencode = {
     enable = mkEnableOption "opencode provider/model config (keys read from the env file below)";
     envFile = mkOption {
       type = types.str;
-      default = "/etc/secrets/open-webui.env";
+      default = "/etc/secrets/opencode-keys.env";
       description = ''
         Path to the OPENAI_API_KEYS env file the per-provider key files are
         materialized from. Defaults to the system agenix path (NixOS). Standalone
@@ -54,413 +562,226 @@ in
   };
 
   config = mkIf config.opencode.enable {
-    # The TypeSafe `jev` MCP entry below runs `npx -y @jkudish/jev-mcp`, so the
-    # Node toolchain must be on PATH for every user with this module enabled
-    # (previously only nicky had it via her own home.packages).
-    home.packages = [ pkgs.nodejs ];
+    # Node toolchain (npx): the skills install flows documented in
+    # packages/{orca,browseros,rea} are `npx skills add ...`, so npx stays on
+    # PATH for every user with this module enabled. open-code-review
+    # (ocr) is Alibaba's AI code-review CLI: it consumes the LLM providers
+    # configured below (via `ocr config provider`, or delegation mode) — it is
+    # not a provider itself (open-codereview.ai serves no LLM API; see
+    # packages/open-code-review).
+    # openspec (openspec.dev) is the spec-driven workflow CLI: `openspec init
+    # --tools opencode` in a project writes .opencode/skills/openspec-* and
+    # .opencode/commands/opsx-*.md, and `openspec update` refreshes them. It is
+    # not an MCP server and not a provider, so it only needs to be on PATH.
+    home.packages =
+      [ pkgs.nodejs ]
+      ++ lib.optional (pkgs ? open-code-review) pkgs.open-code-review
+      ++ lib.optional (pkgs ? openspec) pkgs.openspec;
 
     xdg.configFile."opencode/opencode.json" = {
+      # opencode (and anything else that opens the file) replaces the store
+      # symlink with a regular file, so a stale opencode.json.backup from an
+      # earlier `-b backup` run made every later switch stop at
+      # checkFilesChanged. force overwrites the file instead of backing it up:
+      # this repo is the only writer, and a manual edit is discarded on purpose.
+      force = true;
       text =
         let
+          # Strip V1-only model fields (reasoning, attachment) that opencode V2
+          # ignores, while keeping them in the source `providers` for pi.
+          stripV1 = provider:
+            if provider ? package then
+              provider // {
+                models = lib.mapAttrs (id: model:
+                  removeAttrs model [ "reasoning" "attachment" ]
+                ) provider.models;
+              }
+            else
+              provider;
           baseConfig = {
             "$schema" = "https://opencode.ai/config.json";
-            provider = {
-              # deepseek is a built-in opencode provider whose key already lives in
-              # opencode auth; only refine the researched context/output limits.
-              deepseek.models = {
-                deepseek-v4-pro = {
-                  name = "DeepSeek V4 Pro";
-                  reasoning = true;
-                  limit = {
-                    context = 1000000;
-                    output = 384000;
-                  };
-                };
-                deepseek-flash = {
-                  name = "DeepSeek Flash";
-                  reasoning = true;
-                  limit = {
-                    context = 1000000;
-                    output = 384000;
-                  };
-                };
-              };
-              zai = {
-                npm = "@ai-sdk/openai-compatible";
-                options = {
-                  baseURL = "https://api.z.ai/api/paas/v4/";
-                  apiKey = keyfile "zai";
-                };
-                models = {
-                  "glm-5.3" = {
-                    name = "GLM-5.3";
-                    reasoning = true;
-                    limit = {
-                      context = 1000000;
-                      output = 128000;
-                    };
-                  };
-                  "glm-5.3-flash" = {
-                    name = "GLM-5.3-Flash";
-                    reasoning = true;
-                    attachment = true;
-                    limit = {
-                      context = 1000000;
-                      output = 128000;
-                    };
-                  };
-                };
-              };
-              kimi = {
-                npm = "@ai-sdk/openai-compatible";
-                options = {
-                  baseURL = "https://api.kimi.com/coding/v1";
-                  apiKey = keyfile "kimi";
-                };
-                models = {
-                  k3 = {
-                    name = "Kimi K3";
-                    reasoning = true;
-                    attachment = true;
-                    limit = {
-                      context = 1048576;
-                      output = 131072;
-                    };
-                  };
-                  "k3-256k" = {
-                    name = "Kimi K3 256K";
-                    reasoning = true;
-                    attachment = true;
-                    limit = {
-                      context = 262144;
-                      output = 131072;
-                    };
-                  };
-                  "kimi-for-coding" = {
-                    name = "Kimi K2.8 Preview";
-                    reasoning = true;
-                    attachment = true;
-                    limit = {
-                      context = 1048576;
-                      output = 131072;
-                    };
-                  };
-                  "kimi-for-coding-highspeed" = {
-                    name = "Kimi K2.7 Code HighSpeed";
-                    reasoning = true;
-                    attachment = true;
-                    limit = {
-                      context = 262144;
-                      output = 65536;
-                    };
-                  };
-                };
-              };
-              hetzner = {
-                npm = "@ai-sdk/openai-compatible";
-                options = {
-                  baseURL = "https://inference.hetzner.com/api/v1";
-                  apiKey = keyfile "hetzner";
-                };
-                models = {
-                  "Qwen/Qwen3.6-35B-A3B-FP8" = {
-                    name = "Qwen3.6-35B-A3B (Hetzner)";
-                    limit = {
-                      context = 262144;
-                      output = 32768;
-                    };
-                  };
-                  "Qwen3.8-27B" = {
-                    name = "Qwen3.8-27B (Hetzner)";
-                    limit = {
-                      context = 262144;
-                      output = 32768;
-                    };
-                  };
-                };
-              };
-              # Cheaper Inference: wallet-backed OpenAI/Anthropic-compatible
-              # gateway (https://cheaperinference.com). Keys look like
-              # `ci_live_...`. opencode does NOT auto-discover models for custom
-              # providers, so every model you want MUST be listed here with the
-              # exact id from `GET https://api.cheaperinference.com/v1/models`.
-              cheaperinference = {
-                npm = "@ai-sdk/openai-compatible";
-                name = "Cheaper Inference";
-                options = {
-                  baseURL = "https://api.cheaperinference.com/v1";
-                  apiKey = keyfile "cheaperinference";
-                };
-                models = {
-                  # Core combo, mapped to the tier-router roles. Effective
-                  # prices are cheaperinference's discounted rates (2026-10).
-                  # DeepSeek stays cheaper direct off-peak, so v4.1-flash here
-                  # is for the 50% peak/cheap-tier discount + vision + speed.
-                  "deepseek-v4.1-flash" = {
-                    name = "DeepSeek V4.1 Flash (CI)";
-                    reasoning = true;
-                    attachment = true;
-                    limit = {
-                      context = 1048576;
-                      output = 393216;
-                    };
-                  };
-                  # Cheap GPT second-opinion: flash price, near-sonnet quality.
-                  "gpt-5.6-luna" = {
-                    name = "GPT-5.6 Luna (CI)";
-                    reasoning = true;
-                    attachment = true;
-                    limit = {
-                      context = 1050000;
-                      output = 128000;
-                    };
-                  };
-                  # Sonnet-tier workhorse reasoning/analysis (1M ctx, vision).
-                  # 5.5 same price as 5.0 but faster (159 vs 91 tok/s) and more
-                  # reliable (99.6% vs 95.9%).
-                  "claude-sonnet-5.5" = {
-                    name = "Claude Sonnet 5.5 (CI)";
-                    reasoning = true;
-                    attachment = true;
-                    limit = {
-                      context = 1000000;
-                      output = 128000;
-                    };
-                  };
-                  # Opus-tier deep formal reasoning (1M ctx, vision). 5.5 is
-                  # cheaper and faster than 5 ($2.60/$13 vs $3.25/$16.25,
-                  # 123 vs 78 tok/s).
-                  "claude-opus-5.5" = {
-                    name = "Claude Opus 5.5 (CI)";
-                    reasoning = true;
-                    attachment = true;
-                    limit = {
-                      context = 1000000;
-                      output = 128000;
-                    };
-                  };
-                  # Cheap 1M-in/1M-out reasoning cost-guard between flash and sonnet.
-                  "glm-5.3" = {
-                    name = "GLM-5.3 (CI)";
-                    reasoning = true;
-                    attachment = false;
-                    limit = {
-                      context = 1000000;
-                      output = 1000000;
-                    };
-                  };
-                };
-              };
-            } // optionalAttrs isP16 {
-              # Local Unsloth Studio server: OpenAI-compatible API on localhost.
-              # Model list captured from `curl http://127.0.0.1:8888/v1/models`
-              # (2026-09-16). The TTS (unsloth/orpheus-*) and text-to-image
-              # (unsloth/Qwen-Image-*) entries are excluded: opencode only speaks
-              # chat completions. Download/load new models in the Studio UI, then
-              # add matching entries here; limits are advisory (opencode uses them
-              # for compaction thresholds) and set to the ~100K budget Studio
-              # actually serves per loaded model, well under the native windows.
-              unsloth-studio = {
-                npm = "@ai-sdk/openai-compatible";
-                options = {
-                  baseURL = "http://127.0.0.1:8888/v1";
-                  # Studio requires an API key even for the local server. The key
-                  # is read from ~/.config/opencode/keys/unsloth.key (materialized
-                  # by setupOpenCodeKeys from /etc/secrets/open-webui.env).
-                  apiKey = keyfile "unsloth";
-                };
-                models = {
-                  "empero-ai/Qwen3.8-9B-Distill-GGUF" = {
-                    name = "Qwen3.8-9B Distill (local)";
-                    reasoning = true;
-                    limit = {
-                      context = 103424;
-                      output = 32768;
-                    };
-                  };
-                  "ornith-ai/Ornith-1.5-9B-GGUF" = {
-                    name = "Ornith-1.5-9B (local)";
-                    limit = {
-                      context = 103424;
-                      output = 32768;
-                    };
-                  };
-                  "unsloth/qwen3.8-27B-GGUF" = {
-                    name = "Qwen3.8-27B (local)";
-                    reasoning = true;
-                    limit = {
-                      context = 103424;
-                      output = 32768;
-                    };
-                  };
-                  "empero-ai/Qwen3.8-27B-Ridge-GGUF" = {
-                    name = "Qwen3.8-27B Ridge (local)";
-                    reasoning = true;
-                    limit = {
-                      context = 103424;
-                      output = 32768;
-                    };
-                  };
-                  "empero-ai/Qwythos-9B-v2-GGUF" = {
-                    name = "Qwythos-9B v2 (local)";
-                    limit = {
-                      context = 103424;
-                      output = 32768;
-                    };
-                  };
-                  "empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF" = {
-                    name = "Qwythos-9B Claude-Mythos 1M (local)";
-                    limit = {
-                      context = 103424;
-                      output = 32768;
-                    };
-                  };
-                  "unsloth/gemma-4-12B-it-qat-GGUF" = {
-                    name = "Gemma-4-12B IT QAT (local)";
-                    limit = {
-                      context = 103424;
-                      output = 32768;
-                    };
-                  };
-                  # Vision OCR model. Studio serves it with a tiny default
-                  # context budget (4K); expanded to 131072 in the Studio UI
-                  # (2026-09-17), so the advisory limit matches that.
-                  "unsloth/GLM-OCR" = {
-                    name = "GLM-OCR (local)";
-                    attachment = true;
-                    limit = {
-                      context = 131072;
-                      output = 32768;
-                    };
-                  };
-                };
-              };
-              # Local Strata server (packages/strata, laptop-p16 only):
-              # Qwen3.8-Flash-Next 125B MoE, OpenAI-compatible API on localhost.
-              # The server accepts ANY API key and model name (chat.py sends
-              # "strata"), so no key file is needed. Context is advisory (opencode
-              # uses it for compaction thresholds) and must track the single
-              # server context: packages/strata defaults to 524288 (yarn factor 2,
-              # 8-bit KV streamed from pinned RAM; see strata.context). Vision is
-              # OFF (vision = false): the strata-vision encoder drops throughput
-              # from ~35 to ~22 tok/s, so attachments are disabled on both models.
-              # reasoning=true: the model thinks before answering; tune via
-              # reasoning effort.
-              strata-local = {
-                npm = "@ai-sdk/openai-compatible";
-                options = {
-                  baseURL = "http://127.0.0.1:8080/v1";
-                  apiKey = "strata";
-                };
-                models = {
-                  "qwen3.8-flash-next-125b" = {
-                    name = "Strata Qwen3.8-Flash-Next 125B (local)";
-                    reasoning = true;
-                    attachment = false;
-                    limit = {
-                      context = 524288;
-                      output = 65536;
-                    };
-                  };
-                  "swift-1.5-iq3_xxs" = {
-                    name = "Strata swift 1.5 IQ3_XXS (local)";
-                    attachment = false;
-                    limit = {
-                      context = 524288;
-                      output = 65536;
-                    };
-                  };
-                };
-              };
-            };
-
-            # Laya System 1 decision engine, served as a shared streamable-HTTP MCP
-            # server by the packages/laya home-manager module. The MCP entry is
-            # registered only when that feature is enabled for this user, but it is
-            # DISABLED by default: laya is a local engine and when its checkpoint is
-            # not loaded every call hung for the full 120s timeout. Routing/decisions
-            # now go to deepseek-flash (see tier-router and the local_decide tool), so
-            # flip `enabled` back to true only when laya is actually running.
-            mcp = optionalAttrs (config.laya.enable or false)
-              {
-                laya = {
+            providers = lib.mapAttrs (_name: stripV1) providers;
+            # Hide OpenCode's built-in pay-per-token Z.AI catalog. Without this
+            # the model picker lists "Z.AI" with ~23 glm-4.x/glm-5.x models the
+            # Coding Plan subscription does not cover, next to the correct
+            # "Z.AI Coding Plan" entry. The subscription is configured above as
+            # `zai-coding-plan`; `zai` is only ever the paid catalog.
+            # System One decision tools come from Unsloth Studio only. The old
+            # packages/laya MCP server (a separate streamable-HTTP endpoint on
+            # port 8765) is gone with the package: Studio's Decision API serves
+            # the same shape locally, so there is nothing else to register.
+            mcp = optionalAttrs isP16 {
+              servers = {
+                # System One decision tools straight from local Unsloth Studio, so
+                # decisional prompts stay on this machine. Studio serves this
+                # itself: routes/systemone.py builds a FastMCP ("Unsloth
+                # Decisions") mounted at /mcp/decisions with stateless_http and
+                # json_response, exposing one tool, `decide(state, questions)`,
+                # whose schema documents the noul / choice / score question types.
+                # So there is no vendor client and no npx package to pin; the
+                # endpoint runs Laya on CPU (see packages/unsloth-studio/home.nix).
+                #
+                # Auth is the owner's Studio key — the same file the
+                # unsloth-studio provider reads. /mcp/decisions is wrapped in
+                # RequireStudioAuth, which calls security() directly and so
+                # bypasses keyless admission: a dummy bearer gets 401 (verified),
+                # the real key gets 200. oauth = false because this is a header
+                # credential, not an OAuth server.
+                #
+                # Tools surface as systemone_<tool> (here systemone_decide). If the
+                # connection reports 401, the `{file:}` substitution is not being
+                # applied inside headers on this OpenCode build; switch to
+                # "Bearer {env:UNSLOTH_API_KEY}" and export that variable.
+                systemone = {
                   type = "remote";
-                  url = "http://127.0.0.1:${toString (config.laya.mcpPort or 8765)}/mcp";
-                  enabled = false;
-                  timeout = 120000;
+                  url = "http://127.0.0.1:8888/mcp/decisions/";
+                  oauth = false;
+                  disabled = false;
+                  headers = {
+                    Authorization = "Bearer ${keyfile "unsloth"}";
+                  };
                 };
-              } // {
-              # Jev judgment tools (@jkudish/jev-mcp), global so every project sees
-              # them. They run against the local Unsloth Studio Decision API: a
-              # TypeSafe-compatible POST /v1/systemone on Studio's port that
-              # serves open System One models (Laya, ...). One Studio instance
-              # per host, run as nicky with linger (see
-              # packages/unsloth-studio/home.nix) — both users of this module
-              # reach the same localhost endpoint. The MCP's `compatible`
-              # provider takes the full POST URL in JEV_API_BASE_URL; under
-              # Studio's Keyless-localhost setting the bearer is ignored, so a
-              # literal keeps the provider resolver (which requires both vars)
-              # happy without a key file.
-              jev = {
-                type = "local";
-                command = [ "npx" "-y" "@jkudish/jev-mcp" ];
-                environment = {
-                  JEV_PROVIDER = "compatible";
-                  JEV_API_BASE_URL = "http://127.0.0.1:8888/v1/systemone";
-                  JEV_API_KEY = "keyless";
+
+                # No Jev MCP here on purpose. The `@jkudish/jev-mcp` stdio server
+                # shipped 12 prompt decompositions (screen, verify, noul, find,
+                # rerank, classify, decide, compare, extract, audit, review, gate)
+                # over the same local System One primitive `systemone_decide`
+                # exposes raw — so it added a third-party `npx -y` package that
+                # executes JS against this state, and nothing the local plugin
+                # does not cover. Those workflows now live in the systemone plugin
+                # (llm-harness-plugins/systemone) against the local decision API.
+                # Do not re-add a hosted Jev client here: it would send local
+                # judgment prompts to a third party.
+              } // optionalAttrs (pkgs ? rea) {
+                # REA (packages/rea): reverse-engineering toolkit (native binaries,
+                # JS/Electron, .NET, websites, ...) served over stdio MCP. Only
+                # registered where the AI-unstable overlay provides pkgs.rea
+                # (nicky, aeiuno). Set disabled = false to hide its large tool
+                # catalog from every session.
+                rea = {
+                  type = "local";
+                  command = [ "${pkgs.rea}/bin/rea" "mcp" ];
+                  disabled = false;
                 };
-                enabled = true;
-              };
-            } // optionalAttrs (pkgs ? rea) {
-              # REA (packages/rea): reverse-engineering toolkit (native binaries,
-              # JS/Electron, .NET, websites, ...) served over stdio MCP. Only
-              # registered where the AI-unstable overlay provides pkgs.rea
-              # (nicky, aeiuno). Set enabled = false to hide its large tool
-              # catalog from every session.
-              rea = {
-                type = "local";
-                command = [ "${pkgs.rea}/bin/rea" "mcp" ];
-                enabled = true;
-              };
-            } // optionalAttrs (config.browseros.enable or false) {
-              # BrowserOS neo: agent-driven browser exposing a local MCP server
-              # (claw-server) on :9200. Agents drive the real browser (with the
-              # user's imported Chrome logins) over typed MCP tool calls.
-              browseros-neo = {
-                type = "remote";
-                url = "http://127.0.0.1:9200/mcp";
-                enabled = true;
+              } // optionalAttrs (config.browseros.enable or false) {
+                # BrowserOS neo: agent-driven browser exposing a local MCP server
+                # (claw-server) on :9010. Agents drive the real browser (with the
+                # user's imported Chrome logins) over typed MCP tool calls.
+                browseros-neo = {
+                  type = "remote";
+                  url = "http://127.0.0.1:9010/mcp";
+                  disabled = false;
+                };
+              } // optionalAttrs (config.libreofficeMcp.enable or false) {
+                # LibreOffice MCP (packages/libreoffice-mcp): the extension serves
+                # streamable HTTP from inside the running soffice process, so its
+                # tools act on the document the user has open, not on a copy.
+                # Upstream exposes /, /health (liveness only) and /mcp (the MCP
+                # endpoint) on the configured port; /health is not MCP.
+                #
+                # Local-only, by design: the server binds IPv4 loopback (the
+                # artifact pins Host=127.0.0.1) and upstream's tunnel support is
+                # left off. The URL spells out 127.0.0.1 rather than "localhost"
+                # because this host resolves localhost to ::1 first, which the
+                # server does not listen on — the numeric address makes client and
+                # socket agree without relying on Happy Eyeballs fallback.
+                #
+                # The generated cert has to reach Node-based MCP clients: the
+                # extension serves TLS with a self-signed cert (SAN localhost +
+                # 127.0.0.1, generated into ~/.config/libreoffice/mcp-certs on
+                # first start, which also keeps browser-origin requests out — the
+                # server sends Access-Control-Allow-Origin: *).
+                # packages/libreoffice-mcp/home.nix exports it as
+                # NODE_EXTRA_CA_CERTS, which is how opencode's Node fetch trusts
+                # it. Without that variable the connection fails with a
+                # self-signed certificate error, so a failed connection here
+                # usually means: env var missing (app started outside the HM
+                # session), LibreOffice closed, or the extension not loaded.
+                #
+                # The port comes from the same option that is patched into the
+                # extension (libreofficeMcp.port), never a hardcoded 8765, so two
+                # users on one host do not attach to each other's documents.
+                libreoffice = {
+                  type = "remote";
+                  url = "https://127.0.0.1:${toString config.libreofficeMcp.port}/mcp";
+                  disabled = false;
+                };
               };
             };
           };
         in
         builtins.toJSON (baseConfig // optionalAttrs isP16 {
-          # Default model on laptop-p16: the local Strata swift-1.5 IQ3_XXS quant.
+          # Default model on laptop-p16. 2026-11-06: back to the direct Strata
+          # path, because this host's Studio cannot serve the window long-paper
+          # work needs (KV on the 12 GB card: ~10k-17k tokens) while Strata
+          # streams KV from pinned RAM at 524288. Studio stays configured for
+          # its own models and as an alternative admission point; flip this one
+          # line to the Studio id when a task fits the small window.
           model = "strata-local/swift-1.5-iq3_xxs";
         });
     };
 
-    # Materialize per-provider API key files from a decrypted Open WebUI env
+    # pi (pi-coding-agent): same provider set as opencode, generated from the
+    # `providers` table above (see piProviders). A store symlink is safe here
+    # because pi only reads models.json — its cache (models-store.json) and
+    # settings.json live next to it and stay writable.
+    home.file.".pi/agent/models.json".text = builtins.toJSON {
+      "$schema" = "https://pi.dev/schemas/models.schema.json";
+      providers = piProviders;
+    };
+
+    # Open Code Review's official OpenCode integration: native ocr_review /
+    # ocr_health tools plus /ocr-review and /ocr-health slash commands
+    # (plugins/open-code-review/opencode in alibaba/open-code-review, pinned
+    # to the same release as the ocr CLI in home.packages above). opencode
+    # auto-loads *.ts from the plugins/ directory; the file's SDK imports must
+    # resolve from ~/.config/opencode/node_modules, which opencode does not
+    # provide itself — hence the node_modules symlink (OpenCode 2.x needs
+    # both @opencode-ai/plugin and @opencode/plugin; see
+    # packages/open-code-review/plugin-deps.nix).
+    xdg.configFile."opencode/plugins/open-code-review.ts".source =
+      lib.mkIf (pkgs ? open-code-ocr-plugin) "${pkgs.open-code-ocr-plugin}/plugin/open-code-review.ts";
+    xdg.configFile."opencode/node_modules".source =
+      lib.mkIf (pkgs ? open-code-ocr-plugin) "${pkgs.open-code-ocr-plugin}/node_modules";
+
+    # Materialize per-provider API key files from the decrypted provider-key env
     # file (OPENAI_API_KEYS JSON). Source resolution, first existing wins:
     #   1. config.opencode.envFile — an `age.secrets` path on standalone
     #      home-manager hosts (CachyOS), or the system path on NixOS.
-    #   2. /etc/secrets/open-webui.env — the system agenix path (NixOS hosts).
+    #   2. /etc/secrets/opencode-keys.env — the system agenix path (NixOS hosts).
     # Skipped silently when neither exists.
-    home.activation.setupOpenCodeKeys = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    # Bun standalone can't resolve bundled @opencode/ai providers via dynamic
+    # import — it falls back to filesystem resolution. The binary adds
+    # ~/.node_modules to module resolution paths AND looks at ~/@opencode/ for
+    # scoped packages. Install @opencode/ai in both locations.
+    home.activation.setupOpenCodeAIDeps = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      for dir in "${config.home.homeDirectory}/.node_modules" "${config.home.homeDirectory}/@opencode"; do
+        mkdir -p "$dir"
+        ${pkgs.bun}/bin/bun --cwd "$dir" install @opencode/ai 2>&1 || true
+      done
+    '';
+
+    home.activation.setupOpenCodeKeys = lib.hm.dag.entryAfter [ "writeBoundary" "setupOpenCodeAIDeps" ] ''
       ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" '${config.opencode.envFile}' <<'PYEOF'
       import json, os, sys
 
       home = sys.argv[1]
       # expandvars so an agenix $XDG_RUNTIME_DIR/... path is resolved from the
       # activation environment rather than by bash before Python sees it.
-      candidates = [os.path.expandvars(p) for p in (sys.argv[2], "/etc/secrets/open-webui.env") if p]
+      candidates = [os.path.expandvars(p) for p in (sys.argv[2], "/etc/secrets/opencode-keys.env") if p]
       envfile = next((p for p in candidates if p and os.path.exists(p)), None)
       keydir = os.path.join(home, ".config", "opencode", "keys")
       mapping = {
           "https://api.deepseek.com": "deepseek.key",
           "https://api.kimi.com/coding/v1": "kimi.key",
           "https://inference.hetzner.com/api/v1": "hetzner.key",
+          # The GLM Coding Plan key is stored in the secret's OPENAI_API_KEYS
+          # JSON under the *general* Z.AI URL (the secret still lists that base
+          # URL), so both spellings map to the same key file. The provider above
+          # talks to the coding-plan endpoint; this dict is only the secret
+          # lookup key, never the URL opencode requests.
           "https://api.z.ai/api/paas/v4/": "zai.key",
+          "https://api.z.ai/api/coding/paas/v4": "zai.key",
           "http://127.0.0.1:8888/v1": "unsloth.key",
           "https://api.cheaperinference.com/v1": "cheaperinference.key",
       }
@@ -472,9 +793,10 @@ in
               _, _, payload = fh.read().partition("=")
           keys = json.loads(payload.strip())
       except Exception as exc:
-          print(f"opencode: failed to parse {envfile}: {exc}; skipping key setup")
-          sys.exit(1)
+          print(f"opencode: failed to parse {envfile}: {exc}; leaving existing keys untouched", file=sys.stderr)
+          sys.exit(0)
       os.makedirs(keydir, mode=0o700, exist_ok=True)
+      os.chmod(keydir, 0o700)
       for url, name in mapping.items():
           key = keys.get(url)
           if not key:
@@ -482,9 +804,72 @@ in
               continue
           path = os.path.join(keydir, name)
           fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+          # O_CREAT only applies the mode on creation; tighten existing files.
+          os.fchmod(fd, 0o600)
           with os.fdopen(fd, "w") as out:
-              out.write(key + "\n")
+              # No trailing newline: these files are read back through the
+              # file: interpolation used by provider apiKey values and MCP
+              # headers, and an `Authorization: Bearer` header would otherwise
+              # carry the newline in the token (a protocol error, or a silently
+              # invalid credential).
+              out.write(key)
           print(f"opencode: wrote {path}")
+      # Repair files the secret no longer supplies, and any left by an older
+      # version of this script. Without this, a key whose URL was dropped from
+      # the secret stays on disk with its trailing newline, and that newline
+      # rides inside an `Authorization: Bearer {file:...}` header as a silently
+      # invalid credential. (Exactly what happened to unsloth.key.)
+      for entry in sorted(os.listdir(keydir)):
+          path = os.path.join(keydir, entry)
+          if os.path.islink(path) or not os.path.isfile(path):
+              continue
+          try:
+              with open(path, encoding="utf-8") as fh:
+                  current = fh.read()
+              stripped = current.rstrip()
+              if stripped == current:
+                  continue
+              fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+              os.fchmod(fd, 0o600)
+              with os.fdopen(fd, "w", encoding="utf-8") as out:
+                  out.write(stripped)
+              print(f"opencode: normalized {path}")
+          except OSError as exc:
+              print(f"opencode: could not normalize {path}: {exc}", file=sys.stderr)
+      PYEOF
+    '';
+
+    # pi rewrites ~/.pi/agent/settings.json from its TUI, so that file cannot be
+    # a store symlink. Repair the one stale value this repo shipped:
+    # defaultModel "deepseek-v4-flash" matches no catalog id (the ids are
+    # deepseek-flash / deepseek-v4-pro), so pi silently fell back on every
+    # start. Any other value — including one chosen later in the TUI — is left
+    # untouched. (The strata-local -> Studio rewrite added on 2026-11-06 was
+    # reverted with the same day's decision to keep both local paths.)
+    home.activation.piSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" <<'PYEOF'
+      import json, os, sys
+
+      path = os.path.join(sys.argv[1], ".pi", "agent", "settings.json")
+      try:
+          with open(path, encoding="utf-8") as fh:
+              settings = json.load(fh)
+      except FileNotFoundError:
+          sys.exit(0)
+      except Exception as exc:
+          print(f"pi: cannot parse {path}: {exc}; leaving it untouched", file=sys.stderr)
+          sys.exit(0)
+      stale = {"deepseek-v4-flash": "deepseek-flash"}
+      current = settings.get("defaultModel")
+      if current not in stale:
+          sys.exit(0)
+      settings["defaultModel"] = stale[current]
+      fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+      os.fchmod(fd, 0o600)
+      with os.fdopen(fd, "w", encoding="utf-8") as fh:
+          json.dump(settings, fh, indent=2)
+          fh.write("\n")
+      print(f"pi: repaired stale defaultModel in {path}")
       PYEOF
     '';
   };

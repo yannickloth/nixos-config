@@ -16,16 +16,27 @@ with lib;
 {
   config = {
     # Runtime directory for secrets shared by services (same group model as the
-    # old provisioning script, kept so existing consumers and the ai-chat module
-    # continue to work unchanged).
+    # old provisioning script, kept so existing consumers continue to work
+    # unchanged).
     users.groups.secrets = {
       members = [ "nicky" "aeiuno" ];
     };
 
     systemd.tmpfiles.rules = [
-      # 2770 + group rw so nicky/aeiuno can edit secrets without sudo.
-      "d /etc/secrets 2770 root secrets -"
+      # 3770 + group rw so nicky/aeiuno can still edit secrets in place, but
+      # the sticky bit stops them from unlinking/replacing root-owned files
+      # (which would defeat the per-secret owner/mode settings).
+      "d /etc/secrets 3770 root secrets -"
+    ]
+    # The Syncthing secret is 0640 root:syncthing, but this directory is
+    # group-traversable only for `secrets`. Give the syncthing user the
+    # traverse bit so the daemon can open its own password file.
+    ++ lib.optionals config.services.syncthing.enable [
+      "A /etc/secrets - - - - u:syncthing:--x"
     ];
+
+    # Versioned instructions for the secrets dir (linked into /etc/secrets).
+    environment.etc."secrets/README.md".source = ./secrets-README.md;
 
     # agenix secrets. Each decrypts on this host (using its SSH host key) to the
     # conventional runtime path the consuming service reads.
@@ -39,13 +50,27 @@ with lib;
         group = "syncthing";
       };
 
-      # Family AI-chat provider keys (Open WebUI), read via EnvironmentFile.
-      open-webui-env = {
-        file = ../secrets/open-webui.env.age;
-        path = "/etc/secrets/open-webui.env";
+      # Shared LLM provider keys for opencode (OPENAI_API_KEYS JSON). The
+      # home-manager activation in users/opencode.nix materializes the
+      # per-provider key files from it (see /etc/secrets/README.md).
+      opencode-keys-env = {
+        file = ../secrets/opencode-keys.env.age;
+        path = "/etc/secrets/opencode-keys.env";
         mode = "0660";
         owner = "root";
         group = "secrets";
+      };
+
+      # PostgreSQL nicky role password.
+      # Mounted for root:postgres so the systemd oneshot (system) can read it.
+      # Decrypted from the same .age file that home-manager reads — the file is
+      # encrypted to both host SSH keys and the user SSH key.
+      pg-nicky-password = {
+        file = ../secrets/pg-nicky-password.age;
+        path = "/run/agenix/pg-nicky-password";
+        mode = "0640";
+        owner = "root";
+        group = "postgres";
       };
 
       # CIFS client credentials for the nestor mount. NOTE: services/cifs-nestor.nix

@@ -1,7 +1,7 @@
 # Shared module set for every family laptop (laptop-hera, laptop-p16,
 # laptop-xps).
 #
-# IVP: these 53 modules have the same change-driver set
+# IVP: these 52 modules have the same change-driver set
 # {D-SERVICE, D-APP, D-DESKTOP, D-HARDWARE, D-SECURITY, D-SYSTEM} — they change
 # when a service/app/desktop-stack/peripheral/security/base policy changes, not
 # when a *host* changes. They used to be copy-pasted into each host file (and
@@ -11,9 +11,7 @@
 # the home-manager user wiring) stay in hosts/<host>/<host>.nix. Current deltas:
 #   laptop-hera: apps/benchmark.nix
 #   laptop-p16:  apps/benchmark.nix, apps/obs-studio.nix, apps/wine.nix
-#                (services/immich.nix exists but is commented out while p16 runs
-#                 CachyOS; the server runs via home-manager there)
-#   laptop-xps: apps/noson.nix, desktop/plasma.nix
+#   laptop-xps:  apps/noson.nix, apps/wine.nix, desktop/plasma.nix
 { ... }:
 
 {
@@ -35,7 +33,6 @@
 
     # Desktop / display / audio.
     ../desktop/console.nix
-    ../desktop/hyprland.nix
     ../desktop/pipewire.nix
     ../desktop/xserver.nix
     ../desktop/xwayland.nix
@@ -70,7 +67,6 @@
     ../security/yubikey.nix
 
     # Services.
-    ../services/ai-chat.nix
     ../services/avahi.nix
     ../services/clamav.nix
     ../services/libvirt.nix
@@ -80,11 +76,28 @@
     ../services/openssh.nix
     ../services/plantuml.nix
     ../services/podman.nix
+    ../services/postgresql.nix
     ../services/printing.nix
     ../services/samba.nix
     ../services/scanning.nix
     ../services/sonos.nix
+    ../services/ssh-user-keys.nix
     ../services/syncthing
     ../services/tor.nix
+  ];
+
+  # Distribute the family SSH identities + authorized_keys on every laptop
+  # (see services/ssh-user-keys.nix).
+  services.sshUserKeys.enable = true;
+
+  # /data is a separate LUKS+btrfs volume on laptop-p16 and laptop-hera;
+  # laptop-xps has no second drive, so on that host these rules also create
+  # /data itself as a plain root-disk directory (tmpfiles creates the leading
+  # dir as root, the subdirs below as the appropriate user).
+  systemd.tmpfiles.rules = [
+    "d /data 0755 root root -"                       # root FS dir on xps; mount point on hera/p16
+    "d /data/postgres 0750 postgres postgres -"       # PostgreSQL 18 cluster on all hosts
+    "d /data/unsloth 0700 nicky nicky -"              # Unsloth Studio model data
+    "d /data/containers 0755 nicky nicky -"           # Podman graphroot
   ];
 }

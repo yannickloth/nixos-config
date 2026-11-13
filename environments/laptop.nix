@@ -20,6 +20,7 @@ with lib;
     # thermald prevents overheating on Intel CPUs and complements ppd; shared here
     # so all laptops get it (was previously duplicated in each host's hardware-configuration.nix).
     services.thermald.enable = mkDefault true;
+    services.power-profiles-daemon.enable = mkDefault true;
 
     # Compressed in-memory swap: gives effectively more usable RAM on machines
     # with soldered, non-upgradeable memory. Disk swap (if any) acts as overflow.

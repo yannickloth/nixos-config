@@ -2,10 +2,11 @@
 #
 # Base is stable nixpkgs (nixos-26.05, matching the NixOS hosts' root
 # flake.nix). The adults (nicky, aeiuno) additionally get opencode,
-# pi-coding-agent, jetbrains-toolbox and vscode overlaid from unstable
-# nixpkgs because those move fast (built-in AI features), plus the in-tree
-# hermes-agent, magpie and deepseek-harness packages. Kids (sven, aaron) stay
-# entirely on stable. See ../overlays/ai-unstable.nix.
+# opencode-desktop, pi-coding-agent, herdr, jetbrains-toolbox and vscode
+# overlaid from unstable nixpkgs because those move fast (built-in AI
+# features), plus the in-tree hermes-agent, magpie and deepseek-harness
+# packages. Kids (sven, aaron) stay entirely on stable. See
+# ../overlays/ai-unstable.nix.
 {
   description = "Standalone home-manager configs for each family user";
 
@@ -18,7 +19,7 @@
     };
     agenix.url = "github:ryantm/agenix";
     # Strata (github.com/Niko1221/Strata) is not a flake input: packages/strata
-    # fetches it directly with fetchFromGitHub, pinned to v0.1.43.1.
+    # fetches it directly with fetchFromGitHub, pinned to v0.2.13.
     # Same hermes-agent packaging inputs as the root flake (see
     # packages/hermes-agent).
     pyproject-nix.url = "github:nix-community/pyproject.nix";
@@ -34,13 +35,21 @@
   outputs = { nixpkgs, nixpkgs-unstable, home-manager, agenix, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
     let
       system = "x86_64-linux";
+      # Keep in sync with roles/system.nix: podman-desktop pulls electron_42,
+      # which newer nixpkgs marks EOL (only the annotation is new; see the
+      # comment there).
+      permittedInsecure = [
+        "electron-42.11.18"
+      ];
       stablePkgs = import nixpkgs {
         inherit system;
         config.allowUnfree = true;
+        config.permittedInsecurePackages = permittedInsecure;
       };
       unstablePkgs = import nixpkgs-unstable {
         inherit system;
         config.allowUnfree = true;
+        config.permittedInsecurePackages = permittedInsecure;
       };
       hermesAgent = unstablePkgs.callPackage ../packages/hermes-agent {
         inherit uv2nix pyproject-nix pyproject-build-systems;
@@ -66,7 +75,7 @@
         ];
       };
     in
-    {
+    let
       homeConfigurations = {
         # Default targets. nicky is deployed on laptop-p16 (CachyOS).
         nicky = mkHome "nicky" "laptop-p16" adultPkgs;
@@ -74,5 +83,44 @@
         sven = mkHome "sven" "laptop-p16" stablePkgs;
         aaron = mkHome "aaron" "laptop-p16" stablePkgs;
       };
+
+      checks = {
+        x86_64-linux =
+          let
+            lib = nixpkgs.lib;
+            # Standalone home-manager picks up the CachyOS-only key bootstrap,
+            # so this is where its generated script is testable.
+            scripts = {
+              ssh-key-bootstrap = stablePkgs.writeText "ssh-key-bootstrap.sh"
+                homeConfigurations.nicky.config.home.activation.installFamilySshKey.data;
+            };
+            scriptFiles = lib.attrValues scripts;
+          in
+          {
+            # Force each user's HM evaluation (the same drvPath the deploy builds).
+            eval = stablePkgs.runCommandLocal "users-eval" { } ''
+              cat > $out <<EOF
+              ${builtins.unsafeDiscardStringContext homeConfigurations.nicky.activationPackage.drvPath}
+              ${builtins.unsafeDiscardStringContext homeConfigurations.aeiuno.activationPackage.drvPath}
+              ${builtins.unsafeDiscardStringContext homeConfigurations.sven.activationPackage.drvPath}
+              ${builtins.unsafeDiscardStringContext homeConfigurations.aaron.activationPackage.drvPath}
+              EOF
+            '';
+
+            scripts-syntax = stablePkgs.runCommandLocal "users-scripts-syntax" {
+              nativeBuildInputs = [ stablePkgs.bash stablePkgs.shellcheck ];
+            } ''
+              set -euo pipefail
+              ${lib.concatMapStringsSep "\n" (f: ''
+                bash -n ${f}
+                shellcheck -s bash -S error -e SC1091,SC2148 ${f}
+              '') scriptFiles}
+              touch $out
+            '';
+          };
+      };
+    in
+    {
+      inherit checks homeConfigurations;
     };
 }
