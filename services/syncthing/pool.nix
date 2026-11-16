@@ -32,6 +32,11 @@
       # The matching cert/key live in secrets/syncthing/laptop-travelmate/*.age.
       id = "76JTNVQ-YTC4Q7I-OKPUBFE-Q3GN6H6-YTXEI5E-SFL62L5-FB6YCCN-RRPWVQU";
     };
+    "desktop-leto" = {
+      # Pre-generated so the device ID is stable and known ahead of install.
+      # The matching cert/key live in secrets/syncthing/desktop-leto/*.age.
+      id = "WZXCFCW-YSI72OI-VK4K7QM-WGZ3B35-5CXFX5M-GKDBLHG-NWX32C2-H5UDWQM";
+    };
     "nestor" = {
       id = "X2BF7X6-AR33BUE-32MXKRW-VTRRVJM-53DNXSQ-AN26QLX-DOMXCFS-DYJU4Q3";
     };
@@ -65,7 +70,7 @@
   folders = {
     "00-09 - Management and Meta" = {
       id = "k7t9g-2y5as";
-      devices = [ "hassio" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "hassio" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
     };
     "10-19 - Personnes et Animaux" = {
       id = "pz9yw-7sppl";
@@ -133,7 +138,7 @@
     };
     "FileDrop" = {
       id = "hgetx-7cc6x";
-      devices = [ "phone-pixel3a" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "phone-pixel3a" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
     };
     "FileDropRandstadDigital" = {
       id = "nffhs-npqjb";
@@ -157,7 +162,7 @@
     };
     "christine" = {
       id = "4wsaa-aspyf";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
     };
     "christine-dot-mozilla" = {
       id = "k26ga-rhpeq";
@@ -191,7 +196,7 @@
     };
     "notes" = {
       id = "kjauq-uhiyv";
-      devices = [ "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
     };
     "software" = {
       id = "haoqu-jdh4f";
@@ -202,12 +207,12 @@
       # inside, e.g. /sync/sven/Desktop). ACLs in services/syncthing/default.nix
       # give sven rw access; parents reach it via the syncthing group.
       id = "505dc-fc5ae";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
     };
     "aaron" = {
       # Per-person folder for aaron, same layout as sven (/sync/aaron/<XDG dir>).
       id = "b086b-540d2";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
     };
     "yannick" = {
       id = "pjpya-zmdwj";

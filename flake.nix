@@ -461,7 +461,7 @@
           };
 
           # Gigabyte GA-B85-HD3 (Socket 1150) + Intel Core i7 4th Gen
-          # + AMD Radeon RX 580 8GB + 32 GB RAM
+          # + AMD Radeon RX 580 8GB + 8 GB RAM
           desktop-leto = mkHost {
             configModule = ./hosts/desktop-leto/desktop-leto-configuration.nix;
           };

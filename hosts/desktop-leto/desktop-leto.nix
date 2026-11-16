@@ -3,9 +3,7 @@
 with lib;
 {
   imports = [
-    # Include the results of the hardware scan.
-    # Run `nixos-generate-config --show-hardware-config > ...` after first boot
-    # to get the real values for disk, swap, and mount options.
+    # Include the results of the hardware scan (generated on real hardware).
     ./hardware-configuration.nix
 
     # Shared family-laptop module set (IVP; desktops get the same apps, games,
@@ -68,7 +66,7 @@ with lib;
   # CPU   │ Intel Core i7-4771 (Haswell-R, Q4 2014) — 4C/8T, 3.5 GHz
   #       │ Base 3.5 / Turbo 3.9, AVX2, 8 MB L3, HD Graphics 4600
   #       │ EOL: peak of socket 1150; no CPU upgrade path
-  # RAM   │ 4× DDR3 UDIMM, max 32 GB (4×8 GB), 1600 MHz
+  # RAM   │ 1× DDR3 UDIMM, 8 GB, 1600 MHz (1 of 4 slots populated)
   #       │ No ECC, no RDIMM; DDR3L works at 1.5 V
   # PCIe  │ 1× PCIe 3.0 x16 (full), 1× PCIe 3.0 x16-phys/x4-electrical
   #       │ 2× PCIe 2.0 x1 — no SLI, no CXL, no native NVMe
@@ -83,20 +81,10 @@ with lib;
   # enabling graphics is enough for both X11 and Wayland/Plasma.
   hardware.graphics.enable = true;
 
-  # --- CPU (Haswell) ---
-  # 4th-gen Intel: enable microcode + CPU refresh.
-  hardware.cpu.intel.updateMicrocode = true;
-
   # --- Bootloader ---
-  # B85 chipset supports basic UEFI but is safest with GRUB for mixed
-  # legacy/UEFI installs. If your BIOS is set to UEFI-only, systemd-boot
-  # works just as well; swap this block if you prefer it.
-  boot.loader.grub = {
-    enable = true;
-    device = "nodev"; # UEFI or BIOS (GRUB handles both)
-    efiSupport = true;
-    useOSProber = true;
-  };
+  # UEFI boot via systemd-boot (matches the running system).
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
 
   # --- Boot / Power ---
   # No laptop-specific power management (no thermald, no suspend-on-lid).
@@ -105,11 +93,6 @@ with lib;
     Login.HandleLidSwitch = "ignore";
     Login.HandleLidSwitchExternalPower = "ignore";
   };
-
-  # --- ZRAM + Swap ---
-  # 32 GB RAM is plenty, but zram still reduces disk wear for cache-heavy workloads.
-  zramSwap.memoryPercent = 25; # 8 GiB compressed in RAM
-  swapDevices = [{ device = "/swapfile"; size = 8192; }]; # 8 GiB disk overflow
 
   # --- Networking ---
   # DNS: same Tailscale-first resolver as the laptops.
@@ -120,38 +103,15 @@ with lib;
   ];
 
   # --- Nix ---
-  # 32 GB RAM -> faster parallel builds (12 jobs, all cores).
-  roles.nix.maxJobs = 12;
-  roles.nix.cores = 0;
+  # 8 GB RAM -> limit parallel builds to avoid OOM.
+  roles.nix.maxJobs = 2;
 
   # --- Syncthing (reduced folder set — desktop-leto has limited disk) ---
-  # The shared pool.nix syncs 37 folders to every laptop. Desktop-leto only
-  # gets the small/metadata ones: kids folders, notes, FileDrop, and meta.
-  # All photo/music/backup/finance folders are excluded to save disk space.
-  services.syncthing.settings.folders = let
-    pool = import ../../services/syncthing/pool.nix;
-    selected = [
-      "00-09 - Management and Meta"
-      "sven"
-      "aaron"
-      "notes"
-      "FileDrop"
-      "christine"
-    ];
-  in lib.listToAttrs (
-    map (label: {
-      name = label;
-      value = let f = pool.folders.${label}; in {
-        inherit (f) id;
-        label = label;
-        type = "sendreceive";
-        rescanIntervalS = 3600;
-        versioning = { type = "staggered"; params.maxAge = "31536000"; };
-        path = "${config.services.syncthing.dataDir}/${label}";
-        devices = f.devices;
-      };
-    }) selected
-  );
+  # The shared pool.nix (services/syncthing/pool.nix) is the single source of
+  # truth: desktop-leto is listed only in the small/metadata folders (kids
+  # folders, notes, FileDrop, and meta). All photo/music/backup/finance folders
+  # are excluded to save disk space. The module derives the folder set from the
+  # pool via selectFoldersForHost, so nothing is declared here.
 
   # --- Kids / Parental ---
   # Apply the family kid-security / gaming policy (malcontent, apparmor profiles).
