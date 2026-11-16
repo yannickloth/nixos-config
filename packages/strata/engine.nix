@@ -70,12 +70,10 @@
 # (STRATA_IQ256_GATHER, upstream PR #622) is upstream as of 0.1.40, behind
 # per-thread selection (see packages/strata/default.nix). The engine-lifecycle
 # API this comment used to mention is upstream as of 0.1.31 (--idle-unload).
-# Pinned to Strata 0.2.13 (d2f0964), whose engine is 0.1.59: the 0.2 releases
-# split the engine from the app/Terminal (separately versioned from now on) and
-# bumped the engine to 0.1.46 -> 0.1.47 -> 0.1.48 -> 0.1.50 -> 0.1.51 -> 0.1.55 -> 0.1.56 -> 0.1.57 -> 0.1.58 -> 0.1.59 -
-# 0.1.58 added a tuned DFlash2 drafter and faster 12 GB card prompts;
-# 0.1.59 adds new DFlash2 defaults per card, faster app start, Strix Halo
-# Terminal launch fix, Linux expert store via file cache fix, and Qwen4 groundwork.
+# Pinned to Strata 0.2.14.1, whose engine is 0.1.60: this is a control-only
+# update over 0.1.59 — the Terminal and Control move to 0.2.14.1 / 0.1.60.1,
+# but the CUDA engine stays 0.1.60. The 0.1.60 engine is the same CUDA build
+# as in v0.2.14; only the Terminal/Control paths changed.
 # changes matter to this package: the K-quant MMQ prompt kernels moved into
 # libstrata_kq.so, which the engine dlopens from its own folder (installed
 # beside the binary below; without it those experts take the FP16 prompt path),
@@ -105,15 +103,14 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "d2f096475817d4666c364c820b0ca830f751cfc5";  # v0.2.13 (tag object fb57f74 peeled); engine 0.1.59
-    hash = "sha256-ygLtDYyrwfRKez46xKnPkO7BtY0Q4uMwxlvh3JyUHbE=";
+    rev = "v0.2.14.1";  # Control-only update: Terminal 0.2.14.1, Control 0.1.60.1; engine 0.1.60
+    hash = "sha256-7BFNNY6qf6vniKz7QnU3vBCkWBLoYiUNU64cyNy4XKY=";
   },
   # The engine's own version (CMakeLists.txt's project(VERSION ...)), passed from
   # default.nix. Since Strata 0.2.0 the engine is versioned apart from the app:
-  # the v0.2.13 tree builds engine 0.1.59 while the app is 0.2.13 (since 0.2.4
-  # the releases also ship separately versioned engine packages, 0.1.59 in
-  # v0.2.13).
-  engineVersion ? "0.1.59",
+  # the v0.2.14.1 tree builds engine 0.1.60 while the app is 0.2.14.
+  # (Since 0.2.4 the releases also ship separately versioned engine packages.)
+  engineVersion ? "0.1.60",
   llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
     repo = "llama.cpp";

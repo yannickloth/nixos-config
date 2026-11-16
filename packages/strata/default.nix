@@ -128,10 +128,11 @@
   # workarounds that have no flag. Empty by default; see
   # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.13 (d2f0964;
-  # tag object fb57f74 peeled to that commit).
-  # That tag's engine is 0.1.59 (see engine.nix; since 0.2.4 the release's engine
-  # packages carry their own version, the CMake project version says 0.1.59).
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.14.1 (control-only
+  # update: Terminal 0.2.14.1, Control 0.1.60.1 for Windows, Linux and Mac;
+  # engines and app stay 0.2.14 / 0.1.60).
+  # That tag's engine is 0.1.60 (see engine.nix; since 0.2.4 the release's engine
+  # packages carry their own version, the CMake project version says 0.1.60).
   # Engine 0.1.55 -> 0.1.56 changed one default that matters on this card:
   # DFlash2 became the default drafter for Qwen3.8 on sm_86 (drafting "Auto"
   # picked it; first start downloads ~1.2 GB and builds the drafter file locally
@@ -144,11 +145,9 @@
   # on some cards), faster 12 GB card prompts (UD-IQ4_XS-v31 x3 at 2K),
   # tool-call fixes, and a 12 GB start-up change: the second check no longer
   # counts the engine's own memory as free.
-  # Engine 0.1.59 (v0.2.13) adds new DFlash2 defaults per card (Strix Halo,
-  # UD-Q4_K_XL +5.2%; RTX PRO 5000 72 GB +2.8%), faster app start (3.12 MB ->
-  # 0.76 MB binary), Strix Halo Terminal launch fix, Linux expert store via
-  # file cache fix (#5327), Qwen4 groundwork (new engine download shapes),
-  # and removes several opt-in switches from finished experiments.
+  # Engine 0.1.60 (v0.2.14.1) is a control-only update: Terminal 0.2.14.1,
+  # Control 0.1.60.1 for Windows, Linux and the Mac; engines and app stay 0.2.14.
+  # This is a drop-in update over 0.1.59 / v0.2.13 for the CUDA engine on sm_86.
   # The 0.2 line's engine was a drop-in swap for the 0.1.47 this package was
   # last tuned against (the calibrated knobs and the bench numbers above carry
   # over); two measured comparisons behind that note, kept as history:
@@ -178,8 +177,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "d2f096475817d4666c364c820b0ca830f751cfc5";  # v0.2.13 (tag object fb57f74 peeled); engine 0.1.59
-    hash = "sha256-ygLtDYyrwfRKez46xKnPkO7BtY0Q4uMwxlvh3JyUHbE=";
+    rev = "v0.2.14.1";  # Control-only update: Terminal 0.2.14.1, Control 0.1.60.1; engine 0.1.60
+    hash = "sha256-ArbEf8k8qCBZEsFTuhPu1l8W+FU2auZiTVAOHj0ZvaY=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -193,11 +192,11 @@
 let
   # The Strata release this package is pinned to (its app version); the engine
   # it builds has its own version - see engineVersion below.
-  version = "0.2.13";
+  version = "0.2.14";
   # CMakeLists.txt's project(VERSION ...) in that tree. BUILD.json has to report
   # the ENGINE's version: setup.py compares it against MIN_ENGINE and against
   # the `engine=X.Y.Z` string compiled into the binary (stale_binary()).
-  engineVersion = "0.1.59";
+  engineVersion = "0.1.60";
 
   # VRAM kept free of expert-cache slots so request-time buffers (verify
   # graphs, prompt borrows, vision activations) never OOM; the auto sizer

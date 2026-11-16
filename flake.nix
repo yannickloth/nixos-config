@@ -459,6 +459,12 @@
             configModule = ./hosts/laptop-xps/laptop-xps-configuration.nix;
             extraModules = [ nixos-hardware.nixosModules.dell-xps-13-9360 ];
           };
+
+          # Gigabyte GA-B85-HD3 (Socket 1150) + Intel Core i7 4th Gen
+          # + AMD Radeon RX 580 8GB + 32 GB RAM
+          desktop-leto = mkHost {
+            configModule = ./hosts/desktop-leto/desktop-leto-configuration.nix;
+          };
         };
     };
 }
