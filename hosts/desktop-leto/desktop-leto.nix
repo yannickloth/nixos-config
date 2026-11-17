@@ -87,11 +87,29 @@ with lib;
   boot.loader.efi.canTouchEfiVariables = true;
 
   # --- Boot / Power ---
-  # No laptop-specific power management (no thermald, no suspend-on-lid).
-  # Instead, keep the desktop idle policies sensible for an always-on machine.
+  # The laptop policies in environments/laptop.nix (thermald,
+  # power-profiles-daemon, zram, upower) are inherited through
+  # family-laptop.nix and are harmless on a desktop. What matters here is
+  # keeping the machine out of the sleep states that upset the Wi-Fi card,
+  # so the idle policies below stay deliberately simple.
   services.logind.settings = {
     Login.HandleLidSwitch = "ignore";
     Login.HandleLidSwitchExternalPower = "ignore";
+  };
+
+  # --- Suspend ---
+  # The MT7925 (mt7925e) loses its firmware state over suspend-to-RAM on this
+  # board: every resume logs `pci_pm_resume returns -110`, mac80211 reports
+  # "Hardware became unavailable upon resume", the driver falls back to a full
+  # chip reset + firmware reload and wpa_supplicant re-associates ~15 s later
+  # (kernel bugzilla #220395; fix c182bfe944eb only lands in 7.4+/7.3.y).
+  # A desktop does not need S3, so refuse the sleep verbs rather than paying a
+  # Wi-Fi outage per suspend. Screen blanking/DPMS is unaffected.
+  systemd.sleep.settings.Sleep = {
+    AllowSuspend = false;
+    AllowHibernation = false;
+    AllowSuspendThenHibernate = false;
+    AllowHybridSleep = false;
   };
 
   # --- Networking ---
@@ -101,6 +119,45 @@ with lib;
     "1.1.1.3"
     "1.0.0.3"
   ];
+
+  # mt7925e ships 802.11 power save enabled (`iw dev wlp2s0 get power_save`
+  # reports "on") and it is a documented trigger for link drops and latency
+  # spikes on MT7925 (Ubuntu #2170180, openwrt/mt76 #1108). Measured neutral on
+  # this link so far, but keep it off — a desktop has no reason to save power
+  # on its only uplink.
+  networking.networkmanager.wifi.powersave = false;
+
+  # Keep the card out of PCIe ASPM as well. This board currently disables ASPM
+  # on every link (LnkCtl: ASPM Disabled), so this is insurance: a BIOS reset or
+  # a kernel default change would otherwise re-expose the L1.2 bug where pings
+  # to the AP spike to 0.4-2 s and TX retries sit at 30-50 % (Ubuntu #2170180).
+  # Scoped to mt7925e so the GPU/SATA links keep whatever the firmware allows.
+  boot.extraModprobeConfig = ''
+    options mt7925e disable_aspm=1
+  '';
+
+  # The Bluetooth half of the MT7925 is a USB function of the same combo module
+  # (13d3:3631). It currently sits in USB autosuspend (power/control=auto, 2 s),
+  # which is exactly the kind of sleep state worth refusing on a desktop that
+  # keeps its keyboard/mouse/gamepad bonded all day. hardware/bluetooth.nix only
+  # pins Intel 8087 controllers, so the MediaTek part is covered here.
+  services.udev.extraRules = ''
+    ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="13d3", ATTR{idProduct}=="3631", ATTR{power/control}="on"
+  '';
+
+  # Kernel stance for this card (checked against the sources, 2026-11-17):
+  # * Chip resets are unsafe on 7.3.0/7.3.1: c4edf9e3e0e5 (merged in v7.3-rc1)
+  #   sets the WM2 rx mask for a queue that has no NAPI, so mt7925e_mac_reset()
+  #   NULL-derefs in napi_disable() and freezes the box. The fix c182bfe944eb
+  #   is in v7.3.2+ — verified: 7.3.1 still ORs in MT_INT_RX_DONE_WM2, 7.3.2
+  #   and later don't. The nixpkgs pinned here still calls linux_7_3 = 7.3.1,
+  #   i.e. the one bad release, so do not pin it; the default linux_zen 7.2.15
+  #   predates that regression entirely. `nix flake update` first if you ever
+  #   want to move this host onto 7.3/7.4.
+  # * The resume side (Yi Cong's "do not report resume failure after reset
+  #   recovery") is not upstream yet; irrelevant while S3 is refused above.
+  # * Firmware is unchanged by a switch (linux-firmware 20261019) and the card
+  #   loads the current MT7925 patch image, so nothing to pin here.
 
   # --- Nix ---
   # 8 GB RAM -> limit parallel builds to avoid OOM.
