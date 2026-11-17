@@ -205,6 +205,37 @@
             touch $out
           '';
 
+          # services/printing.nix replaces nixpkgs' set -e ensure-printers script
+          # with one that warns (and exits 0) when a printer is switched off.
+          # The offline branch is the whole point, so run it here: a probe against
+          # TEST-NET-1 must take ~1 s, print the WARNING, and succeed.
+          printing-script = pkgs.runCommandLocal "printing-script" {
+            nativeBuildInputs = [ pkgs.cups ];
+          } ''
+            set -euo pipefail
+            export XDG_RUNTIME_DIR=$TMPDIR/rt
+            mkdir -p "$XDG_RUNTIME_DIR"
+
+            guard=${(pkgs.callPackage ./packages/printing/ensure-printers.nix {
+              ensurePrinters = [ ];
+            }).passthru.ensurePrinter}
+
+            # 192.0.2.0/24 is TEST-NET-1: never routable, so this is the
+            # "printer switched off" path without needing a real dead address.
+            start=$SECONDS
+            "$guard" Offline ipps://192.0.2.99/ipp/print everywhere Offline B31 \
+              >log 2>&1
+            elapsed=$((SECONDS - start))
+
+            grep -q 'WARNING: printer Offline (ipps://192.0.2.99/ipp/print) is off or unreachable' log
+            grep -q 'skipped: queue not created/refreshed' log
+            # The probe replaces a 30 s lpadmin timeout; allow slack for CI.
+            [ "$elapsed" -lt 10 ] || { echo "probe took ''${elapsed}s, expected <10s" >&2; exit 1; }
+            # A skipped queue is remembered for the retry timer.
+            [ "$(cat "$XDG_RUNTIME_DIR/ensure-printers/Offline.attempts")" = 1 ]
+            touch $out
+          '';
+
           python-compile = pkgs.runCommandLocal "python-compile" { nativeBuildInputs = [ pkgs.python3 ]; } ''
             python3 -c 'compile(open("${./packages/strata/config_patch.py}").read(), "config_patch.py", "exec")'
             touch $out
