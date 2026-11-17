@@ -483,7 +483,7 @@ in
         # failure only warns instead of aborting the whole switch.
         TRESORIT_INSTALLER=${pkgs.fetchurl {
           url = "https://installer.tresorit.com/tresorit_installer.run";
-          sha256 = "0xpw9a07hq5fxw6zb30csafz7kchpb257wag61sc271prax303zk";
+          sha256 = "106h54na02x27qx0m8qspk9iivp00x25dywki6gibxx7y9qrv8vi";
         }}
         if [ ! -f "$HOME/.local/share/tresorit/tresorit" ]; then
           echo "Installing Tresorit..."

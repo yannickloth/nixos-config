@@ -14,4 +14,5 @@ with lib;
 {
   home-manager.users.nicky._module.args.pkgs = mkForce (pkgs.extend aiOverlay);
   home-manager.users.aeiuno._module.args.pkgs = mkForce (pkgs.extend aiOverlay);
+  home-manager.users.sven._module.args.pkgs = mkForce (pkgs.extend aiOverlay);
 }
