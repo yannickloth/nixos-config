@@ -190,7 +190,7 @@ in
           export LD_LIBRARY_PATH=${unslothRuntimeLibs}:$LD_LIBRARY_PATH
           env UNSLOTH_SKIP_AUTOSTART=1 NO_COLOR=1 ${pkgs.bash}/bin/sh ${pkgs.fetchurl {
             url = "https://unsloth.ai/install.sh";
-            sha256 = "sha256-bnV8OcVEcBLTBVuxWhFNUb1h6EhX787VBEdfcao0JFQ=";
+            sha256 = "sha256-d02623a86827c491bb7793aa33c6fe089ac07760ced6266fb366ac33f23c8066";
           }}
         ' </dev/null || echo "unsloth-studio: installer failed (see output above); continuing" >&2
         # The line above swallows the installer's own failure, so verify the
