@@ -114,8 +114,17 @@ The decrypted secrets are mounted at the paths services already expect:
 | Syncthing device cert (per host) | `secrets/syncthing/<host>/cert.pem.age` | `/etc/nixos/secrets/syncthing/<host>/cert.pem` |
 | Syncthing device key (per host) | `secrets/syncthing/<host>/key.pem.age` | `/etc/nixos/secrets/syncthing/<host>/key.pem` |
 | nicky's AI API keys (home-manager) | `secrets/nicky.nix.age` | `$XDG_RUNTIME_DIR/agenix/nicky.nix` |
+| PostgreSQL `nicky` role password | `secrets/pg-nicky-password.age` | `/run/agenix/pg-nicky-password` (system), `$XDG_RUNTIME_DIR/agenix/pg-nicky-password` (home-manager) |
 | User login password hashes | `secrets/passwords/<user>.hash.age` | `/run/agenix/password-<user>` |
 | root break-glass password | `secrets/passwords/root.hash.age` | `/run/agenix/password-root` |
+
+The PostgreSQL password is the one secret whose **plaintext** is kept locally, at
+`ssh-keys/users/pg-nicky-password.txt` (gitignored, like the private keys), so it
+can be pasted into Datagrip/JetBrains when setting up a connection. It is also in
+`~/.pgpass` on every host, which the activation writes from the decrypted secret.
+Constraints, enforced by `services/postgresql.nix`: one line, no `:` — that is
+the `~/.pgpass` format, and a value with either is rejected rather than silently
+truncating the client's credentials.
 
 ## Threats / notes
 
