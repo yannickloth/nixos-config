@@ -92,8 +92,14 @@ in
                 Type = "oneshot";
                 RemainAfterExit = true;
                 ExecStart = pkgs.writeShellScript "flatpak-install-user" ''
-                  set -eu
+                  set -u
                   FLATPAK="${pkgs.flatpak}/bin/flatpak"
+                  # Apps that kept failing after the retries. The unit fails at
+                  # the end if any did, but only AFTER trying every app: with
+                  # `set -e` (the previous behaviour) one bad id aborted the
+                  # whole loop and silently skipped every app after it, which
+                  # is how five configured apps were never installed.
+                  failed=""
                   retry() {
                     local i=0
                     until "$@"; do
@@ -105,15 +111,27 @@ in
                       sleep 10
                     done
                   }
-                  retry "$FLATPAK" remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+                  # No network here means every install fails identically;
+                  # surface it once instead of 3x per app.
+                  if ! retry "$FLATPAK" remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; then
+                    echo "flatpak: remote flathub unavailable - skipping installs, will retry next login" >&2
+                    exit 1
+                  fi
                   ${concatStringsSep "\n" (map (app: ''
                     echo "flatpak: ensuring ${app} for ${config.home.username}"
-                    retry "$FLATPAK" install --user --noninteractive --or-update flathub ${escapeShellArg app}
+                    retry "$FLATPAK" install --user --noninteractive --or-update flathub ${escapeShellArg app} \
+                      || failed="$failed ${app}"
                   '') userApps)}
                   ${concatStringsSep "\n" (map (o: ''
                     echo "flatpak: override ${o.id}"
-                    retry "$FLATPAK" override --user ${escapeShellArgs o.args} ${escapeShellArg o.id}
+                    retry "$FLATPAK" override --user ${escapeShellArgs o.args} ${escapeShellArg o.id} \
+                      || failed="$failed override:${o.id}"
                   '') userOverrides)}
+                  if [ -n "$failed" ]; then
+                    echo "flatpak: these could not be installed:$failed" >&2
+                    echo "flatpak: check the id resolves: flatpak remote-info flathub app/<id>/x86_64/stable" >&2
+                    exit 1
+                  fi
                 '';
               };
             };

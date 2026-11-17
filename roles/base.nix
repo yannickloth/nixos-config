@@ -107,16 +107,23 @@ with lib;
     # copies of an app.
     # Note: KDE's Minesweeper is org.kde.kmines on Flathub (org.kde.Mines is a
     # nonexistent id), and replaces GNOME Mines (removed: duplicates kmines).
+    # Every id below MUST resolve on flathub, or the whole per-user install unit
+    # fails and skips the apps after it. Two were wrong and are now fixed:
+    #   - org.gnome.Clocks -> org.gnome.clocks (Flathub uses the lowercase id)
+    #   - org.gnome.SystemMonitor -> removed, it is not on Flathub at all
+    #     (`flatpak remote-info flathub org.gnome.SystemMonitor` finds no ref).
+    #     It was a default desktop tool rather than a gated kids' app; add it
+    #     natively to home-manager (pkgs.gnome-system-monitor) if wanted.
+    # Check a new id with: flatpak remote-info flathub app/<id>/x86_64/stable
     apps.flatpak = {
       enable = mkDefault true;
       apps = [
         "app/org.gnome.Cheese/x86_64/stable"
-        "app/org.gnome.Clocks/x86_64/stable"
+        "app/org.gnome.clocks/x86_64/stable"
         "app/org.gnome.Geary/x86_64/stable"
         "app/org.gnome.Logs/x86_64/stable"
         "app/org.gnome.Maps/x86_64/stable"
         "app/org.gnome.Nibbles/x86_64/stable"
-        "app/org.gnome.SystemMonitor/x86_64/stable"
         "app/org.gnome.Chess/x86_64/stable"
         "app/org.atheme.audacious/x86_64/stable"
         "app/org.kde.granatier/x86_64/stable"
@@ -154,11 +161,10 @@ with lib;
       ];
       adultApps = [
         "app/org.gnome.Cheese/x86_64/stable"
-        "app/org.gnome.Clocks/x86_64/stable"
+        "app/org.gnome.clocks/x86_64/stable"
         "app/org.gnome.Geary/x86_64/stable"
         "app/org.gnome.Logs/x86_64/stable"
         "app/org.gnome.Maps/x86_64/stable"
-        "app/org.gnome.SystemMonitor/x86_64/stable"
         "app/org.stellarium.Stellarium/x86_64/stable"
       ];
       overrides = {
