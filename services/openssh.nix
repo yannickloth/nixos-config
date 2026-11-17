@@ -15,8 +15,12 @@ with lib;
     # via `sudo` from a wheel account.
     services.openssh.settings = {
       PermitRootLogin = mkDefault "no";
-      # Password auth stays enabled (the default): keys are not installed on
-      # every laptop yet. Revisit once authorized_keys are deployed everywhere.
+      # Password auth stays enabled (the default). NOTE: the stated reason no
+      # longer holds - services/sshUserKeys.nix installs the family identities
+      # on all four hosts, so key login works everywhere. Kept as-is because
+      # disabling password auth is a separate decision (recovery access,
+      # non-NixOS peers); flip PasswordAuthentication to false here when that is
+      # settled.
     };
   };
 }

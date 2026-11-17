@@ -49,8 +49,11 @@ with lib;
           # "https://attic.xuyh0120.win/lantian"
           #"https://xtruder-public.cachix.org"
         ]
-        # Distributed builds over Tailscale: each host is a nix-serve cache for the
-        # other two (access to port 5000 is Tailscale-only, see laptop-firewall.nix).
+        # Distributed builds over Tailscale: the three laptops are nix-serve
+        # caches for each other (access to port 5000 is Tailscale-only, see
+        # laptop-firewall.nix). desktop-leto is deliberately absent: it has no
+        # per-host signing key in secrets/, so it both provides no cache and
+        # does not substitute from the others.
         ++ (if (config.networking.hostName != "laptop-xps") then [ "http://laptop-xps.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-xps as a nix store cache
         ++ (if (config.networking.hostName != "laptop-hera") then [ "http://laptop-hera.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-hera as a nix store cache
         ++ (if (config.networking.hostName != "laptop-p16") then [ "http://laptop-p16.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-p16 as a nix store cache

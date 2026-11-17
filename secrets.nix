@@ -12,11 +12,22 @@
 # STRATEGY: per-secret recipient sets — there is no global "all" union. Each
 # secret is encrypted only to the keys that must decrypt it:
 #   - host-wide system secrets (syncthing GUI password, opencode provider keys,
-#     login password hashes) -> `hosts` (every host key)
+#     login password hashes, the family SSH identities, the PostgreSQL role
+#     password) -> `hosts` (every host key)
 #   - a host's Syncthing device identity -> that host's key only
 #   - nicky's personal API keys -> `user-nicky` + `hosts` (for recovery)
+#   - the PostgreSQL role password -> `hosts` + `user-nicky` + `user-aeiuno`.
+#     It is consumed twice: by the system unit (host key) and by nicky's
+#     home-manager ~/.pgpass wiring (user key). user-aeiuno is not required by
+#     any consumer today and could be dropped, but is kept so the file matches
+#     the scope the opencode keys use.
 # So a kid's (or another user's) key cannot read a secret it has no business
 # reading. See secrets-structure/README.md.
+#
+# `hosts` currently lists host-laptop-travelmate, which has no
+# nixosConfigurations entry (a spare identity kept for a future install).
+# That is harmless — an unused recipient only means the file can also be
+# decrypted with a key nobody deploys — but it is not a configured host.
 
 let
   # --- Recipients: SSH public keys -----------------------------------------

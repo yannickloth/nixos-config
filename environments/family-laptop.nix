@@ -1,5 +1,6 @@
-# Shared module set for every family laptop (laptop-hera, laptop-p16,
-# laptop-xps).
+# Shared module set for every family machine: laptop-hera, laptop-p16,
+# laptop-xps and desktop-leto. (The file keeps its historical name; it is no
+# longer laptop-only, so host deltas below include the desktop.)
 #
 # IVP: these 52 modules have the same change-driver set
 # {D-SERVICE, D-APP, D-DESKTOP, D-HARDWARE, D-SECURITY, D-SYSTEM} — they change
@@ -9,9 +10,11 @@
 #
 # Host-specific modules (kernel choice, per-host apps, RAM-dependent settings,
 # the home-manager user wiring) stay in hosts/<host>/<host>.nix. Current deltas:
-#   laptop-hera: apps/benchmark.nix
-#   laptop-p16:  apps/benchmark.nix, apps/obs-studio.nix, apps/wine.nix
-#   laptop-xps:  apps/noson.nix, apps/wine.nix, desktop/plasma.nix
+#   laptop-hera:  apps/benchmark.nix
+#   laptop-p16:   apps/benchmark.nix, apps/obs-studio.nix, apps/wine.nix
+#   laptop-xps:   apps/noson.nix, apps/wine.nix, desktop/plasma.nix
+#   desktop-leto: desktop/plasma.nix, apps/wine.nix, plus its own GPU/Wi-Fi
+#                 hardening and Unsloth backend overrides
 { ... }:
 
 {
@@ -86,17 +89,19 @@
     ../services/tor.nix
   ];
 
-  # Distribute the family SSH identities + authorized_keys on every laptop
-  # (see services/ssh-user-keys.nix).
+  # Distribute the family SSH identities + authorized_keys on every host
+  # (see services/ssh-user-keys.nix). Not laptop-specific: desktop-leto gets
+  # them too.
   services.sshUserKeys.enable = true;
 
-  # /data is a separate LUKS+btrfs volume on laptop-p16 and laptop-hera;
-  # laptop-xps has no second drive, so on that host these rules also create
-  # /data itself as a plain root-disk directory (tmpfiles creates the leading
-  # dir as root, the subdirs below as the appropriate user).
+  # /data is a separate LUKS+btrfs volume on laptop-p16 and laptop-hera.
+  # On the hosts without a second drive (laptop-xps, desktop-leto) these rules
+  # create /data itself as a plain root-disk directory, so their data is not
+  # encrypted at rest; tmpfiles creates the leading dir as root and the subdirs
+  # below as the appropriate user.
   systemd.tmpfiles.rules = [
-    "d /data 0755 root root -"                       # root FS dir on xps; mount point on hera/p16
-    "d /data/postgres 0750 postgres postgres -"       # PostgreSQL 18 cluster on all hosts
+    "d /data 0755 root root -"                       # root-FS dir on xps/leto; mount point on hera/p16
+    "d /data/postgres 0750 postgres postgres -"       # PostgreSQL 18 cluster
     "d /data/unsloth 0700 nicky nicky -"              # Unsloth Studio model data
     "d /data/containers 0755 nicky nicky -"           # Podman graphroot
   ];

@@ -56,7 +56,8 @@
 # collide; a second instance needs its own $HOME prefix as well as its own
 # port. Other users on the host simply point their clients at
 # http://127.0.0.1:<port>. For the API to be up no matter who is logged in,
-# the host must set `users.users.nicky.linger = true` (all three hosts do).
+# the host must set `users.users.nicky.linger = true` (every host that enables
+# this does: laptop-hera, laptop-p16, laptop-xps, desktop-leto).
 # Today it is enabled for nicky only; aeiuno's opencode reaches the same
 # endpoint (users/aeiuno/aeiuno-hm.nix records why, and how to give her her
 # own on a host she owns alone: the import plus `unsloth-studio.enable`).

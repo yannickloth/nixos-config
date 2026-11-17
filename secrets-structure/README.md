@@ -25,8 +25,15 @@ belong to (plus a KeePassXC backup for reinstall recovery).
 
 | Entity | Private key | Installed at | Decrypts |
 |--------|-------------|--------------|----------|
-| host `laptop-*` | `ssh-keys/hosts/<host>` | `/etc/ssh/ssh_host_ed25519_key` on that host | system secrets |
+| host `laptop-*` / `desktop-leto` | `ssh-keys/hosts/<host>` | `/etc/ssh/ssh_host_ed25519_key` on that host | system secrets |
 | user `nicky` | `ssh-keys/users/nicky` | `~/.ssh/agenix_nicky` | nicky's home-manager secrets |
+| user `aeiuno` | `ssh-keys/users/aeiuno` | `~/.ssh/agenix_aeiuno` | the shared opencode provider keys, on the CachyOS standalone home-manager only |
+
+`hosts` in `secrets.nix` also carries `host-laptop-travelmate`, a spare identity
+for a machine that is not (yet) in `nixosConfigurations`.
+
+Only nicky's home-manager mounts the PostgreSQL password (`users/nicky/nicky-hm.nix`);
+aeiuno's decrypts the opencode keys and nothing else.
 
 **Backup rule:** all private keys in `ssh-keys/` are backed up in **KeePassXC**
 (see `scripts/agenix-backup.sh`). On reinstall, restore the key to its machine to

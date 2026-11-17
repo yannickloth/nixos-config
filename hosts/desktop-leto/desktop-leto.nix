@@ -87,11 +87,13 @@ with lib;
   boot.loader.efi.canTouchEfiVariables = true;
 
   # --- Boot / Power ---
-  # The laptop policies in environments/laptop.nix (thermald,
-  # power-profiles-daemon, zram, upower) are inherited through
-  # family-laptop.nix and are harmless on a desktop. What matters here is
-  # keeping the machine out of the sleep states that upset the Wi-Fi card,
-  # so the idle policies below stay deliberately simple.
+  # This host imports environments/laptop.nix (via family-laptop.nix), so it
+  # also gets that file's laptop policies: thermald, power-profiles-daemon,
+  # zram (mkDefault 50% of RAM) and upower. They are not harmful here and zram
+  # is genuinely useful on an 8 GB box with no second drive, so they are left
+  # on rather than un-pinned per host. upower finds no battery and idles.
+  # What matters here is keeping the machine out of the sleep states that upset
+  # the Wi-Fi card, so the idle policies below stay deliberately simple.
   services.logind.settings = {
     Login.HandleLidSwitch = "ignore";
     Login.HandleLidSwitchExternalPower = "ignore";
@@ -145,23 +147,38 @@ with lib;
     ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="13d3", ATTR{idProduct}=="3631", ATTR{power/control}="on"
   '';
 
-  # Kernel stance for this card (checked against the sources, 2026-11-17):
-  # * Chip resets are unsafe on 7.3.0/7.3.1: c4edf9e3e0e5 (merged in v7.3-rc1)
-  #   sets the WM2 rx mask for a queue that has no NAPI, so mt7925e_mac_reset()
-  #   NULL-derefs in napi_disable() and freezes the box. The fix c182bfe944eb
-  #   is in v7.3.2+ — verified: 7.3.1 still ORs in MT_INT_RX_DONE_WM2, 7.3.2
-  #   and later don't. The nixpkgs pinned here still calls linux_7_3 = 7.3.1,
-  #   i.e. the one bad release, so do not pin it; the default linux_zen 7.2.15
-  #   predates that regression entirely. `nix flake update` first if you ever
-  #   want to move this host onto 7.3/7.4.
-  # * The resume side (Yi Cong's "do not report resume failure after reset
-  #   recovery") is not upstream yet; irrelevant while S3 is refused above.
-  # * Firmware is unchanged by a switch (linux-firmware 20261019) and the card
-  #   loads the current MT7925 patch image, so nothing to pin here.
+  # Kernel stance for this card. The rule, not a snapshot - re-check it after
+  # every `nix flake update`, because linux_zen follows nixpkgs on its own:
+  #
+  #   * 7.3.0 and 7.3.1 are UNSAFE. c4edf9e3e0e5 (merged in v7.3-rc1) sets the
+  #     WM2 rx mask for a queue that has no NAPI, so mt7925e_mac_reset()
+  #     NULL-derefs in napi_disable() and freezes the box. A reset happens on
+  #     firmware errors and RX hangs too, not just on suspend, so the S3 refusal
+  #     above does not cover this one.
+  #     => acceptable: <= 7.2.x (predates the regression) or >= 7.3.2.
+  #   * 7.3.2+ carries the fix c182bfe944eb. It does not fix resume: Yi Cong's
+  #     "do not report resume failure after reset recovery" is not upstream yet,
+  #     which is why S3 stays refused above. Irrelevant while S0ix/S3 are off.
+  #   * Firmware comes from linux-firmware (20261019 at the time of writing) and
+  #     the card loads the current MT7925 patch image, so a kernel switch does not
+  #     change it; nothing to pin there.
+  #
+  # Nothing in this file pins a kernel: the hardening below (powersave off, no
+  # ASPM, BT out of autosuspend, sleep verbs refused) is version-independent and
+  # survives an update unchanged. Check the version with:
+  #   nix eval --raw .#nixosConfigurations.desktop-leto.pkgs.linuxKernel.packages.linux_zen.kernel.version
+  # If an update lands on 7.3.0/7.3.1, pin this host to linux_7_2 (or any attr
+  # >= 7.3.2) in mkHost until the next update.
 
   # --- Nix ---
   # 8 GB RAM -> limit parallel builds to avoid OOM.
   roles.nix.maxJobs = 2;
+
+  # nicky's Unsloth Studio (enabled for this host in desktop-leto.nix) is a
+  # user service that must be up no matter who is logged in: without lingering
+  # it dies with the last session of that user. packages/unsloth-studio/home.nix
+  # states the requirement; every other host sets it, this one was missing it.
+  users.users.nicky.linger = true;
 
   # --- Syncthing (reduced folder set — desktop-leto has limited disk) ---
   # The shared pool.nix (services/syncthing/pool.nix) is the single source of
