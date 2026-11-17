@@ -629,16 +629,28 @@ in
   };
 
   # Wire ~/.pgpass so Datagrip and other IDE clients authenticate over TCP
-  # without prompting for a password.  The raw secret is mounted at
+  # without prompting for a password. The raw secret is mounted at
   # $XDG_RUNTIME_DIR/agenix/pg-nicky-password by the home-manager age block
-  # above.  Written inside the home.activation directory so $DRY_RUN_CMD is
+  # above. Written inside the home.activation directory so $DRY_RUN_CMD is
   # honoured during dry-run.
+  #
+  # Both spellings of the loopback host are listed: libpq (and pgpass) match
+  # the connection string *textually*, not the resolved address, so a client
+  # told to connect to "127.0.0.1" will not match a "localhost" entry. IDEs
+  # and psql get one or the other depending on how they were configured.
+  # Unix-socket connections use peer auth and need no entry at all.
   home.activation.pgpass = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     pw_file="$XDG_RUNTIME_DIR/agenix/pg-nicky-password"
     out="$HOME/.pgpass"
     if [ -f "$pw_file" ]; then
+      # $(cat) strips the secret's trailing newline(s) and printf adds exactly
+      # one back, so each entry is a single line whether or not the .age
+      # payload ends with a newline.
       pw=$($DRY_RUN_CMD cat "$pw_file")
-      $DRY_RUN_CMD printf 'localhost:5432:*:nicky:%s\n' "$pw" > "$out"
+      {
+        $DRY_RUN_CMD printf 'localhost:5432:*:nicky:%s\n' "$pw"
+        $DRY_RUN_CMD printf '127.0.0.1:5432:*:nicky:%s\n' "$pw"
+      } > "$out"
       $DRY_RUN_CMD chmod 0600 "$out"
     fi
   '';
