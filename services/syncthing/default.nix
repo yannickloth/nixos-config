@@ -133,11 +133,12 @@ in
       };
     };
 
-    # GUI on 8384 (LAN/Wi-Fi + tailnet, HTTPS enforced above) and the
-    # device-ID-authenticated sync port on 22000 (LAN and tailnet).
+    # GUI on 8384 (LAN/Wi-Fi + tailnet, HTTPS enforced above), device-ID
+    # authenticated sync port on 22000 (TCP and UDP, LAN and tailnet), and
+    # local discovery on UDP 21027 (LAN-only, broadcasts).
     networking.firewall = {
       allowedTCPPorts = [ 8384 22000 ];
-      allowedUDPPorts = [ 22000 ];
+      allowedUDPPorts = [ 22000 21027 ];
     };
 
     # --- Access control ---
