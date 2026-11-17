@@ -362,12 +362,10 @@
         # function attrs into the package set (and, in users/common-hm.nix,
         # leak into home.packages via builtins.attrValues).
         #
-        # Left at the default cachyos = false: these generic attributes are the
-        # plain wrapper for `nix build` / `nix-update`. The CachyOS laptop-p16
-        # deployment opts into the bundled GPU/audio stack via the host-aware
-        # install in users/common-hm.nix.
+        # Generic derivation set for `nix build` / `nix-update`. Uses tarballs
+        # with stdenvNoCC (no FHS sandbox, no CachyOS extras).
         (import ./packages/craft-apps {
-          inherit (pkgs) lib appimageTools fetchurl;
+          inherit (pkgs) lib fetchurl stdenvNoCC;
         })
         // {
           # Strata (packages/strata): CUDA inference engine for the A3000

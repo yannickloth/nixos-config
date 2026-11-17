@@ -92,11 +92,6 @@
     # `overrideDerivation` functions into home.packages below) so they land for
     # everyone regardless of whether the ai-unstable overlay is applied to this
     # user's pkgs; attrValues expands the attribute set into home.packages.
-    #
-    # cachyos gates the host-specific GPU/audio stack bundled into the wrapper
-    # (Mesa, VA-API, PipeWire/PulseAudio ALSA config): the CachyOS laptop-p16
-    # deployment has no /run/opengl-driver, the NixOS hosts do and keep the
-    # plain build.
     # Calculator trio for every user: `qalc` (units, currency, diff/solve/
     # factor, statistics, dates, number bases — no integration, that needs
     # maxima/sympy), `numbat` (dimension-checked science — unit errors are type
@@ -111,8 +106,7 @@
     home.packages =
       [ pkgs.zoxide pkgs.libqalculate pkgs.numbat pkgs.bc ]
       ++ builtins.attrValues (import ../packages/craft-apps {
-        inherit (pkgs) lib appimageTools fetchurl;
-        cachyos = config.commonHm.isCachyOS;
+        inherit (pkgs) lib fetchurl stdenvNoCC;
       })
       # Ioskeley Mono, CachyOS only. roles/fonts.nix installs it system-wide via
       # the NixOS `fonts.packages` option, which does not exist here: the

@@ -652,6 +652,18 @@ in
                 # (llm-harness-plugins/systemone) against the local decision API.
                 # Do not re-add a hosted Jev client here: it would send local
                 # judgment prompts to a third party.
+                #
+                # DesignCraft (packages/craft-apps): page layout/publishing
+                # (clean-room InDesign reimplementation). The CLI binary
+                # designcraft-cli serves MCP over stdio — ask it to make
+                # layouts, export, or run scripts.
+                designcraft = {
+                  type = "local";
+                  command = [ "${(import ../packages/craft-apps {
+                    inherit (pkgs) lib fetchurl stdenvNoCC;
+                  }).designcraft}/bin/designcraft-cli" "mcp" ];
+                  disabled = false;
+                };
               } // optionalAttrs (pkgs ? rea) {
                 # REA (packages/rea): reverse-engineering toolkit (native binaries,
                 # JS/Electron, .NET, websites, ...) served over stdio MCP. Only
