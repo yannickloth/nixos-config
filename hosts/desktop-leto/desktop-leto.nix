@@ -66,13 +66,17 @@ with lib;
   # CPU   │ Intel Core i7-4771 (Haswell-R, Q4 2014) — 4C/8T, 3.5 GHz
   #       │ Base 3.5 / Turbo 3.9, AVX2, 8 MB L3, HD Graphics 4600
   #       │ EOL: peak of socket 1150; no CPU upgrade path
-  # RAM   │ 1× DDR3 UDIMM, 8 GB, 1600 MHz (1 of 4 slots populated)
-  #       │ No ECC, no RDIMM; DDR3L works at 1.5 V
+  # RAM   │ 4× DDR3 UDIMM, 32 GB (8 GB each), 1600 MHz — pending
+  #       │ No ECC, no RDIMM; DDR3L works at 1.5 V. Upgrade for LLM
+  #       │ work (small models under ~10 GB quantized can run on CPU).
   # PCIe  │ 1× PCIe 3.0 x16 (full), 1× PCIe 3.0 x16-phys/x4-electrical
   #       │ 2× PCIe 2.0 x1 — no SLI, no CXL, no native NVMe
   # SATA  │ 6× SATA III (6 Gbps) — no M.2 slot
   # BIOS  │ Basic UEFI (GOP), CGA legacy — GRUB over systemd-boot
   # LAN   │ Realtek RTL8111G · Audio: Realtek ALC887
+  # WiFi  │ Mercusys MA37BE · WiFi 7 (802.11be) + Bluetooth 5.4
+  #       │ PCI-E 3.0 ×1 card (Realtek RTL8852BE chipset), ~4 W draw —
+  #       │ negligible on the +12 V rail.
   #       │ EOL: BIOS updates ceased ~2018, platform is dead
 
   # --- GPU / Display ---
@@ -85,6 +89,18 @@ with lib;
   # UEFI boot via systemd-boot (matches the running system).
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+
+  # --- PSU ---
+  # CoolerMaster RS460-PSAP-I3 · 460 W peak / 400 W continuous · +12 V rail
+  # 300 W (25 A). Peak system draw: i7-4771 (84 W) + RX 580 (185 W) +
+  # rest (~50 W) ≈ 319 W on the +12 V rail. The 400 W continuous rating
+  # leaves ~80 W of margin — sufficient for gaming and local LLM inference.
+  # Gaming pushes the GPU to its TDP wall; LLM inference via Vulkan pulls
+  # 100–150 W on the GPU. Neither exceeds the PSU's envelope.
+  # The real bottleneck for LLM work is the RAM: only sub-3 GB models fit
+  # in 8 GB, with very short context and slow generation. 32 GB DDR3 has been
+  # ordered; with that capacity 7B models (4-bit quantized ≈ 4–5 GB) can run
+  # with most of the model offloaded to system RAM.
 
   # --- Boot / Power ---
   # This host imports environments/laptop.nix (via family-laptop.nix), so it
