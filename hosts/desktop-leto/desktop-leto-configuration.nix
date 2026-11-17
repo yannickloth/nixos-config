@@ -27,5 +27,14 @@
   # game-specific emulators) on top of the shared family-gaming stack.
   environment.systemPackages = with pkgs; [
     lutris
+
+    # Optical media — built-in HL-DT-ST DVDRAM GH24NSB0 DVD±RW.
+    # k3b bundles its codec/burn deps (FLAC/MP3/OGG, cdrdao, dvdplusrwtools,
+    # libburn, libdvdcss) in its own wrapper, so no separate "extras" package.
+    kdePackages.k3b           # KDE disc burner (GUI)
+    brasero                   # GNOME disc burner (kids also use it)
+    dvdplusrwtools            # growisofs, dvd+rw-mediainfo (CLI DVD burning)
+    cdrkit                    # genisoimage — create ISO images from directories
+    handbrake                 # Rip DVD/Blu-ray to video (links libdvdcss itself)
   ];
 }

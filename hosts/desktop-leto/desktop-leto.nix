@@ -60,6 +60,13 @@ with lib;
   # Syncthing device name for this host (see services/syncthing/pool.nix).
   services.syncthing.self = "desktop-leto";
 
+  # --- Optical Drive ---
+  # HL-DT-ST DVDRAM GH24NSB0 · SATA DVD±RW · 24× CD-R / 16× DVD-R
+  # /dev/sr0 · kernel module: sr_mod (already in boot.initrd.availableKernelModules)
+  # EOL: DVD±RW drives are legacy; useful for occasional media install,
+  #       game disc backups, or reading older physical media.
+  #
+
   # --- Motherboard ---
   # Gigabyte GA-B85-HD3 · Socket 1150 · Intel B85 · Q3 2014
   # --------------------------------------------------------
@@ -196,11 +203,10 @@ with lib;
   # states the requirement; every other host sets it, this one was missing it.
   users.users.nicky.linger = true;
 
-  # --- Syncthing (reduced folder set — desktop-leto has limited disk) ---
+  # --- Syncthing ---
   # The shared pool.nix (services/syncthing/pool.nix) is the single source of
-  # truth: desktop-leto is listed only in the small/metadata folders (kids
-  # folders, notes, FileDrop, and meta). All photo/music/backup/finance folders
-  # are excluded to save disk space. The module derives the folder set from the
+  # truth: desktop-leto (2 TB disk) syncs all folders in the pool — exact same
+  # access config as the laptops. The module derives the folder set from the
   # pool via selectFoldersForHost, so nothing is declared here.
 
   # --- Kids / Parental ---
