@@ -49,8 +49,15 @@ in
     # family's Tailscale IPv6 prefix.
     networking.firewall.extraInputRules = ''
       # xRDP (remote desktop) — private LAN + Tailscale only
-      tcp dport 3389 ip saddr 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10 accept
-      tcp dport 3389 ip6 saddr fe80::/10, fc00::/7, fd7a:115c:a1e0::/48 accept
+      # (one address per line: nftables rejects bare comma-separated
+      # saddr lists — use `saddr { a, b }` if you want a set)
+      tcp dport 3389 ip saddr 192.168.0.0/16 accept
+      tcp dport 3389 ip saddr 10.0.0.0/8 accept
+      tcp dport 3389 ip saddr 172.16.0.0/12 accept
+      tcp dport 3389 ip saddr 100.64.0.0/10 accept
+      tcp dport 3389 ip6 saddr fe80::/10 accept
+      tcp dport 3389 ip6 saddr fc00::/7 accept
+      tcp dport 3389 ip6 saddr fd7a:115c:a1e0::/48 accept
     '';
 
     # Restart on failure so remote sessions survive transient X server crashes.
