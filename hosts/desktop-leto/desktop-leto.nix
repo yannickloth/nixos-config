@@ -302,6 +302,13 @@ in
   # local LLM work alongside compilation.
   roles.nix.maxJobs = 2;
 
+  # --- Nix-serve firewall (LAN access) ---
+  # laptop-firewall.nix (imported via family-laptop.nix) only allows port 5000
+  # from Tailscale. desktop-leto also serves on the local LAN.
+  networking.firewall.extraInputRules = ''
+    tcp dport 5000 ip saddr 192.168.178.0/24 accept # nix-serve LAN
+  '';
+
   # nicky's Unsloth Studio (enabled for this host in desktop-leto.nix) is a
   # user service that must be up no matter who is logged in: without lingering
   # it dies with the last session of that user. packages/unsloth-studio/home.nix

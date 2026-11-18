@@ -32,7 +32,8 @@ in
   # anything else either (an unrelated firewall change must not expose the
   # whole store). `services.nix-serve` has no serviceConfig passthrough, so
   # extend the unit directly.
-  systemd.services.nix-serve.serviceConfig.IPAddressAllow = [
+  systemd.services.nix-serve.serviceConfig.IPAddressAllow = mkIf
+    (config.networking.hostName != "desktop-leto" && config.networking.hostName != "server-nike") [
     "127.0.0.1/32"
     "::1/128"
     "100.64.0.0/10"
