@@ -4,9 +4,33 @@ with lib;
 
 let
   # fancontrol config — see the "--- Fan control ---" section below.
-  # Stays empty until `sudo pwmconfig` has been run on this machine; the
-  # fancontrol service is disabled while it is.
-  fanConfig = "";
+  fanConfig = ''
+    # desktop-leto — GA-B85-HD3: IT8728F (hwmon3) + coretemp (hwmon1).
+    # Identified on this machine 2026-11-18: pwm1 drives the CPU_FAN header
+    # (fan1, the loud one) — its hardware curve is bound to the CPU PECI
+    # temperature; pwm2/pwm3 are chassis-thermistor case-fan headers.
+    #
+    # The zen-kernel it87 driver switches this chip to manual mode when
+    # fancontrol writes 1 to pwm1_enable (kernel docs, Documentation/hwmon/
+    # it87.rst: "if you want to go for manual mode just write 1 to
+    # pwmN_enable"); fancontrol 3.6.2 does exactly that. Writing 0 instead
+    # means "on/off" mode, where the duty register is locked (EBUSY).
+    #
+    # Curve (i7-4771, 84 W, stock cooler): near-silent below 45 C (the fan's
+    # practical minimum is ~974 RPM even at 0 % duty), full speed at 75 C —
+    # well below the 100 C throttle point.
+    INTERVAL=10
+    DEVPATH=hwmon1=devices/platform/coretemp.0 hwmon3=devices/platform/it87.2608
+    DEVNAME=hwmon1=coretemp hwmon3=it8728
+    FCTEMPS=hwmon3/device/pwm1=hwmon1/temp1_input
+    FCFANS=hwmon3/device/pwm1=hwmon3/device/fan1_input
+    MINTEMP=hwmon3/device/pwm1=45
+    MAXTEMP=hwmon3/device/pwm1=75
+    MINSTART=hwmon3/device/pwm1=60
+    MINSTOP=hwmon3/device/pwm1=15
+    MINPWM=hwmon3/device/pwm1=0
+    MAXPWM=hwmon3/device/pwm1=255
+  '';
 in
 {
   imports = [
@@ -144,23 +168,25 @@ in
 
   # --- Fan control ---
   # The stock Intel cooler on the i7-4771 is the loudest part of the box.
-  # fancontrol (lm_sensors, installed in roles/system.nix) drives the
-  # motherboard's PWM fan headers from a software curve: the CPU runs a few
-  # degrees warmer but stays far below the 100 °C throttle point, so there
-  # is no performance cost — only less noise.
+  # fancontrol (lm_sensors, installed in roles/system.nix) drives pwm1 — the
+  # CPU_FAN header on the IT8728F Super I/O chip — from the coretemp curve
+  # in `fanConfig` above. The chip leaves its BIOS auto curve and follows the
+  # software one; the CPU runs a few degrees warmer but stays far below the
+  # 100 °C throttle point, so there is no performance cost — only less noise.
   #
-  # One-time setup on this machine:
-  #   1. sudo sensors-detect   (answer YES to the default probes)
-  #   2. sudo pwmconfig        (follow the prompts; writes /etc/conf.d/fancontrol)
-  #   3. Paste the content of /etc/conf.d/fancontrol into `fanConfig` at the
-  #      top of this file (optionally tune MINTEMP/MAXTEMP per fan).
-  #   4. sudo nixos-rebuild switch — the service enables itself once
-  #      fanConfig is no longer empty.
+  # The `it87` module is loaded at boot so the hwmon interface exists for
+  # fancontrol (and `sensors`). If the module or the fancontrol service is
+  # ever missing, the chip simply stays on its BIOS auto curve — safe by
+  # default, just louder.
   #
-  # The laptops don't need this: thermald + power-profiles-daemon + the UEFI
-  # fan profile are sufficient there.
+  # Tune: adjust MINTEMP/MAXTEMP/MINSTART/MINSTOP in fanConfig, then
+  # `sudo nixos-rebuild switch`. Check state with `sensors` (fan1 = CPU fan)
+  # and `systemctl status fancontrol`.
   hardware.fancontrol.config = fanConfig;
   hardware.fancontrol.enable = fanConfig != "";
+
+  # Super I/O chip driver (fan headers + hwmon readings for this board).
+  boot.kernelModules = [ "it87" ];
 
   # --- Bootloader ---
   # UEFI boot via systemd-boot (matches the running system).
