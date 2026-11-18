@@ -225,7 +225,7 @@ in
         # downloaded and installed whatever GitHub served at switch time.
         UNSLOTH_DESKTOP_APPIMAGE=${pkgs.fetchurl {
           url = "https://github.com/unslothai/unsloth/releases/download/v0.1.919-beta/Unsloth-Desktop-Linux.AppImage";
-          sha256 = "sha256-njci3ccfpyhm4tfqkrejqrgnseqk36v7da3a27szufw46xblfs5q";
+          sha256 = "1frc5dfcyvd1b5z0sdhqpzxas84irm29hj2ln16cw3ky8n48si3a";
         }}
         $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -Dm0755 "$UNSLOTH_DESKTOP_APPIMAGE" "$app"
       fi
