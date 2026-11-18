@@ -125,9 +125,11 @@ in
   # BIOS  │ Basic UEFI (GOP), CGA legacy — boots the NixOS systemd-boot
   #       │ entry (see the --- Bootloader --- section below)
   # LAN   │ Realtek RTL8111G · Audio: Realtek ALC887
-  # WiFi  │ MediaTek MT7925 (14c3:7925) · WiFi 7 (802.11be) 160 MHz 2×2
-  #       │ + Bluetooth 5.4 · PCI-E ×1 card (mt7925e), ~4 W draw —
-  #       │ negligible on the +12 V rail.
+  # WiFi  │ Mercusys MA37BE(UN) · BE6500 tri-band Wi-Fi 7 (802.11be)
+  #       │ 2882 + 2882 + 688 Mbps + Bluetooth 5.4
+  #       │ P/N 0852500047 · S/N 225B608001319
+  #       │ MediaTek MT7925 (Filogic 360, 14c3:7925) PCI-E ×1 card,
+  #       │ mt7925e driver, ~4 W draw — negligible on the +12 V rail.
   #       │ EOL: BIOS updates ceased ~2018, platform is dead
   #
   # --- Upgrades (4 paths) ---
