@@ -49,9 +49,12 @@ with lib;
 
 let
   keyfile = name: "{file:~/.config/opencode/keys/${name}.key}";
-  # Unsloth Studio is only installed on laptop-p16 (see nicky-hm.nix isP16),
-  # so gate the local provider on the same build-time condition.
-  isP16 = config.commonHm.hostName == "laptop-p16";
+  # Unsloth Studio (and the local inference endpoints it serves) run on the
+  # inference hosts laptop-p16 and server-nike (see the nicky-hm.nix gates),
+  # so gate the local provider entries on the same build-time condition.
+  hasLocalInference =
+    let hn = config.commonHm.hostName; in
+    hn == "laptop-p16" || hn == "server-nike";
 
   # Provider/model definitions shared by opencode and pi
   providers = {
@@ -266,7 +269,7 @@ let
         };
       };
     };
-  } // optionalAttrs isP16 {
+  } // optionalAttrs hasLocalInference {
     # Local Unsloth Studio server: OpenAI-compatible API on localhost
     # (:8888). The model list below is the server's *local library*
     # (`curl -H "Authorization: Bearer $KEY"
@@ -610,7 +613,7 @@ in
             # packages/laya MCP server (a separate streamable-HTTP endpoint on
             # port 8765) is gone with the package: Studio's Decision API serves
             # the same shape locally, so there is nothing else to register.
-            mcp = optionalAttrs isP16 {
+            mcp = optionalAttrs hasLocalInference {
               servers = {
                 # System One decision tools straight from local Unsloth Studio, so
                 # decisional prompts stay on this machine. Studio serves this
@@ -722,7 +725,7 @@ in
             };
           };
         in
-        builtins.toJSON (baseConfig // optionalAttrs isP16 {
+        builtins.toJSON (baseConfig // optionalAttrs hasLocalInference {
           # Default model on laptop-p16. 2026-11-06: back to the direct Strata
           # path, because this host's Studio cannot serve the window long-paper
           # work needs (KV on the 12 GB card: ~10k-17k tokens) while Strata

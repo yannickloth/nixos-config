@@ -9,15 +9,47 @@ with lib;
     ./hardware-configuration.nix
 
     # Minimal server environment: base policy, SSH, Tailscale, Syncthing, podman.
-    # No desktop, no gaming, no kids, no peripheral daemons.
+    # No gaming, no kids' services, no peripheral daemons.
     ../../environments/server.nix
+
+    # Desktop stack (KDE Plasma, same as the family hosts): server-nike is
+    # also used as a powerful desktop, not only as the inference server.
+    ../../desktop/console.nix
+    ../../desktop/pipewire.nix
+    ../../desktop/xserver.nix
+    ../../desktop/xwayland.nix
+    ../../desktop/plasma.nix
 
     # commonHm.hostName: home-manager modules cannot reach
     # config.networking.hostName, so the host name is passed explicitly. It
-    # gates host-specific HM (Unsloth/Strata/CLM on server-nike).
+    # gates host-specific HM (Unsloth/Strata/Orca on the inference hosts).
+    #
+    # Same user set and software config as laptop-p16: server-nike's intended
+    # use is inference (daily), with desktop use in between, so nicky's
+    # inference stack (Strata, Unsloth Studio with GPU passthrough, the
+    # always-on Orca server) runs here too — see the isP16 || isNike gates in
+    # users/nicky/nicky-hm.nix.
+    {
+      home-manager.users.aeiuno = {
+        imports = [ ../../users/aeiuno/aeiuno-hm.nix ];
+        commonHm.hostName = "server-nike";
+      };
+    }
     {
       home-manager.users.nicky = {
         imports = [ ../../users/nicky/nicky-hm.nix ];
+        commonHm.hostName = "server-nike";
+      };
+    }
+    {
+      home-manager.users.sven = {
+        imports = [ ../../users/sven/sven-hm.nix ];
+        commonHm.hostName = "server-nike";
+      };
+    }
+    {
+      home-manager.users.aaron = {
+        imports = [ ../../users/aaron/aaron-hm.nix ];
         commonHm.hostName = "server-nike";
       };
     }
@@ -37,14 +69,14 @@ with lib;
   # The second SATA SSD (/data, LUKS+btrfs) carries the Syncthing data tree.
   # Bind-mount it at the canonical /sync path used by services/syncthing/default.nix,
   # so only the backing store differs between hosts. This replaces the previous
-  # /sync -> /data/syncthing symlink, which raced the module's `mkdir -p /sync`
+  # /sync -> /data/sync symlink, which raced the module's `mkdir -p /sync`
   # activation script (alphabetical script order created a real /sync first, and
-  # the silent rmdir/ln conversion then degraded into a nested /sync/syncthing
+  # the silent rmdir/ln conversion then degraded into a nested /sync/sync
   # symlink). With a bind mount there is no conversion left to race: /sync is a
   # plain mount point, systemd orders it after /data by itself, and tmpfiles/ACL
   # rules apply unchanged.
   fileSystems."/sync" = {
-    device = "/data/syncthing";
+    device = "/data/sync";
     fsType = "none";
     options = [ "bind" ];
     depends = [ "/data" ];
@@ -55,7 +87,7 @@ with lib;
   # between /data and /sync (the activation script below only handles the
   # legacy /sync symlink migration at switch time).
   systemd.services.syncthing-nike-data-dir = {
-    description = "Create the /data/syncthing bind source before /sync mounts";
+    description = "Create the /data/sync bind source before /sync mounts";
     wantedBy = [ "sync.mount" ];
     requires = [ "data.mount" ];
     after = [ "data.mount" ];
@@ -65,9 +97,9 @@ with lib;
       RemainAfterExit = true;
     };
     script = ''
-      mkdir -p /data/syncthing /data/containers/nicky /data/unsloth
-      chown syncthing:syncthing /data/syncthing
-      chmod 2770 /data/syncthing
+      mkdir -p /data/sync /data/containers/nicky /data/unsloth
+      chown syncthing:syncthing /data/sync
+      chmod 2770 /data/sync
       chown nicky:nicky /data/containers/nicky /data/unsloth
       chmod 2770 /data/containers/nicky /data/unsloth
     '';
@@ -106,6 +138,13 @@ with lib;
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+
+  # Same kernel as the running system; the nvidia driver in
+  # hardware-configuration.nix pairs with boot.kernelPackages.
+  boot.kernelPackages = pkgs.linuxPackages_latest;
+
+  # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
+  time.timeZone = "Europe/Brussels";
 
   # Dell 5810: Xeon E5-1650 v3 (8C/16T) — parallel builds with all cores.
   roles.nix.maxJobs = 16;
@@ -151,15 +190,15 @@ with lib;
   '';
 
   # Dell 5810: no discrete Intel iGPU on the Xeon, so no prime offload needed.
-  # The RTX 3060 (Turing, sm_75) is the only GPU. No power management on a
+  # The RTX 3060 (Ampere GA106, sm_86) is the only GPU. No power management on a
   # server — keep it at full boost for inference workloads.
   hardware.nvidia = {
-    # NVIDIA RTX 3060 12GB (Turing, compute capability 7.5)
-    dynamicBoost.enable = false; # RTX 3060 is desktop Turing, no dynamic boost
+    # NVIDIA RTX 3060 12GB (Ampere GA106, compute capability 8.6)
+    dynamicBoost.enable = false; # desktop card, no dynamic boost
     gsp.enable = true; # NVIDIA GPU System Processor — offloads low-level GPU mgmt
     modesetting.enable = true; # Required for NVIDIA proprietary driver
     nvidiaSettings = true;
-    open = lib.mkOverride 990 false; # Turing open modules are alpha/buggy
+    open = lib.mkOverride 990 false; # proprietary modules; the open modules are NVIDIA's recommended choice for Ampere
     package = config.boot.kernelPackages.nvidiaPackages.stable;
     powerManagement = {
       enable = false; # Never sleep the GPU — inference server

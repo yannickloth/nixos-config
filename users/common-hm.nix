@@ -412,7 +412,7 @@
           {
             enable = true;
             settings = {
-              "laptop-hera laptop-p16 laptop-xps nestor" = {
+              "laptop-hera laptop-p16 laptop-xps nestor server-nike" = {
                 IdentityFile = [ "~/.ssh/agenix_${config.home.username}" ];
               };
             };

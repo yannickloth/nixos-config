@@ -51,6 +51,12 @@ let
   # config.networking.hostName is NOT reachable inside home-manager modules
   # (they expose their own config namespace), so it cannot be used here.
   isP16 = config.commonHm.hostName == "laptop-p16";
+  # True when this config targets server-nike (Dell 5810). It runs the same
+  # software stack as laptop-p16 — its intended use is inference (daily),
+  # with desktop use in between — and the hardware qualifies: RTX 3060 12GB
+  # (Ampere GA106, sm_86, above the image's sm_75 floor) + 96 GiB RAM for
+  # Strata's expert arena.
+  isNike = config.commonHm.hostName == "server-nike";
   # True when this config is built by the standalone CachyOS flake
   # (users/flake.nix). On CachyOS the engine's host tuning lives in /etc
   # (hosts/laptop-p16/cachyos/), because no NixOS system module runs there; on
@@ -91,9 +97,10 @@ in
     lib.mkIf config.commonHm.isCachyOS config.age.secrets."opencode-keys.env".path;
 
   # Orca (agent development environment): the desktop client on every host, and
-  # on laptop-p16 the single always-on runtime server (`orca-ide serve`) that
-  # other clients pair to over Tailscale. Per-user: it runs as nicky, so the
-  # agent CLIs it drives use nicky's PATH and credentials.
+  # on the inference hosts (laptop-p16, server-nike) the always-on runtime
+  # server (`orca-ide serve`) that other clients pair to over Tailscale.
+  # Per-user: it runs as nicky, so the agent CLIs it drives use nicky's PATH
+  # and credentials.
   orca.enable = true;
 
   # BrowserOS neo: agent-driven browser for AI assistants (MCP), runs with the
@@ -125,7 +132,7 @@ in
   # here (opencode, pi, hermes) — those `herdr integration install` runs happen
   # at activation, see the module.
   herdr.enable = true;
-  orca.server = lib.mkIf isP16 {
+  orca.server = lib.mkIf (isP16 || isNike) {
     enable = true;
     # No Tailscale address pinned: the launcher derives it at start.
   };
@@ -174,11 +181,12 @@ in
   unsloth-studio.podmanStorageRoot = "/data/containers/nicky";
   unsloth-studio.dataDir = "/data/unsloth";
   # GPU passthrough only where the card is at or above the image's sm_75
-  # (Turing) floor: laptop-p16's A3000 (sm_86), with the CDI spec from
-  # hardware.nvidia-container-toolkit. laptop-hera's GTX 1050 Ti is Pascal
-  # (sm_61) — the image's entrypoint exits 1 when it sees such a card — and
-  # laptop-xps has no NVIDIA card at all; both run the image in CPU mode.
-  unsloth-studio.gpu = isP16;
+  # (Turing) floor: laptop-p16's A3000 (sm_86) and server-nike's RTX 3060
+  # (sm_86), with the CDI spec from hardware.nvidia-container-toolkit.
+  # laptop-hera's GTX 1050 Ti is Pascal (sm_61) — the image's entrypoint
+  # exits 1 when it sees such a card — and laptop-xps has no NVIDIA card at
+  # all; both run the image in CPU mode.
+  unsloth-studio.gpu = isP16 || isNike;
   # Only the CachyOS install has the distro podman: there it shares conmon,
   # netavark and the CDI spec with the `podman` in the shell. On NixOS the
   # module's default (pkgs.podman) is used.
@@ -187,12 +195,13 @@ in
   # unsloth-studio/handoff.nix). The helper is a host script, so it serves both
   # backends; the in-load half of the handoff (LLAMA_SERVER_PATH) is native-only,
   # because inside the container llama.cpp is baked into the image.
-  unsloth-studio.strataGpuHandoff = isP16;
+  unsloth-studio.strataGpuHandoff = isP16 || isNike;
 
   # Strata (Qwen3.8-Flash-Next 125B MoE inference, OpenAI/Anthropic API on
-  # localhost). GPU-gated to laptop-p16: the engine is built for the
-  # A3000's sm_86 and the runtime wants its 12 GB of VRAM plus 34-50 GB of
-  # RAM for the expert arena. The first `strata` run downloads the model
+  # localhost). GPU-gated to the inference hosts (laptop-p16, server-nike):
+  # the engine is built for sm_86 and the runtime wants 12 GB of VRAM plus
+  # 34-50 GB of RAM for the expert arena — both hosts qualify (A3000 12GB /
+  # RTX 3060 12GB, 128/96 GiB RAM). The first `strata` run downloads the model
   # (~70-84 GB per quantization) into Strata's data folder,
   # ~/.local/share/Strata-data - the sibling of STRATA_HOME (~/.local/share/
   # strata, the runtime tree it runs from). `dataOnDataVolume` keeps both on
@@ -221,8 +230,10 @@ in
   #                     (fresh hit 0.468 -> 0.539 at a small warm-turn trade)
   #                     (P8, ops/issues/p8-reduce-misses.md)
   # Enforced on every config the package writes, so setup cannot undo them.
-  # enable stays gated on laptop-p16 (isP16).
-  strata = lib.mkIf isP16 {
+  # enable is gated on the inference hosts (isP16 || isNike); the tuning
+  # values below were measured on laptop-p16's A3000 and may want
+  # recalibrating on server-nike's Haswell Xeon / PCIe 3.0.
+  strata = lib.mkIf (isP16 || isNike) {
     enable = true;
     # The engine window is owned at runtime, not here: null tells the package
     # to stop passing --context to setup and to leave --max-context / the rope
