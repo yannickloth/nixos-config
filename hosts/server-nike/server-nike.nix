@@ -141,7 +141,7 @@ with lib;
 
   # Same kernel as the running system; the nvidia driver in
   # hardware-configuration.nix pairs with boot.kernelPackages.
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelPackages = lib.mkForce pkgs.linuxPackages_latest;
 
   # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
   time.timeZone = "Europe/Brussels";
