@@ -73,9 +73,20 @@ with lib;
   # CPU   │ Intel Core i7-4771 (Haswell-R, Q4 2014) — 4C/8T, 3.5 GHz
   #       │ Base 3.5 / Turbo 3.9, AVX2, 8 MB L3, HD Graphics 4600
   #       │ EOL: peak of socket 1150; no CPU upgrade path
-  # RAM   │ 4× DDR3 UDIMM, 32 GB (8 GB each), 1600 MHz — pending
-  #       │ No ECC, no RDIMM; DDR3L works at 1.5 V. Upgrade for LLM
-  #       │ work (small models under ~10 GB quantized can run on CPU).
+  # RAM   │ 2×8 GB TimTec DDR3 1600 MHz CL11-11-11-28, 1.5 V
+  #       │ (standard DDR3, confirmed not DDR3L 1.35 V)
+  #       │ 2Rx8 (dual-rank, x8 chip density)
+  #       │ Part #: 75TT16NU2R8GRN-8G · Batch: PR260817ED#NP15
+  #       │ Installed in slots 1 & 2 only — slots 3 & 4 are dead;
+  #       │ no configuration (1×8, 2×8, 3×8, 4×8) POSTs with DIMMs
+  #       │ in slots 3/4. 4×8GB (all slots) also does not POST.
+  #       │ B85 chipset hard cap: 4× DIMM, 8 GB per slot, 32 GB
+  #       │ total. 2×16 GB DIMMs do not POST (confirmed). No
+  #       │ upgrade path within this platform; a new motherboard
+  #       │ + DDR5 is required for 64 GB+. No ECC, no RDIMM.
+  #       │ LLM work: ~5 GB models at 4-bit quantized fit with
+  #       │ ~10 GB for context + headroom, but generation is slow
+  #       │ on CPU.
   # PCIe  │ 1× PCIe 3.0 x16 (full), 1× PCIe 3.0 x16-phys/x4-electrical
   #       │ 2× PCIe 2.0 x1 — no SLI, no CXL, no native NVMe
   # SATA  │ 6× SATA III (6 Gbps) — no M.2 slot
@@ -85,6 +96,38 @@ with lib;
   #       │ PCI-E 3.0 ×1 card (Realtek RTL8852BE chipset), ~4 W draw —
   #       │ negligible on the +12 V rail.
   #       │ EOL: BIOS updates ceased ~2018, platform is dead
+  #
+  # --- Upgrades (4 paths) ---
+  # 1. USB 3.2 Gen 2 (10 Gbps) PCIe x1 card with USB-C — targeted at
+  #       an HP G5 docking station: the card's USB-C output feeds the
+  #       dock's USB-C upstream; a USB-C selector switch sits between
+  #       card and dock so mouse + keyboard (and any other docked
+  #       peripherals) toggle between desktop-leto and the laptop.
+  #       Gen 2 is the fastest standard that makes sense here —
+  #       Gen 2x2 (20 Gbps) is overkill on a PCIe 3.0 x1 slot and
+  #       cheap cards are unreliable. Choose an ASMedia ASM2142 or
+  #       ASM1142 controller (good Linux xhci-pci support, avoid
+  #       Fresco Logic which can be finicky on older kernels).
+  # 2. GPU — AMD RX 580 8 GB (ordered). Replaces headless iGPU-only
+  #       setup; enables gaming, desktop compositing, and Vulkan
+  #       acceleration for Unsloth Studio (see VM passthrough section).
+  # 3. CPU — upgrade i7-4771 (3.5 GHz base / 3.9 GHz turbo) to a
+  #       4.0 GHz+ Haswell part (e.g. i7-4960X 3.6/4.0 GHz or
+  #       i7-4771 itself at 3.5/3.9 — the 4771 already has the
+  #       highest stock turbo for a locked B85 build). Overclocking
+  #       is impossible on the B85 (non-Z chipset). Limited gain on
+  #       a platform this old.
+  # 4. CXL/PCIe-to-DDR4 extension card — experimental. A CXL 2.0
+  #       expansion card (e.g. Marvell-based) lets a PCIe 3.0 x16
+  #       host attach 8× DDR4 UDIMMs as memory expansion. Feasible
+  #       on this board's x16 slot; latency is higher than native,
+  #       and the DDR4 dies must be compatible with the CXL memory
+  #       controller. See:
+  #       https://videocardz.com/newz/new-cxl-2-0-card-lets-ddr5-servers-reuse-eight-ddr4-memory-modules
+  #       Would let repurpose the 32 GB DDR3 into a new DDR4/DDR5
+  #       system and squeeze an extra 64 GB (or more) out of this
+  #       board as temporary LLM RAM. Untested on consumer B85 —
+  #       these cards target Xeon/E5 server platforms.
 
   # --- GPU / Display ---
   # RX 580 8GB (AMD) + Intel iGPU (optional fallback).
@@ -104,10 +147,10 @@ with lib;
   # leaves ~80 W of margin — sufficient for gaming and local LLM inference.
   # Gaming pushes the GPU to its TDP wall; LLM inference via Vulkan pulls
   # 100–150 W on the GPU. Neither exceeds the PSU's envelope.
-  # The real bottleneck for LLM work is the RAM: only sub-3 GB models fit
-  # in 8 GB, with very short context and slow generation. 32 GB DDR3 has been
-  # ordered; with that capacity 7B models (4-bit quantized ≈ 4–5 GB) can run
-  # with most of the model offloaded to system RAM.
+  # The real bottleneck for LLM work is the RAM: 32 GB is the B85 hard cap
+  # (no DIMM-slot upgrade path). 7B models at 4-bit quantized (≈4–5 GB) fit
+  # with comfortable context headroom, but generation is slow on the i7-4771.
+  # Beyond 32 GB requires a full platform replacement (motherboard + DDR5).
 
   # --- Boot / Power ---
   # This host imports environments/laptop.nix (via family-laptop.nix), so it
@@ -194,7 +237,7 @@ with lib;
   # >= 7.3.2) in mkHost until the next update.
 
   # --- Nix ---
-  # 8 GB RAM -> limit parallel builds to avoid OOM.
+  # 32 GB RAM -> 4 parallel builds safe (no OOM risk on this workload).
   roles.nix.maxJobs = 2;
 
   # nicky's Unsloth Studio (enabled for this host in desktop-leto.nix) is a
