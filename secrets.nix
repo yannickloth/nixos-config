@@ -38,6 +38,7 @@ let
   host-laptop-xps = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAQkJFvXdkXG8Q9Chq7DFDIe71T2M2EaEvbdEi7Dg4an";
   host-laptop-travelmate = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGDwgXXr+XgOfH/vtOCcyXZwZTg7r5iVAvIf3IHs7Ii1";
   host-desktop-leto = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHGcaJSty1Sies8J42+xvPDHEDDVy1wTgBDLnV5JdvSg";
+  host-server-nike = "TODO_GENERATE_ON_FIRST_BOOT";
 
   user-nicky = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL7qyn3G5ztyNoQ6u4RZ1nJZaDNHcQRGhKaVj0i8pC8m";
   user-aeiuno = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIASyK+Od8c/gEwvvdtz1Lovd/qnomAeCRr+cPmhn6qvQ";
@@ -50,6 +51,7 @@ let
     host-laptop-xps
     host-laptop-travelmate
     host-desktop-leto
+    host-server-nike
   ];
 in
 {
@@ -103,6 +105,12 @@ in
   "syncthing/laptop-travelmate/key.pem.age".publicKeys = [ host-laptop-travelmate ];
   "syncthing/desktop-leto/cert.pem.age".publicKeys = [ host-desktop-leto ];
   "syncthing/desktop-leto/key.pem.age".publicKeys = [ host-desktop-leto ];
+  # server-nike identity: generated on first boot via the activation script,
+  # then encrypted and committed to git with:
+  #   age -p -r <host-server-nike-pubkey> -o secrets/syncthing/server-nike/cert.pem.age /var/lib/syncthing/identity/cert.pem
+  #   age -p -r <host-server-nike-pubkey> -o secrets/syncthing/server-nike/key.pem.age   /var/lib/syncthing/identity/key.pem
+  "syncthing/server-nike/cert.pem.age".publicKeys = [ host-server-nike ];
+  "syncthing/server-nike/key.pem.age".publicKeys = [ host-server-nike ];
 
   # --- User secrets --------------------------------------------------------
   # Decrypted via the home-manager agenix module with the user's key.

@@ -494,6 +494,12 @@
           desktop-leto = mkHost {
             configModule = ./hosts/desktop-leto/desktop-leto-configuration.nix;
           };
+
+          # Dell Precision Tower 5810 (Xeon E5-1650 v3) + RTX 3060 12GB
+          server-nike = mkHost {
+            configModule = ./hosts/server-nike/server-nike-configuration.nix;
+            kernelPackages = pkgs.linuxKernel.packages.linux_xanmod;
+          };
         };
     };
 }
