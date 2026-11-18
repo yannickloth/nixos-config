@@ -142,9 +142,7 @@ with lib;
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Same kernel as the running system; the nvidia driver in
-  # hardware-configuration.nix pairs with boot.kernelPackages.
-  boot.kernelPackages = lib.mkForce pkgs.linuxPackages_latest;
+  boot.kernelPackages = lib.mkForce pkgs.linuxPackages_6_12;
 
   # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
   time.timeZone = "Europe/Brussels";
@@ -197,13 +195,15 @@ with lib;
   # Dell 5810: no discrete Intel iGPU on the Xeon, so no prime offload needed.
   # The RTX 3060 (Ampere GA106, sm_86) is the only GPU. No power management on a
   # server — keep it at full boost for inference workloads.
-  hardware.nvidia = {
+  hardware.nvidia = let
+    nvidiaPackage = config.boot.kernelPackages.nvidiaPackages.stable;
+  in {
     # NVIDIA RTX 3060 12GB (Ampere GA106, compute capability 8.6)
     dynamicBoost.enable = false; # desktop card, no dynamic boost
     gsp.enable = true; # NVIDIA GPU System Processor — offloads low-level GPU mgmt
     modesetting.enable = true; # Required for NVIDIA proprietary driver
     nvidiaSettings = true;
-    open = lib.mkOverride 990 false; # proprietary modules; the open modules are NVIDIA's recommended choice for Ampere
+    open = lib.mkOverride 990 (nvidiaPackage ? open && nvidiaPackage ? firmware);
     package = config.boot.kernelPackages.nvidiaPackages.stable;
     powerManagement = {
       enable = false; # Never sleep the GPU — inference server

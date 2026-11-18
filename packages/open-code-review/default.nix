@@ -33,7 +33,7 @@ buildGoModule rec {
     hash = "sha256-cMYsqLOwpVI6zQF6q9bzlZRO21XUMSNYcEvavDRdLkA=";
   };
 
-  vendorHash = "sha256-LpqnNp6gxHatHH68pM59ESQICDDSVrkZm7AJLVvYTao=";
+  vendorHash = "sha256:0zi4g74r5k15wy50sszn3wjx0658yvz95dc9vvk5k755p5wpmmx4";
 
   # The pinned nixpkgs-unstable carries Go 1.26.10, which satisfies upstream's
   # `go 1.26.9` directive, so go.mod is used as shipped (the 1.26.9 -> 1.26.8

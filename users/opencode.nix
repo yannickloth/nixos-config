@@ -578,7 +578,7 @@ in
     # not an MCP server and not a provider, so it only needs to be on PATH.
     home.packages =
       [ pkgs.nodejs ]
-      ++ lib.optional (pkgs ? open-code-review) pkgs.open-code-review
+      # ++ lib.optional (pkgs ? open-code-review) pkgs.open-code-review  # disabled
       ++ lib.optional (pkgs ? openspec) pkgs.openspec;
 
     xdg.configFile."opencode/opencode.json" = {
@@ -745,19 +745,19 @@ in
       providers = piProviders;
     };
 
-    # Open Code Review's official OpenCode integration: native ocr_review /
-    # ocr_health tools plus /ocr-review and /ocr-health slash commands
-    # (plugins/open-code-review/opencode in alibaba/open-code-review, pinned
-    # to the same release as the ocr CLI in home.packages above). opencode
+    # disabled — Open Code Review's official OpenCode integration: native
+    # ocr_review / ocr_health tools plus /ocr-review and /ocr-health slash
+    # commands (plugins/open-code-review/opencode in alibaba/open-code-review,
+    # pinned to the same release as the ocr CLI in home.packages above). opencode
     # auto-loads *.ts from the plugins/ directory; the file's SDK imports must
     # resolve from ~/.config/opencode/node_modules, which opencode does not
     # provide itself — hence the node_modules symlink (OpenCode 2.x needs
     # both @opencode-ai/plugin and @opencode/plugin; see
     # packages/open-code-review/plugin-deps.nix).
-    xdg.configFile."opencode/plugins/open-code-review.ts".source =
-      lib.mkIf (pkgs ? open-code-ocr-plugin) "${pkgs.open-code-ocr-plugin}/plugin/open-code-review.ts";
-    xdg.configFile."opencode/node_modules".source =
-      lib.mkIf (pkgs ? open-code-ocr-plugin) "${pkgs.open-code-ocr-plugin}/node_modules";
+    # xdg.configFile."opencode/plugins/open-code-review.ts".source =
+    #   lib.mkIf (pkgs ? open-code-ocr-plugin) "${pkgs.open-code-ocr-plugin}/plugin/open-code-review.ts";
+    # xdg.configFile."opencode/node_modules".source =
+    #   lib.mkIf (pkgs ? open-code-ocr-plugin) "${pkgs.open-code-ocr-plugin}/node_modules";
 
     # Materialize per-provider API key files from the decrypted provider-key env
     # file (OPENAI_API_KEYS JSON). Source resolution, first existing wins:

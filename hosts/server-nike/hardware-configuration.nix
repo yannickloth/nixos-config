@@ -120,7 +120,7 @@
       # Proprietary modules. (NVIDIA recommends the open modules for Ampere;
       # the proprietary driver is fully supported there as well.)
       open = false;
-      package = config.boot.kernelPackages.nvidiaPackages.stable;
+      # package set in server-nike.nix to avoid duplicate definition
       powerManagement = {
         enable = false;
         finegrained = false;
