@@ -51,9 +51,9 @@ with lib;
         ]
         # Distributed builds over Tailscale: the three laptops are nix-serve
         # caches for each other (access to port 5000 is Tailscale-only, see
-        # laptop-firewall.nix). desktop-leto is deliberately absent: it has no
-        # per-host signing key in secrets/, so it both provides no cache and
-        # does not substitute from the others.
+        # laptop-firewall.nix). desktop-leto now also participates: it serves
+        # and substitutes from peers (has a per-host signing key in secrets/).
+        ++ [ "http://192.168.178.156:5000/" ] # desktop-leto nix-serve (192.168.178.156)
         ++ (if (config.networking.hostName != "laptop-xps") then [ "http://laptop-xps.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-xps as a nix store cache
         ++ (if (config.networking.hostName != "laptop-hera") then [ "http://laptop-hera.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-hera as a nix store cache
         ++ (if (config.networking.hostName != "laptop-p16") then [ "http://laptop-p16.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-p16 as a nix store cache
@@ -69,6 +69,7 @@ with lib;
           "laptop-p16-cache-1:er0G/b76dgJN1Riv22lpCSv4N46p/HlScZdVmVT2Hug="
           "laptop-hera-cache-1:74gTsymxYX+HfUZLAgdzPPhFzP55cRjcGkNSBdxVuNc="
           "laptop-xps-cache-1:7jhFyomCPUOVeewJ1Og36KLv9uEdKA+TBnIrAqnR/xk="
+          "desktop-leto-cache-1:dPtolmPoc6h2cvWTuDy6MRN/at1W58+iuL51VhKcxYM="
           # lantian key, pairs with the CachyOS substituter above:
           # "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
           #"xtruder-public.cachix.org-1:+qG/fM2195QJcE2BXmKC+sS4mX/lQHqwjBH83Rhzl14="

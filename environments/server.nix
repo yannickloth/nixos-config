@@ -31,6 +31,9 @@ with lib;
 
     # Inference: podman for Unsloth Studio container.
     ../services/podman.nix
+
+    # Binary cache server: distributes built store paths over the LAN.
+    ../services/nix-serve.nix
   ];
 
   # Distribute the family SSH identities + authorized_keys.

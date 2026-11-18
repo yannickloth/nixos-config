@@ -189,7 +189,9 @@ with lib;
   # than the HM module because orca.server is a home-manager option and cannot
   # touch networking.firewall.
   networking.firewall.extraInputRules = ''
-    tcp dport 6768 ip saddr 100.64.0.0/10 accept
+    tcp dport 5000 ip saddr 100.64.0.0/10 accept  # nix-serve (Tailscale)
+    tcp dport 5000 ip saddr 192.168.178.0/24 accept # nix-serve (local LAN)
+    tcp dport 6768 ip saddr 100.64.0.0/10 accept  # orca runtime server (Tailscale)
   '';
 
   # Dell 5810: no discrete Intel iGPU on the Xeon, so no prime offload needed.

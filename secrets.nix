@@ -82,6 +82,7 @@ in
   "nix-cache-laptop-p16.key.age".publicKeys = [ host-laptop-p16 user-nicky ];
   "nix-cache-laptop-hera.key.age".publicKeys = [ host-laptop-hera ];
   "nix-cache-laptop-xps.key.age".publicKeys = [ host-laptop-xps ];
+  "nix-cache-desktop-leto.key.age".publicKeys = [ host-desktop-leto ];
 
   # Shared LLM provider keys for opencode (OPENAI_API_KEYS JSON). Also readable
   # by user-nicky and user-aeiuno so standalone home-manager on CachyOS (no
