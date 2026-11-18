@@ -213,7 +213,7 @@
     # from the system unit (services/ssh-user-keys.nix) at boot/switch, so HM
     # must not touch keys there. On CachyOS there is no system agenix, so decrypt
     # the identity with the machine's host key (root-only -> sudo; prompts once
-    # if sudo is not passwordless) and install it. Existing keys are never
+    # for a password on first run) and install it. Existing keys are never
     # touched; no sudo -> a warning with the manual one-liner.
     home.activation.installFamilySshKey = lib.mkIf
       (config.commonHm.isCachyOS && builtins.elem config.home.username [ "nicky" "aeiuno" "sven" "aaron" ])
@@ -223,9 +223,9 @@
         if [ ! -f "$key" ]; then
           if [ -z "''${DRY_RUN_CMD:-}" ]; then
             mkdir -p -m 700 "$HOME/.ssh"
-            # Plain sudo: silent when wheel is passwordless, otherwise it asks
-            # once (the key is then present and this never runs again). No tty
-            # -> sudo fails fast and the warning below prints the manual command.
+            # Plain sudo: prompts once for a password when wheel is passworded,
+            # then caches the auth for 15 minutes. No tty -> sudo fails fast and
+            # the warning below prints the manual command.
             if ( umask 077; sudo ${pkgs.age}/bin/age --decrypt \
                    -i /etc/ssh/ssh_host_ed25519_key "$secret" > "$key" ) \
                && [ -s "$key" ]; then

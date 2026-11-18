@@ -74,8 +74,8 @@ sudo ./scripts/agenix-rekey.sh
 ```
 
 `root` is the local break-glass administrator (console/recovery); wheel users
-reach root through passwordless `sudo`, and root SSH login is disabled entirely
-(`PermitRootLogin = "no"`, `services/openssh.nix`).
+reach root through passworded `sudo` (15-minute cache after first auth), and
+root SSH login is disabled entirely (`PermitRootLogin = "no"`, `services/openssh.nix`).
 
 ## Adding a new host (bring-up)
 
