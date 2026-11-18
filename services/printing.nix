@@ -94,7 +94,11 @@ in
       # No cups-stop here: nixpkgs already appends it to this unit's script,
       # and two definitions concatenate. Only the start/stop of the queue
       # provisioning is ours, so the trailing stop lands exactly once.
-      script = lib.mkForce "${ensurePrinters}";
+      #
+      # Note: `script` is used as the *body* of the generated unit wrapper,
+      # and the package's store path is a directory — the executable lives
+      # under /bin (writeShellApplication), so it must be named explicitly.
+      script = lib.mkForce "${ensurePrinters}/bin/ensure-printers";
     })
   ];
 
@@ -109,6 +113,6 @@ in
       Type = "oneshot";
       TimeoutStartSec = "5min";
     };
-    script = "${ensurePrinters}" + "\n" + keepCupsRunning;
+    script = "${ensurePrinters}/bin/ensure-printers" + "\n" + keepCupsRunning;
   };
 }
