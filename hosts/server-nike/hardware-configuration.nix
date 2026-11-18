@@ -92,7 +92,7 @@
         enable = true;
         blkDev = "/dev/disk/by-uuid/da463042-ab85-4999-979b-91f70c7c17a7";
         label = "data";
-        keyFile = "/mnt-root/root/.luks-keys/sda.key";
+        keyFile = "/sysroot/root/.luks-keys/sda.key";
       };
     };
   };

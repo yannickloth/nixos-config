@@ -59,7 +59,10 @@ with lib;
   # (packages/unsloth-studio/container.nix, --device nvidia.com/gpu=all): the
   # module writes the CDI spec at boot (/var/run/cdi) and registers it in
   # containers.conf.
-  hardware.nvidia-container-toolkit.enable = true;
+  hardware.nvidia-container-toolkit = {
+    enable = true;
+    suppressNvidiaDriverAssertion = true; # driver provided by hardware.nvidia module
+  };
 
   networking.hostName = "server-nike"; # Define your hostname.
 
