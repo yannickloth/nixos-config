@@ -110,9 +110,7 @@
       enable = true; # Enable graphics
       enable32Bit = true;
     };
-    nvidia = let
-  nvidiaPackage = config.hardware.nvidia.package;
-in{
+    nvidia = {
     # NVIDIA RTX A3000 12GB Laptop GPU (Ampere, compute capability 8.6)
 
     # Left off: the A3000 is Ampere and could use it, but it changes GPU power behavior.
@@ -140,8 +138,9 @@ in{
     # supported GPUs is at: 
     # https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus 
     # Only available from driver 515.43.04+
-    # Currently alpha-quality/buggy, so false is currently the recommended setting.
-    open = lib.mkOverride 990 (nvidiaPackage ? open && nvidiaPackage ? firmware);
+    # The RTX A3000 is Ampere (sm_86), which the open modules support. This is
+    # the same driver set (nixpkgs-unstable linux_zen) that flake.nix selects.
+    open = true;
 
     # Optionally, you may need to select the appropriate driver version for your specific GPU.
     package = config.boot.kernelPackages.nvidiaPackages.stable;

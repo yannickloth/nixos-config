@@ -404,11 +404,12 @@
           # kernels were dropped: their cache lagged each pin and could trigger
           # a multi-hour local LTO build. See git history to reintroduce.
           #
-          # NVIDIA caveat: linux_zen is on 7.2, whose DRM atomic-state rename
-          # (`drm_atomic_state` -> `drm_atomic_commit`) and strncpy removal are
-          # only handled by NVIDIA >= 595.99.02 (nixpkgs-unstable). Stable's
-          # 595.71.05 does not compile against 7.2, so the NVIDIA hosts (hera,
-          # p16) pin the desktop-tuned XanMod 6.18 LTS instead (see mkHost).
+          # NVIDIA: the Ampere hosts (p16, server-nike) take BOTH kernel and
+          # driver from nixpkgs-unstable's linux_zen set, so the newest zen
+          # (7.3.x) pairs with a matching newer NVIDIA driver (595.112.07, open
+          # kernel modules). Stable's 595.71.05 is too old to build against the
+          # current zen. laptop-hera is Pascal, which the open modules do not
+          # support, so it stays on XanMod + the proprietary legacy_580 branch.
           #
           # Home-manager + shared-module wiring common to every host.
           commonModules = [
@@ -452,9 +453,10 @@
           ];
 
           # One host: its configuration module + any host-only modules, on top
-          # of commonModules. `kernelPackages` defaults to the nixpkgs zen
-          # kernel; the NVIDIA hosts override it to XanMod 6.18 LTS because the
-          # stable NVIDIA driver cannot build against zen's 7.2 (see above).
+          # of commonModules. `kernelPackages` defaults to the stable nixpkgs
+          # zen kernel; the Ampere NVIDIA hosts override it to the unstable zen
+          # set so kernel and driver come from the same, newest source (see
+          # above); hera overrides it to XanMod for its Pascal + legacy driver.
           mkHost =
             {
               configModule,
@@ -482,7 +484,7 @@
           laptop-p16 = mkHost {
             configModule = ./hosts/laptop-p16/laptop-p16-configuration.nix;
             extraModules = [ nixos-hardware.nixosModules.lenovo-thinkpad ];
-            kernelPackages = pkgs.linuxKernel.packages.linux_xanmod;
+            kernelPackages = unstablePkgs.linuxKernel.packages.linux_zen;
           };
 
           laptop-xps = mkHost {
@@ -499,7 +501,9 @@
           # Dell Precision Tower 5810 (Xeon E5-1650 v3) + RTX 3060 12GB
           server-nike = mkHost {
             configModule = ./hosts/server-nike/server-nike-configuration.nix;
-            kernelPackages = pkgs.linuxKernel.packages.linux_xanmod;
+            # Ampere RTX 3060: newest zen kernel + matching open driver from
+            # nixpkgs-unstable (see the NVIDIA note above).
+            kernelPackages = unstablePkgs.linuxKernel.packages.linux_zen;
           };
         };
     };

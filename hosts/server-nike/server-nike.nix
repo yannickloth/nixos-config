@@ -142,7 +142,10 @@ with lib;
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  boot.kernelPackages = lib.mkForce pkgs.linuxPackages_6_12;
+  # Kernel + matching NVIDIA driver come from nixpkgs-unstable's linux_zen set
+  # (flake.nix mkHost): the newest zen needs a newer driver than the stable
+  # pin, and taking both from one set keeps the out-of-tree modules built
+  # against the exact kernel. Do not force linuxPackages_6_6 here.
 
   # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
   time.timeZone = "Europe/Brussels";
@@ -195,15 +198,15 @@ with lib;
   # Dell 5810: no discrete Intel iGPU on the Xeon, so no prime offload needed.
   # The RTX 3060 (Ampere GA106, sm_86) is the only GPU. No power management on a
   # server — keep it at full boost for inference workloads.
-  hardware.nvidia = let
-    nvidiaPackage = config.boot.kernelPackages.nvidiaPackages.stable;
-  in {
+  hardware.nvidia = {
     # NVIDIA RTX 3060 12GB (Ampere GA106, compute capability 8.6)
     dynamicBoost.enable = false; # desktop card, no dynamic boost
     gsp.enable = true; # NVIDIA GPU System Processor — offloads low-level GPU mgmt
-    modesetting.enable = true; # Required for NVIDIA proprietary driver
+    modesetting.enable = true; # Required for the NVIDIA driver
     nvidiaSettings = true;
-    open = lib.mkOverride 990 (nvidiaPackage ? open && nvidiaPackage ? firmware);
+    # Open kernel modules (set in hardware-configuration.nix) are recommended
+    # for Ampere. `stable` in the nixpkgs-unstable linux_zen set is 595.112.07,
+    # the same version as this set's nvidia_x11 used by extraModulePackages.
     package = config.boot.kernelPackages.nvidiaPackages.stable;
     powerManagement = {
       enable = false; # Never sleep the GPU — inference server
@@ -211,6 +214,13 @@ with lib;
     };
     videoAcceleration = true;
   };
+
+  # NVIDIA kernel modules are out-of-tree (built by the driver package), so they
+  # need to be added to extraModulePackages for linux-modules-shrunk to find
+  # them when resolving initrd dependencies.
+  boot.extraModulePackages = [
+    config.boot.kernelPackages.nvidia_x11.mod
+  ];
 
   # Server stance: no power saving on any bus component.
   boot.kernel.sysctl."vm.swappiness" = 10;

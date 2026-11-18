@@ -117,9 +117,10 @@
       gsp.enable = true;
       modesetting.enable = true;
       nvidiaSettings = true;
-      # Proprietary modules. (NVIDIA recommends the open modules for Ampere;
-      # the proprietary driver is fully supported there as well.)
-      open = false;
+      # Open kernel modules: NVIDIA recommends them for Ampere (GA106, sm_86),
+      # and they pair with the current driver from nixpkgs-unstable's linux_zen
+      # set that flake.nix selects for this host.
+      open = true;
       # package set in server-nike.nix to avoid duplicate definition
       powerManagement = {
         enable = false;
