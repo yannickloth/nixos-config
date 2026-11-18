@@ -178,7 +178,7 @@
     owner = "Niko1221";
     repo = "Strata";
     rev = "v0.2.15";  # App and Terminal 0.2.15, Control 0.1.61; engines stay 0.1.60
-    hash = "sha256-0r6f9ffaxl1z7hnz2nzn75716a3wcwk78vils7n4140m9764zkdr";
+    hash = "sha256-ehbQHpljUeclywp0ubGcrGG+xQ35SppRoosVWZLJiDY=";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
