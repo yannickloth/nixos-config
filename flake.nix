@@ -168,6 +168,7 @@
             ${builtins.unsafeDiscardStringContext self.nixosConfigurations.laptop-xps.config.system.build.toplevel.drvPath}
             ${builtins.unsafeDiscardStringContext self.nixosConfigurations.laptop-hera.config.system.build.toplevel.drvPath}
             ${builtins.unsafeDiscardStringContext self.nixosConfigurations.laptop-p16.config.system.build.toplevel.drvPath}
+            ${builtins.unsafeDiscardStringContext self.nixosConfigurations.desktop-leto.config.system.build.toplevel.drvPath}
             EOF
           '';
 
@@ -489,8 +490,8 @@
             extraModules = [ nixos-hardware.nixosModules.dell-xps-13-9360 ];
           };
 
-          # Gigabyte GA-B85-HD3 (Socket 1150) + Intel Core i7 4th Gen
-          # + AMD Radeon RX 580 8GB + 8 GB RAM
+          # Gigabyte GA-B85-HD3 (Socket 1150) + Intel Core i7-4771
+          # + NVIDIA GeForce GT 730 2GB (nouveau) + 16 GB RAM
           desktop-leto = mkHost {
             configModule = ./hosts/desktop-leto/desktop-leto-configuration.nix;
           };

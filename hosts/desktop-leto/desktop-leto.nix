@@ -72,13 +72,14 @@ in
       };
     }
     # Unsloth Studio on desktop-leto uses the native backend with Vulkan
-    # (AMD Polaris RX 580 is not ROCm-supported; the container backend has
-    # no Vulkan device passthrough). DataDir stays in home — no /data volume.
+    # (the GT 730 has no ROCm/CUDA path; the container backend has no
+    # Vulkan device passthrough). DataDir stays in home — no /data volume.
     {
       home-manager.users.nicky.unsloth-studio.backend = lib.mkForce "native";
     }
     # Pass Vulkan env var to the unsloth-studio systemd user service so
-    # the installer and runtime use the correct llama.cpp backend on AMD.
+    # the installer and runtime use the Vulkan llama.cpp backend (NVK on
+    # the GT 730, ANV on the iGPU — both are visible to the service).
     {
       home-manager.users.nicky.systemd.user.services.unsloth-studio.Service.Environment =
         [ "UNSLOTH_LLAMA_CPP_BACKEND=vulkan" ];
@@ -121,10 +122,11 @@ in
   # PCIe  │ 1× PCIe 3.0 x16 (full), 1× PCIe 3.0 x16-phys/x4-electrical
   #       │ 2× PCIe 2.0 x1 — no SLI, no CXL, no native NVMe
   # SATA  │ 6× SATA III (6 Gbps) — no M.2 slot
-  # BIOS  │ Basic UEFI (GOP), CGA legacy — GRUB over systemd-boot
+  # BIOS  │ Basic UEFI (GOP), CGA legacy — boots the NixOS systemd-boot
+  #       │ entry (see the --- Bootloader --- section below)
   # LAN   │ Realtek RTL8111G · Audio: Realtek ALC887
-  # WiFi  │ Mercusys MA37BE · WiFi 7 (802.11be) + Bluetooth 5.4
-  #       │ PCI-E 3.0 ×1 card (Realtek RTL8852BE chipset), ~4 W draw —
+  # WiFi  │ MediaTek MT7925 (14c3:7925) · WiFi 7 (802.11be) 160 MHz 2×2
+  #       │ + Bluetooth 5.4 · PCI-E ×1 card (mt7925e), ~4 W draw —
   #       │ negligible on the +12 V rail.
   #       │ EOL: BIOS updates ceased ~2018, platform is dead
   #
@@ -139,9 +141,12 @@ in
   #       cheap cards are unreliable. Choose an ASMedia ASM2142 or
   #       ASM1142 controller (good Linux xhci-pci support, avoid
   #       Fresco Logic which can be finicky on older kernels).
-  # 2. GPU — AMD RX 580 8 GB (ordered). Replaces headless iGPU-only
-  #       setup; enables gaming, desktop compositing, and Vulkan
-  #       acceleration for Unsloth Studio (see VM passthrough section).
+  # 2. GPU — NVIDIA GeForce GT 730 (GK208B, 2 GB GDDR5, ~49 W, no
+  #       external power) installed, driven by nouveau. Replaces the
+  #       headless iGPU-only setup. Kepler predates the proprietary
+  #       driver's Vulkan support, so Vulkan runs on mesa NVK (GT 730)
+  #       or ANV (iGPU) — enough for Unsloth Studio, but serious gaming
+  #       or bigger LLM offload needs a more capable PCIe card.
   # 3. CPU — upgrade i7-4771 (3.5 GHz base / 3.9 GHz turbo) to a
   #       4.0 GHz+ Haswell part (e.g. i7-4960X 3.6/4.0 GHz or
   #       i7-4771 itself at 3.5/3.9 — the 4771 already has the
@@ -161,9 +166,11 @@ in
   #       these cards target Xeon/E5 server platforms.
 
   # --- GPU / Display ---
-  # RX 580 8GB (AMD) + Intel iGPU (optional fallback).
-  # The `amdgpu` kernel module is auto-loaded by the kernel for GCN 1.0+;
-  # enabling graphics is enough for both X11 and Wayland/Plasma.
+  # GeForce GT 730 (NVIDIA GK208B, nouveau) + Intel iGPU (i915, fallback).
+  # Both modules are auto-loaded by the kernel; enabling graphics is
+  # enough for both X11 and Wayland/Plasma. The proprietary NVIDIA driver
+  # is deliberately not used: it has no Vulkan support for Kepler, while
+  # nouveau + mesa NVK gives display, Vulkan, and 3D acceleration here.
   hardware.graphics.enable = true;
 
   # --- Fan control ---
@@ -195,21 +202,20 @@ in
 
   # --- PSU ---
   # CoolerMaster RS460-PSAP-I3 · 460 W peak / 400 W continuous · +12 V rail
-  # 300 W (25 A). Peak system draw: i7-4771 (84 W) + RX 580 (185 W) +
-  # rest (~50 W) ≈ 319 W on the +12 V rail. The 400 W continuous rating
-  # leaves ~80 W of margin — sufficient for gaming and local LLM inference.
-  # Gaming pushes the GPU to its TDP wall; LLM inference via Vulkan pulls
-  # 100–150 W on the GPU. Neither exceeds the PSU's envelope.
-  # The real bottleneck for LLM work is the RAM: 32 GB is the B85 hard cap
-  # (no DIMM-slot upgrade path). 7B models at 4-bit quantized (≈4–5 GB) fit
-  # with comfortable context headroom, but generation is slow on the i7-4771.
-  # Beyond 32 GB requires a full platform replacement (motherboard + DDR5).
+  # 300 W (25 A). Peak system draw: i7-4771 (84 W) + GT 730 (49 W) +
+  # rest (~50 W) ≈ 183 W on the +12 V rail — the 400 W continuous rating
+  # has ample headroom, and even an ~250 W 8 GB card would still fit.
+  # The real bottleneck for LLM work is the RAM: 16 GB is the practical
+  # cap here (slots 3/4 dead, see above). 7B models at 4-bit quantized
+  # (≈4–5 GB) fit with comfortable context headroom, but generation is
+  # slow on the i7-4771. Beyond 16 GB requires a full platform
+  # replacement (motherboard + DDR5).
 
   # --- Boot / Power ---
   # This host imports environments/laptop.nix (via family-laptop.nix), so it
   # also gets that file's laptop policies: thermald, power-profiles-daemon,
   # zram (mkDefault 50% of RAM) and upower. They are not harmful here and zram
-  # is genuinely useful on an 8 GB box with no second drive, so they are left
+  # is genuinely useful on a 16 GB box with no second drive, so they are left
   # on rather than un-pinned per host. upower finds no battery and idles.
   # What matters here is keeping the machine out of the sleep states that upset
   # the Wi-Fi card, so the idle policies below stay deliberately simple.
@@ -290,7 +296,8 @@ in
   # >= 7.3.2) in mkHost until the next update.
 
   # --- Nix ---
-  # 32 GB RAM -> 4 parallel builds safe (no OOM risk on this workload).
+  # 16 GB RAM -> 2 parallel builds leaves headroom for the desktop and
+  # local LLM work alongside compilation.
   roles.nix.maxJobs = 2;
 
   # nicky's Unsloth Studio (enabled for this host in desktop-leto.nix) is a
