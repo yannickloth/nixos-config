@@ -128,9 +128,9 @@
   # workarounds that have no flag. Empty by default; see
   # packages/strata/home.nix.
   , engineEnv ? { }
-  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.14.1 (control-only
-  # update: Terminal 0.2.14.1, Control 0.1.60.1 for Windows, Linux and Mac;
-  # engines and app stay 0.2.14 / 0.1.60).
+  # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.15 (app and
+  # Terminal 0.2.15, Control 0.1.61; engines stay 0.1.60 from the 0.2.14
+  # release).
   # That tag's engine is 0.1.60 (see engine.nix; since 0.2.4 the release's engine
   # packages carry their own version, the CMake project version says 0.1.60).
   # Engine 0.1.55 -> 0.1.56 changed one default that matters on this card:
@@ -145,9 +145,9 @@
   # on some cards), faster 12 GB card prompts (UD-IQ4_XS-v31 x3 at 2K),
   # tool-call fixes, and a 12 GB start-up change: the second check no longer
   # counts the engine's own memory as free.
-  # Engine 0.1.60 (v0.2.14.1) is a control-only update: Terminal 0.2.14.1,
-  # Control 0.1.60.1 for Windows, Linux and the Mac; engines and app stay 0.2.14.
-  # This is a drop-in update over 0.1.59 / v0.2.13 for the CUDA engine on sm_86.
+  # Engine 0.1.60 (v0.2.15) is app and Terminal 0.2.15 with Control 0.1.61;
+  # engines stay at 0.1.60 (served from the 0.2.14 release by the update feed).
+  # Drop-in update over 0.2.14.1 for the CUDA engine on sm_86.
   # The 0.2 line's engine was a drop-in swap for the 0.1.47 this package was
   # last tuned against (the calibrated knobs and the bench numbers above carry
   # over); two measured comparisons behind that note, kept as history:
@@ -177,8 +177,8 @@
   , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "v0.2.14.1";  # Control-only update: Terminal 0.2.14.1, Control 0.1.60.1; engine 0.1.60
-    hash = "sha256-ArbEf8k8qCBZEsFTuhPu1l8W+FU2auZiTVAOHj0ZvaY=";
+    rev = "v0.2.15";  # App and Terminal 0.2.15, Control 0.1.61; engines stay 0.1.60
+    hash = "sha256-0r6f9ffaxl1z7hnz2nzn75716a3wcwk78vils7n4140m9764zkdr";
   }
   , llamaCpp ? fetchFromGitHub {
     owner = "ggml-org";
@@ -192,7 +192,7 @@
 let
   # The Strata release this package is pinned to (its app version); the engine
   # it builds has its own version - see engineVersion below.
-  version = "0.2.14";
+  version = "0.2.15";
   # CMakeLists.txt's project(VERSION ...) in that tree. BUILD.json has to report
   # the ENGINE's version: setup.py compares it against MIN_ENGINE and against
   # the `engine=X.Y.Z` string compiled into the binary (stale_binary()).

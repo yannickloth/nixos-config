@@ -61,10 +61,17 @@ let
         # which the desktop environment has in PATH. No substitution needed.
         cp share/applications/*.desktop $out/share/applications/
 
-        # Icons, metainfo (AppStream), MIME types
+        # Icons, metainfo (AppStream), MIME types — metainfo and MIME types
+        # are optional; craft-anything ships neither, so the copy loops
+        # guard on file existence to avoid "missing destination file operand"
+        # when the glob expands to nothing (failing under set -e).
         cp -r share/icons/hicolor/* $out/share/icons/hicolor/
-        cp share/metainfo/*.xml $out/share/metainfo/
-        cp share/mime/packages/*.xml $out/share/mime/packages/
+        for f in share/metainfo/*.xml; do
+          [ -e "$f" ] && cp "$f" $out/share/metainfo/
+        done
+        for f in share/mime/packages/*.xml; do
+          [ -e "$f" ] && cp "$f" $out/share/mime/packages/
+        done
         if [ -d share/thumbnailers ]; then
           mkdir -p $out/share/thumbnailers
           cp share/thumbnailers/* $out/share/thumbnailers/
