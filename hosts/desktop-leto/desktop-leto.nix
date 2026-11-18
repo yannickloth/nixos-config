@@ -1,6 +1,13 @@
 { config, lib, pkgs, ... }:
 
 with lib;
+
+let
+  # fancontrol config — see the "--- Fan control ---" section below.
+  # Stays empty until `sudo pwmconfig` has been run on this machine; the
+  # fancontrol service is disabled while it is.
+  fanConfig = "";
+in
 {
   imports = [
     # Include the results of the hardware scan (generated on real hardware).
@@ -13,9 +20,6 @@ with lib;
     # Desktop-specific stacks (Plasma + Wine for Windows games/compatibility).
     ../../desktop/plasma.nix
     ../../apps/wine.nix
-
-    # Fan control — software PWM fan curves via lm_sensors.
-    ../../hardware/fancontrol.nix
 
     # commonHm.hostName: home-manager modules cannot reach
     # config.networking.hostName, so the host name is passed explicitly.
@@ -137,6 +141,26 @@ with lib;
   # The `amdgpu` kernel module is auto-loaded by the kernel for GCN 1.0+;
   # enabling graphics is enough for both X11 and Wayland/Plasma.
   hardware.graphics.enable = true;
+
+  # --- Fan control ---
+  # The stock Intel cooler on the i7-4771 is the loudest part of the box.
+  # fancontrol (lm_sensors, installed in roles/system.nix) drives the
+  # motherboard's PWM fan headers from a software curve: the CPU runs a few
+  # degrees warmer but stays far below the 100 °C throttle point, so there
+  # is no performance cost — only less noise.
+  #
+  # One-time setup on this machine:
+  #   1. sudo sensors-detect   (answer YES to the default probes)
+  #   2. sudo pwmconfig        (follow the prompts; writes /etc/conf.d/fancontrol)
+  #   3. Paste the content of /etc/conf.d/fancontrol into `fanConfig` at the
+  #      top of this file (optionally tune MINTEMP/MAXTEMP per fan).
+  #   4. sudo nixos-rebuild switch — the service enables itself once
+  #      fanConfig is no longer empty.
+  #
+  # The laptops don't need this: thermald + power-profiles-daemon + the UEFI
+  # fan profile are sufficient there.
+  hardware.fancontrol.config = fanConfig;
+  hardware.fancontrol.enable = fanConfig != "";
 
   # --- Bootloader ---
   # UEFI boot via systemd-boot (matches the running system).
