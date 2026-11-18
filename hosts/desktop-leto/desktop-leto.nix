@@ -14,6 +14,9 @@ with lib;
     ../../desktop/plasma.nix
     ../../apps/wine.nix
 
+    # Fan control — software PWM fan curves via lm_sensors.
+    ../../hardware/fancontrol.nix
+
     # commonHm.hostName: home-manager modules cannot reach
     # config.networking.hostName, so the host name is passed explicitly.
     {

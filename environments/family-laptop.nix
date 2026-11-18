@@ -71,6 +71,7 @@
 
     # Services.
     ../services/avahi.nix
+    ../services/xrdp.nix
     ../services/clamav.nix
     ../services/libvirt.nix
     ../services/malcontent.nix
@@ -93,6 +94,12 @@
   # (see services/ssh-user-keys.nix). Not laptop-specific: desktop-leto gets
   # them too.
   services.sshUserKeys.enable = true;
+
+  # xRDP — allows concurrent X11 sessions on virtual displays while the
+  # physical console stays on Wayland/KWin.  Every host gets both the server
+  # (services/xrdp.nix) and the client (krdc in roles/system.nix) so that
+  # every machine can be remotely accessed from any other.
+  services.xrdp.enable = true;
 
   # /data is a separate LUKS+btrfs volume on laptop-p16 and laptop-hera.
   # On the hosts without a second drive (laptop-xps, desktop-leto) these rules
