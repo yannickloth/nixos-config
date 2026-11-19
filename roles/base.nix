@@ -6,6 +6,7 @@ with lib;
 
 {
   imports = [
+    ./btrfs.nix
     ./nix.nix
     ./home-readme.nix
     ../security/kids.nix

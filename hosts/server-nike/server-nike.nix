@@ -164,9 +164,10 @@ with lib;
   boot.kernel.sysctl."vm.nr_hugepages" =
     lib.mkIf (config.home-manager.users.nicky.strata.enable or false) 22528;
 
-  # Bootloader.
+  # Bootloader — keep 5 generations max to prevent EFI partition fill-up.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.systemd-boot.configurationLimit = 5;
 
   # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
   time.timeZone = "Europe/Brussels";

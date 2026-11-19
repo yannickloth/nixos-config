@@ -93,9 +93,10 @@ with lib;
   boot.tmp.tmpfsSize = "50%";
   boot.tmp.cleanOnBoot = false;
 
-  # Bootloader.
+  # Bootloader — keep 5 generations max to prevent EFI partition fill-up.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.systemd-boot.configurationLimit = 5;
 
   # 128 GiB RAM -> parallel builds with all cores.
   roles.nix.maxJobs = 12;

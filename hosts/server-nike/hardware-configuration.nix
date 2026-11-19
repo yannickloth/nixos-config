@@ -77,7 +77,7 @@
     "/" = {
       device = "/dev/mapper/luks-e7d37111-6eee-4fdb-b2ab-63700afa9a36";
       fsType = "btrfs";
-      options = [ "noatime" ];
+      options = [ "noatime" "compress=zstd" ];
     };
     "/home" = {
       device = "/dev/mapper/luks-e7d37111-6eee-4fdb-b2ab-63700afa9a36";

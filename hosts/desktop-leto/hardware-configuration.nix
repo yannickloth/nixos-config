@@ -16,6 +16,7 @@
   fileSystems."/" =
     { device = "/dev/mapper/luks-d86e3875-3478-4979-a311-f0721dcb41c1";
       fsType = "btrfs";
+      options = [ "noatime" "compress=zstd" ];
     };
 
   boot.initrd.luks.devices."luks-d86e3875-3478-4979-a311-f0721dcb41c1".device = "/dev/disk/by-uuid/d86e3875-3478-4979-a311-f0721dcb41c1";
@@ -25,13 +26,13 @@
   fileSystems."/home" =
     { device = "/dev/mapper/luks-d86e3875-3478-4979-a311-f0721dcb41c1";
       fsType = "btrfs";
-      options = [ "subvol=home" ];
+      options = [ "subvol=home" "compress=zstd" "noatime" ];
     };
 
   fileSystems."/nix" =
     { device = "/dev/mapper/luks-d86e3875-3478-4979-a311-f0721dcb41c1";
       fsType = "btrfs";
-      options = [ "subvol=nix" ];
+      options = [ "subvol=nix" "compress=zstd" "noatime" ];
     };
 
   fileSystems."/boot" =

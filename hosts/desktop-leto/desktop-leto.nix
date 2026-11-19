@@ -210,8 +210,10 @@ in
 
   # --- Bootloader ---
   # UEFI boot via systemd-boot (matches the running system).
+  # Keep 5 generations max to prevent EFI partition fill-up.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.systemd-boot.configurationLimit = 5;
 
   # --- PSU ---
   # CoolerMaster RS460-PSAP-I3 · 460 W peak / 400 W continuous · +12 V rail

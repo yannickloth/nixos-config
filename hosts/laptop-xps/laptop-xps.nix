@@ -87,9 +87,10 @@ with lib;
   # 16 GiB RAM -> keep browser profiles on disk (psd disabled).
   roles.psd.enable = false;
 
-  # Bootloader.
+  # Bootloader — keep 5 generations max to prevent EFI partition fill-up.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.systemd-boot.configurationLimit = 5;
 
   # Btrfs swapfile on the root filesystem (in addition to zram) as disk-swap overflow.
   swapDevices = [{ device = "/swapfile"; size = 16384; }]; # 16 GiB; adjust to match RAM/disk
