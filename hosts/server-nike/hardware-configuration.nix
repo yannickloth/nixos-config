@@ -22,6 +22,9 @@
   boot = {
     blacklistedKernelModules = lib.optionals (!config.hardware.enableRedistributableFirmware) [
       "ath3k"
+    ] ++ [
+      # Open NVIDIA modules must own the device; nouveau must not bind.
+      "nouveau"
     ];
     initrd = {
       # From the nixos-generate-config scan of this machine, plus the LUKS
@@ -111,6 +114,10 @@
 
   networking.useDHCP = lib.mkDefault true;
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
+  # Open NVIDIA kernel modules need DRM modesetting enabled at kernel boot
+  # level; nixpkgs sets this when hardware.nvidia.modesetting.enable = true,
+  # but being explicit guarantees it survives any future nixpkgs refactor.
+  boot.kernelParams = [ "nvidia-drm.modeset=1" ];
 
   hardware = {
     cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
