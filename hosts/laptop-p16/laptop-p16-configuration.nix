@@ -38,5 +38,8 @@
     dvdplusrwtools            # growisofs, dvd+rw-mediainfo (CLI DVD burning)
     cdrkit                    # genisoimage — create ISO images from directories
     handbrake                 # Rip DVD/Blu-ray to video (links libdvdcss itself)
+
+    # NVIDIA diagnostic — ships in the driver's `bin` output, not a standalone nixpkgs package.
+    config.hardware.nvidia.package.bin  # nvidia-smi
   ];
 }

@@ -245,4 +245,9 @@ with lib;
 
   # Intel Xeon microcode (haswell-ep family).
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+
+  # nvidia-smi is in the nvidia-x11 package's `bin` output (the driver runfile
+  # ships it alongside nvidia-cuda-mps-control, etc.); not a standalone nixpkgs
+  # derivation, so it must be pulled from the multi-output package explicitly.
+  environment.systemPackages = [ config.hardware.nvidia.package.bin ];
 }
