@@ -163,19 +163,18 @@ with lib;
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Kernel + matching NVIDIA driver: Use `linux_6_18` (the current latest
-  # supported mainline kernel) and its paired NVIDIA driver (`nvidia_x11`).
+  # Kernel + matching NVIDIA driver: Use `linux_6_12` (latest supported mainline
+  # kernel with full NVIDIA driver patches in this nixpkgs version).
   #
   # Why: The user is on `linux_zen` 7.3.4. The proprietary NVIDIA driver (even
   # the bleeding-edge 615.x `new_feature` branch) lags behind brand-new kernels
   # like 7.x, causing "API mismatch" and "Driver/Library version mismatch" errors.
-  # `linux_6_18` is the current latest stable mainline kernel in nixpkgs, and its
-  # `nvidia_x11` package includes community patches to support the latest kernels.
+  # `linux_6_18` was too new for the NVIDIA patches in nixos-26.05, so we use
+  # `linux_6_12` — the latest kernel fully supported by `nvidia_x11`.
   #
-  # Note: We use `linux_6_18` instead of `linux_zen` because NVIDIA does not
-  # support the heavy Zen patches (Bore, RT, etc.). Vanilla kernel 6.18 is
-  # compatible with the patched driver; kernel 7.x Zen is not.
-  boot.kernelPackages = lib.mkForce pkgs.linuxKernel.packages.linux_6_18;
+  # Note: We use `linux_6_12` instead of `linux_zen` because NVIDIA does not
+  # support the heavy Zen patches (Bore, RT, etc.).
+  boot.kernelPackages = lib.mkForce pkgs.linuxKernel.packages.linux_6_12;
 
   # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
   time.timeZone = "Europe/Brussels";
