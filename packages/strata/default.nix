@@ -101,9 +101,9 @@
   # wrapper passes no --context, and the patcher leaves --max-context and the
   # rope flags alone). See packages/strata/home.nix for the options.
   , context ? 524288
-  , kv ? "int8"
-  , kvResident ? 32768
-  , ropeScaling ? "yarn"
+  , kv ? null
+  , kvResident ? null
+  , ropeScaling ? null
   # Measured hardware tuning from tools/calibrate.py (see the A3000 bench
   # harness in the yannickloth/forks-Strata repo). null leaves the engine's own
   # default: the PCIe probe for --pcie-frac, 0.5 for --spec-min-p, and every
@@ -242,7 +242,7 @@ let
     # used to move the policy between "args", "user_args" and "args_written"
     # exactly the way serve/server.py and setup.py do.
     text = ''
-      python3 - ${optArg context} ${lib.escapeShellArg kv} ${toString kvResident} ${lib.escapeShellArg ropeScaling} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.boolToString promptCacheTail} ${lib.escapeShellArg (builtins.toJSON engineEnv)} ${lib.boolToString visionEncoder} ${lib.escapeShellArg share} ${toString vramVisionReserveMiB} <<'PY'
+      python3 - ${optArg context} ${lib.escapeShellArg (optArg kv)} ${optArg kvResident} ${lib.escapeShellArg (optArg ropeScaling)} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.boolToString promptCacheTail} ${lib.escapeShellArg (builtins.toJSON engineEnv)} ${lib.boolToString visionEncoder} ${lib.escapeShellArg share} ${toString vramVisionReserveMiB} <<'PY'
       ${builtins.readFile ./config_patch.py}
       PY
     '';

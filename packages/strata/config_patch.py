@@ -26,7 +26,13 @@
 # The window is optional. argv[1] = "none" (module option `strata.context = null`)
 # means the module does not own --max-context or the rope flags: `strata --setup`
 # and the app's settings form keep what they wrote, and this script does not touch
-# either flag or drop them from "user_args".
+# either flag or drop them from "user_args". The kv / kv-resident / rope args
+# (argv[2..4]) take the same "none" sentinel: the module does not own the flags
+# (strata.kv / strata.kvResident / strata.ropeScaling = null), so whatever setup
+# or the settings form wrote stays, in "args" and "user_args" alike, and the
+# engine's own defaults stand. When the module DOES own the window and it extends
+# past the trained context, the rope flags are the module's again; with no method
+# of its own (rope = "none") it writes the engine's own default, "yarn".
 import glob, json, os, sys
 
 # "none" means the module does NOT own the window: `strata --setup` (or the
@@ -34,7 +40,10 @@ import glob, json, os, sys
 # them alone (packages/strata/home.nix, `strata.context = null`).
 ctx = None if sys.argv[1] == "none" else int(sys.argv[1])
 kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, tail, env_json, vision_encoder = (
-    sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5]),
+    None if sys.argv[2] == "none" else sys.argv[2],
+    None if sys.argv[3] == "none" else int(sys.argv[3]),
+    None if sys.argv[4] == "none" else sys.argv[4],
+    int(sys.argv[5]),
     sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10],
     sys.argv[11] == "true", sys.argv[12], sys.argv[13] == "true")
 # The reserve a config that serves images needs (encoder activations). Optional
@@ -56,8 +65,14 @@ from strata_control import user_args as UA
 # module options at engine start. Options the module leaves at null ("not set":
 # the engine's own default) are NOT listed: a hand-set value is kept for those.
 POLICY = {
-    "--kv", "--kv-resident", "--vram-reserve-mib", "--spec-min-p",
+    "--vram-reserve-mib", "--spec-min-p",
 }
+if kv is not None:
+    POLICY.add("--kv")
+# --kv-resident is owned when the module sets a value, and when it must remove
+# it (k8v4 never streams its KV: the engine refuses the combination).
+if kv_res is not None or kv == "k8v4":
+    POLICY.add("--kv-resident")
 # The window and its rope rescaling are the module's only when it sets a
 # context; with `strata.context = null` the runtime keeps them (a hand-set
 # value in "user_args" must survive, so the flags stay out of POLICY too).
@@ -128,19 +143,23 @@ for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
         a = set_opt(a, "--spec-min-p", 2 if spec == "none" else spec)
         if ctx is not None:
             a = set_opt(a, "--max-context", ctx)
-        if kv:
+        if kv is not None:
             a = set_opt(a, "--kv", kv)
-        # k8v4 never streams its KV (the engine refuses the combination)
-        if kv == "k8v4" or kv_res <= 0:
+        # k8v4 never streams its KV (the engine refuses the combination);
+        # otherwise only a module value is written - at null the flag stays as
+        # setup wrote it, and the engine's own default stands.
+        if kv == "k8v4" or (kv_res is not None and kv_res <= 0):
             a = set_opt(a, "--kv-resident", None)
-        else:
+        elif kv_res is not None:
             a = set_opt(a, "--kv-resident", kv_res)
         # Past the trained 262144 the angles must be rescaled; inside it, keep
         # the model completely stock (no rope flags at all). With ctx = None the
         # runtime owns both, so neither is touched.
         if ctx is not None:
             if ctx > 262144:
-                a = set_opt(a, "--rope-scaling", rope)
+                # rope = "none": the module owns the window but no scaling
+                # method, so it writes the engine's own default ("yarn").
+                a = set_opt(a, "--rope-scaling", rope or "yarn")
                 a = set_opt(a, "--rope-scale", f"{ctx / 262144:g}")
             else:
                 a = set_opt(a, "--rope-scaling", None)

@@ -45,12 +45,15 @@ in
     package = mkOption {
       type = types.package;
       default = pkgs.callPackage ./default.nix {
-        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery promptCacheTail vision visionEncoder engineEnv;
+        # context is the only tuning value we keep in Nix (engine KV/window capacity).
+        # All other tuning (poolWorkers, pcieFrac, specMinP, kvResident, adaptEvery,
+        # promptCacheTail, engineEnv) is owned by `strata --setup` at runtime.
+        inherit (cfg) context vision visionEncoder;
         # CachyOS needs the /usr/lib/libcuda shim; NixOS uses the driver runpath
         # (set by the standalone CachyOS flake / left false on NixOS).
         inherit (config.commonHm) isCachyOS;
       };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery promptCacheTail vision visionEncoder engineEnv; inherit (config.commonHm) isCachyOS; }";
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) context vision visionEncoder; inherit (config.commonHm) isCachyOS; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
     };
 
@@ -121,109 +124,6 @@ in
         `--context` to setup, and the config patcher leaves `--max-context` and
         the rope flags exactly as `strata --setup` or the app's settings form
         wrote them. Use it when the person, not this module, owns the window.
-      '';
-    };
-
-    kv = mkOption {
-      type = types.enum [ "int8" "q4_0" "k8v4" "fp16" ];
-      default = "int8";
-      description = ''
-        KV cache format (`--kv`). `k8v4` is the lowest-memory hybrid but cannot
-        stream its KV, so `kvResident` is dropped for it.
-      '';
-    };
-
-    kvResident = mkOption {
-      type = types.ints.unsigned;
-      default = 32768;
-      description = ''
-        Cells of each attention layer kept in VRAM; the rest of the KV cache
-        lives in pinned RAM (`--kv-resident`, engine minimum 20480). 0 keeps the
-        whole KV in VRAM. Costs ~13.7 KB of RAM per context token at 8-bit.
-      '';
-    };
-
-    ropeScaling = mkOption {
-      type = types.enum [ "yarn" "linear" "none" ];
-      default = "yarn";
-      description = "RoPE extension method used only when context > 262144 (`--rope-scaling`).";
-    };
-
-    pcieFrac = mkOption {
-      type = types.nullOr types.float;
-      default = null;
-      description = ''
-        Share of the experts missing from VRAM copied over PCIe and computed on
-        the GPU instead of the CPU (`--pcie-frac`, 0..1). null keeps the engine's
-        one-shot probe, which can read a busy or not-yet-ramped link several
-        times low; run `tools/calibrate.py` and pin the measured value here.
-      '';
-    };
-
-    specMinP = mkOption {
-      type = types.nullOr types.float;
-      default = null;
-      description = ''
-        Draft confidence below which the verify window is not extended by another
-        guess (`--spec-min-p`, 0..1). null keeps the engine's 0.5; a slower CPU
-        wants a higher floor.
-      '';
-    };
-
-    poolWorkers = mkOption {
-      type = types.nullOr types.ints.unsigned;
-      default = null;
-      description = ''
-        CPU expert-pool worker threads (`--pool-workers`). null keeps the engine's
-        default (every physical core minus the host's); on a hybrid CPU the
-        E-cores can make every window wait for them, so calibration often picks
-        fewer.
-      '';
-    };
-
-    poolAffinity = mkOption {
-      type = types.nullOr (types.enum [ "all" "auto" "p-cores" ]);
-      default = null;
-      description = "CPU affinity mode for the expert pool (`--pool-affinity`). null keeps the engine's `all`.";
-    };
-
-    adaptEvery = mkOption {
-      type = types.nullOr types.ints.positive;
-      default = null;
-      description = ''
-        Adaptive expert-cache exchange interval (`--adapt-every`, engine default
-        4). A lower value lets the cache learn a conversation's hot experts
-        sooner, which helps the first request of a cold session (P8 measured the
-        fresh hit rate 0.468 -> 0.539 at 1); it trades a small warm-turn hit
-        rate. null keeps the engine's default 4.
-      '';
-    };
-
-    promptCacheTail = mkOption {
-      type = types.bool;
-      default = false;
-      description = ''
-        Checkpoint near the end of each prompt too (`--prompt-cache-tail`,
-        --serve; needs --prompt-cache and --prompt-cache-every > 0, both at
-        their engine defaults). Without it, conversation-checkpoint reuse only
-        covers the resident KV window (--kv-resident, 20480 here), so every
-        serve request re-reads `context - 20480` tokens: ~27K tokens (~31 s) at
-        47K context, ~2 min at a 130K agent conversation. With it the reused
-        prefix grows with the conversation and the per-request re-read is
-        bounded (~12-13K tokens, ~13 s flat at 20-48K context on this host;
-        bench 2026-10-14, /tmp/opencode/strata-ab-results.txt protocol). Costs
-        one extra ~118 MB RAM checkpoint.
-      '';
-    };
-
-    engineEnv = mkOption {
-      type = types.attrsOf types.str;
-      default = { };
-      example = { STRATA_ADAPT_OVERLAP = "1"; };
-      description = ''
-        Environment variables merged into every engine config's `env` block (the
-        engine reads them; they are not command-line flags). For upstream
-        workarounds that have no flag. Empty by default.
       '';
     };
 
@@ -330,14 +230,6 @@ in
   config = mkMerge [
     (mkIf cfg.enable {
       assertions = [
-        {
-          assertion = cfg.ropeScaling != "none" || cfg.context == null || cfg.context <= 262144;
-          message = "strata.ropeScaling = \"none\" needs strata.context <= 262144 (or null, when the runtime owns the window): the engine refuses --rope-scale with no scaling past the trained context.";
-        }
-        {
-          assertion = cfg.kvResident == 0 || cfg.kvResident >= 20480;
-          message = "strata.kvResident must be 0 (whole KV in VRAM) or at least 20480 (the engine's --kv-resident minimum).";
-        }
         {
           # `vision` means "serve images by default", which needs the encoder
           # binary in the package. Only the option DEFAULT ties the two, so an

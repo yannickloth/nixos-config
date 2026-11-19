@@ -206,36 +206,16 @@ in
   # ~/.local/share/Strata-data - the sibling of STRATA_HOME (~/.local/share/
   # strata, the runtime tree it runs from). `dataOnDataVolume` keeps both on
   # /data; see the option comment below.
-  # Strata (Qwen3.8-Flash-Next 125B MoE) — re-enabled 2026-09-28: measured
-  # against Unsloth Studio on the same model (IQ2_XS, expert offload),
-  # Studio produces ~2 tok/s vs Strata's ~6 tok/s — Strata's MTP speculative
-  # decoding + expert cache + PLE are worth 3x here. Studio keeps the fast 9B
-  # and 27B models; Strata is the 125B endpoint. The two stacks keep separate
-  # copies: Strata's models are its own files in its data folder (measured
-  # 2026-11-09: 116 GiB, plain files, not links into Studio's cache), while
-  # Studio's HF cache on /data holds its own 80 GB. See
-  # packages/strata/engine.nix for the full measurement matrix.
-  # Hardware tuning measured on this laptop by tools/calibrate.py (see the
-  # bench/results/2026-10-02-rtx-a3000-i7-12850hx entry in forks-Strata):
-  #   --pcie-frac 0.35  beats the 0.55 default and the probe's 0.12-0.15
-  #                     (32.7 vs 27.0 tok/s for the 0.12 the probe picks)
-  #   --spec-min-p 0.70 beats 0.5 (34.0 vs 31.5 tok/s; slower CPU, no AVX-512)
-  #   --pool-workers 15 (the engine default) beats 8 on the fresh path: the
-  #                     E-cores add pool capacity here, they are not a tail
-  #                     (P2 re-measure, ops/p2-pool-affinity-results.md)
-  #   --kv-resident 20480 (was 32768): frees ~90 expert-cache slots; P8 measured
-  #                     the warm hit rate 0.618 -> 0.632 and fewer refusals,
-  #                     costing extra pinned-RAM KV reads only past ~20k context
-  #   --adapt-every 1   (was 4): learns a cold conversation's hot experts faster
-  #                     (fresh hit 0.468 -> 0.539 at a small warm-turn trade)
-  #                     (P8, ops/issues/p8-reduce-misses.md)
-  # Enforced on every config the package writes, so setup cannot undo them.
-  # enable is gated on the inference hosts (isP16 || isNike); the tuning
-  # values below were measured on laptop-p16's A3000 and may want
-  # recalibrating on server-nike's Haswell Xeon / PCIe 3.0.
+  #
+  # Tuning (poolWorkers, pcieFrac, specMinP, kvResident, adaptEvery, etc.)
+  # is left to `strata --setup` and the engine's own calibration. Nix manages
+  # service lifecycle only: start/stop, GPU handoff, and deployment layout.
+  # (The runtime configs on both hosts carry --adapt-every 1 — it's the same
+  # model on both, and the engine default of 4 is a catch-all that fits
+  # neither.)
   strata = lib.mkIf (isP16 || isNike) {
     enable = true;
-    # The engine window is owned at runtime, not here: null tells the package
+    # The engine window is owned at runtime: null tells the package
     # to stop passing --context to setup and to leave --max-context / the rope
     # flags alone, so `strata --setup` (or the app's settings form) decides and
     # the answer survives every restart. The shipped default stays 524288; this
@@ -262,20 +242,6 @@ in
     # e.g. add http://127.0.0.1:8080/v1 as a custom connection. Nothing is
     # stopped on launch (stopServerOnLaunch) for that reason.
     desktop.enable = true;
-    pcieFrac = 0.35;
-    specMinP = 0.70;
-    poolWorkers = 15;
-    kvResident = 20480;
-    adaptEvery = 1;
-    # Prompt-cache tail checkpoint (bench 2026-10-14, arms of
-    # /tmp/opencode/strata-ab.sh.py): without it, serve-side checkpoint reuse
-    # caps at the kv-resident window (20480), so every request re-reads
-    # `context - 20480` tokens (~118 s at a 130K agent conversation). With it
-    # the re-read is bounded ~12-13K tokens (~13 s flat at 20-48K context;
-    # 47K turn: 31.4 s -> 12.5 s). The parked-conversation cache
-    # (--conversation-cache-mib) measured ~15% slower with no reuse gain in
-    # single-conversation flow, so it stays off.
-    promptCacheTail = true;
     # The other half of the Studio handoff (packages/unsloth-studio/home.nix
     # frees the card FROM Strata FOR Studio; these free it FROM Studio FOR
     # Strata). Naming a Strata model while Studio holds the card must not end
@@ -293,22 +259,15 @@ in
     beforeLoad = "${config.home.homeDirectory}/.local/bin/unsloth-studio-unload.sh";
     # Store everything Strata reads and writes on the /data volume: the
     # runtime tree (~/.local/share/strata -> /data/strata) and the model files
-    # (~/.local/share/Strata-data -> /data/Strata-data). Measured 2026-11-09:
-    # 116 GiB of models/packs/mtp sit on the 1.9 TB home partition, which has
-    # 6 GiB free, while /data has 160 GiB free. The activation moves each tree
-    # and symlinks it back, so the data_dir in ~/.config/strata/settings.json
-    # and the absolute --native/--pack/--mtp paths in every strata-*.json keep
-    # resolving unchanged, and a fresh setup downloads to /data. The first run
-    # stops strata.service for the copy: 116 GiB takes ~10 min at 200 MB/s
-    # (~5 min at 400 MB/s, ~21 min at 100 MB/s), so run the rebuild from a
-    # terminal, not from a chat session that is using the model.
+    # (~/.local/share/Strata-data -> /data/Strata-data). The activation moves
+    # each tree and symlinks it back, so the data_dir in ~/.config/strata/
+    # settings.json and the absolute --native/--pack/--mtp paths in every
+    # strata-*.json keep resolving unchanged, and a fresh setup downloads to
+    # /data. The first run stops strata.service for the copy: 116 GiB takes
+    # ~10 min at 200 MB/s (~5 min at 400 MB/s, ~21 min at 100 MB/s), so run
+    # the rebuild from a terminal, not from a chat session that is using the
+    # model.
     dataOnDataVolume = true;
-    # STRATA_ADAPT_OVERLAP stays at the upstream default (off): 0.1.43 defaulted
-    # it on for Linux CUDA, which cost ~2.7x decode on this rig (small expert
-    # cache, --adapt-every 1), and 0.1.43.1 made it opt-in again. The interleaved
-    # A/B on 0.1.44.1 (2026-10-16, see packages/strata/default.nix) measured the
-    # flag a wash here, so no engineEnv override is set; re-add one to re-test
-    # after an engine change.
   };
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)

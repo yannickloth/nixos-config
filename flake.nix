@@ -19,7 +19,7 @@
     namaka.inputs.nixpkgs.follows = "nixpkgs";
     namaka.inputs.haumea.inputs.nixpkgs.follows = "nixpkgs";
     # Strata (github.com/Niko1221/Strata) is not a flake input: packages/strata
-    # fetches it directly with fetchFromGitHub, pinned to v0.2.13 (engine 0.1.59;
+    # fetches it directly with fetchFromGitHub, pinned to v0.2.15 (engine 0.1.60;
     # the app and the engine are versioned separately since 0.2.0) in
     # engine.nix/default.nix. (It used to be the private yannickloth/forks-Strata
     # fork's sm_86 branch; upstream 0.1.40.3 now carries every engine change the
@@ -365,6 +365,23 @@
             ua = cfg.get("user_args") or []
             assert ua[ua.index("--max-context") + 1] == "2048", ua
             ' "$STRATA_HOME/strata-null.json"
+
+            # 6b. the kv args at "none" (module options kv / kvResident = null):
+            #     the engine default stands - setup's flags stay in "args" AND a
+            #     hand-set --kv-resident in "user_args" must not be dropped (both
+            #     flags leave the POLICY set in that mode).
+            printf '{"args":["--kv","int8","--kv-resident","32768"],"user_args":["--kv-resident","40960"]}' > "$STRATA_HOME/strata-kvnone.json"
+            python3 ${./packages/strata/config_patch.py} none none none none 1800 none none none none none false '{}' false ${strataShare}
+            python3 -c '
+            import json, sys
+            cfg = json.load(open(sys.argv[1]))
+            a = cfg["args"]
+            assert a[a.index("--kv") + 1] == "int8", a
+            assert a[a.index("--kv-resident") + 1] == "32768", a
+            ua = cfg.get("user_args") or []
+            assert ua[ua.index("--kv-resident") + 1] == "40960", ua
+            assert "args_written" not in cfg, cfg
+            ' "$STRATA_HOME/strata-kvnone.json"
 
             # 7. last, because this file makes EVERY later run fail: an
             #    unreadable config is a hard failure, since this script is the
