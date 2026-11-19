@@ -41,6 +41,17 @@ in
     # desktop stack, and security policies).
     ../../environments/family-laptop.nix
 
+    # Pinned age host identity (services/host-age.nix): the keypair in
+    # ssh-keys/hosts/desktop-leto is pinned as the /etc/ssh host key (private key installed per
+    # secrets-structure/README.md) and audited against secrets.nix at build time.
+    ../../services/host-age.nix
+    {
+      services.hostAge = {
+        enable = true;
+        pubKey = ../../ssh-keys/hosts/desktop-leto.pub;
+      };
+    }
+
     # Desktop-specific stacks (Plasma + Wine for Windows games/compatibility).
     ../../desktop/plasma.nix
     ../../apps/wine.nix

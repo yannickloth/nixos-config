@@ -9,6 +9,17 @@ with lib;
     # Shared family-laptop module set (IVP; see the file header for the deltas).
     ../../environments/family-laptop.nix
 
+    # Pinned age host identity (services/host-age.nix): the keypair in
+    # ssh-keys/hosts/laptop-hera is pinned as the /etc/ssh host key (private key installed per
+    # secrets-structure/README.md) and audited against secrets.nix at build time.
+    ../../services/host-age.nix
+    {
+      services.hostAge = {
+        enable = true;
+        pubKey = ../../ssh-keys/hosts/laptop-hera.pub;
+      };
+    }
+
     # laptop-hera-only modules.
     ../../apps/benchmark.nix
 

@@ -110,6 +110,7 @@
             hera-syncthing-data = pkgs.writeText "hera-syncthing-data.sh"
               self.nixosConfigurations.laptop-hera.config.systemd.services.syncthing-hera-data-dir.script;
             usb-scan = pkgs.writeText "usb-scan.sh" (builtins.readFile ./services/usb-scan.sh);
+            age-audit = pkgs.writeText "age-audit.sh" (builtins.readFile ./scripts/age-audit.sh);
             natural-scroll = pkgs.writeText "natural-scroll.sh"
               self.nixosConfigurations.laptop-xps.config.home-manager.users.nicky.home.activation.setNaturalScroll.data;
             unsloth-free-gpu = pkgs.writeText "unsloth-free-gpu.sh"
@@ -169,8 +170,39 @@
             ${builtins.unsafeDiscardStringContext self.nixosConfigurations.laptop-hera.config.system.build.toplevel.drvPath}
             ${builtins.unsafeDiscardStringContext self.nixosConfigurations.laptop-p16.config.system.build.toplevel.drvPath}
             ${builtins.unsafeDiscardStringContext self.nixosConfigurations.desktop-leto.config.system.build.toplevel.drvPath}
+            ${builtins.unsafeDiscardStringContext self.nixosConfigurations.server-nike.config.system.build.toplevel.drvPath}
             EOF
           '';
+
+          # Secret/recipient audit (zeplan.md §2.3): secrets.nix evaluates,
+          # every declared key is well-formed, and every .age file's recipient
+          # set equals the set declared for it. When the local checkout holds
+          # the gitignored key store (ssh-keys/, present on the key-store
+          # machine but not in CI), the keypairs are additionally checked for
+          # pairing and every secret for decryptability with a stored key.
+          # The store path of the key store enters this check's inputs only on
+          # a machine that has the key store — the check stays runnable (with
+          # the reduced scope) in a bare CI checkout.
+          age-secrets =
+            let
+              keystoreArg =
+                if builtins.pathExists ./ssh-keys
+                then "${./ssh-keys}"
+                else "";
+            in
+            pkgs.runCommandLocal "age-secrets" {
+              nativeBuildInputs = [ pkgs.bash pkgs.nix pkgs.jq pkgs.age pkgs.openssh pkgs.openssl ];
+            } ''
+              set -euo pipefail
+              export HOME=$TMPDIR
+              export NIX_STATE_DIR=$TMPDIR/nix
+              export NIX_LOG_DIR=$TMPDIR/nix/log
+              export NIX_CONF_DIR=$TMPDIR/etc
+              mkdir -p "$NIX_STATE_DIR" "$NIX_LOG_DIR" "$NIX_CONF_DIR"
+              cd ${self}
+              bash scripts/age-audit.sh repo ${lib'.optionalString (keystoreArg != "") "\"${keystoreArg}\""}
+              touch $out
+            '';
 
           unit = pkgs.runCommandLocal "nix-unit" { nativeBuildInputs = [ pkgs.nix-unit ]; } ''
             export HOME=$TMPDIR

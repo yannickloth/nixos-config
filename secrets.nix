@@ -38,7 +38,7 @@ let
   host-laptop-xps = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAQkJFvXdkXG8Q9Chq7DFDIe71T2M2EaEvbdEi7Dg4an";
   host-laptop-travelmate = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGDwgXXr+XgOfH/vtOCcyXZwZTg7r5iVAvIf3IHs7Ii1";
   host-desktop-leto = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHGcaJSty1Sies8J42+xvPDHEDDVy1wTgBDLnV5JdvSg";
-  host-server-nike = "TODO_GENERATE_ON_FIRST_BOOT";
+  host-server-nike = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHJ3Mhw7RpHapDKS7iRT8/qBrahEquDMVBAYh1eAW2B";
 
   user-nicky = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL7qyn3G5ztyNoQ6u4RZ1nJZaDNHcQRGhKaVj0i8pC8m";
   user-aeiuno = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIASyK+Od8c/gEwvvdtz1Lovd/qnomAeCRr+cPmhn6qvQ";
@@ -46,12 +46,12 @@ let
   # All host keys. Host-wide system secrets and the login password hashes are
   # encrypted to this set.
   hosts = [
-    host-laptop-p16
-    host-laptop-hera
-    host-laptop-xps
-    host-laptop-travelmate
-    host-desktop-leto
-    host-server-nike
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHGcaJSty1Sies8J42+xvPDHEDDVy1wTgBDLnV5JdvSg"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHpBH6eidO8g+n4rqo9pVEsYX425CsDBloRbQoci0gD"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK4TZqDcPPeDcBpqpHKdD22h60uxF0PoV1gelJ7qbC01"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGDwgXXr+XgOfH/vtOCcyXZwZTg7r5iVAvIf3IHs7Ii1"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAQkJFvXdkXG8Q9Chq7DFDIe71T2M2EaEvbdEi7Dg4an"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHJ3Mhw7RpHapDKS7iRT8/qBrahEquDMVBAYh1eAW2B"
   ];
 in
 {
@@ -119,6 +119,11 @@ in
   # nicky's personal API keys (env-file format, KEY=VALUE lines). Scoped to
   # nicky's own key + the host keys (recovery); NOT to the other users' keys.
   "nicky.nix.age".publicKeys = [ user-nicky ] ++ hosts;
+
+  # nicky's PostgreSQL role password. Consumed twice: by the system unit
+  # (services/postgresql.nix, host key) and by nicky's home-manager .pgpass
+  # wiring (user key), so the scope mirrors nicky.nix.age.
+  "pg-nicky-password.age".publicKeys = [ user-nicky ] ++ hosts;
 
   # Per-user password hashes (SHA-512 crypt), consumed by users/passwords.nix
   # as users.users.<n>.hashedPasswordFile. Encrypted to host keys only.

@@ -318,8 +318,9 @@ in
     # committed .age files at activation time (using this host's SSH host key).
     # The .age files are encrypted to THIS host's key only (see secrets.nix), so
     # no other host or user can impersonate this device. The device ID is
-    # preserved on reinstall by restoring this host's private key from
-    # KeePassXC. See secrets-structure/README.md for the reinstall workflow.
+    # preserved on reinstall because the identity is committed here and the
+    # host key comes from the repo key store (backed up in KeePassXC). See
+    # secrets-structure/README.md for the reinstall workflow.
     #
     # Only declared when a pre-generated identity exists for this host; otherwise
     # syncthing generates its own on first boot (see hasSyncthingIdentity).

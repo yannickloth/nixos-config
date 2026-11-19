@@ -20,6 +20,18 @@ with lib;
     ../../desktop/xwayland.nix
     ../../desktop/plasma.nix
 
+    # Pinned age host identity (services/host-age.nix): the keypair in
+    # ssh-keys/hosts/server-nike is pinned as the /etc/ssh host key (private key installed per
+    # secrets-structure/README.md) and audited against secrets.nix at build time, so a stale recipient set
+    # fails the build instead of locking the host out of its own logins.
+    ../../services/host-age.nix
+    {
+      services.hostAge = {
+        enable = true;
+        pubKey = ../../ssh-keys/hosts/server-nike.pub;
+      };
+    }
+
     # commonHm.hostName: home-manager modules cannot reach
     # config.networking.hostName, so the host name is passed explicitly. It
     # gates host-specific HM (Unsloth/Strata/Orca on the inference hosts).

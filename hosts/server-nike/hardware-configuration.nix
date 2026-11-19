@@ -8,7 +8,8 @@
 # - RAM: DDR4 ECC Registered (Xeon platform)
 # - Storage:
 #   - sdb (1.8T): /boot (vfat), LUKS root (btrfs: /, /home, /nix subvolumes), LUKS swap
-#   - sda (1.8T): LUKS data disk (btrfs) at /data, keyfile-unlocked from the root
+#   - sda (1.8T): LUKS data disk (btrfs) at /data, unlocked in the initrd
+#     with the same passphrase as root (boot.initrd.luks.reusePassphrases)
 # - Network: DHCP
 { config, lib, pkgs, modulesPath, ... }:
 
@@ -42,14 +43,26 @@
         "nvidia_drm"
         "nvidia_uvm"
       ];
-      luks.devices = {
-        # Root disk (sdb2) — the one passphrase prompt at boot.
-        "luks-d32cf077-59d1-4de7-92b9-7010b525e41a".device = "/dev/disk/by-uuid/d32cf077-59d1-4de7-92b9-7010b525e41a";
-        # Swap (sdb3).
-        "luks-697133b4-4e65-48b0-9077-b8b92df8b7b3".device = "/dev/disk/by-uuid/697133b4-4e65-48b0-9077-b8b92df8b7b3";
-        # The data disk (sda1) is deliberately NOT here: it is unlocked with a
-        # keyfile from the decrypted root (fileSystems."/data".encrypted below),
-        # so it adds no prompt of its own at boot.
+      luks = {
+        # One passphrase at boot unlocks all three containers. systemd
+        # stage 1 mechanism: systemd-cryptsetup caches the typed passphrase
+        # in the kernel keyring (crypttab option password-cache, default
+        # yes) and the other devices pick it up before prompting, so boot
+        # needs a single passphrase input. Requires the SAME passphrase on
+        # root, swap and data — enforce that during the reinstall (see
+        # zeplan.md §4.3). (reusePassphrases only applies to the legacy
+        # scripted stage 1; it asserts here.)
+        devices = {
+          # Root disk (sdb2) — the one passphrase prompt at boot.
+          "luks-d32cf077-59d1-4de7-92b9-7010b525e41a".device = "/dev/disk/by-uuid/d32cf077-59d1-4de7-92b9-7010b525e41a";
+          # Swap (sdb3) — unlocked with the reused passphrase.
+          "luks-697133b4-4e65-48b0-9077-b8b92df8b7b3".device = "/dev/disk/by-uuid/697133b4-4e65-48b0-9077-b8b92df8b7b3";
+          # Data disk (sda1) — unlocked with the reused passphrase, so boot
+          # needs exactly one prompt. No keyfile in the boot path; the
+          # keyfile slot in the LUKS header stays as an offline recovery
+          # path (zeplan.md §4.4).
+          data.device = "/dev/disk/by-uuid/da463042-ab85-4999-979b-91f70c7c17a7";
+        };
       };
     };
     # The machine runs VMs (kvm-intel was in the scanned hardware config).
@@ -80,20 +93,14 @@
     };
     # Second SATA SSD (2 TB), LUKS+btrfs — carries the Syncthing data tree.
     # Mounted at /data so the bind mount below can serve it at /sync.
-    # Unlocked with a keyfile from the decrypted root (encrypted.keyFile):
-    # with the scripted initrd the encrypted module adds a postMountCommand
-    # that runs `cryptsetup luksOpen --key-file` once / is mounted under
-    # /mnt-root, so this disk needs no passphrase prompt at boot.
+    # The LUKS container is opened in the initrd (boot.initrd.luks.devices
+    # above) with the reused root passphrase, so the mapper device exists
+    # before the real root is mounted and no keyfile or second prompt is
+    # involved.
     "/data" = {
       device = "/dev/mapper/data";
       fsType = "btrfs";
       options = [ "compress=zstd" "noatime" ];
-      encrypted = {
-        enable = true;
-        blkDev = "/dev/disk/by-uuid/da463042-ab85-4999-979b-91f70c7c17a7";
-        label = "data";
-        keyFile = "/sysroot/root/.luks-keys/sda.key";
-      };
     };
   };
 
