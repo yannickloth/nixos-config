@@ -76,6 +76,14 @@ with lib;
     suppressNvidiaDriverAssertion = true; # driver provided by hardware.nvidia module
   };
 
+  # The nvidia-container-toolkit-cdi-generator service fails at boot if
+  # /dev/nvidia0 isn't ready yet. Enable automatic restart on failure so it
+  # keeps retrying until the driver loads.
+  systemd.services.nvidia-container-toolkit-cdi-generator = {
+    serviceConfig.Restart = "on-failure";
+    serviceConfig.RestartSec = "5s";
+  };
+
   networking.hostName = "server-nike"; # Define your hostname.
 
   # Syncthing device name for this host (see services/syncthing/pool.nix).
