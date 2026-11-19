@@ -76,6 +76,10 @@ with lib;
     suppressNvidiaDriverAssertion = true; # driver provided by hardware.nvidia module
   };
 
+  # Enable NVIDIA support in podman so nvidia-ctk and the container runtime hooks
+  # are installed. Unsloth Studio requires these for GPU passthrough.
+  virtualisation.podman.enableNvidia = true;
+
   # Disable the boot-time CDI generator. It waits for /dev/nvidia0 which
   # may not appear until after the initrd finishes (the kernel module
   # loading is what creates the device node, but the udev settle in
