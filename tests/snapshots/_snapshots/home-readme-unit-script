@@ -8,9 +8,9 @@ install_readme() {
     warn "refusing to replace non-regular $target"
     return 0
   fi
-  /nix/store/45lf9dy8rm8bx1z28ahnxlm5k3sgrxpf-e2fsprogs-1.47.4-bin/bin/chattr -i "$target" 2>/dev/null || true
-  /nix/store/kwc34h21my8mf7xbqm9gxs1xfx07xb4i-coreutils-9.11/bin/install --no-target-directory -o root -g root -m 0444 "$src" "$target"
-  if ! /nix/store/45lf9dy8rm8bx1z28ahnxlm5k3sgrxpf-e2fsprogs-1.47.4-bin/bin/chattr +i "$target" 2>/dev/null; then
+  /nix/store/21sjp5wnr4y57gsca24yw7mibxrfgsfj-e2fsprogs-1.47.4-bin/bin/chattr -i "$target" 2>/dev/null || true
+  /nix/store/p7ip75rls2g87d1yy4568djpa244c7ww-coreutils-9.11/bin/install --no-target-directory -o root -g root -m 0444 "$src" "$target"
+  if ! /nix/store/21sjp5wnr4y57gsca24yw7mibxrfgsfj-e2fsprogs-1.47.4-bin/bin/chattr +i "$target" 2>/dev/null; then
     warn "chattr +i failed on $target (filesystem without immutable support); the README is not immutable"
   fi
 }
