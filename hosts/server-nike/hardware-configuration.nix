@@ -134,7 +134,9 @@
       # Open kernel modules: NVIDIA recommends them for Ampere (GA106, sm_86),
       # and they pair with the current driver from nixpkgs-unstable's linux_zen
       # set that flake.nix selects for this host.
-      open = true;
+      # Switched to proprietary driver (2026-11-19): open modules have unresolved
+      # Wayland compositor issues (kwin_wayland spins on open NVIDIA KMS/DRM paths).
+      open = false;
       # package set in server-nike.nix to avoid duplicate definition
       powerManagement = {
         enable = false;
