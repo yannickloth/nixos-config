@@ -24,6 +24,13 @@ with lib;
     ../../desktop/xwayland.nix
     ../../desktop/plasma.nix
 
+    # NetworkManager (host delta, like the desktop stack above): the base
+    # server environment leaves DHCP to dhcpcd, but the Plasma panel's network
+    # applet (plasma-nm) only shows up when NetworkManager is running. Same
+    # setup as the family laptops/desktops via environments/family-laptop.nix.
+    # NixOS disables dhcpcd automatically once networkmanager is enabled.
+    ../../services/network-manager.nix
+
     # Pinned age host identity (services/host-age.nix): the keypair in
     # ssh-keys/hosts/server-nike is pinned as the /etc/ssh host key (private key installed per
     # secrets-structure/README.md) and audited against secrets.nix at build time, so a stale recipient set
@@ -164,7 +171,8 @@ with lib;
   # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
   time.timeZone = "Europe/Brussels";
 
-  # Dell 5810: Xeon E5-1650 v3 (8C/16T) — parallel builds with all cores.
+  # Dell 5810: Xeon E5-1650 v3 (6C/12T, Haswell-EP, 3.5 GHz) — parallel
+  # builds with all cores.
   roles.nix.maxJobs = 16;
   roles.nix.cores = 0;
 
