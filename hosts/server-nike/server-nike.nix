@@ -163,24 +163,19 @@ with lib;
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Kernel + matching NVIDIA driver: Use `linux_latest` (the newest stable mainline
-  # kernel) and its paired NVIDIA driver (`nvidia_x11`).
+  # Kernel + matching NVIDIA driver: Use `linux_6_18` (the current latest
+  # supported mainline kernel) and its paired NVIDIA driver (`nvidia_x11`).
   #
   # Why: The user is on `linux_zen` 7.3.4. The proprietary NVIDIA driver (even
   # the bleeding-edge 615.x `new_feature` branch) lags behind brand-new kernels
   # like 7.x, causing "API mismatch" and "Driver/Library version mismatch" errors.
-  # `linux_latest` is the latest supported kernel in nixpkgs, and its
-  # `nvidia_x11` package includes community patches to support kernels newer than
-  # upstream NVIDIA has officially released binaries for.
+  # `linux_6_18` is the current latest stable mainline kernel in nixpkgs, and its
+  # `nvidia_x11` package includes community patches to support the latest kernels.
   #
-  # Note: We use `linux_latest` instead of `linux_zen` because NVIDIA does not
-  # support the heavy Zen patches (Bore, RT, etc.). Vanilla kernel 7.x is
+  # Note: We use `linux_6_18` instead of `linux_zen` because NVIDIA does not
+  # support the heavy Zen patches (Bore, RT, etc.). Vanilla kernel 6.18 is
   # compatible with the patched driver; kernel 7.x Zen is not.
-  boot.kernelPackages = pkgs.linuxKernel.packages.linux_latest;
-
-  # Explicitly pair the driver with the kernel. This ensures the NVIDIA module
-  # is compiled against the exact source of the running kernel.
-  hardware.nvidia.package = config.boot.kernelPackages.nvidia_x11;
+  boot.kernelPackages = pkgs.linuxKernel.packages.linux_6_18;
 
   # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
   time.timeZone = "Europe/Brussels";
@@ -239,10 +234,9 @@ with lib;
     gsp.enable = true; # NVIDIA GPU System Processor — offloads low-level GPU mgmt
     modesetting.enable = true; # Required for the NVIDIA driver
     nvidiaSettings = true;
-    # Use the latest available driver version (new_feature branch, 610.57.04)
-    # instead of the stable production branch. The proprietary driver handles
-    # the Ampere GPU (sm_86) without the open-module DRM/KMS gaps.
-    package = config.boot.kernelPackages.nvidiaPackages.new_feature;
+    # Paired with `linux_latest` (see above): the nvidia_x11 package includes
+    # community patches to support the absolute newest kernel versions.
+    package = config.boot.kernelPackages.nvidia_x11;
     powerManagement = {
       enable = false; # Never sleep the GPU — inference server
       finegrained = false;
