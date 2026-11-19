@@ -175,7 +175,7 @@ with lib;
   # Note: We use `linux_6_18` instead of `linux_zen` because NVIDIA does not
   # support the heavy Zen patches (Bore, RT, etc.). Vanilla kernel 6.18 is
   # compatible with the patched driver; kernel 7.x Zen is not.
-  boot.kernelPackages = pkgs.linuxKernel.packages.linux_6_18;
+  boot.kernelPackages = lib.mkForce pkgs.linuxKernel.packages.linux_6_18;
 
   # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
   time.timeZone = "Europe/Brussels";
