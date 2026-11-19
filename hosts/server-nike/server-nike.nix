@@ -76,16 +76,14 @@ with lib;
     suppressNvidiaDriverAssertion = true; # driver provided by hardware.nvidia module
   };
 
-  # The nvidia-container-toolkit-cdi-generator service fails at boot because
-  # /dev/nvidia* isn't ready yet (udev settle doesn't wait for NVIDIA driver
-  # binding). Replace the udev settle with a wait loop that blocks until the
-  # driver is fully loaded, then generates the CDI spec once. No retries, no
-  # failures, no races.
-  systemd.services.nvidia-container-toolkit-cdi-generator = {
-    serviceConfig.ExecStartPre = lib.mkForce ''
-      while [ ! -e /dev/nvidia0 ]; do sleep 1; done
-    '';
-  };
+  # Disable the boot-time CDI generator. It waits for /dev/nvidia0 which
+  # may not appear until after the initrd finishes (the kernel module
+  # loading is what creates the device node, but the udev settle in
+  # nixpkgs doesn't wait for NVIDIA driver binding). Disabling the
+  # multi-user trigger eliminates the boot failure; the nixpkgs udev rule
+  # (KERNEL=="nvidia", RUN+=restart) will still trigger it exactly once
+  # when the driver actually loads.
+  systemd.services.nvidia-container-toolkit-cdi-generator.enable = false;
 
   networking.hostName = "server-nike"; # Define your hostname.
 
