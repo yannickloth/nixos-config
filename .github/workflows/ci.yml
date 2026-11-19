@@ -90,10 +90,9 @@ jobs:
             echo "::endgroup::"
           done
 
-  # Bounded build gate: only the pure script checks, whose closures are small.
-  # `hosts-eval`, `snapshots` and `strata-fail-closed` are excluded because they
-  # pull system or JVM closures; `hosts-eval` is redundant with the evaluation
-  # job above.
+  # Bounded build gate: the pure script checks plus the two generated-artifact
+  # checks. `hosts-eval` is excluded: it only writes five toplevel drvPaths,
+  # which the evaluation job above already computes for every host.
   checks-scripts:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -119,7 +118,9 @@ jobs:
             .#checks.x86_64-linux.printing-script \
             .#checks.x86_64-linux.parse-all \
             .#checks.x86_64-linux.python-compile \
-            .#checks.x86_64-linux.age-secrets
+            .#checks.x86_64-linux.age-secrets \
+            .#checks.x86_64-linux.snapshots \
+            .#checks.x86_64-linux.strata-fail-closed
 
   # Standalone home-manager flake (CachyOS deployment): evaluation of the four
   # users plus the CachyOS-only SSH key bootstrap script.
