@@ -394,9 +394,7 @@
         #
         # Generic derivation set for `nix build` / `nix-update`. Uses tarballs
         # with stdenvNoCC (no FHS sandbox, no CachyOS extras).
-        (import ./packages/craft-apps {
-          inherit (pkgs) lib fetchurl stdenvNoCC;
-        })
+        (import ./packages/craft-apps { pkgs = pkgs; })
         // {
           # Strata (packages/strata): CUDA inference engine for the A3000
           # (sm_86) + runtime wrappers; consumed via home-manager

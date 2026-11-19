@@ -203,20 +203,17 @@ in
   unsloth-studio.strataGpuHandoff = isP16 || isNike;
 
   # Strata (Qwen3.8-Flash-Next 125B MoE inference, OpenAI/Anthropic API on
-  # localhost). GPU-gated to the inference hosts (laptop-p16, server-nike):
-  # the engine is built for sm_86 and the runtime wants 12 GB of VRAM plus
-  # 34-50 GB of RAM for the expert arena — both hosts qualify (A3000 12GB /
-  # RTX 3060 12GB, 128/96 GiB RAM). The first `strata` run downloads the model
-  # (~70-84 GB per quantization) into Strata's data folder,
-  # ~/.local/share/Strata-data - the sibling of STRATA_HOME (~/.local/share/
-  # strata, the runtime tree it runs from). `dataOnDataVolume` keeps both on
-  # /data; see the option comment below.
+  # localhost). GPU-gated to laptop-p16 only: its RTX A3000 12GB (sm_86) + 128 GiB
+  # RAM qualify. server-nike is the daily workstation — no Strata engine here. The
+  # opencode strata-local provider (users/opencode.nix) reaches P16 over Tailscale
+  # instead of localhost. `strata --setup` still downloads the model (~70-84 GB) into
+  # Strata's data folder; `dataOnDataVolume` keeps it on /data.
   #
   # All engine tuning (context, KV format, rope scaling, PCIe fraction, pool
   # workers, adapt-every, spec-min-p) is left to `strata --setup` at runtime.
   # Nix manages only service lifecycle: start/stop, GPU handoff, deployment
   # layout, and the mandatory --expert-cache flag (native packs refuse without it).
-  strata = lib.mkIf (isP16 || isNike) {
+  strata = lib.mkIf isP16 {
     enable = true;
     # Reachable beyond loopback (the other inference host, the LAN, the
     # tailnet); the host firewall scopes it to private ranges (see

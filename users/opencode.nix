@@ -421,28 +421,30 @@ let
         };
       };
     };
-    # Local Strata server (packages/strata, laptop-p16 only):
-    # Qwen3.8-Flash-Next 125B MoE, OpenAI-compatible API on localhost.
-    # Kept ALONGSIDE the Studio provider on purpose (2026-11-06): Studio fits
-    # the KV cache into the 12 GB card and therefore serves ~10k (4 slots) to
-    # ~17k (1 slot) tokens, while Strata streams 8-bit KV from pinned RAM and
-    # reaches 524288. Long-paper work needs the latter. Studio remains the
-    # default admission point; use exactly one path at a time — a live Strata
-    # request makes Studio's unload answer "busy", and its load then fails.
+    # Local Strata server (packages/strata): on laptop-p16 it is 127.0.0.1:8080;
+    # on server-nike (the workstation, no Strata engine) it is P16's Tailscale
+    # address — the host that actually runs the engine.  P16 also serves
+    # unsloth-studio at localhost:8888 for fast interactive chat.
     #
-    # The server accepts ANY API key and model name (chat.py sends "strata"),
-    # so no key file is needed. Context is advisory (opencode uses it for
-    # compaction thresholds) and must track the single server context: this
-    # host leaves the window to `strata --setup` (strata.context = null in
-    # users/nicky/nicky-hm.nix), and the served config currently holds 393216
-    # (384K). Both entries below use that number. Vision is OFF
-    # (vision = false): the strata-vision encoder drops throughput from ~35 to
-    # ~22 tok/s, so attachments are disabled on both models. The model supports
-    # reasoning: tune via reasoning effort.
+    # On P16: Studio + Strata share the GPU. Studio fits the KV cache into the
+    # 12 GB card (~10k–17k tokens), while Strata streams 8-bit KV from pinned RAM
+    # at 524288. Long-paper work needs Strata; Studio stays the default admission
+    # point for everyday tasks. Studio's unload answers "busy" during a live
+    # Strata request, and vice versa — use one path at a time.
+    #
+    # The server accepts ANY API key and model name, so no key file is needed.
+    # Context is advisory (opencode uses it for compaction thresholds) and must
+    # track the single server context: the host leaves the window to `strata
+    # --setup`, and the served config currently holds 393216 (384K). Both
+    # entries use that number. Vision is OFF (the encoder drops throughput
+    # from ~35 to ~22 tok/s), so attachments are disabled on both models. The
+    # model supports reasoning: tune via reasoning effort.
     strata-local = {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
-        baseURL = "http://127.0.0.1:8080/v1";
+        baseURL = if hn == "server-nike"
+          then "http://laptop-p16.bee-blues.ts.net:8080/v1"
+          else "http://127.0.0.1:8080/v1";
         apiKey = "strata";
       };
       models = {
@@ -662,9 +664,7 @@ in
                 # layouts, export, or run scripts.
                 designcraft = {
                   type = "local";
-                  command = [ "${(import ../packages/craft-apps {
-                    inherit (pkgs) lib fetchurl stdenvNoCC;
-                  }).designcraft}/bin/designcraft-cli" "mcp" ];
+                  command = [ "${(import ../packages/craft-apps { pkgs = pkgs; }).designcraft}/bin/designcraft-cli" "mcp" ];
                   disabled = false;
                 };
               } // optionalAttrs (pkgs ? rea) {
@@ -726,13 +726,13 @@ in
           };
         in
         builtins.toJSON (baseConfig // optionalAttrs hasLocalInference {
-          # Default model on laptop-p16. 2026-11-06: back to the direct Strata
-          # path, because this host's Studio cannot serve the window long-paper
-          # work needs (KV on the 12 GB card: ~10k-17k tokens) while Strata
-          # streams KV from pinned RAM at 524288. Studio stays configured for
-          # its own models and as an alternative admission point; flip this one
-          # line to the Studio id when a task fits the small window.
-          model = "strata-local/swift-1.5-iq3_xxs";
+          # Default model: P16 uses Strata (deep reasoning, long context);
+          # server-nike (workstation) uses unsloth-studio (fast 35B-A3B for
+          # interactive chat). Strata-local stays available on both hosts for
+          # long-paper work (P16: localhost, server-nike: over Tailscale).
+          model = if hn == "server-nike"
+            then "unsloth-studio/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF"
+            else "strata-local/swift-1.5-iq3_xxs";
         });
     };
 
