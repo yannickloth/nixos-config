@@ -255,11 +255,12 @@ The existing removal guard (refuse to drop a host recipient without
    build-time audit and the sysinit guard make any misconfiguration fail
    loudly instead of locking out.
 
-server-nike's syncthing device identity (currently absent from
-`secrets/syncthing/`) is generated **before** first boot (offline, ECDSA
-P-256 self-signed cert/key — the same shape syncthing generates), encrypted
-to the new host key, and committed, so the device ID is stable across
-reinstalls and the repo audit sees no missing file.
+server-nike's syncthing device identity is generated **before** first boot
+(offline, ECDSA P-256 self-signed cert/key — the same shape syncthing
+generates), encrypted to the new host key, and committed (done:
+`secrets/syncthing/server-nike/`, device ID `LGDNKBB-…XSPRRQ4` in
+`pool.nix`), so the device ID is stable across reinstalls and the repo audit
+sees no missing file.
 
 ---
 
@@ -401,7 +402,9 @@ This step is documented in the README's server-nike reinstall section.
 3. Host wirings: server-nike, laptop-p16, laptop-hera, laptop-xps,
    desktop-leto
 4. server-nike syncthing identity: generate offline → encrypt to the new
-   host key → commit (fills `secrets/syncthing/server-nike/`)
+   host key → commit (fills `secrets/syncthing/server-nike/`) — done
+   2026-11-19 (commit 1d35bad); device ID `LGDNKBB-…XSPRRQ4` now filled in
+   `pool.nix`
 5. `secrets.nix`: `host-server-nike` placeholder → real public key (done
    via step 7's rekey, which rewrites the `hosts` group with the real key
    values); also fold in `pg-nicky-password.age`, which was consumed on the

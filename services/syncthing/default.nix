@@ -8,18 +8,17 @@
 # library (~/roms for every user). The other folders stay unreadable: the kids
 # inherit traverse-only (--x) on them, so they can cd but never list or read.
 #
-# The folder/device set is the single source of truth in `./pool.nix`: every
-# host syncs all 37 folders to nestor and the other laptops (replication /
+# The folder/device set is the single source of truth in `./pool.nix`: each
+# host syncs the folders whose device list includes it (replication /
 # closest-to-backup). A host only needs to set `services.syncthing.self` to its
 # device name; folders, devices, and the per-host cert/key are derived here.
 #
-# Device identity: the local node's cert/key are auto-provisioned into
-# /etc/nixos/secrets/syncthing/<self>/ by an activation script — preferring a
-# gitignored pre-generated copy in the repo, then an existing /var/lib/syncthing
-# cert (so an already-registered host like laptop-hera keeps its device ID),
-# else generating a fresh identity. This gives every host a stable device ID
-# without manual copying. Pre-generated IDs are committed in pool.nix; the
-# private cert/key stay out of git (see .gitignore, KeePass backup).
+# Device identity: hosts with a committed identity (secrets/syncthing/<self>/
+# cert.pem.age) get it via agenix — the cert/key are decrypted to
+# /var/lib/syncthing/identity/ at activation and passed to Syncthing, so the
+# device ID is stable across reinstalls (IDs are committed in pool.nix, the
+# private key never leaves the .age files). Hosts without one let Syncthing
+# generate a fresh identity on first boot (hasSyncthingIdentity).
 
 { config, lib, pkgs, ... }:
 

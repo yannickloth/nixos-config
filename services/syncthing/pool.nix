@@ -1,14 +1,16 @@
 # Syncthing folder/device pool — the single source of truth for what every host
 # syncs. Imported by services/syncthing/default.nix.
 #
-# The 37 folders + 11 devices below are the exact set exported from the live
-# host (laptop-p16, CachyOS) at `~/.local/state/syncthing/config.xml`, plus the
-# new laptop-xps and laptop-travelmate devices (whose certs were pre-generated).
-# Every NixOS host built from this flake syncs all of these folders, replicating
-# each to nestor and the other laptops as the closest-to-backup copy.
+# The folder set started as an export from the live host (laptop-p16, CachyOS)
+# `~/.local/state/syncthing/config.xml`; membership has been adjusted since
+# (deliberate exclusions are noted inline). Each host syncs the folders whose
+# `devices` list includes it, replicating each to nestor and the other hosts as
+# the closest-to-backup copy.
 #
 # A host only needs to set `services.syncthing.self` to its device name; the
-# module derives its folders/devices from this pool.
+# module derives its folders/devices from this pool. NixOS hosts carry a
+# pre-generated identity (cert/key in secrets/syncthing/<host>/*.age, device ID
+# here) so the ID is stable and known ahead of install.
 
 {
   # Every known device. `id` is the stable Syncthing device ID. The device
@@ -39,9 +41,10 @@
     };
     "server-nike" = {
       # Pre-generated so the device ID is stable and known ahead of install.
-      # The matching cert/key live in secrets/syncthing/server-nike/*.age.
-      # TODO: fill in the Syncthing device ID after first boot.
-      id = "TODO_FILL_IN_AFTER_FIRST_BOOT";
+      # The matching cert/key live in secrets/syncthing/server-nike/*.age and
+      # are already the live identity on the host — other devices paired with
+      # it under this ID, so it must not change.
+      id = "LGDNKBB-R5NVUYP-26M4J4Q-IDFFGH5-KPGIMXA-ERR4BXW-XZJWRBO-XSPRRQ4";
     };
     "nestor" = {
       id = "X2BF7X6-AR33BUE-32MXKRW-VTRRVJM-53DNXSQ-AN26QLX-DOMXCFS-DYJU4Q3";

@@ -106,10 +106,13 @@ in
   "syncthing/laptop-travelmate/key.pem.age".publicKeys = [ host-laptop-travelmate ];
   "syncthing/desktop-leto/cert.pem.age".publicKeys = [ host-desktop-leto ];
   "syncthing/desktop-leto/key.pem.age".publicKeys = [ host-desktop-leto ];
-  # server-nike identity: generated on first boot via the activation script,
-  # then encrypted and committed to git with:
-  #   age -p -r <host-server-nike-pubkey> -o secrets/syncthing/server-nike/cert.pem.age /var/lib/syncthing/identity/cert.pem
-  #   age -p -r <host-server-nike-pubkey> -o secrets/syncthing/server-nike/key.pem.age   /var/lib/syncthing/identity/key.pem
+  # server-nike identity: pre-generated offline and committed before first
+  # boot, so the device ID is known ahead of install. To generate a host
+  # identity offline (see parents.md "Setting up Syncthing"):
+  #   syncthing generate --home <tmp>        # writes cert.pem + key.pem
+  #   syncthing device-id --home <tmp>       # the ID that goes in pool.nix
+  #   age -r "ssh-ed25519 <host pub key>" -o secrets/syncthing/<host>/cert.pem.age <tmp>/cert.pem
+  #   age -r "ssh-ed25519 <host pub key>" -o secrets/syncthing/<host>/key.pem.age  <tmp>/key.pem
   "syncthing/server-nike/cert.pem.age".publicKeys = [ host-server-nike ];
   "syncthing/server-nike/key.pem.age".publicKeys = [ host-server-nike ];
 
