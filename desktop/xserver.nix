@@ -30,10 +30,9 @@ with lib;
         sddm={
           autoNumlock = true;
           enable = true;
-          wayland = {
-            enable = true;
-            compositor = "kwin";
-          };
+          # sddm.wayland is configured in desktop/plasma.nix to false for
+          # NVIDIA open driver compatibility (kwin_wayland spins on open
+          # NVIDIA KMS/drm-mode paths).
         };
       };
       # gnome.gnome-keyring.enable = lib.mkForce false;
