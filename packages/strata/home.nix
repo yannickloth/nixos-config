@@ -154,7 +154,24 @@ in
     port = mkOption {
       type = types.port;
       default = 8080;
-      description = "Loopback port of the Strata API (the port Studio's Custom provider points at).";
+      description = "Port of the Strata API (bound per `strata.host`; the port Studio's Custom provider points at).";
+    };
+
+    host = mkOption {
+      type = types.str;
+      default = "127.0.0.1";
+      description = ''
+        Address the Strata API listens on (`STRATA_HOST`). Loopback by
+        default: the server is for this machine's clients (Studio, opencode,
+        the desktop app). Set it to 0.0.0.0 where the host firewall scopes
+        the exposure, e.g. to reach the 125B from another inference host, a
+        phone on the LAN or a tailnet peer. Note the server's Host-header
+        check (DNS-rebinding protection): beyond loopback it answers to its
+        own name and LAN addresses automatically, and IP-address Host headers
+        always pass, but a MagicDNS name (`.bee-blues.ts.net`) needs an
+        `allowedHosts` entry.
+      '';
+      example = "0.0.0.0";
     };
 
     minFreeVramMib = mkOption {
@@ -293,6 +310,7 @@ in
           Environment = [
             "BROWSER=true" # never open a browser from the service
             "STRATA_PORT=${toString cfg.port}"
+            "STRATA_HOST=${cfg.host}"
             "STRATA_IDLE_UNLOAD=${toString cfg.idleUnloadSeconds}"
           ]
           ++ optional (cfg.minFreeVramMib > 0) "STRATA_MIN_FREE_VRAM=${toString cfg.minFreeVramMib}"

@@ -210,12 +210,18 @@ with lib;
   # by Tailscale peers (other laptops pair to it over the mesh), same CGNAT gate
   # as nix-serve in environments/laptop-firewall.nix. Kept in the host rather
   # than the HM module because orca.server is a home-manager option and cannot
-  # touch networking.firewall.
+  # touch networking.firewall. Same for strata (:8080) and unsloth-studio
+  # (:8888) below: reachable from the other inference host, the LAN and the
+  # tailnet (the private-range set from lib, IPv6 included). Loopback needs no
+  # rule: the firewall accepts lo by default.
   networking.firewall.extraInputRules = ''
     tcp dport 5000 ip saddr 100.64.0.0/10 accept  # nix-serve (Tailscale)
     tcp dport 5000 ip saddr 192.168.178.0/24 accept # nix-serve (local LAN)
     tcp dport 6768 ip saddr 100.64.0.0/10 accept  # orca runtime server (Tailscale)
-  '';
+  ''
+    + (import ../../lib).privateNetRules {
+      tcp = [ "8080" "8888" ];  # strata + unsloth studio
+    };
 
   # videoDrivers, the kernel and the driver package come from
   # ../../hardware/nvidia_ampere.nix, which laptop-p16 imports as well.

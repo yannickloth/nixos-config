@@ -42,6 +42,14 @@ with lib;
   # Tailscale firewall: allow SSH + Tailscale internal traffic.
   networking.firewall.allowedUDPPorts = [ 41641 ]; # Tailscale DERP fallback
 
+  # nftables firewall backend: the scoped service rules in the host file's
+  # extraInputRules (nix-serve, orca, strata, unsloth-studio) are nftables-only
+  # text - with the iptables default backend they are silently inert, which is
+  # how the orca/nix-serve rules sat dead. The laptops run the nftables backend
+  # via environments/laptop-firewall.nix, and no iptables-based
+  # extraCommands remain in the server module set, so it evaluates cleanly.
+  networking.nftables.enable = true;
+
   # Syncthing: run on server-nike for model distribution.
   # The device name is set in hosts/server-nike/server-nike.nix.
 

@@ -12,9 +12,11 @@
 # Rootless podman under the owning user, started by a systemd *user* unit, is
 # the whole trick: `users.users.<owner>.linger` (or the CachyOS equivalent,
 # `loginctl enable-linger`) starts the user manager at boot, so the instance
-# runs whoever is logged in. The port is published on 127.0.0.1 only; every
-# local user reaches it there, and nothing is exposed to the LAN. Studio binds
-# 0.0.0.0 INSIDE the container on purpose (docker/studio_run.sh: "the container
+# runs whoever is logged in. The port is published on `host` (127.0.0.1 by
+# default): every local user reaches it there, and nothing is exposed to the
+# LAN unless the host widens the publish (then the host firewall must scope
+# it). Studio binds 0.0.0.0 INSIDE the container on purpose (docker/
+# studio_run.sh: "the container
 # is the boundary"), so never add --network=host.
 #
 # Updates need no nix switch. The image reference lives in imageFile, which an
@@ -92,7 +94,7 @@ let
       "''${gpu_args[@]}" \
       --ipc=host \
       --ulimit memlock=-1 --ulimit stack=67108864 \
-      -p 127.0.0.1:${toString cfg.port}:8000 \
+      -p ${toString cfg.host}:${toString cfg.port}:8000 \
       "''${env_args[@]}" \
       -v ${containerName}:/opt/unsloth-studio \
       -v ${escapeShellArg cfg.dataDir}/hf:/workspace/.cache/huggingface \
@@ -194,6 +196,20 @@ in
         rootless container cannot otherwise reach it. Requires rootless podman
         with pasta and a passt that knows --map-host-loopback.
       '';
+    };
+
+    host = mkOption {
+      type = types.str;
+      default = "127.0.0.1";
+      description = ''
+        Address the port is published on (`-p <host>:<port>:8000`). Loopback
+        by default: every local user reaches Studio there, and nothing is
+        exposed to the LAN. Set it to 0.0.0.0 where the host firewall scopes
+        the exposure (another inference host, the LAN, the tailnet) - the
+        container still binds 0.0.0.0 inside, so only this publish line
+        changes.
+      '';
+      example = "0.0.0.0";
     };
 
     gpu = mkOption {

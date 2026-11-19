@@ -187,6 +187,11 @@ in
   # exits 1 when it sees such a card — and laptop-xps has no NVIDIA card at
   # all; both run the image in CPU mode.
   unsloth-studio.gpu = isP16 || isNike;
+  # Inference hosts only: publish the port beyond loopback so the other
+  # inference host / the LAN / the tailnet can reach the UI and API (the host
+  # firewall scopes the exposure, see hosts/<host>/<host>.nix). The other hosts
+  # keep the loopback-only publish.
+  unsloth-studio.host = lib.mkIf (isP16 || isNike) "0.0.0.0";
   # Only the CachyOS install has the distro podman: there it shares conmon,
   # netavark and the CDI spec with the `podman` in the shell. On NixOS the
   # module's default (pkgs.podman) is used.
@@ -207,22 +212,17 @@ in
   # strata, the runtime tree it runs from). `dataOnDataVolume` keeps both on
   # /data; see the option comment below.
   #
-  # Tuning (poolWorkers, pcieFrac, specMinP, kvResident, adaptEvery, etc.)
-  # is left to `strata --setup` and the engine's own calibration. Nix manages
-  # service lifecycle only: start/stop, GPU handoff, and deployment layout.
-  # (The runtime configs on both hosts carry --adapt-every 1 — it's the same
-  # model on both, and the engine default of 4 is a catch-all that fits
-  # neither.)
+  # All engine tuning (context, KV format, rope scaling, PCIe fraction, pool
+  # workers, adapt-every, spec-min-p) is left to `strata --setup` at runtime.
+  # Nix manages only service lifecycle: start/stop, GPU handoff, deployment
+  # layout, and the mandatory --expert-cache flag (native packs refuse without it).
   strata = lib.mkIf (isP16 || isNike) {
     enable = true;
-    # The engine window is owned at runtime: null tells the package
-    # to stop passing --context to setup and to leave --max-context / the rope
-    # flags alone, so `strata --setup` (or the app's settings form) decides and
-    # the answer survives every restart. The shipped default stays 524288; this
-    # host currently serves 393216 (384K, yarn factor 1.5) as written by setup.
-    # The client limits in users/opencode.nix (strata-local) must name whatever
-    # the served config holds, since they are advisory (compaction thresholds).
-    context = null;
+    # Reachable beyond loopback (the other inference host, the LAN, the
+    # tailnet); the host firewall scopes it to private ranges (see
+    # hosts/<host>/<host>.nix). The server's Host-header check still guards
+    # non-localhost names - see allowedHosts below.
+    host = "0.0.0.0";
     # Keep the engine resident far longer than the 5-minute default: a reload
     # puts the weights back in VRAM in ~27-30 s before decode can start, and at
     # the old 300 s every >5-minute gap cost that stall. 900 s holds ~55 GB of
@@ -254,8 +254,10 @@ in
     # The Studio container reaches Strata through pasta's host loopback
     # (packages/unsloth-studio/container.nix, option hostLoopback), so requests
     # arrive with this Host header. Strata 403s anything but localhost otherwise
-    # (DNS-rebinding protection).
-    allowedHosts = [ "host.containers.internal" "169.254.1.2" ];
+    # (DNS-rebinding protection). The tailnet's MagicDNS domain covers access by
+    # name over Tailscale (<node>.bee-blues.ts.net); IP addresses and the host's
+    # own name pass the check without an entry.
+    allowedHosts = [ "host.containers.internal" "169.254.1.2" ".bee-blues.ts.net" ];
     beforeLoad = "${config.home.homeDirectory}/.local/bin/unsloth-studio-unload.sh";
     # Store everything Strata reads and writes on the /data volume: the
     # runtime tree (~/.local/share/strata -> /data/strata) and the model files

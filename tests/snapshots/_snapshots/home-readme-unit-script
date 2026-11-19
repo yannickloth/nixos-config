@@ -16,6 +16,6 @@ install_readme() {
 }
 
 install_readme "/home/aaron/README.md" /nix/store/4qr223whamhjka48vw51xd12pyzi7k82-aaron.md
-install_readme "/home/aeiuno/README.md" /nix/store/gwnrqqlm091gbwkqpwfff0i3jf4frkgv-parents.md
-install_readme "/home/nicky/README.md" /nix/store/gwnrqqlm091gbwkqpwfff0i3jf4frkgv-parents.md
+install_readme "/home/aeiuno/README.md" /nix/store/3radp8xqw4i2cy61d9h2ns4mdw6gmjaq-parents.md
+install_readme "/home/nicky/README.md" /nix/store/3radp8xqw4i2cy61d9h2ns4mdw6gmjaq-parents.md
 install_readme "/home/sven/README.md" /nix/store/bhpy8qwvzz60v0x0ylx48ycmhsvprjjp-sven.md

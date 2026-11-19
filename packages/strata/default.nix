@@ -635,7 +635,7 @@ let
           echo "Strata: no model configured - run 'strata' once first." >&2
           exit 1
         fi
-        extra=(--host 127.0.0.1 --port "''${STRATA_PORT:-8080}")
+        extra=(--host "''${STRATA_HOST:-127.0.0.1}" --port "''${STRATA_PORT:-8080}")
         ${lib.optionalString (!vision) "extra+=(--lazy)"}
         extra+=(--idle-unload "''${STRATA_IDLE_UNLOAD:-300}")
         # Refuse to load the engine into a GPU another program has already
