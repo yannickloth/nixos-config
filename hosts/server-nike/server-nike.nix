@@ -71,23 +71,13 @@ with lib;
   # (packages/unsloth-studio/container.nix, --device nvidia.com/gpu=all): the
   # module writes the CDI spec at boot (/var/run/cdi) and registers it in
   # containers.conf.
-  hardware.nvidia-container-toolkit = {
-    enable = true;
-    suppressNvidiaDriverAssertion = true; # driver provided by hardware.nvidia module
-  };
-
-  # Enable NVIDIA support in podman so nvidia-ctk and the container runtime hooks
-  # are installed. Unsloth Studio requires these for GPU passthrough.
-  virtualisation.podman.enableNvidia = true;
-
-  # Disable the boot-time CDI generator. It waits for /dev/nvidia0 which
-  # may not appear until after the initrd finishes (the kernel module
-  # loading is what creates the device node, but the udev settle in
-  # nixpkgs doesn't wait for NVIDIA driver binding). Disabling the
-  # multi-user trigger eliminates the boot failure; the nixpkgs udev rule
-  # (KERNEL=="nvidia", RUN+=restart) will still trigger it exactly once
-  # when the driver actually loads.
-  systemd.services.nvidia-container-toolkit-cdi-generator.enable = false;
+  # Writes the CDI spec to /var/run/cdi and registers /var/run/cdi in
+  # containers.conf, so `--device nvidia.com/gpu=all` resolves.
+  #
+  # The module asserts that "nvidia" is in services.xserver.videoDrivers (see
+  # below), so it needs no suppressNvidiaDriverAssertion override: a broken
+  # driver configuration now fails at build time instead of at container start.
+  hardware.nvidia-container-toolkit.enable = true;
 
   networking.hostName = "server-nike"; # Define your hostname.
 
@@ -228,6 +218,16 @@ with lib;
     tcp dport 6768 ip saddr 100.64.0.0/10 accept  # orca runtime server (Tailscale)
   '';
 
+  # nixpkgs gates the entire NVIDIA module on this list:
+  # `nixos/modules/hardware/video/nvidia.nix` computes
+  # `nvidiaEnabled = elem "nvidia" config.services.xserver.videoDrivers` and puts
+  # the Xorg driver, the nvidia-drm KMS setup and the container-toolkit
+  # assertion behind it. The option default is [ "modesetting" "fbdev" ], which
+  # matches an Intel iGPU, not the RTX 3060. Without this line the driver package
+  # is installed but never wired into the display stack, so SDDM and Plasma find
+  # no KMS device and the host boots to a blind text console.
+  services.xserver.videoDrivers = [ "nvidia" ];
+
   # Dell 5810: no discrete Intel iGPU on the Xeon, so no prime offload needed.
   # The RTX 3060 (Ampere GA106, sm_86) is the only GPU. No power management on a
   # server — keep it at full boost for inference workloads.
@@ -237,8 +237,9 @@ with lib;
     gsp.enable = true; # NVIDIA GPU System Processor — offloads low-level GPU mgmt
     modesetting.enable = true; # Required for the NVIDIA driver
     nvidiaSettings = true;
-    # Paired with `linux_latest` (see above): the nvidia_x11 package includes
-    # community patches to support the absolute newest kernel versions.
+    # Paired with `linux_6_12` (see above): kernel and driver come from the same
+    # stable nixpkgs evaluation, so the module version and the userspace tools
+    # version are identical by construction.
     package = config.boot.kernelPackages.nvidia_x11;
     powerManagement = {
       enable = false; # Never sleep the GPU — inference server
@@ -247,12 +248,10 @@ with lib;
     videoAcceleration = true;
   };
 
-  # NVIDIA kernel modules are out-of-tree (built by the driver package), so they
-  # need to be added to extraModulePackages for linux-modules-shrunk to find
-  # them when resolving initrd dependencies.
-  boot.extraModulePackages = [
-    config.boot.kernelPackages.nvidia_x11.mod
-  ];
+  # The NVIDIA module adds the out-of-tree kernel modules to
+  # `boot.extraModulePackages` itself when "nvidia" is in videoDrivers, so no
+  # host-level copy is needed here (a duplicate made the list contain the same
+  # module package twice).
 
   # Server stance: no power saving on any bus component.
   boot.kernel.sysctl."vm.swappiness" = 10;
@@ -269,5 +268,10 @@ with lib;
   # nvidia-smi is in the nvidia-x11 package's `bin` output (the driver runfile
   # ships it alongside nvidia-cuda-mps-control, etc.); not a standalone nixpkgs
   # derivation, so it must be pulled from the multi-output package explicitly.
-  environment.systemPackages = [ config.hardware.nvidia.package.bin ];
+  # nvidia-container-toolkit is added from the module's own option so `nvidia-ctk`
+  # on PATH is the exact build that generates the CDI spec.
+  environment.systemPackages = [
+    config.hardware.nvidia.package.bin
+    config.hardware.nvidia-container-toolkit.package
+  ];
 }

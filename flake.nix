@@ -480,9 +480,10 @@
 
           # One host: its configuration module + any host-only modules, on top
           # of commonModules. `kernelPackages` defaults to the stable nixpkgs
-          # zen kernel; the Ampere NVIDIA hosts override it to the unstable zen
-          # set so kernel and driver come from the same, newest source (see
-          # above); hera overrides it to XanMod for its Pascal + legacy driver.
+          # zen kernel; p16 overrides it to the unstable zen set, hera to XanMod
+          # for its Pascal + legacy driver, and server-nike overrides it inside
+          # the host file (mkForce), because its NVIDIA driver must come from the
+          # same evaluation as the kernel.
           mkHost =
             {
               configModule,
@@ -524,12 +525,13 @@
             configModule = ./hosts/desktop-leto/desktop-leto-configuration.nix;
           };
 
-          # Dell Precision Tower 5810 (Xeon E5-1650 v3) + RTX 3060 12GB
+          # Dell Precision Tower 5810 (Xeon E5-1650 v3) + RTX 3060 12GB.
+          # Kernel and driver are chosen in the host file (linux_6_12 with its
+          # own nvidia_x11): the newest zen kernel in the unstable set has no
+          # driver built against it in the pinned stable nixpkgs, which is what
+          # produced the module/userspace version mismatch.
           server-nike = mkHost {
             configModule = ./hosts/server-nike/server-nike-configuration.nix;
-            # Ampere RTX 3060: newest zen kernel + matching open driver from
-            # nixpkgs-unstable (see the NVIDIA note above).
-            kernelPackages = unstablePkgs.linuxKernel.packages.linux_zen;
           };
         };
     };
