@@ -274,87 +274,74 @@
             export STRATA_HOME=$TMPDIR/strata
             mkdir -p "$STRATA_HOME"
 
-            # 1. a config with no "user_args" layer yet: the module policy lands
-            #    in "args".
+            # 1. a config with no expert-cache: the module enforces it.
             printf '{"args":["--max-context","4096"]}' > "$STRATA_HOME/strata-good.json"
-            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare}
+            python3 ${./packages/strata/config_patch.py} ${strataShare} true
             grep -q -- '--expert-cache' "$STRATA_HOME/strata-good.json"
-            grep -q -- '"--spec-min-p"' "$STRATA_HOME/strata-good.json"
-            grep -q -- '"2"' "$STRATA_HOME/strata-good.json"
-            grep -q -- '"8192"' "$STRATA_HOME/strata-good.json"
-            if grep -q -- '--prompt-cache-tail' "$STRATA_HOME/strata-good.json"; then
-              echo "tail flag added despite false" >&2; exit 1
-            fi
 
             # 2. an unchanged rerun must leave the file alone: strata-server picks
             #    the served model by mtime, so rewriting reorders what is served.
-            #    This is what catches set_opt moving flags to the end.
             m1=$(stat -c %Y "$STRATA_HOME/strata-good.json")
             sleep 1
-            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare}
+            python3 ${./packages/strata/config_patch.py} ${strataShare} true
             m2=$(stat -c %Y "$STRATA_HOME/strata-good.json")
             [ "$m1" = "$m2" ] || { echo "config rewritten on an unchanged rerun" >&2; exit 1; }
 
-            # 3. since 0.2.0 a config also carries "user_args", which
-            #    serve/server.py merges OVER "args" at every start: a stale value
-            #    there would beat the module options, so the policy flags are
-            #    taken out of it while the person's own options stay.
-            printf '{"args":["--max-context","8192","--expert-cache","auto","--spec","4"],"args_written":["--max-context","8192","--expert-cache","auto","--spec","4"],"user_args":["--max-context","4096","--vram-reserve-mib","0","--control-vector","/cv.gguf"]}' > "$STRATA_HOME/strata-ua.json"
-            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare}
+            # 3. a config with expert-cache + user_args: user_args must be preserved,
+            #    and the module doesn't touch any of them (all tuning left to setup).
+            printf '{"args":["--expert-cache","auto","--spec","4"],"args_written":["--expert-cache","auto","--spec","4"],"user_args":["--max-context","4096","--vram-reserve-mib","0","--control-vector","/cv.gguf"]}' > "$STRATA_HOME/strata-ua.json"
+            python3 ${./packages/strata/config_patch.py} ${strataShare} true
             python3 -c '
             import json, sys
             cfg = json.load(open(sys.argv[1]))
             ua = cfg.get("user_args") or []
-            assert "--max-context" not in ua, ua
-            assert "--vram-reserve-mib" not in ua, ua
+            assert "--max-context" in ua, ua
+            assert "--vram-reserve-mib" in ua, ua
             assert "--control-vector" in ua, ua
             a = cfg["args"]
-            assert a[a.index("--max-context") + 1] == "8192", a
+            assert "--expert-cache" in a, a
             ' "$STRATA_HOME/strata-ua.json"
 
             # 4. the upgrade case: a config written before 0.2.0 has no
             #    "args_written" and may hold engine options setup.py does not know
             #    (the calibrated ones are the module's, but -adapt-swaps /
-            #    -adapt-decay are the person's). The policy must be applied and
-            #    those hand edits must survive, and no "args_written" may be
+            #    -adapt-decay are the person's). The expert-cache must be present
+            #    but those hand edits must survive, and no "args_written" may be
             #    invented for them or the next `strata --setup` drops them.
-            printf '{"args":["--expert-cache","auto","--spec","4","--max-context","65536","--adapt-swaps","160","--adapt-decay","0.97"]}' > "$STRATA_HOME/strata-old.json"
-            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare}
+            printf '{"args":["--expert-cache","auto","--spec","4","--adapt-swaps","160","--adapt-decay","0.97"]}' > "$STRATA_HOME/strata-old.json"
+            python3 ${./packages/strata/config_patch.py} ${strataShare} true
             grep -q -- '--adapt-swaps' "$STRATA_HOME/strata-old.json"
             grep -q -- '--adapt-decay' "$STRATA_HOME/strata-old.json"
-            grep -q -- '"8192"' "$STRATA_HOME/strata-old.json"
             if grep -q -- 'args_written' "$STRATA_HOME/strata-old.json"; then
               echo "args_written invented for a pre-0.2.0 config" >&2; exit 1
             fi
 
-            # 5. the encoder is shipped (vision_encoder = true): the images answer
+            # 5. the encoder is shipped (argv[2] = true): the images answer
             #    from setup is the person's choice, so its "vision" block must
             #    stay - otherwise `strata --setup --vision yes` would be undone
             #    at every start, by this script or by strata-server's run of it.
-            printf '{"args":["--max-context","8192"],"vision":{"encoder":"/x/strata-vision"}}' > "$STRATA_HOME/strata-vis.json"
-            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' true ${strataShare} 2800
+            printf '{"args":["--expert-cache","auto"],"vision":{"encoder":"/x/strata-vision"}}' > "$STRATA_HOME/strata-vis.json"
+            python3 ${./packages/strata/config_patch.py} ${strataShare} true
             # the block itself, not just the key: a script that wrote nothing
             # would also satisfy a bare '"vision"' match
             grep -q -- '"encoder": "/x/strata-vision"' "$STRATA_HOME/strata-vis.json"
-            # and a config that serves images gets the larger request reserve,
-            # not the module's text-only one (1800): encoder activations OOM otherwise
-            grep -q -- '"2800"' "$STRATA_HOME/strata-vis.json"
+            # the vision block survives with vision_encoder = true (encoder shipped)
 
-            # 5b. the same config, from a package that ships no encoder: the
-            #     stale block points at a binary this install does not have, and
-            #     the server would fail every model load trying to start it.
-            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare} 2800
+            # 5b. the same config, from a package that ships no encoder
+            #     (argv[2] = false): the stale block points at a binary this
+            #     install does not have, and the server would fail every model
+            #     load trying to start it.
+            python3 ${./packages/strata/config_patch.py} ${strataShare} false
             if grep -q -- '"vision"' "$STRATA_HOME/strata-vis.json"; then
               echo "vision block kept although the package ships no encoder" >&2; exit 1
             fi
-            grep -q -- '"1800"' "$STRATA_HOME/strata-vis.json"
 
-            # 6. a null module context (argv[1] = "none"): the runtime owns the
-            #    window, so --max-context and the rope flags must survive in
-            #    "args" AND a hand-set --max-context in "user_args" must not be
-            #    dropped (the flags leave the POLICY set in that mode).
+            # 6. null module tuning: the runtime owns the window, so --max-context
+            #    and the rope flags must survive in "args" AND a hand-set
+            #    --max-context in "user_args" must not be dropped (the script
+            #    doesn't touch them at all).
             printf '{"args":["--max-context","4096","--rope-scaling","linear","--rope-scale","3"],"user_args":["--max-context","2048"]}' > "$STRATA_HOME/strata-null.json"
-            python3 ${./packages/strata/config_patch.py} none kv8 0 none 1800 none none none none none false '{}' false ${strataShare}
+            python3 ${./packages/strata/config_patch.py} ${strataShare} true
             python3 -c '
             import json, sys
             cfg = json.load(open(sys.argv[1]))
@@ -366,12 +353,11 @@
             assert ua[ua.index("--max-context") + 1] == "2048", ua
             ' "$STRATA_HOME/strata-null.json"
 
-            # 6b. the kv args at "none" (module options kv / kvResident = null):
-            #     the engine default stands - setup's flags stay in "args" AND a
-            #     hand-set --kv-resident in "user_args" must not be dropped (both
-            #     flags leave the POLICY set in that mode).
+            # 6b. null kv tuning: the engine default stands - setup's flags stay
+            #     in "args" AND a hand-set --kv-resident in "user_args" must not
+            #     be dropped (the script doesn't touch them at all).
             printf '{"args":["--kv","int8","--kv-resident","32768"],"user_args":["--kv-resident","40960"]}' > "$STRATA_HOME/strata-kvnone.json"
-            python3 ${./packages/strata/config_patch.py} none none none none 1800 none none none none none false '{}' false ${strataShare}
+            python3 ${./packages/strata/config_patch.py} ${strataShare} true
             python3 -c '
             import json, sys
             cfg = json.load(open(sys.argv[1]))
@@ -388,7 +374,7 @@
             #    enforcement point of the policy and must not fail open with
             #    stale settings.
             printf 'not json' > "$STRATA_HOME/strata-bad.json"
-            if python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare}; then
+            if python3 ${./packages/strata/config_patch.py} ${strataShare} true; then
               echo "invalid config did not fail" >&2; exit 1
             fi
             touch $out

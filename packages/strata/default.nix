@@ -34,13 +34,12 @@
 # ~0.9 GB of mmproj weights that setup downloads); with it shipped and `vision`
 # false, `strata --setup` asks and either answer works. See home.nix.
 # Runtime notes (laptop-p16, established 2026-09-27 - see also engine.nix):
-# - The wrapper and `strata-server` enforce a declarative engine policy on
-#   every config (the module options, see home.nix): --max-context (default
-#   524288, with yarn factor 2 past the trained 262144), --kv / --kv-resident
-#   (8-bit, streamed from pinned RAM) and --vram-reserve-mib 1800 (the auto
-#   expert cache otherwise fills VRAM and the first request dies with "verify:
-#   instantiate: out of memory"). --expert-cache must stay: the engine refuses
-#   to serve native packs at large contexts without it.
+# - The wrapper and `strata-server` run configPatch.py on every engine start.
+#   Nix no longer enforces a declarative engine policy: --max-context, --kv,
+#   --kv-resident, --rope-scaling, --vram-reserve-mib, --pcie-frac,
+#   --spec-min-p, --pool-workers, --adapt-every — all left to `strata --setup`
+#   at runtime. The only flag enforced is --expert-cache (native packs refuse
+#   to serve without it).
 # - Since 0.2.0 a run config carries TWO option lists: "args" (what setup or the
 #   app generated) and "user_args" (options the person set by hand, which
 #   serve/server.py merges over "args" at every start); "args_written" records
@@ -94,40 +93,14 @@
   # Host family: true on the CachyOS host (adds the /usr/lib/libcuda shim in the
   # engine; NixOS uses /run/opengl-driver/lib). Set by packages/strata/home.nix.
   , isCachyOS ? false
-  # Engine config policy, enforced on every engine config the package writes
-  # (see configPatch below). Default: one 512K-context Strata - the model's
-  # trained 262144 extended by yarn factor 2 - with the KV cache 8-bit and
-  # streamed from pinned RAM. null leaves the window to `strata --setup` (the
-  # wrapper passes no --context, and the patcher leaves --max-context and the
-  # rope flags alone). See packages/strata/home.nix for the options.
-  , context ? 524288
-  , kv ? null
-  , kvResident ? null
-  , ropeScaling ? null
-  # Measured hardware tuning from tools/calibrate.py (see the A3000 bench
-  # harness in the yannickloth/forks-Strata repo). null leaves the engine's own
-  # default: the PCIe probe for --pcie-frac, 0.5 for --spec-min-p, and every
-  # physical core minus the host's for --pool-workers.
-  , pcieFrac ? null
-  , specMinP ? null
-  , poolWorkers ? null
-  , poolAffinity ? null
-  # Adaptive expert-cache exchange interval (`--adapt-every`, engine default 4).
-  # Lower learns a conversation's hot experts faster (a cold-start win, P8);
-  # null leaves the engine's default.
-  , adaptEvery ? null
-  # Extra serve checkpoint near the prompt's end (`--prompt-cache-tail`,
-  # valueless flag; needs --prompt-cache and --prompt-cache-every > 0, both at
-  # the engine's defaults). Without it, checkpoint reuse only covers the
-  # resident KV window (--kv-resident) and every request re-reads
-  # `context - kvResident` tokens; with it the re-read is bounded (~12-13K
-  # tokens on this host, flat with context). One extra ~118 MB RAM checkpoint.
-  , promptCacheTail ? false
-  # Environment variables merged into every engine config's "env" block (the
-  # engine reads them; they are not command-line flags). For upstream
-  # workarounds that have no flag. Empty by default; see
-  # packages/strata/home.nix.
-  , engineEnv ? { }
+  # Engine window: the one tuning knob this package can still influence — as
+  # `--context` to a first-run `strata --setup` (see the wrapper below). Null
+  # (the default) leaves the window entirely to `strata --setup` at runtime:
+  # the wrapper passes no --context, and the configPatch script leaves
+  # --max-context, the rope flags, the KV args and every calibrated knob
+  # (--pcie-frac, --spec-min-p, --pool-workers, --pool-affinity, --adapt-every,
+  # --vram-reserve-mib, --prompt-cache-tail) exactly where setup wrote them.
+  , context ? null
   # Source: upstream github.com/Niko1221/Strata, pinned to v0.2.15 (app and
   # Terminal 0.2.15, Control 0.1.61; engines stay 0.1.60 from the 0.2.14
   # release).
@@ -139,8 +112,7 @@
   # instead of taking the 5.2 GB MTP layer). The bench numbers above were
   # measured with the MTP drafter, so a DFlash2 number for this host is not
   # established yet. The 0.2.10 all-cards split engine needs exactly two
-  # sm_86/sm_120 cards and does not apply (one A3000 here); its new 131,072
-  # default context is overridden by this package's explicit --max-context.
+  # sm_86/sm_120 cards and does not apply (one A3000 here).
   # Engine 0.1.58 (v0.2.12) brought a tuned DFlash2 drafter (+2.4-5.0% decode
   # on some cards), faster 12 GB card prompts (UD-IQ4_XS-v31 x3 at 2K),
   # tool-call fixes, and a 12 GB start-up change: the second check no longer
@@ -198,51 +170,30 @@ let
   # the `engine=X.Y.Z` string compiled into the binary (stale_binary()).
   engineVersion = "0.1.60";
 
-  # VRAM kept free of expert-cache slots so request-time buffers (verify
-  # graphs, prompt borrows, vision activations) never OOM; the auto sizer
-  # otherwise fills VRAM completely.
-  # Tuned 2026-11-03 on the RTX A3000 12GB (bench sweep, engine 0.1.56): 512 MiB
-  # measured +9.6% chat decode, +8.9% 16K prefill, +11.0% two-client throughput
-  # and +22.0% agent decode against 2800 MiB, at 2388-2392 cache slots instead
-  # of 1025. 512 is the engine's own recommended floor on this card (#2065);
-  # 300-512 is a flat plateau, and 400 gave the best two-client figure (36.1).
-  vramReserveMiB = 512;
-  # The reserve a config that serves images needs, when `vision` is false but
-  # the encoder is shipped: a config can still carry a "vision" block (setup
-  # answered yes, or the app turned images on). config_patch.py applies this
-  # per config, so the text-only budget is not spent on encoder activations.
-  # Kept equal to the text reserve: the measured configs kept --vision on, so
-  # image requests carry the same headroom as text ones. Raise this alone if
-  # image requests are seen to run out of VRAM.
-  vramVisionReserveMiB = 512;
-
   # What engine/BUILD.json records for images: the encoder binary is there
   # whenever the package ships it. "cpu"/"gpu" say which reader setup picks by
   # default; on a 12 GB card the encoder runs on the CPU either way.
   visionMarker = if visionEncoder then (if vision then "gpu" else "cpu") else "none";
 
-  # "none" sentinel: an argument the configPatch below must leave unset (the
-  # engine keeps its own default), for the calibrated knobs that are optional.
+  # `optArg` renders a module value for the wrapper: null as the "none"
+  # sentinel (the engine keeps its own default), anything else as-is.
   helpers = import ../../lib;
   # Tested in tests/unit.nix (lib/default.nix).
   optArg = helpers.optArg;
-  # Numbers via toJSON so a float renders as "0.35", not Nix's "0.350000".
-  jsonArg = helpers.jsonArg;
 
-  # Declarative engine policy: rewrite the args of every engine config under
-  # STRATA_HOME so the served model always matches the module options, whatever
-  # `strata --setup` answered. Runs from both the `strata` and `strata-server`
-  # wrappers (idempotent). --max-context/--kv/--kv-resident/--rope-scaling are
-  # exactly what setup.py itself would write for `--context <context>`, but from
-  # Nix instead of a runtime answer; --vram-reserve-mib stays enforced as before.
+  # Config patch: run on every engine start to ensure --expert-cache is present
+  # and a stale "vision" block cannot survive in a build without the encoder.
+  # No longer enforces a declarative engine policy — all tuning is left to
+  # `strata --setup` at runtime.
   configPatch = writeShellApplication {
     name = "strata-patch-config";
     runtimeInputs = [ python3 ];
-    # ${share} (the last argument) is upstream's own strata_control/user_args.py,
-    # used to move the policy between "args", "user_args" and "args_written"
-    # exactly the way serve/server.py and setup.py do.
+    # argv[1] (${share}) is upstream's own strata_control/user_args.py, used to
+    # move the policy between "args", "user_args" and "args_written" exactly
+    # the way serve/server.py and setup.py do; argv[2] says whether THIS build
+    # ships the vision encoder (the stale-block rule).
     text = ''
-      python3 - ${optArg context} ${lib.escapeShellArg (optArg kv)} ${optArg kvResident} ${lib.escapeShellArg (optArg ropeScaling)} ${toString vramReserveMiB} ${jsonArg pcieFrac} ${jsonArg specMinP} ${jsonArg poolWorkers} ${lib.escapeShellArg (optArg poolAffinity)} ${optArg adaptEvery} ${lib.boolToString promptCacheTail} ${lib.escapeShellArg (builtins.toJSON engineEnv)} ${lib.boolToString visionEncoder} ${lib.escapeShellArg share} ${toString vramVisionReserveMiB} <<'PY'
+      python3 - ${share} ${lib.boolToString visionEncoder} <<'PY'
       ${builtins.readFile ./config_patch.py}
       PY
     '';
@@ -253,12 +204,11 @@ let
     withVision = visionEncoder;
   };
 
-  # Every engine start re-applies the declarative policy - not just wrapper
-  # runs. The web UI's settings save rewrites strata-*.json from its form
-  # (dropping flags it does not know: --prompt-cache-tail was stripped this
-  # way on 2026-10-14) and restarts the engine directly, bypassing the
-  # wrappers' configPatch run. Wrapping the engine binary itself closes that
-  # hole; ~100 ms of python per engine start.
+  # Every engine start re-applies configPatch (ensures --expert-cache). The
+  # web UI's settings save rewrites strata-*.json from its form (dropping
+  # flags it does not know: --prompt-cache-tail was stripped this way on
+  # 2026-10-14) and restarts the engine directly, bypassing the wrappers'
+  # configPatch run. Wrapping the engine binary itself closes that hole.
   engineWrapped = writeShellApplication {
     name = "strata-engine-wrapped";
     runtimeInputs = [ python3 ];
@@ -446,13 +396,9 @@ let
         # invocations through before anything long (model load) starts.
         flock -u 9
 
-        # Declarative engine policy (max-context, KV format, rope scaling) and
-        # the VRAM reserve are enforced on every config here and again in
-        # strata-server (see configPatch above). NOTE: --expert-cache must
-        # STAY: the engine refuses to serve native packs at large contexts
-        # without it ("needs --spec T, ... and --expert-cache"). Upstream warns
-        # its GPU hit path can diverge from a cache-off run; with the cache
-        # mandatory there is no off switch to fall back on.
+        # Ensure --expert-cache is present on every run (native packs refuse
+        # without it). The wrapper also ensures the engine binary and BUILD.json
+        # are up to date.
         ${configPatch}/bin/strata-patch-config
 
         # From 0.2.0 the Terminal - `strata launch`, `strata status`,
@@ -490,9 +436,9 @@ let
         # First-run setup must write this context too, not whatever the
         # interactive default offers (setup.py then derives the matching yarn
         # factor itself). An explicit --context on the command line still wins;
-        # configPatch above re-normalizes KV and rope args regardless. With
-        # `strata.context = null` the module passes nothing and setup's answer
-        # is the one that stays.
+        # configPatch no longer re-normalizes the window or rope flags (all
+        # tuning is runtime-owned). With `strata.context = null` the module
+        # passes nothing and setup's answer is the one that stays.
         module_context='${optArg context}'
         want_context=0
         for arg in "$@"; do
@@ -597,9 +543,9 @@ let
           echo "Strata: not set up yet - run 'strata' once first (first-run setup)." >&2
           exit 1
         fi
-        # Re-assert the declarative engine policy (max-context, KV, rope) on the
-        # configs before serving; a config edited by hand or written by setup.py
-        # is brought back in line here too.
+        # Re-assert --expert-cache on the configs before serving (see configPatch
+        # above). A config edited by hand or written by setup.py is left as-is
+        # except for the expert-cache flag.
         ${configPatch}/bin/strata-patch-config
         # Point the engine at THIS build. The `strata` wrapper does this during
         # setup, but the server is what a `home-manager switch` restart runs, so

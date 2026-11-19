@@ -9,8 +9,13 @@
 # folder, ~/.local/share/Strata-data (models/, packs/, mtp/, dflash2/); the
 # runtime tree it runs from is ~/.local/share/strata (override with
 # STRATA_HOME). `dataOnDataVolume = true` puts both on the /data volume.
-# The engine policy below (context, KV format, rope scaling, VRAM reserve)
-# overrides whatever setup answered, whenever a config is written or served.
+#
+# All engine tuning is left to `strata --setup` at runtime: the configPatch
+# script (run on every engine start) re-asserts only --expert-cache (native
+# packs refuse to start without it) and drops a stale "vision" block when this
+# package ships no encoder. The `context` option is the one knob Nix still
+# passes - as `--context` to a first-run setup when set, null (the default)
+# leaves the window entirely to the runtime.
 #
 # `strata-server` is the always-on, engine-optional server behind the Unsloth
 # Studio integration (Studio's Custom provider points at
@@ -45,9 +50,9 @@ in
     package = mkOption {
       type = types.package;
       default = pkgs.callPackage ./default.nix {
-        # context is the only tuning value we keep in Nix (engine KV/window capacity).
-        # All other tuning (poolWorkers, pcieFrac, specMinP, kvResident, adaptEvery,
-        # promptCacheTail, engineEnv) is owned by `strata --setup` at runtime.
+        # context is the only tuning value we keep in Nix (engine KV/window
+        # capacity); every other engine knob is owned by `strata --setup` at
+        # runtime.
         inherit (cfg) context vision visionEncoder;
         # CachyOS needs the /usr/lib/libcuda shim; NixOS uses the driver runpath
         # (set by the standalone CachyOS flake / left false on NixOS).
@@ -112,18 +117,12 @@ in
 
     context = mkOption {
       type = types.nullOr types.ints.positive;
-      default = 524288;
+      default = null;
       description = ''
-        Engine KV/state capacity (`--max-context`). Past the model's trained
-        262144 this also enables yarn rope scaling with factor
-        `context / 262144` (524288 -> factor 2). Enforced on every Strata config
-        the package writes or serves, so `strata --setup` cannot leave it at a
-        different value.
-
-        null leaves the window to the runtime: the wrapper stops passing
-        `--context` to setup, and the config patcher leaves `--max-context` and
-        the rope flags exactly as `strata --setup` or the app's settings form
-        wrote them. Use it when the person, not this module, owns the window.
+        Engine KV/state capacity (`--max-context`). Null — this module does not
+        enforce any context window: `strata --setup` probes the card and writes
+        the optimal value into the run config. The package's default is also
+        null (it leaves the window to `strata --setup`).
       '';
     };
 

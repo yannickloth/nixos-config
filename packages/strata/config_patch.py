@@ -1,9 +1,28 @@
 # The declarative engine policy for packages/strata/default.nix: rewrite every
-# engine config under STRATA_HOME (strata-<model>.json) so the served model
-# matches the module options, whatever `strata --setup` answered. Run from the
-# `strata` wrapper, from `strata-server` and from the wrapped engine binary;
-# it must stay idempotent (a rerun produces a byte-identical file, so the
+# engine config under STRATA_HOME (strata-<model>.json) on every engine start.
+# It must stay idempotent (a rerun produces a byte-identical file, so the
 # mtime ordering strata-server uses to pick the served model is not disturbed).
+#
+# The module owns exactly one option: --expert-cache. It is mandatory for
+# native packs (the engine refuses to start/serve without it) and the web
+# UI's settings form drops flags it does not know, so this script re-asserts
+# it on every rewrite. "auto" is the value setup.py writes: a bare flag would
+# make the engine take the next option as its value.
+#
+# Plus one package-correctness rule: a "vision" block points at
+# engine/strata-vision, which THIS package ships only when it was built with
+# the encoder (argv[2]). A config written by an older install (or by setup
+# with --vision yes) keeps the block either way; from a build without the
+# encoder the server would try to start the missing binary and fail every
+# model load ("vision encoder failed to start ... engine/strata-vision"), so
+# such a block is dropped. With the encoder shipped, the block is the
+# person's setup answer and stays.
+#
+# Everything else - --max-context, the rope flags, --kv/--kv-resident,
+# --vram-reserve-mib, --pcie-frac, --spec-min-p, --pool-workers,
+# --pool-affinity, --adapt-every, --prompt-cache-tail - is left to
+# `strata --setup` and the app's settings form at runtime: the script neither
+# writes nor removes any of them, in "args" or in "user_args".
 #
 # Since Strata 0.2.0 a config carries the engine options twice:
 #   "args"          what setup.py or the app generated;
@@ -11,104 +30,39 @@
 #                   merges OVER "args" at every start (strata_control/user_args.py);
 #   "args_written"  the "args" setup last wrote, so a later setup run can tell
 #                   the hand edits apart and carry them over.
-# A policy that only wrote "args" would therefore be silently overridden by a
-# leftover "user_args" entry (the app's settings form writes them). So this
-# script writes the policy into "args", drops the policy-flagged options from
-# "user_args" (the layer that wins) and stamps "args_written" as its own write,
-# while keeping every option the person set that this module does not own.
+# A rewrite that touches "args" must therefore record itself: "args_written"
+# is stamped with the new "args" (so setup.py does not read the rewrite as a
+# hand edit), and "user_args" is re-stamped with the person's options minus
+# the policy flags (a copy of a policy flag in "user_args" would win over
+# "args" at engine start). Every option the person set that this module does
+# not own survives the rewrite.
 #
 # One exception: a config an older Strata wrote has no "args_written" at all, and
 # setup.py then has its own rule for telling hand edits apart ("an option my new
 # args do not have was added by hand"). This script leaves such a file without
 # "args_written" rather than inventing it, because inventing it would mark those
 # hand edits as generated - and the next `strata --setup` would drop them.
-#
-# The window is optional. argv[1] = "none" (module option `strata.context = null`)
-# means the module does not own --max-context or the rope flags: `strata --setup`
-# and the app's settings form keep what they wrote, and this script does not touch
-# either flag or drop them from "user_args". The kv / kv-resident / rope args
-# (argv[2..4]) take the same "none" sentinel: the module does not own the flags
-# (strata.kv / strata.kvResident / strata.ropeScaling = null), so whatever setup
-# or the settings form wrote stays, in "args" and "user_args" alike, and the
-# engine's own defaults stand. When the module DOES own the window and it extends
-# past the trained context, the rope flags are the module's again; with no method
-# of its own (rope = "none") it writes the engine's own default, "yarn".
 import glob, json, os, sys
 
-# "none" means the module does NOT own the window: `strata --setup` (or the
-# app's settings form) wrote --max-context/--rope-*, and this script leaves
-# them alone (packages/strata/home.nix, `strata.context = null`).
-ctx = None if sys.argv[1] == "none" else int(sys.argv[1])
-kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, tail, env_json, vision_encoder = (
-    None if sys.argv[2] == "none" else sys.argv[2],
-    None if sys.argv[3] == "none" else int(sys.argv[3]),
-    None if sys.argv[4] == "none" else sys.argv[4],
-    int(sys.argv[5]),
-    sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10],
-    sys.argv[11] == "true", sys.argv[12], sys.argv[13] == "true")
-# The reserve a config that serves images needs (encoder activations). Optional
-# so a caller written before the vision split keeps working; the module passes
-# it (packages/strata/default.nix, vramVisionReserveMiB).
-vram_vision = int(sys.argv[15]) if len(sys.argv) > 15 else 2800
-share = sys.argv[14]
-env_patch = json.loads(env_json or "{}")
+# argv[1]: the runtime share path - upstream's own strata_control/user_args.py
+# lives there: the same code setup.py and the server use, so the layers cannot
+# drift apart (it is stdlib-only).
+# argv[2]: "true"/"false" - whether THIS package ships the vision encoder
+# (packages/strata/default.nix, visionEncoder): see the "vision" rule above.
+share = sys.argv[1]
+vision_encoder = sys.argv[2] == "true"
 home = os.environ.get("STRATA_HOME") or os.path.expanduser("~/.local/share/strata")
 
-# Upstream's own capture()/stamp()/groups(): the same code setup.py and the
-# server use, so the two layers cannot drift apart (it is stdlib-only).
 sys.path.insert(0, share)
 from strata_control import user_args as UA
 
-# The options this module owns. Each is (re)written into "args" below (or
-# removed from it: --kv-resident for k8v4, the rope flags inside the trained
-# context), so a copy in "user_args" would be a stale value that wins over the
-# module options at engine start. Options the module leaves at null ("not set":
-# the engine's own default) are NOT listed: a hand-set value is kept for those.
+# The options this module owns, (re)written into "args" below: a copy of any
+# of them in "user_args" is dropped (that layer would otherwise win over the
+# value this module just set). Everything the person set that is not listed
+# here survives.
 POLICY = {
-    "--vram-reserve-mib", "--spec-min-p",
+    "--expert-cache",
 }
-if kv is not None:
-    POLICY.add("--kv")
-# --kv-resident is owned when the module sets a value, and when it must remove
-# it (k8v4 never streams its KV: the engine refuses the combination).
-if kv_res is not None or kv == "k8v4":
-    POLICY.add("--kv-resident")
-# The window and its rope rescaling are the module's only when it sets a
-# context; with `strata.context = null` the runtime keeps them (a hand-set
-# value in "user_args" must survive, so the flags stay out of POLICY too).
-if ctx is not None:
-    POLICY.update({"--max-context", "--rope-scaling", "--rope-scale"})
-if pcie != "none":
-    POLICY.add("--pcie-frac")
-if workers != "none":
-    POLICY.add("--pool-workers")
-if affinity != "none":
-    POLICY.add("--pool-affinity")
-if adapt != "none":
-    POLICY.add("--adapt-every")
-
-
-def set_opt(args, flag, value):
-    # Replace the flag's value in place when it is already correct (so a rerun
-    # is byte-identical and the file is not rewritten), drop stale occurrences,
-    # and append it when it is missing.
-    out, i, found = [], 0, False
-    while i < len(args):
-        if args[i] == flag:
-            cur = None
-            i += 1
-            if i < len(args) and not args[i].startswith("--"):
-                cur = args[i]
-                i += 1
-            if value is not None and cur == str(value):
-                found = True
-                out += [flag, cur]
-            continue
-        out.append(args[i]); i += 1
-    if value is not None and not found:
-        out += [flag, str(value)]
-    return out
-
 
 failed = []
 for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
@@ -121,91 +75,18 @@ for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
         if not isinstance(c, dict) or not isinstance(c.get("args"), list):
             continue
         a = c["args"]
-        # The person's options, before this rewrite: "user_args" plus anything in
-        # "args" that differs from "args_written" (a hand edit since the last
-        # write). The policy flags are skipped: they are ours to set, and a
-        # differing value is a stale one, not a choice to keep.
-        mine = UA.capture(c, POLICY)
-        mine = UA.flat([g for g in UA.groups(mine) if UA.flag_of(g) not in POLICY])
-        # Mandatory for native packs (the engine refuses to start/serve
-        # them without these); the settings form drops unknown flags, so
-        # enforce them on every rewrite. "auto" is the value setup.py writes:
-        # a bare flag would make the engine take the next option as its value.
         if "--expert-cache" not in a:
             a += ["--expert-cache", "auto"]
-        # The module's draft-confidence floor. `--spec-min-p` is written ONCE with
-        # its final value: writing it twice (a placeholder first, the real value
-        # after) moved it to the end of the args even when it was already correct,
-        # which rewrote every config once after an upgrade and bumped the mtimes
-        # strata-server orders by. A module value of null ("none") keeps the flag
-        # at 2, unreachable for a probability, i.e. the verify window is not
-        # extended on a draft-confidence basis.
-        a = set_opt(a, "--spec-min-p", 2 if spec == "none" else spec)
-        if ctx is not None:
-            a = set_opt(a, "--max-context", ctx)
-        if kv is not None:
-            a = set_opt(a, "--kv", kv)
-        # k8v4 never streams its KV (the engine refuses the combination);
-        # otherwise only a module value is written - at null the flag stays as
-        # setup wrote it, and the engine's own default stands.
-        if kv == "k8v4" or (kv_res is not None and kv_res <= 0):
-            a = set_opt(a, "--kv-resident", None)
-        elif kv_res is not None:
-            a = set_opt(a, "--kv-resident", kv_res)
-        # Past the trained 262144 the angles must be rescaled; inside it, keep
-        # the model completely stock (no rope flags at all). With ctx = None the
-        # runtime owns both, so neither is touched.
-        if ctx is not None:
-            if ctx > 262144:
-                # rope = "none": the module owns the window but no scaling
-                # method, so it writes the engine's own default ("yarn").
-                a = set_opt(a, "--rope-scaling", rope or "yarn")
-                a = set_opt(a, "--rope-scale", f"{ctx / 262144:g}")
-            else:
-                a = set_opt(a, "--rope-scaling", None)
-                a = set_opt(a, "--rope-scale", None)
-        # Images can be on for THIS config even when the module default is off:
-        # with the encoder shipped, `strata --setup --vision yes` (or the app's
-        # images switch) writes a "vision" block. Such a config needs the larger
-        # request-time reserve, or the encoder's activations OOM on a 12 GB card
-        # - the module's text-only reserve is a budget for text alone. Keyed on
-        # the config, not the module default, for exactly that reason.
-        vision_on = bool(c.get("vision")) and vision_encoder
-        a = set_opt(a, "--vram-reserve-mib", vram_vision if vision_on and vram < vram_vision else vram)
-        # Calibrated hardware knobs (tools/calibrate.py): set only when the
-        # module provided them, otherwise the engine's default/probe stands.
-        # (--spec-min-p is done above, with the other always-written options.)
-        if pcie != "none":
-            a = set_opt(a, "--pcie-frac", pcie)
-        if workers != "none":
-            a = set_opt(a, "--pool-workers", workers)
-        if affinity != "none":
-            a = set_opt(a, "--pool-affinity", affinity)
-        if adapt != "none":
-            a = set_opt(a, "--adapt-every", adapt)
-        # Valueless flag: append when enabled (dedup), never touch args
-        # when disabled - the engine's own default is off.
-        if tail and "--prompt-cache-tail" not in a:
-            a.append("--prompt-cache-tail")
-        # Merge the module's engine environment (flags with no command-line
-        # form), keeping anything setup.py or the user already set.
-        if env_patch:
-            c["env"] = {**(c.get("env") or {}), **{k: str(v) for k, v in env_patch.items()}}
-        # Images follow the package's vision BUILD (vision_encoder: does the
-        # install ship engine/strata-vision?), not the module's default and not
-        # a stale config block: a config written by an older install (or by
-        # setup with --vision yes) keeps a "vision" block pointing at
-        # engine/strata-vision, which a package without the encoder does not
-        # ship. The server would then try to start it and fail model loads
-        # ("vision encoder failed to start ... engine/strata-vision"). With the
-        # encoder shipped, the block is the person's setup answer and stays.
         if not vision_encoder:
             c.pop("vision", None)
         c["args"] = a
-        # Record this rewrite as the writer of record: "args_written" = what is
-        # in "args" now (so setup.py does not read the policy flags as hand
-        # edits), "user_args" = the person's options still standing.
+        # The person's options, before this rewrite: "user_args" plus anything
+        # in "args" that differs from "args_written" (a hand edit since the
+        # last write). The policy flags are skipped: they are ours to set, and
+        # a differing value is a stale one, not a choice to keep.
         had_written = UA.WRITTEN_KEY in c
+        mine = UA.capture(c, POLICY)
+        mine = UA.flat([g for g in UA.groups(mine) if UA.flag_of(g) not in POLICY])
         UA.stamp(c, mine)
         if not had_written:
             # But do NOT invent "args_written" for a config an older Strata
