@@ -216,10 +216,10 @@ with lib;
     gsp.enable = true; # NVIDIA GPU System Processor — offloads low-level GPU mgmt
     modesetting.enable = true; # Required for the NVIDIA driver
     nvidiaSettings = true;
-    # Open kernel modules (set in hardware-configuration.nix) are recommended
-    # for Ampere. `stable` in the nixpkgs-unstable linux_zen set is 595.112.07,
-    # the same version as this set's nvidia_x11 used by extraModulePackages.
-    package = config.boot.kernelPackages.nvidiaPackages.stable;
+    # Use the latest available driver version (new_feature branch, 610.57.04)
+    # instead of the stable production branch. The proprietary driver handles
+    # the Ampere GPU (sm_86) without the open-module DRM/KMS gaps.
+    package = config.boot.kernelPackages.nvidiaPackages.new_feature;
     powerManagement = {
       enable = false; # Never sleep the GPU — inference server
       finegrained = false;
