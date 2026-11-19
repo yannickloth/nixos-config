@@ -78,9 +78,12 @@ header); the authoritative check is decryption itself, which gate 3 covers.
 - `ssh-keys/hosts/*.pub` — host public keys (tracked).
 - `ssh-keys/` — private keys (gitignored, backed up in KeePassXC).
 - `services/host-age.nix` — the pinned-identity module + gates 1–3.
-- `scripts/age-audit.sh` — repo-wide recipient/keypair/decryptability audit
-  (`repo` mode, run by the `age-secrets` flake check; `host` mode, run by the
-  per-host build probe).
+- `scripts/age-audit.sh` — repo-wide recipient/keypair/decryptability audit.
+  `repo` mode (recipient sets) runs in the `age-secrets` flake check on every
+  machine; with a key-store argument (`repo ssh-keys`) it additionally checks
+  keypair pairing and decryptability — that part needs the gitignored private
+  keys, so it runs only on the key-store machine (run it after every rekey).
+  `host` mode runs in the per-host build probe.
 - `scripts/agenix-rekey.sh` — rebuild the `hosts` group + re-encrypt.
 - `scripts/agenix-backup.sh` — package private keys into a passphrase-encrypted archive.
 

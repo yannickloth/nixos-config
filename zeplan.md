@@ -195,8 +195,12 @@ The existing removal guard (refuse to drop a host recipient without
 - **`hosts-eval`: add server-nike** (currently missing — the reason nothing
   ever evaluated it).
 - **New check `age-secrets`** (`runCommandLocal`, `cd ${self}`, like
-  `parse-all`): runs `scripts/age-audit.sh repo`, plus the key-store section
-  when `ssh-keys/` exists in the checkout (key-store machine / CI with keys).
+  `parse-all`): runs `scripts/age-audit.sh repo` — the portable subset
+  (secrets.nix evaluates, keys well-formed, recipient sets match). The
+  key-store section (pairing + decryptability) is NOT part of the check:
+  the flake source cannot carry the gitignored private keys, so that part
+  runs only on the key-store machine (`scripts/age-audit.sh repo ssh-keys`,
+  after every rekey).
 - `scripts/age-audit.sh` added to the `scripts-syntax` check (bash -n +
   shellcheck).
 

@@ -50,7 +50,9 @@ let
   pubLine = if pubOk then replaceStrings [ "\n" ] [ "" ] (readFile pubPath) else "";
   # "ssh-ed25519 <b64>" — the exact form secrets.nix stores.
   pubCore = concatStringsSep " " (take 2 (splitString " " pubLine));
-  pubRegex = "^ssh-ed25519 [A-Za-z0-9+/]{68}(\s.*)?$";
+  # POSIX ERE (Nix's builtins.match): no \s class; the key line is
+  # "ssh-ed25519 <68 b64 chars>" plus an optional " <comment>".
+  pubRegex = "^ssh-ed25519 [A-Za-z0-9+/]{68}( .*)?$";
 
   # Every public key value declared anywhere in secrets.nix.
   allKeys = flatten (map (v: v.publicKeys or []) (attrValues secrets));
@@ -70,14 +72,20 @@ let
   secretNames = attrNames config.age.secrets;
 
   # Recipients declared in secrets.nix for a secret, by its relpath.
+  # builtins.hasAttr, not `secrets ? rel`: the `?` operator only takes a
+  # literal name, so `? rel` would test for an attribute literally named
+  # "rel" and always return false.
   keysOf =
     rel:
-    if secrets ? rel
+    if builtins.hasAttr rel secrets
     then (secrets."${rel}".publicKeys or [ ])
     else [ ];
 
   # For the build-time audit spec: "<file> <pub> <pub> ..." per secret this
-  # host consumes, recipients taken from secrets.nix.
+  # host consumes, recipients taken from secrets.nix. <file> is RELATIVE to
+  # the secrets/ directory: the builder cds into a store copy of secrets/
+  # (${../secrets} in the runCommand), so the spec must not embed the
+  # evaluation-time flake-source store path — that path is not a build input.
   specLines =
     map
       (name:
@@ -85,16 +93,22 @@ let
           s = config.age.secrets.${name};
           rel = relOf s.file;
         in
-        "${toString s.file} ${concatStringsSep " " (keysOf rel)}")
+        "${rel} ${concatStringsSep " " (keysOf rel)}")
       secretNames;
 
   auditSpec = pkgs.writeText "age-audit-spec" (concatStringsSep "\n" specLines);
 
+  # bash explicitly: the script's shebang is /usr/bin/env, which does not
+  # exist in the build sandbox.
+  # cd ${../secrets} has two jobs: it makes the flake source (with the .age
+  # files the spec points at) an input of this derivation, so the sandbox
+  # builder can read them.
   audit =
     pkgs.runCommand "age-host-audit-${config.networking.hostName or "host"}" {
-      nativeBuildInputs = [ pkgs.openssl ];
+      nativeBuildInputs = [ pkgs.bash pkgs.openssl ];
     } ''
-      ${../scripts/age-audit.sh} host "${auditSpec}"
+      cd ${../secrets}
+      bash ${../scripts/age-audit.sh} host "${auditSpec}"
       echo "age audit: ${toString (length secretNames)} secrets verified for ${config.networking.hostName or "this host"}" > $out
     '';
 in
@@ -161,7 +175,7 @@ in
                   s = config.age.secrets.${name};
                   rel = relOf s.file;
                 in
-                (secrets ? rel)
+                (builtins.hasAttr rel secrets)
                 && pubOk
                 && (elem pubCore (keysOf rel)))
               secretNames;
@@ -183,7 +197,7 @@ in
                         s = config.age.secrets.${name};
                         rel = relOf s.file;
                       in
-                      !(secrets ? rel)
+                      !(builtins.hasAttr rel secrets)
                       || !pubOk
                       || !(elem pubCore (keysOf rel))
                     )

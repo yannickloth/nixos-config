@@ -176,22 +176,15 @@
 
           # Secret/recipient audit (zeplan.md §2.3): secrets.nix evaluates,
           # every declared key is well-formed, and every .age file's recipient
-          # set equals the set declared for it. When the local checkout holds
-          # the gitignored key store (ssh-keys/, present on the key-store
-          # machine but not in CI), the keypairs are additionally checked for
-          # pairing and every secret for decryptability with a stored key.
-          # The store path of the key store enters this check's inputs only on
-          # a machine that has the key store — the check stays runnable (with
-          # the reduced scope) in a bare CI checkout.
+          # set equals the set declared for it. Runs with the same scope on
+          # every machine (CI included): the key-store integrity checks
+          # (keypair pairing + decryptability) need the gitignored private
+          # keys, which the flake source cannot carry — those run manually on
+          # the key-store machine (scripts/age-audit.sh repo ssh-keys), which
+          # scripts/agenix-rekey.sh does on every rekey.
           age-secrets =
-            let
-              keystoreArg =
-                if builtins.pathExists ./ssh-keys
-                then "${./ssh-keys}"
-                else "";
-            in
             pkgs.runCommandLocal "age-secrets" {
-              nativeBuildInputs = [ pkgs.bash pkgs.nix pkgs.jq pkgs.age pkgs.openssh pkgs.openssl ];
+              nativeBuildInputs = [ pkgs.nix pkgs.jq pkgs.openssl ];
             } ''
               set -euo pipefail
               export HOME=$TMPDIR
@@ -200,7 +193,7 @@
               export NIX_CONF_DIR=$TMPDIR/etc
               mkdir -p "$NIX_STATE_DIR" "$NIX_LOG_DIR" "$NIX_CONF_DIR"
               cd ${self}
-              bash scripts/age-audit.sh repo ${lib'.optionalString (keystoreArg != "") "\"${keystoreArg}\""}
+              bash scripts/age-audit.sh repo
               touch $out
             '';
 
