@@ -54,9 +54,9 @@
         # scripted stage 1; it asserts here.)
         devices = {
           # Root disk (sdb2) — the one passphrase prompt at boot.
-          "luks-d32cf077-59d1-4de7-92b9-7010b525e41a".device = "/dev/disk/by-uuid/d32cf077-59d1-4de7-92b9-7010b525e41a";
+          "luks-e7d37111-6eee-4fdb-b2ab-63700afa9a36".device = "/dev/disk/by-uuid/e7d37111-6eee-4fdb-b2ab-63700afa9a36";
           # Swap (sdb3) — unlocked with the reused passphrase.
-          "luks-697133b4-4e65-48b0-9077-b8b92df8b7b3".device = "/dev/disk/by-uuid/697133b4-4e65-48b0-9077-b8b92df8b7b3";
+          "luks-386fd088-dcd0-4d51-a60c-71cb8dafa56f".device = "/dev/disk/by-uuid/386fd088-dcd0-4d51-a60c-71cb8dafa56f";
           # Data disk (sda1) — unlocked with the reused passphrase, so boot
           # needs exactly one prompt. No keyfile in the boot path; the
           # keyfile slot in the LUKS header stays as an offline recovery
@@ -72,22 +72,22 @@
   fileSystems = {
     # Root: LUKS on sdb2, btrfs with /, /home and /nix subvolumes.
     "/" = {
-      device = "/dev/mapper/luks-d32cf077-59d1-4de7-92b9-7010b525e41a";
+      device = "/dev/mapper/luks-e7d37111-6eee-4fdb-b2ab-63700afa9a36";
       fsType = "btrfs";
       options = [ "noatime" ];
     };
     "/home" = {
-      device = "/dev/mapper/luks-d32cf077-59d1-4de7-92b9-7010b525e41a";
+      device = "/dev/mapper/luks-e7d37111-6eee-4fdb-b2ab-63700afa9a36";
       fsType = "btrfs";
       options = [ "subvol=home" "noatime" ];
     };
     "/nix" = {
-      device = "/dev/mapper/luks-d32cf077-59d1-4de7-92b9-7010b525e41a";
+      device = "/dev/mapper/luks-e7d37111-6eee-4fdb-b2ab-63700afa9a36";
       fsType = "btrfs";
       options = [ "subvol=nix" "noatime" ];
     };
     "/boot" = {
-      device = "/dev/disk/by-uuid/F6D7-9514";
+      device = "/dev/disk/by-uuid/69CA-7A5D";
       fsType = "vfat";
       options = [ "fmask=0077" "dmask=0077" ];
     };
@@ -106,7 +106,7 @@
 
   # LUKS-encrypted swap (sdb3).
   swapDevices = [ {
-    device = "/dev/mapper/luks-697133b4-4e65-48b0-9077-b8b92df8b7b3";
+    device = "/dev/mapper/luks-386fd088-dcd0-4d51-a60c-71cb8dafa56f";
   } ];
 
   networking.useDHCP = lib.mkDefault true;
