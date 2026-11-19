@@ -76,12 +76,15 @@ with lib;
     suppressNvidiaDriverAssertion = true; # driver provided by hardware.nvidia module
   };
 
-  # The nvidia-container-toolkit-cdi-generator service fails at boot if
-  # /dev/nvidia0 isn't ready yet. Enable automatic restart on failure so it
-  # keeps retrying until the driver loads.
+  # The nvidia-container-toolkit-cdi-generator service fails at boot because
+  # /dev/nvidia* isn't ready yet (udev settle doesn't wait for NVIDIA driver
+  # binding). Replace the udev settle with a wait loop that blocks until the
+  # driver is fully loaded, then generates the CDI spec once. No retries, no
+  # failures, no races.
   systemd.services.nvidia-container-toolkit-cdi-generator = {
-    serviceConfig.Restart = "on-failure";
-    serviceConfig.RestartSec = "5s";
+    serviceConfig.ExecStartPre = lib.mkForce ''
+      while [ ! -e /dev/nvidia0 ]; do sleep 1; done
+    '';
   };
 
   networking.hostName = "server-nike"; # Define your hostname.
