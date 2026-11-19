@@ -11,4 +11,10 @@ with lib;
     kdePackages.plasma-thunderbolt
     plasma-panel-colorizer # Fully-featured widget to bring Latte-Dock and WM status bar customization features to the default KDE Plasma panel.
   ];
+
+  # SDDM's Wayland session uses kwin_wayland as its compositor. On NVIDIA open
+  # drivers (hardware.nvidia.open = true), kwin_wayland enters a CPU spin loop
+  # (one process per CPU core, 100% each). Fix: disable SDDM's Wayland mode so
+  # it renders via X11, which the open NVIDIA drivers handle correctly.
+  services.displayManager.sddm.wayland.enable = false;
 }
