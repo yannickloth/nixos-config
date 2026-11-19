@@ -57,27 +57,38 @@ jobs:
         continue-on-error: true
         run: nix run nixpkgs#deadnix -- --fail .
 
-  # Evaluation gate. `--no-build` evaluates every check derivation and every
-  # NixOS configuration but materialises no system closure.
+  # Evaluation gate. Every NixOS host is evaluated to a toplevel drvPath, one
+  # process at a time. No system closure is built.
   #
-  # Why no build: `nix flake check` without `--no-build` instantiates the full
-  # system closures (flatpak, openjdk, xterm, zfs, ...) and needs about 13 GiB
-  # unpacked. A GitHub-hosted runner has roughly 14 GB of free disk, so the job
-  # dies mid-run as "The operation was canceled." with no failing check named.
+  # Why not `nix flake check`: it evaluates all five hosts concurrently (memory
+  # spike on a 16 GB runner) and, without --no-build, materialises system
+  # closures. `--no-build` cannot be used either: uv2nix reads pyproject.toml
+  # and uv.lock from the hermes-agent source during evaluation, so Nix must
+  # realise that source fetch; with --no-build it reports
+  # "path '...-source.drv' is not valid".
+  #
   # Evaluation is what catches the defects this repo actually produces
   # (duplicate option definitions, conflicting kernelPackages, broken module
-  # references); the bounded builds live in `checks-scripts` below.
+  # references). The bounded builds live in `checks-scripts` below.
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v23
 
-      - name: Evaluate all flake checks and NixOS configurations
-        run: nix flake check --no-build --keep-going
+      - name: Evaluate every host
+        run: |
+          set -euo pipefail
+          hosts=(laptop-xps laptop-hera laptop-p16 desktop-leto server-nike)
+          for h in "${hosts[@]}"; do
+            echo "::group::${h}"
+            drv=$(nix eval --raw ".#nixosConfigurations.${h}.config.system.build.toplevel.drvPath")
+            echo "${h} -> ${drv##*/}"
+            echo "::endgroup::"
+          done
 
   # Bounded build gate: only the pure script checks, whose closures are small.
   # `hosts-eval`, `snapshots` and `strata-fail-closed` are excluded because they
@@ -122,4 +133,4 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v23
 
       - name: Nix flake checks (standalone home-manager)
-        run: nix flake check ./users --keep-going --no-build
+        run: nix flake check ./users --keep-going
