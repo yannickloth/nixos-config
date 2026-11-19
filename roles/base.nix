@@ -42,7 +42,7 @@ with lib;
 
     system.nixos = {
       versionSuffix = mkDefault ".latest";
-      revision = mkDefault "latest";
+      revision = mkDefault "latest-2";
     };
 
     # enable systemd-oomd on all systems (replaces earlyoom: first-class,
