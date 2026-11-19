@@ -111,6 +111,7 @@
               self.nixosConfigurations.laptop-hera.config.systemd.services.syncthing-hera-data-dir.script;
             usb-scan = pkgs.writeText "usb-scan.sh" (builtins.readFile ./services/usb-scan.sh);
             age-audit = pkgs.writeText "age-audit.sh" (builtins.readFile ./scripts/age-audit.sh);
+            preboot-key-check = pkgs.writeText "preboot-key-check.sh" (builtins.readFile ./scripts/preboot-key-check.sh);
             natural-scroll = pkgs.writeText "natural-scroll.sh"
               self.nixosConfigurations.laptop-xps.config.home-manager.users.nicky.home.activation.setNaturalScroll.data;
             unsloth-free-gpu = pkgs.writeText "unsloth-free-gpu.sh"

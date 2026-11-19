@@ -250,9 +250,10 @@ The existing removal guard (refuse to drop a host recipient without
 5. Fresh install: NixOS installer → copy the repo checkout **plus
    `ssh-keys/hosts/<name>`** (the private key — gitignored, the only manual
    step) → `sudo install -m 0600 ssh-keys/hosts/<name> /etc/ssh/ssh_host_ed25519_key`
-   → `nixos-rebuild switch`. Logins work on first boot; the build-time audit
-   and the sysinit guard make any misconfiguration fail loudly instead of
-   locking out.
+   → `sudo scripts/preboot-key-check.sh` (a green build does not check the
+   installed key) → `nixos-rebuild switch`. Logins work on first boot; the
+   build-time audit and the sysinit guard make any misconfiguration fail
+   loudly instead of locking out.
 
 server-nike's syncthing device identity (currently absent from
 `secrets/syncthing/`) is generated **before** first boot (offline, ECDSA
@@ -348,7 +349,12 @@ Run on the reinstall media / first boot of the fresh system, in order:
    passphrase as the new key — the data disk then accepts both its old
    passphrase/keyfile and the root passphrase.)
 3. Swap disk: same passphrase (format or `luksAddKey`).
-4. Rebuild with the config from §4.2.
+4. Install the store private key (`sudo install -m 0600
+   ssh-keys/hosts/server-nike /etc/ssh/ssh_host_ed25519_key`) and pass
+   `sudo scripts/preboot-key-check.sh` — a successful build does not check
+   the installed key (the flake source cannot see gitignored files; see the
+   README, "Why a successful build is not a login guarantee") — then
+   rebuild with the config from §4.2.
 5. **Verification (mandatory before the host is considered up):**
    - reboot; exactly **one** passphrase prompt; journal shows
      no second ask-password for the swap and data
@@ -380,7 +386,7 @@ This step is documented in the README's server-nike reinstall section.
 | Item | Decision |
 |---|---|
 | RSA host key dropped on pinned hosts (ed25519 only) | accepted — all clients are modern OpenSSH; keeps the sshd-keygen self-skip clean |
-| Private key is gitignored, so its placement on a fresh host is one manual step the build cannot perform | accepted — Nix's git-filtered source cannot carry ignored files (verified); the cost is contained: a missing/wrong placed key fails gate 3 loudly at sysinit instead of locking the host out silently |
+| Private key is gitignored, so its placement on a fresh host is one manual step the build cannot perform | accepted — Nix's git-filtered source cannot carry ignored files (verified); the cost is contained: the placement is checkable **before** the reboot by `scripts/preboot-key-check.sh` (pairing + live decrypt), and a missing/wrong placed key fails gate 3 loudly at sysinit instead of locking the host out silently. A green build alone is not a login guarantee (README, "Why a successful build is not a login guarantee") |
 | `password-cache` keeps the boot passphrase in the initrd's kernel keyring during boot | accepted — systemd's default and documented behavior (the keyring dies with the boot); the alternative (per-device prompts) violates the single-step requirement |
 | Root passphrase is now the single boot secret for 3 containers | accepted — it is a strong passphrase in KeePassXC; the data disk's keyfile key slot is the independent fallback |
 | `ssh-keys/` distributed by manual copy (hosts + USB) | current practice, documented; KeePassXC is the canonical recovery copy; a syncthing folder for `ssh-keys/` is a possible later improvement, not in scope |

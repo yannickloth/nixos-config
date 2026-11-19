@@ -70,6 +70,47 @@ plus `scripts/age-audit.sh`.
 Gate 2 compares 6-character age fingerprints (see `scripts/age-audit.sh`
 header); the authoritative check is decryption itself, which gate 3 covers.
 
+## Why a successful build is not a login guarantee
+
+The build phase of `nixos-rebuild` only reads the flake source — the
+committed git tree. The private key is gitignored by design (Nix's
+git-filtered source can never see ignored files), so no build, on any
+machine, can check `/etc/ssh/ssh_host_ed25519_key` on the host. Gates 1–2
+therefore verify the **public** half: the tracked `.pub` is well-formed and
+registered in `secrets.nix`, and every secret the host consumes is
+encrypted to it. A green build means "if the key is installed, this host
+will decrypt" — nothing more.
+
+The machine side is verified outside the build, in two places:
+
+- **Before the reboot** — `scripts/preboot-key-check.sh`, run as root on
+  the host from a checkout that contains the gitignored `ssh-keys/`
+  directory (the copy made from the key-store machine, not a fresh clone):
+  ```sh
+  sudo scripts/preboot-key-check.sh
+  ```
+  It verifies that the installed key exists with the right permissions,
+  pairs with the tracked `.pub`, and decrypts every password secret. If
+  `age` is not on PATH it fetches it via `nix build nixpkgs#age` (needs
+  flake support + network — the same prerequisites as the rebuild).
+- **At every boot** — gate 3 (`age-secrets-guard`), which fails loudly and
+  names each broken secret in the journal if agenix could not decrypt.
+
+What happens if a flake system boots without the key installed (verified
+against nixpkgs nixos-26.05, `sshd-keygen`): the unit sees
+`/etc/ssh/ssh_host_ed25519_key` missing or empty and generates a **new
+random** host key there; from then on it self-skips because the file is
+non-empty. agenix uses that key as its identity, matches no recipient,
+decrypts nothing, and every password login fails on every boot — the
+2026-11-19 server-nike incident. Gate 3 fails on each boot and names the
+fix, and the previous entry in the systemd-boot menu stays selectable, so
+the machine is recoverable; the pre-flight exists so you never pay for the
+build and the reboot to find out.
+
+**Operational rule:** on any fresh host, install the key and pass
+`scripts/preboot-key-check.sh` before the first flake rebuild or reboot. A
+green build never substitutes for this check.
+
 ## Files
 
 - `secrets.nix` — agenix CLI recipient config (NOT imported into the system).
@@ -84,6 +125,10 @@ header); the authoritative check is decryption itself, which gate 3 covers.
   keypair pairing and decryptability — that part needs the gitignored private
   keys, so it runs only on the key-store machine (run it after every rekey).
   `host` mode runs in the per-host build probe.
+- `scripts/preboot-key-check.sh` — machine-side pre-boot check: installed key
+  present with right permissions, pairs with the tracked `.pub`, decrypts the
+  password secrets. Run before the first flake rebuild of a fresh host
+  ("Why a successful build is not a login guarantee" above).
 - `scripts/agenix-rekey.sh` — rebuild the `hosts` group + re-encrypt.
 - `scripts/agenix-backup.sh` — package private keys into a passphrase-encrypted archive.
 
@@ -149,13 +194,19 @@ comes from the store instead of being generated on the machine.
    `hosts-eval` in the checks.
 5. **Fresh install**: NixOS installer → copy the repo checkout **plus
    `ssh-keys/hosts/<name>`** (the private key — gitignored, the only manual
-   step) and place it:
+   key step) and place it **before the first `nixos-rebuild` of the new
+   config**, then pass the pre-flight check:
    ```sh
    sudo install -m 0600 ssh-keys/hosts/<name> /etc/ssh/ssh_host_ed25519_key
+   sudo scripts/preboot-key-check.sh
    ```
-   → `nixos-rebuild switch`. Logins work on first boot: the key is in
-   `/etc` before the agenix unit runs in sysinit, and the gates above make
-   any misconfiguration fail loudly instead of locking the host out.
+   The check passes only if the installed key pairs with the tracked `.pub`
+   and actually decrypts the password secrets. **A successful build does not
+   prove any of this** — the build cannot see `/etc/ssh` (see "Why a
+   successful build is not a login guarantee"). Logins work on first boot:
+   the key is in `/etc` before the agenix unit runs in sysinit, and the
+   gates above make any misconfiguration fail loudly instead of locking the
+   host out.
 
 For a host with a **syncthing identity** you want to keep, commit its
 `cert.pem`/`key.pem` (encrypted to that host's key) into
@@ -171,7 +222,9 @@ committed identity, syncthing generates its own on first boot.
    ```sh
    sudo install -m 0600 ssh-keys/hosts/<host> /etc/ssh/ssh_host_ed25519_key
    ```
-   before the first `nixos-rebuild` of the new config.
+   before the first `nixos-rebuild` of the new config, then run
+   `sudo scripts/preboot-key-check.sh` — a green build does not check the
+   installed key (see "Why a successful build is not a login guarantee").
 2. Rebuild. The syncthing device identity and every secret come from the
    committed `.age` files; nothing is regenerated.
 
