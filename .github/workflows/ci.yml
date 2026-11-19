@@ -4,12 +4,23 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+# One run per ref. A new push cancels the superseded run instead of leaving it
+# queued behind a 14 GB runner that is already out of disk space.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   # Cheap and always-green: syntax-parse every tracked Nix file. Catches
   # merge-conflict markers / syntax errors without fetching any flake input.
   nix-parse:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
@@ -30,6 +41,7 @@ jobs:
   # once these are green.
   nix-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
@@ -45,25 +57,64 @@ jobs:
         continue-on-error: true
         run: nix run nixpkgs#deadnix -- --fail .
 
-  # All host-level checks in one job: evaluation of the three hosts, the pure
-  # helpers (nix-unit), generated-config snapshots (namaka), generated shell
-  # scripts (bash -n + shellcheck), AppArmor profiles, the strata patcher
-  # (compile + fail-closed behaviour) and syntax parsing.
+  # Evaluation gate. `--no-build` evaluates every check derivation and every
+  # NixOS configuration but materialises no system closure.
+  #
+  # Why no build: `nix flake check` without `--no-build` instantiates the full
+  # system closures (flatpak, openjdk, xterm, zfs, ...) and needs about 13 GiB
+  # unpacked. A GitHub-hosted runner has roughly 14 GB of free disk, so the job
+  # dies mid-run as "The operation was canceled." with no failing check named.
+  # Evaluation is what catches the defects this repo actually produces
+  # (duplicate option definitions, conflicting kernelPackages, broken module
+  # references); the bounded builds live in `checks-scripts` below.
   checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v23
 
-      - name: Nix flake checks
-        run: nix flake check --keep-going
+      - name: Evaluate all flake checks and NixOS configurations
+        run: nix flake check --no-build --keep-going
+
+  # Bounded build gate: only the pure script checks, whose closures are small.
+  # `hosts-eval`, `snapshots` and `strata-fail-closed` are excluded because they
+  # pull system or JVM closures; `hosts-eval` is redundant with the evaluation
+  # job above.
+  checks-scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v23
+
+      - name: Free disk space
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+            /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
+          df -h /
+
+      - name: Build the script checks
+        run: |
+          nix build --no-link --keep-going \
+            .#checks.x86_64-linux.unit \
+            .#checks.x86_64-linux.scripts-syntax \
+            .#checks.x86_64-linux.apparmor-parse \
+            .#checks.x86_64-linux.printing-script \
+            .#checks.x86_64-linux.parse-all \
+            .#checks.x86_64-linux.python-compile \
+            .#checks.x86_64-linux.age-secrets
 
   # Standalone home-manager flake (CachyOS deployment): evaluation of the four
   # users plus the CachyOS-only SSH key bootstrap script.
   checks-users:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
@@ -71,4 +122,4 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v23
 
       - name: Nix flake checks (standalone home-manager)
-        run: nix flake check ./users --keep-going
+        run: nix flake check ./users --keep-going --no-build
