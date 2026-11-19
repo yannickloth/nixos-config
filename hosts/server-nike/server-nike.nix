@@ -163,10 +163,24 @@ with lib;
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Kernel + matching NVIDIA driver come from nixpkgs-unstable's linux_zen set
-  # (flake.nix mkHost): the newest zen needs a newer driver than the stable
-  # pin, and taking both from one set keeps the out-of-tree modules built
-  # against the exact kernel. Do not force linuxPackages_6_6 here.
+  # Kernel + matching NVIDIA driver: Use `linux_latest` (the newest stable mainline
+  # kernel) and its paired NVIDIA driver (`nvidia_x11`).
+  #
+  # Why: The user is on `linux_zen` 7.3.4. The proprietary NVIDIA driver (even
+  # the bleeding-edge 615.x `new_feature` branch) lags behind brand-new kernels
+  # like 7.x, causing "API mismatch" and "Driver/Library version mismatch" errors.
+  # `linux_latest` is the latest supported kernel in nixpkgs, and its
+  # `nvidia_x11` package includes community patches to support kernels newer than
+  # upstream NVIDIA has officially released binaries for.
+  #
+  # Note: We use `linux_latest` instead of `linux_zen` because NVIDIA does not
+  # support the heavy Zen patches (Bore, RT, etc.). Vanilla kernel 7.x is
+  # compatible with the patched driver; kernel 7.x Zen is not.
+  boot.kernelPackages = pkgs.linuxKernel.packages.linux_latest;
+
+  # Explicitly pair the driver with the kernel. This ensures the NVIDIA module
+  # is compiled against the exact source of the running kernel.
+  hardware.nvidia.package = config.boot.kernelPackages.nvidia_x11;
 
   # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
   time.timeZone = "Europe/Brussels";
