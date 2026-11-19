@@ -25,6 +25,11 @@ with lib;
     ../../apps/obs-studio.nix
     ../../apps/wine.nix
 
+    # Proprietary NVIDIA driver, kernel and driver from one evaluation. The same
+    # module is used by server-nike: both GPUs are Ampere (sm_86), and the
+    # kernel/driver pairing must not drift between the two hosts.
+    ../../hardware/nvidia_ampere.nix
+
     # /data: second LUKS+btrfs volume, carries podman's graphroot (see the file
     # header). The CachyOS install uses hosts/laptop-p16/cachyos/
     # automount-data.sh for the same thing.

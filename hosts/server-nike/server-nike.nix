@@ -8,6 +8,10 @@ with lib;
     # sudo nixos-generate-config --show-hardware-config > ./hardware-configuration.nix
     ./hardware-configuration.nix
 
+    # Proprietary NVIDIA driver, kernel and driver from one evaluation
+    # (see the file header for why).
+    ../../hardware/nvidia_ampere.nix
+
     # Minimal server environment: base policy, SSH, Tailscale, Syncthing, podman.
     # No gaming, no kids' services, no peripheral daemons.
     ../../environments/server.nix
@@ -157,19 +161,6 @@ with lib;
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Kernel + matching NVIDIA driver: Use `linux_6_12` (latest supported mainline
-  # kernel with full NVIDIA driver patches in this nixpkgs version).
-  #
-  # Why: The user is on `linux_zen` 7.3.4. The proprietary NVIDIA driver (even
-  # the bleeding-edge 615.x `new_feature` branch) lags behind brand-new kernels
-  # like 7.x, causing "API mismatch" and "Driver/Library version mismatch" errors.
-  # `linux_6_18` was too new for the NVIDIA patches in nixos-26.05, so we use
-  # `linux_6_12` — the latest kernel fully supported by `nvidia_x11`.
-  #
-  # Note: We use `linux_6_12` instead of `linux_zen` because NVIDIA does not
-  # support the heavy Zen patches (Bore, RT, etc.).
-  boot.kernelPackages = lib.mkForce pkgs.linuxKernel.packages.linux_6_12;
-
   # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
   time.timeZone = "Europe/Brussels";
 
@@ -218,15 +209,8 @@ with lib;
     tcp dport 6768 ip saddr 100.64.0.0/10 accept  # orca runtime server (Tailscale)
   '';
 
-  # nixpkgs gates the entire NVIDIA module on this list:
-  # `nixos/modules/hardware/video/nvidia.nix` computes
-  # `nvidiaEnabled = elem "nvidia" config.services.xserver.videoDrivers` and puts
-  # the Xorg driver, the nvidia-drm KMS setup and the container-toolkit
-  # assertion behind it. The option default is [ "modesetting" "fbdev" ], which
-  # matches an Intel iGPU, not the RTX 3060. Without this line the driver package
-  # is installed but never wired into the display stack, so SDDM and Plasma find
-  # no KMS device and the host boots to a blind text console.
-  services.xserver.videoDrivers = [ "nvidia" ];
+  # videoDrivers, the kernel and the driver package come from
+  # ../../hardware/nvidia_ampere.nix, which laptop-p16 imports as well.
 
   # Dell 5810: no discrete Intel iGPU on the Xeon, so no prime offload needed.
   # The RTX 3060 (Ampere GA106, sm_86) is the only GPU. No power management on a
@@ -237,10 +221,6 @@ with lib;
     gsp.enable = true; # NVIDIA GPU System Processor — offloads low-level GPU mgmt
     modesetting.enable = true; # Required for the NVIDIA driver
     nvidiaSettings = true;
-    # Paired with `linux_6_12` (see above): kernel and driver come from the same
-    # stable nixpkgs evaluation, so the module version and the userspace tools
-    # version are identical by construction.
-    package = config.boot.kernelPackages.nvidia_x11;
     powerManagement = {
       enable = false; # Never sleep the GPU — inference server
       finegrained = false;
