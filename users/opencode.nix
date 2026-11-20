@@ -1,6 +1,6 @@
 # Global opencode configuration for nicky: providers (deepseek, z.ai/GLM, Kimi,
-# Hetzner, and on laptop-p16 the local Unsloth Studio server) and their models
-# with researched context/output limits.
+# Hetzner, Strata on laptop-p16, and Unsloth Studio on server-nike) and their
+# models with researched context/output limits.
 #
 # API keys are NOT stored here or in the nix store. They are read at runtime via
 # opencode's `{file:...}` substitution from per-key files that the
@@ -8,6 +8,9 @@
 # /etc/secrets/opencode-keys.env (itself decrypted by agenix, see
 # services/secrets.nix). The activation runs as the user, who can read that file
 # through the `secrets` group.
+#
+# Both local inference providers (Strata on laptop-p16, Unsloth Studio on
+# server-nike) are reached over Tailscale from all hosts — no localhost bindings.
 #
 # Provider/model research (2026-08; Kimi corrected 2026-09):
 #   deepseek  https://api.deepseek.com          V4 flash/pro: 1M ctx, 384K out
@@ -29,10 +32,11 @@
 #   cheaper   https://api.cheaperinference.com/v1   wallet-backed
 #             OpenAI/Anthropic-compatible gateway (ci_live_... keys); model ids
 #             vary, list them from GET /v1/models (no auto-discovery)
-#   unsloth   http://127.0.0.1:8888/v1   local Unsloth Studio (laptop-p16 only);
-#                                        Studio enforces its own per-model context budget
-#   strata    http://127.0.0.1:8080/v1   local Strata server (laptop-p16 only); any
-#                                        key/model name, context = packages/strata's
+#   unsloth   http://server-nike.bee-blues.ts.net:8888/v1   Unsloth Studio on
+#                                        server-nike; Studio enforces its own
+#                                        per-model context budget
+#   strata    http://laptop-p16.bee-blues.ts.net:8080/v1   Strata on laptop-p16;
+#                                        any key/model name, context = packages/strata's
 #                                        `strata.context` (default 524288), KV streamed
 #                                        from pinned RAM. This is the long-context path:
 #                                        Studio on this card serves ~10k (a few slots)
@@ -268,9 +272,9 @@ let
         };
       };
     };
-  } // optionalAttrs hasLocalInference {
-    # Local Unsloth Studio server: OpenAI-compatible API on localhost
-    # (:8888). The model list below is the server's *local library*
+  } // {
+    # Unsloth Studio (server-nike): OpenAI-compatible API over Tailscale.
+    # The model list below is the server's *local library*
     # (`curl -H "Authorization: Bearer $KEY"
     # http://127.0.0.1:8888/api/inference/models`, captured 2026-10-31),
     # minus the two local models that cannot answer a chat completion:
@@ -302,7 +306,9 @@ let
     unsloth-studio = {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
-        baseURL = "http://127.0.0.1:8888/v1";
+        # Unsloth Studio runs on server-nike; all hosts reach it over
+        # Tailscale. Studio enforces its own per-model context budget.
+        baseURL = "http://server-nike.bee-blues.ts.net:8888/v1";
         # Studio requires an API key even for the local server. The key
         # is read from ~/.config/opencode/keys/unsloth.key (materialized
         # by setupOpenCodeKeys from /etc/secrets/opencode-keys.env).
@@ -420,10 +426,8 @@ let
         };
       };
     };
-    # Local Strata server (packages/strata): on laptop-p16 it is 127.0.0.1:8080;
-    # on server-nike (the workstation, no Strata engine) it is P16's Tailscale
-    # address — the host that actually runs the engine.  P16 also serves
-    # unsloth-studio at localhost:8888 for fast interactive chat.
+    # Local Strata server (packages/strata): Strata runs on laptop-p16;
+    # all hosts reach it over Tailscale.
     #
     # On P16: Studio + Strata share the GPU. Studio fits the KV cache into the
     # 12 GB card (~10k–17k tokens), while Strata streams 8-bit KV from pinned RAM
@@ -441,9 +445,8 @@ let
     strata-local = {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
-        baseURL = if hn == "server-nike"
-          then "http://laptop-p16.bee-blues.ts.net:8080/v1"
-          else "http://127.0.0.1:8080/v1";
+        # Strata runs on laptop-p16; all hosts reach it over Tailscale.
+        baseURL = "http://laptop-p16.bee-blues.ts.net:8080/v1";
         apiKey = "strata";
       };
       models = {
@@ -638,7 +641,7 @@ in
                 # "Bearer {env:UNSLOTH_API_KEY}" and export that variable.
                 systemone = {
                   type = "remote";
-                  url = "http://127.0.0.1:8888/mcp/decisions/";
+                  url = "http://server-nike.bee-blues.ts.net:8888/mcp/decisions/";
                   oauth = false;
                   disabled = false;
                   headers = {
@@ -725,10 +728,10 @@ in
           };
         in
         builtins.toJSON (baseConfig // optionalAttrs hasLocalInference {
-          # Default model: P16 uses Strata (deep reasoning, long context);
-          # server-nike (workstation) uses unsloth-studio (fast 35B-A3B for
-          # interactive chat). Strata-local stays available on both hosts for
-          # long-paper work (P16: localhost, server-nike: over Tailscale).
+          # Default model: strata-local (on laptop-p16 for deep reasoning,
+          # long context) is now served from laptop-p16 over Tailscale on all
+          # hosts; unsloth-studio (fast 35B-A3B for interactive chat) from
+          # server-nike. Both providers are reachable from any host.
           model = if hn == "server-nike"
             then "unsloth-studio/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF"
             else "strata-local/swift-1.5-iq3_xxs";
@@ -796,7 +799,7 @@ in
           # lookup key, never the URL opencode requests.
           "https://api.z.ai/api/paas/v4/": "zai.key",
           "https://api.z.ai/api/coding/paas/v4": "zai.key",
-          "http://127.0.0.1:8888/v1": "unsloth.key",
+          "http://server-nike.bee-blues.ts.net:8888/v1": "unsloth.key",
           "https://api.cheaperinference.com/v1": "cheaperinference.key",
       }
       if envfile is None:
