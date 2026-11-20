@@ -4,8 +4,10 @@
 # is a large Rust + wgpu workspace).
 #
 # Every app lands in its own derivation that installs:
-#   $out/bin/<app>         — the GUI binary (wgpu/OpenGL rendering)
-#   $out/bin/<app>-cli     — headless agent (MCP server, scripting, exports)
+#   $out/bin/<app>         — the GUI app: a wrapper (see below) around the
+#                            real binary <app>.bin (wgpu/OpenGL rendering)
+#   $out/bin/<app>-cli     — headless agent (MCP server, scripting, exports),
+#                            likewise a wrapper around <app>-cli.bin
 #   $out/share/applications/ — desktop entry (Exec=<pname> resolves via PATH)
 #   $out/share/icons/hicolor/  — hicolor icon set at multiple sizes
 #   $out/share/metainfo/       — AppStream metainfo (flatpak store listings)
@@ -19,17 +21,84 @@
 #
 # The tarball bundles both the GUI and CLI binaries. The CLI is useful for MCP
 # integration (designcraft-cli mcp, photocraft-cli mcp, etc.) — previously
-# hidden inside the AppImage FHS sandbox. No FHS extras, no CachyOS flags: the
-# binary is a plain ELF linked against glibc + libgcc_s + libm. It uses the
-# system Vulkan drivers from /run/opengl-driver on NixOS (provided by
-# hardware.graphics.enable), or crashes on non-NixOS without them.
+# hidden inside the AppImage FHS sandbox. No FHS extras, no CachyOS flags.
+#
+# The binaries are linked against a distro glibc: their ELF interpreter is
+# /lib64/ld-linux-x86-64.so.2 (a stub on NixOS, hence "NixOS cannot run
+# dynamically linked executables ... out of the box") and their NEEDED set is
+# libc.so.6 + libm.so.6 + libgcc_s.so.1 (libasound.so.2 on the audio apps),
+# with no RPATH. The GUIs additionally dlopen their whole display/rendering
+# stack at run time (wayland, xkbcommon, the Vulkan loader, EGL, xcb/X11,
+# gbm/drm, and mesa + libLLVM for the OpenGL fallback); soundcraft forces the
+# X11 backend and so also needs the x11-dl extension libraries. So every
+# binary is installed as a <name>.bin plus a tiny <name> wrapper that execs
+# the real glibc dynamic linker with a search path covering that whole stack
+# (runtimeLibs below). GPU driver libraries are deliberately NOT in that path:
+# the Vulkan ICD and EGL vendor dispatch resolve them through the system's own
+# /run/opengl-driver mechanisms, so the wrapper follows the host's driver.
+# It uses the system Vulkan drivers from /run/opengl-driver on NixOS
+# (provided by hardware.graphics.enable), or falls back to OpenGL/mesa
+# software rendering.
 {
-  lib,
-  fetchurl,
-  stdenvNoCC,
+  pkgs,
 }:
 
 let
+  lib = pkgs.lib;
+  fetchurl = pkgs.fetchurl;
+  stdenvNoCC = pkgs.stdenvNoCC;
+  glibc = pkgs.glibc;
+
+  # Runtime library search path for the wrappers (see file header): glibc
+  # covers the NEEDED set (nixpkgs builds libgcc_s inside glibc); alsa-lib
+  # the audio apps; the rest what the GUIs dlopen at run time, ending in the
+  # mesa/LLVM chain behind the OpenGL fallback (libgallium NEEDs libLLVM and
+  # libstdc++, so both must be reachable even on GPU hosts, where the EGL
+  # vendor dispatch loads mesa alongside the GPU vendor).
+  runtimeLibs = with pkgs; [
+    glibc
+    alsa-lib
+    wayland
+    libxkbcommon
+    vulkan-loader
+    libglvnd
+    libxcb
+    # X11 + x11-dl's dlopen set for winit's X11 backend: some apps
+    # (soundcraft) build winit with the backend forced to X11, so this must
+    # resolve too. Top-level libx* names: the xorg.* aliases are deprecated
+    # in 26.05 and the build warns on every evaluation.
+    libx11
+    libxau
+    libxdmcp
+    libxext
+    libxfixes
+    libxi
+    libxrandr
+    libxrender
+    libxcursor
+    libxtst
+    expat
+    zlib
+    zstd
+    xz
+    bzip2
+    libxml2
+    libdrm
+    mesa
+    libgbm
+    libffi
+    libpciaccess
+    lm_sensors
+    libxshmfence
+    elfutils
+    llvmPackages_21.llvm.lib
+    gcc.cc.lib
+    systemdMinimal
+    dbus.lib
+  ];
+
+  libraryPath = builtins.concatStringsSep ":" (map (d: "${d}/lib") runtimeLibs);
+
   mkCraftApp =
     {
       pname,
@@ -56,6 +125,24 @@ let
                  $out/share/metainfo $out/share/mime/packages
         # Copy both GUI and CLI binaries verbatim
         cp bin/* $out/bin/
+
+        # Replace each ELF with a wrapper that runs it through the real glibc
+        # dynamic linker (see file header for why). The heredoc body is
+        # column-0 (shebangs must start at byte 0). Note this is an indented
+        # Nix string, where a lone backslash is literal, and the build-time
+        # heredoc must see \$@ to keep "$@" out of expansion (inside a phase
+        # $@ is the phase name itself, so never leave it bare here).
+        for f in $out/bin/*; do
+          # Only wrap real ELF executables; leave anything else upstream
+          # might ever ship in bin/ untouched.
+          [ "$(head -c 4 "$f" | od -An -tx1 | tr -d ' \n')" = "7f454c46" ] || continue
+          mv "$f" "$f.bin"
+          cat > "$f" <<EOF
+#!${stdenvNoCC.shell}
+exec ${glibc}/lib/ld-linux-x86-64.so.2 --library-path ${libraryPath} "$f.bin" "\$@"
+EOF
+          chmod +x "$f"
+        done
 
         # Desktop entry: Exec=<pname> already resolves via ~/.nix-profile/bin/
         # which the desktop environment has in PATH. No substitution needed.

@@ -49,12 +49,11 @@ with lib;
 
 let
   keyfile = name: "{file:~/.config/opencode/keys/${name}.key}";
+  hn = config.commonHm.hostName;
   # Unsloth Studio (and the local inference endpoints it serves) run on the
   # inference hosts laptop-p16 and server-nike (see the nicky-hm.nix gates),
   # so gate the local provider entries on the same build-time condition.
-  hasLocalInference =
-    let hn = config.commonHm.hostName; in
-    hn == "laptop-p16" || hn == "server-nike";
+  hasLocalInference = hn == "laptop-p16" || hn == "server-nike";
 
   # Provider/model definitions shared by opencode and pi
   providers = {
