@@ -25,6 +25,7 @@ opencode / pi on every host
     │  http://server-nike.bee-blues.ts.net:4000/v1
     ▼
 LiteLLM proxy (server-nike, loopback for local backends)
+    ├──→ PostgreSQL 18    127.0.0.1:5432              (admin UI, keys, spend)
     ├──→ Unsloth Studio   127.0.0.1:8888/v1          (sergeant, warrant-officer)
     ├──→ Strata           laptop-p16:8080/v1         (lieutenant)
     ├──→ Hetzner          inference.hetzner.com/v1   (second-lieutenant, warrant-officer order 2)
@@ -33,6 +34,9 @@ LiteLLM proxy (server-nike, loopback for local backends)
     ├──→ Kimi             api.kimi.com/coding/v1     (paid subscription, explicit)
     └──→ CheaperInference api.cheaperinference.com/v1 (paid, explicit)
 ```
+
+PostgreSQL is local to server-nike and only the proxy talks to it. It stores the
+virtual-key/spend schema the admin UI needs; it is not exposed on the network.
 
 Unsloth Studio is reachable from the proxy on loopback; from other hosts it is
 still available directly at `http://server-nike.bee-blues.ts.net:8888/v1` for
@@ -127,8 +131,12 @@ Paid deployments use the cost map where a row exists (`deepseek-flash`,
 no upstream row in LiteLLM 1.86.0, so they are pinned to zero with a TODO until
 the discounted rates are known.
 
-The service has `StateDirectory = "litellm"`, so the SQLite spend log survives
-restarts and `/spend/logs` / `/user/daily/activity` remain usable.
+Spend, virtual keys, budgets and the admin UI live in PostgreSQL 18 on
+server-nike (`services/postgresql.nix`, dedicated `litellm` role/database).
+The proxy applies the Prisma schema with `prisma db push` on startup, so a
+fresh cluster is usable without a manual migration step. `StateDirectory =
+"litellm"` also keeps the writable, pre-restructured admin UI under
+`/var/lib/litellm/ui`.
 
 DeepSeek off-peak pricing is not enabled yet. The config carries the commented
 shape (`model_info.off_peak_pricing` with `hours_utc` and half-rate costs); fill
@@ -156,6 +164,13 @@ The same secret entry under `http://server-nike.bee-blues.ts.net:4000/v1` is
 the master key. `setupOpenCodeKeys` materializes it as
 `~/.config/opencode/keys/litellm-proxy.key`; clients and gateway therefore
 always agree.
+
+The database role password is a separate agenix secret,
+`secrets/litellm-db-password.age`, mounted at
+`/run/agenix/litellm-db-password`; `litellm-proxy-env.service` reads it and
+writes `DATABASE_URL=postgresql://litellm:...@127.0.0.1:5432/litellm` into the
+env file. `services/postgresql.nix` creates the `litellm` role/database only
+when the proxy is enabled.
 
 Rotating a key:
 
@@ -197,13 +212,36 @@ provider from `~/.pi/agent/models.json`, generated from the same Nix table, with
 ## Deployment
 
 `services/litellm-proxy.nix` is enabled from
-`hosts/server-nike/server-nike.nix`; that host also opens `tcp/4000` via
-`lib.privateNetRules`. There is no Docker container and no separate compose
-file. The unit is:
+`hosts/server-nike/server-nike.nix`; that host also imports
+`services/postgresql.nix` and opens `tcp/4000` via `lib.privateNetRules`. There
+is no Docker container and no separate compose file. The units are:
 
-- `litellm-proxy-env.service` — root oneshot, derives env + runtime config;
-- `litellm-proxy.service` — runs `${pkgs.litellm}/bin/litellm` as the proxy,
-  `Restart = always`, `PartOf = litellm-proxy-env.service`.
+- `litellm-proxy-env.service` — root oneshot, derives `/run/litellm-proxy.env`
+  from agenix (backend keys + `DATABASE_URL`);
+- `litellm-proxy-ui.service` — root oneshot, copies the packaged admin UI to
+  `/var/lib/litellm/ui` and pre-restructures extensionless routes
+  (`login.html` -> `login/index.html`);
+- `litellm-proxy.service` — runs `${pkgs.litellm}/bin/litellm` with
+  `--use_prisma_db_push`, `Restart = always`, `PartOf =
+  litellm-proxy-env.service`.
+
+The Python Prisma client is generated at build time (`litellm-prisma-python`)
+and a read-only Prisma CLI cache (`litellm-prisma-cli`) is wired through
+`PRISMA_*` environment variables, so neither `prisma generate` nor engine
+downloads happen at runtime. The first proxy start applies the schema with
+`prisma db push`; later starts only verify it.
+
+## Admin UI
+
+```
+http://server-nike.bee-blues.ts.net:4000/ui/
+```
+
+Login with username `admin` and the proxy master key (the same value as
+`~/.config/opencode/keys/litellm-proxy.key`). The UI is backed by the local
+PostgreSQL database, so virtual keys, budgets, spend logs and request history
+are live. `/ui/login` works because `litellm-proxy-ui.service` pre-restructures
+the exported HTML routes; `/ui/login.html` is not needed.
 
 ## Operations
 
@@ -245,5 +283,6 @@ Studio model, confirm its id and served context with
 - Timeouts: <https://docs.litellm.ai/docs/proxy/timeout>
 - Custom pricing: <https://docs.litellm.ai/docs/proxy/custom_pricing>
 - Off-peak pricing: <https://docs.litellm.ai/docs/proxy/off_peak_pricing>
-- Virtual keys (not used): <https://docs.litellm.ai/docs/proxy/virtual_keys>
+- Virtual keys: <https://docs.litellm.ai/docs/proxy/virtual_keys>
 - Cost tracking: <https://docs.litellm.ai/docs/proxy/cost_tracking>
+- Admin UI: <https://docs.litellm.ai/docs/proxy/ui>

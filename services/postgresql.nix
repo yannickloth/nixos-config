@@ -23,6 +23,12 @@ let
   # readable by the postgres user both units run as.
   passwordFile = "/run/agenix/pg-nicky-password";
 
+  # LiteLLM's own role/database, created only on hosts that enable the proxy.
+  # The role is separate from `nicky` so the proxy never has more access than
+  # its own schema.
+  litellmEnabled = config.services.litellm-proxy.enable or false;
+  litellmPasswordFile = "/run/agenix/litellm-db-password";
+
   # Applies the password to the nicky role. Run both by the oneshot below and
   # at the end of postgresql-setup (which is exactly when ensureUsers has
   # created the role, so the two units cannot race).
@@ -53,6 +59,23 @@ let
       -v pw="$(cat ${lib.escapeShellArg passwordFile})" \
       -f ${../packages/postgresql/alter-role-password.sql}
   '';
+
+  setLitellmPassword = pkgs.writeShellScript "postgresql-set-litellm-password" ''
+    set -euo pipefail
+
+    if [ ! -r ${lib.escapeShellArg litellmPasswordFile} ]; then
+      echo "postgresql: ${litellmPasswordFile} is missing or unreadable - is agenix activated?" >&2
+      exit 1
+    fi
+    if head -c -1 ${lib.escapeShellArg litellmPasswordFile} | grep -q '[:[:cntrl:]]'; then
+      echo "postgresql: ${litellmPasswordFile} must be one line without ':'" >&2
+      exit 1
+    fi
+
+    exec ${cfg.finalPackage}/bin/psql -X -v ON_ERROR_STOP=1 -d postgres \
+      -v pw="$(cat ${lib.escapeShellArg litellmPasswordFile})" \
+      -f ${../packages/postgresql/alter-role-litellm-password.sql}
+  '';
 in
 {
   # Direct configuration of the nixpkgs postgresql module — enable flag and
@@ -60,16 +83,22 @@ in
   # wraps the actual activation in its own `mkIf cfg.enable` so this is safe
   # and avoids any option-evaluation recursion.
   services.postgresql = {
-    enable = true;
+    # environments/server.nix disables postgres on servers by default; this
+    # module is the explicit opt-in, so force it back on.
+    enable = lib.mkForce true;
     package = pkgs.postgresql_18;                     # 18.6, latest in pinned nixpkgs
     dataDir = "/data/postgres/18";                    # non-default → module sets ReadWritePaths
 
     # Default role and database for nicky. Peer auth via Unix socket gives
-    # nicky full access to the "nicky" database with no password.
-    ensureDatabases = [ "nicky" ];
+    # nicky full access to the "nicky" database with no password. On hosts
+    # running the LiteLLM proxy, also create its dedicated role/database.
+    ensureDatabases = [ "nicky" ] ++ lib.optional litellmEnabled "litellm";
     ensureUsers = [
       { name = "nicky"; ensureDBOwnership = true; }
-    ];
+    ] ++ lib.optional litellmEnabled {
+      name = "litellm";
+      ensureDBOwnership = true;
+    };
 
     # Allow TCP connections on localhost (IDEs like Datagrip).
     enableTCPIP = true;
@@ -121,9 +150,32 @@ in
     path = [ config.services.postgresql.finalPackage pkgs.coreutils pkgs.gnugrep ];
   };
 
+  systemd.services.postgresql-set-litellm-password = lib.mkIf litellmEnabled {
+    description = "Set PostgreSQL litellm role password from agenix secret";
+    after = [ "postgresql-setup.service" "agenix.service" ];
+    wants = [ "postgresql-setup.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      User = "postgres";
+      Group = "postgres";
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = setLitellmPassword;
+      SystemCallArchitectures = "native";
+      ProtectHome = true;
+      ProtectSystem = "strict";
+      PrivateTmp = true;
+      # The secret lives in /run/agenix, outside what ProtectSystem covers.
+      ReadOnlyPaths = [ "/run/agenix" ];
+    };
+    path = [ config.services.postgresql.finalPackage pkgs.coreutils pkgs.gnugrep ];
+  };
+
   # The race-proof half. postgresql-setup is what runs ensureUsers, so its
   # postStart is the first moment the role is guaranteed to exist - the oneshot
   # above may already have fired (and failed) against a fresh cluster.
   # mkAfter keeps nixpkgs' own postStart (the .first_startup cleanup) first.
-  systemd.services.postgresql-setup.postStart = lib.mkAfter "${setPassword}";
+  systemd.services.postgresql-setup.postStart = lib.mkAfter (
+    "${setPassword}" + lib.optionalString litellmEnabled "\n${setLitellmPassword}"
+  );
 }

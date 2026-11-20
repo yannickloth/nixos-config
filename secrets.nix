@@ -128,6 +128,11 @@ in
   # wiring (user key), so the scope mirrors nicky.nix.age.
   "pg-nicky-password.age".publicKeys = [ user-nicky ] ++ hosts;
 
+  # Dedicated PostgreSQL role password for the LiteLLM proxy's own database
+  # (services/litellm-proxy.nix). Only server-nike consumes it, but keeping the
+  # user key as a recovery recipient matches pg-nicky-password.
+  "litellm-db-password.age".publicKeys = [ user-nicky ] ++ hosts;
+
   # Per-user password hashes (SHA-512 crypt), consumed by users/passwords.nix
   # as users.users.<n>.hashedPasswordFile. Encrypted to host keys only.
   "passwords/nicky.hash.age".publicKeys = hosts;

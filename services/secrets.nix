@@ -73,6 +73,16 @@ with lib;
         group = "postgres";
       };
 
+      # LiteLLM proxy database role password. Only server-nike runs the proxy;
+      # the conditional keeps other hosts from mounting an unused secret.
+      litellm-db-password = mkIf (config.services.litellm-proxy.enable or false) {
+        file = ../secrets/litellm-db-password.age;
+        path = "/run/agenix/litellm-db-password";
+        mode = "0640";
+        owner = "root";
+        group = "postgres";
+      };
+
       # CIFS client credentials for the nestor mount. NOTE: services/cifs-nestor.nix
       # is not currently imported by any host; enable this once the mount is wired up.
       # cifs-nestor = {

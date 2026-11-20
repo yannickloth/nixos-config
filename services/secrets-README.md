@@ -29,6 +29,15 @@ with the user key by home-manager (see `users/{nicky,aeiuno}/*-hm.nix`).
   keys. The proxy unit's `EnvironmentFile=` exports them, and the store config
   references them through LiteLLM's `os.environ/VAR` resolver.
 
+## litellm-db-password.age
+
+Dedicated password for the `litellm` PostgreSQL role on server-nike. agenix
+mounts it at `/run/agenix/litellm-db-password`; `litellm-proxy-env.service`
+turns it into `DATABASE_URL=postgresql://litellm:...@127.0.0.1:5432/litellm`.
+The role/database are created by `services/postgresql.nix` only when
+`services.litellm-proxy.enable` is true. This is separate from nicky's own
+PostgreSQL password (`pg-nicky-password.age`).
+
 ### Configured providers
 
 | Provider | Base URL | Key file |

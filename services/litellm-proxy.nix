@@ -10,12 +10,13 @@
 #
 # Secrets: the proxy's master key and all backend keys are entries in the
 # existing OPENAI_API_KEYS agenix secret (/etc/secrets/opencode-keys.env,
-# see services/secrets.nix). litellm-proxy-env.service derives
-# /run/litellm-proxy.env (LITELLM_* variables) from it at every start, so a
-# key rotation is picked up without a second secret. The same secret entry
-# is what opencode's setupOpenCodeKeys materializes as
+# see services/secrets.nix). The PostgreSQL role password is the separate
+# litellm-db-password secret. litellm-proxy-env.service derives
+# /run/litellm-proxy.env (LITELLM_* variables + DATABASE_URL) from both at
+# every start, so a rotation is picked up without rebuilding. The same master
+# key entry is what opencode's setupOpenCodeKeys materializes as
 # ~/.config/opencode/keys/litellm-proxy.key, so client and gateway always
-# agree on the master key.
+# agree.
 #
 # Deploy: enabled on server-nike only (hosts/server-nike/server-nike.nix).
 # The host firewall exposes tcp 4000 to the private ranges (LAN + tailnet)
@@ -26,15 +27,82 @@
 let
   cfg = config.services.litellm-proxy;
 
-  # Derives /run/litellm-proxy.env from the shared opencode-keys secret.
-  # Runs as root (systemd oneshot); the target is 0600 root so only the
-  # proxy service can read the backend keys. systemd's EnvironmentFile=
-  # exports every var, and LiteLLM resolves `os.environ/VAR` in config.yaml.
+  # LiteLLM's Python Prisma client is generated from the schema shipped in
+  # pkgs.litellm. nixpkgs does not run `prisma generate`, so do it at build time
+  # in a writable copy of the prisma Python package. The generated package is
+  # put first on PYTHONPATH by the proxy service.
+  prismaPython = pkgs.runCommand "litellm-prisma-python" {
+    nativeBuildInputs = [
+      pkgs.nodejs
+      pkgs.openssl
+      pkgs.prisma_6
+      pkgs.python3Packages.prisma
+    ];
+  } ''
+    mkdir -p $out
+    cp -a ${pkgs.python3Packages.prisma}/lib/python3.13/site-packages/prisma $out/prisma
+    chmod -R u+w $out/prisma
+    cp ${pkgs.litellm}/lib/python3.13/site-packages/litellm/proxy/schema.prisma ./schema.prisma
+    export PYTHONPATH=$out
+    export PRISMA_PY_DEBUG_GENERATOR=1
+    export PATH=${pkgs.prisma_6}/bin:${pkgs.python3Packages.prisma}/bin:${pkgs.nodejs}/bin:$PATH
+    prisma generate --schema ./schema.prisma
+    rm -f $out/prisma/generator/debug-*.json
+    find $out/prisma -name __pycache__ -type d -prune -exec rm -rf {} +
+  '';
+
+  # Read-only Prisma CLI cache for LiteLLM's runtime `prisma db push` and
+  # `prisma migrate diff` calls. All engines are supplied via environment
+  # variables, so the CLI never downloads or writes into its package tree.
+  prismaCli = pkgs.runCommand "litellm-prisma-cli" { } ''
+    mkdir -p $out/cache/node_modules
+    ln -s ${pkgs.prisma_6}/lib/prisma/packages $out/packages
+    ln -s $out/packages/cli $out/cache/node_modules/prisma
+    echo '{"name":"prisma-binaries","version":"1.0.0","private":true,"main":"node_modules/prisma/build/index.js"}' > $out/cache/package.json
+  '';
+
+  # LiteLLM's packaged UI is read-only in the Nix store, and its own
+  # copytree preserves that mode, so the extensionless route restructure
+  # (`login.html` -> `login/index.html`) is skipped. Build a writable,
+  # pre-restructured copy once and point LITELLM_UI_PATH at it.
+  prepareUi = pkgs.writeShellScript "litellm-prepare-ui" ''
+    set -euo pipefail
+
+    UI=/var/lib/litellm/ui
+    SRC=${pkgs.litellm}/lib/python3.13/site-packages/litellm/proxy/_experimental/out
+
+    if [ -f "$UI/.litellm_ui_ready" ] && [ "$(cat "$UI/.litellm_source" 2>/dev/null || true)" = "$SRC" ]; then
+      exit 0
+    fi
+
+    rm -rf "$UI"
+    mkdir -p "$UI"
+    cp -a "$SRC"/. "$UI"/
+    chmod -R u+w "$UI"
+
+    find "$UI" -type f -name '*.html' ! -name 'index.html' \
+      ! -path "$UI/_next/*" ! -path "$UI/litellm-asset-prefix/*" -print0 |
+      while IFS= read -r -d "" f; do
+        d="''${f%.html}"
+        mkdir -p "$d"
+        mv "$f" "$d/index.html"
+      done
+
+    printf '%s\n' "$SRC" > "$UI/.litellm_source"
+    touch "$UI/.litellm_ui_ready"
+  '';
+
+  # Derives /run/litellm-proxy.env from the shared opencode-keys secret plus
+  # the LiteLLM database password. Runs as root (systemd oneshot); the target
+  # is 0600 root so only the proxy service can read the backend keys.
+  # systemd's EnvironmentFile= exports every var, and LiteLLM resolves
+  # `os.environ/VAR` in config.yaml.
   deriveKeysEnv = ''
     import json, os, sys
 
     SRC = "/etc/secrets/opencode-keys.env"
     DST = "/run/litellm-proxy.env"
+    DB_PW_FILE = "/run/agenix/litellm-db-password"
 
     # env var -> base URL under which the key is stored in the secret
     # (the secret maps base URLs to keys; see secrets-README.md).
@@ -65,6 +133,19 @@ let
     if missing:
         print(f"litellm-proxy: refusing to start with missing keys: {', '.join(missing)}", file=sys.stderr)
         sys.exit(1)
+
+    try:
+        with open(DB_PW_FILE) as fh:
+            db_pw = fh.read().strip()
+    except FileNotFoundError:
+        print(f"litellm-proxy: {DB_PW_FILE} is missing - is agenix activated?", file=sys.stderr)
+        sys.exit(1)
+    if not db_pw:
+        print(f"litellm-proxy: {DB_PW_FILE} is empty", file=sys.stderr)
+        sys.exit(1)
+    lines.append(
+        f"DATABASE_URL=postgresql://litellm:{db_pw}@127.0.0.1:5432/litellm"
+    )
 
     fd = os.open(DST, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as out:
@@ -465,31 +546,91 @@ in
       # restart when the env is re-derived.
       litellm-proxy-env = {
         description = "Derive LiteLLM proxy key environment from /etc/secrets/opencode-keys.env";
-        after = [ "agenix-install-secrets.service" ];
-        wants = [ "agenix-install-secrets.service" ];
+        after = [ "agenix.service" ];
+        wants = [ "agenix.service" ];
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
+          Restart = "on-failure";
+          RestartSec = 5;
           ExecStart = "${pkgs.python3}/bin/python3 /etc/litellm/derive-keys-env.py";
         };
         wantedBy = [ "multi-user.target" ];
       };
 
+      # Writable, pre-restructured copy of the packaged admin UI. Runs before
+      # the proxy so LITELLM_UI_PATH is ready and extensionless routes work.
+      litellm-proxy-ui = {
+        description = "Prepare writable, pre-restructured LiteLLM admin UI";
+        after = [ "local-fs.target" ];
+        before = [ "litellm-proxy.service" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          StateDirectory = "litellm";
+          ExecStart = prepareUi;
+        };
+        path = [ pkgs.coreutils pkgs.findutils ];
+        wantedBy = [ "multi-user.target" ];
+      };
+
       litellm-proxy = {
         description = "LiteLLM proxy — rank gateway for the local + paid LLM backends";
-        after = [ "network-online.target" "tailscale.service" "litellm-proxy-env.service" ];
-        wants = [ "tailscale.service" "litellm-proxy-env.service" ];
+        after = [
+          "network-online.target"
+          "tailscale.service"
+          "litellm-proxy-env.service"
+          "litellm-proxy-ui.service"
+          "postgresql.service"
+        ];
+        requires = [
+          "litellm-proxy-env.service"
+          "litellm-proxy-ui.service"
+          "postgresql.service"
+        ];
+        wants = [
+          "tailscale.service"
+        ];
+        # Prisma needs Node to run the cached CLI, OpenSSL to detect the
+        # platform, and the prisma package for the generated Python client.
+        path = [
+          pkgs.nodejs
+          pkgs.openssl
+          pkgs.prisma_6
+          pkgs.python3Packages.prisma
+        ];
         serviceConfig = {
           ExecStart =
             "${pkgs.litellm}/bin/litellm --config /etc/litellm/config.yaml "
-            + "--host 0.0.0.0 --port ${toString cfg.port}";
-          # systemd exports every LITELLM_* key to the proxy process; the
-          # config references them through LiteLLM's os.environ/ resolver.
+            + "--host 0.0.0.0 --port ${toString cfg.port} "
+            + "--use_prisma_db_push";
+          Environment = [
+            # Writable UI copy: LiteLLM restructures exported HTML routes
+            # (e.g. login.html -> login/index.html) on first start.
+            "LITELLM_UI_PATH=/var/lib/litellm/ui"
+            # Prisma CLI cache built above; all engines are explicit so the
+            # CLI never downloads or writes into the read-only Nix store.
+            "PRISMA_BINARY_CACHE_DIR=${prismaCli}/cache"
+            "PRISMA_QUERY_ENGINE_BINARY=${pkgs.prisma-engines_6}/bin/query-engine"
+            "PRISMA_QUERY_ENGINE_LIBRARY=${pkgs.prisma-engines_6}/lib/libquery_engine.node"
+            "PRISMA_SCHEMA_ENGINE_BINARY=${pkgs.prisma-engines_6}/bin/schema-engine"
+            "PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1"
+            # LiteLLM's Python client expects Prisma 5.17.0; Prisma 6 engines
+            # are protocol-compatible and the generated client is tested.
+            "PRISMA_PY_DEBUG_GENERATOR=1"
+            # Generated Python client goes before the ungenerated package.
+            "PYTHONPATH=${prismaPython}"
+          ];
+          # systemd exports every LITELLM_* / DATABASE_URL value to the proxy
+          # process; the config references the keys via os.environ/.
           EnvironmentFile = "/run/litellm-proxy.env";
-          # Persistent SQLite spend log (/spend/logs, /user/daily/activity).
+          # Persistent spend log + writable UI copy.
           StateDirectory = "litellm";
           WorkingDirectory = "/var/lib/litellm";
           PartOf = [ "litellm-proxy-env.service" ];
+          # First start runs `prisma db push` over the full schema; later
+          # starts are fast. Keep systemd from killing the migration.
+          TimeoutStartSec = "300s";
           Restart = "always";
           RestartSec = 5;
         };

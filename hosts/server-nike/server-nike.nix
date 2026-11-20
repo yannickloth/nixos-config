@@ -44,6 +44,11 @@ with lib;
       services.printing.enable = lib.mkForce true;
     }
 
+    # PostgreSQL backs the LiteLLM proxy's admin UI, virtual keys and spend
+    # ledger. The module creates the `litellm` role/database only when the
+    # proxy is enabled (services/postgresql.nix).
+    ../../services/postgresql.nix
+
     # LiteLLM rank gateway (services/litellm-proxy.nix): the single LLM
     # endpoint for opencode/pi on every host. Sits next to Unsloth Studio
     # (loopback) and reaches Strata on laptop-p16 over Tailscale.
