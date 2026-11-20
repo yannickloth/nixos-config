@@ -9,6 +9,7 @@ with lib;
     ./btrfs.nix
     ./nix.nix
     ./home-readme.nix
+    ./fhs-compat.nix
     ../security/kids.nix
     ../services/snapshots.nix
     ../services/usb-scan.nix

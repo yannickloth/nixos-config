@@ -422,6 +422,9 @@
           # built from the registry tarball on unstable's Node (matches the
           # overlay, so the installed users share this store path).
           rea = unstablePkgs.callPackage ./packages/rea { };
+          # Microsoft Aptos font family; consumed via roles/fonts.nix and also
+          # exposed here so `nix build .#aptos` works.
+          aptos = pkgs.callPackage ./packages/aptos { };
         };
 
       nixosConfigurations =

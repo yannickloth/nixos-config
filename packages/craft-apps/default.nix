@@ -30,13 +30,19 @@
 # with no RPATH. The GUIs additionally dlopen their whole display/rendering
 # stack at run time (wayland, xkbcommon, the Vulkan loader, EGL, xcb/X11,
 # gbm/drm, and mesa + libLLVM for the OpenGL fallback); soundcraft forces the
-# X11 backend and so also needs the x11-dl extension libraries. So every
-# binary is installed as a <name>.bin plus a tiny <name> wrapper that execs
-# the real glibc dynamic linker with a search path covering that whole stack
-# (runtimeLibs below). GPU driver libraries are deliberately NOT in that path:
-# the Vulkan ICD and EGL vendor dispatch resolve them through the system's own
-# /run/opengl-driver mechanisms, so the wrapper follows the host's driver.
-# It uses the system Vulkan drivers from /run/opengl-driver on NixOS
+# X11 backend and so also needs the x11-dl extension libraries.
+#
+# So every binary is patched to use NixOS's glibc dynamic linker, then installed
+# as <name>.bin plus a tiny <name> wrapper that sets LD_LIBRARY_PATH to the
+# runtime stack (runtimeLibs below) and execs the real binary. Using the normal
+# kernel loader instead of invoking ld-linux-x86-64.so.2 directly is required:
+# some Craft binaries (notably PhotoCraft) have internal startup logic that
+# breaks when they are launched through the dynamic linker as if they were a
+# shared object, causing every command-line argument to be misinterpreted.
+# GPU driver libraries are deliberately NOT in LD_LIBRARY_PATH: the Vulkan ICD
+# and EGL vendor dispatch resolve them through the system's own
+# /run/opengl-driver mechanisms, so the wrapper follows the host's driver. It
+# uses the system Vulkan drivers from /run/opengl-driver on NixOS
 # (provided by hardware.graphics.enable), or falls back to OpenGL/mesa
 # software rendering.
 {
@@ -48,6 +54,7 @@ let
   fetchurl = pkgs.fetchurl;
   stdenvNoCC = pkgs.stdenvNoCC;
   glibc = pkgs.glibc;
+  patchelf = pkgs.patchelf;
 
   # Runtime library search path for the wrappers (see file header): glibc
   # covers the NEEDED set (nixpkgs builds libgcc_s inside glibc); alsa-lib
@@ -116,6 +123,8 @@ let
     stdenvNoCC.mkDerivation {
       inherit pname version src description;
 
+      nativeBuildInputs = [ patchelf ];
+
       # The tarball extracts into <pname>-<version>-linux-x86_64/ with a
       # conventional layout: bin/, share/applications/, share/icons/hicolor/,
       # share/metainfo/, share/mime/packages/.
@@ -126,9 +135,9 @@ let
         # Copy both GUI and CLI binaries verbatim
         cp bin/* $out/bin/
 
-        # Replace each ELF with a wrapper that runs it through the real glibc
-        # dynamic linker (see file header for why). The heredoc body is
-        # column-0 (shebangs must start at byte 0). Note this is an indented
+        # Patch each ELF to use NixOS's glibc dynamic linker and wrap it with
+        # an LD_LIBRARY_PATH script (see file header for why). The heredoc body
+        # is column-0 (shebangs must start at byte 0). Note this is an indented
         # Nix string, where a lone backslash is literal, and the build-time
         # heredoc must see \$@ to keep "$@" out of expansion (inside a phase
         # $@ is the phase name itself, so never leave it bare here).
@@ -137,9 +146,11 @@ let
           # might ever ship in bin/ untouched.
           [ "$(head -c 4 "$f" | od -An -tx1 | tr -d ' \n')" = "7f454c46" ] || continue
           mv "$f" "$f.bin"
+          patchelf --set-interpreter ${glibc}/lib/ld-linux-x86-64.so.2 "$f.bin"
           cat > "$f" <<EOF
 #!${stdenvNoCC.shell}
-exec ${glibc}/lib/ld-linux-x86-64.so.2 --library-path ${libraryPath} "$f.bin" "\$@"
+export LD_LIBRARY_PATH="${libraryPath}${"\${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"}"
+exec "$f.bin" "\$@"
 EOF
           chmod +x "$f"
         done

@@ -27,14 +27,14 @@ This is a modular NixOS configuration using Nix flakes with the following struct
 ### Directory Structure
 - `hosts/`: Host-specific configurations and hardware configurations
 - `users/`: User account definitions and home-manager configurations
-- `roles/`: Common base configuration applied to all systems (nix, fonts, shell, i18n, system, nix-gc)
+- `roles/`: Common base configuration applied to all systems (nix, fonts, fhs-compat, shell, i18n, system, nix-gc)
 - `apps/`: Application/tooling installs (android, java, typst, wine, etc.)
 - `services/`: Daemon/network service configs (avahi, samba, tor, podman, etc.)
 - `desktop/`: Desktop environments, window managers, display & audio (gnome, plasma, xserver, pipewire)
 - `games/`: Gaming support (games, steam)
 - `security/`: Security hardening (sudo, tpm, yubikey)
 - `hardware/`: Hardware-specific modules (Intel CPU/graphics, printers, bluetooth, pcscd, etc.)
-- `packages/`: Custom package definitions (in-tree pins and wrappers: opencode, orca, strata, unsloth-studio, hermes-agent, craft-apps) plus small build helpers used by modules (`packages/printing`, `packages/postgresql`)
+- `packages/`: Custom package definitions (in-tree pins and wrappers: aptos, opencode, orca, strata, unsloth-studio, hermes-agent, craft-apps) plus small build helpers used by modules (`packages/printing`, `packages/postgresql`)
 - `environments/`: Environment-specific configurations (laptop, laptop-firewall, family-laptop shared module set)
 
 ### Key Configuration Patterns

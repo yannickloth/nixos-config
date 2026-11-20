@@ -18,6 +18,12 @@ with lib;
         # };
         plasma6 = {
           enable = true; # Enable the KDE Plasma 6 Desktop Environment.
+          # Plasma's default UI font package is full noto-fonts, which brings
+          # every script (Arabic, CJK, Indic, Thai, …). This system is used in
+          # FR/DE/LU/NL/EN/PT only, so use the Latin/Greek/Cyrillic + symbol
+          # subset instead. roles/fonts.nix already installs it as well; this
+          # replaces the Plasma default rather than adding a second copy.
+          notoPackage = pkgs.noto-fonts-lgc-plus;
         };
       };
       # GTK apps (Firefox, …) use gvfs for trash/MTP/network locations.
