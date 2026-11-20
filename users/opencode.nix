@@ -424,6 +424,21 @@ let
             output = 32768;
           };
         };
+
+        # --- Haiku-level fast executor ----------------------------
+        # NVIDIA Nemotron-3.5 Bolt-E4B: 4B effective params, purpose-built
+        # for fast execution / tool calling / instruction following.
+        # Benchmarks (Q4_K_M): ToolSandbox 74.1, IHEval 82.4,
+        # MultiChallenge 55.6 — beats Qwen3.5 9B on execution fidelity.
+        # UD-IQ3_XXS quant is ~3.7 GB, fits easily on the Studio GPU.
+        # Context is 64K (65536). Use for subagent-level "just do it" tasks.
+        "nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-4GB" = {
+          name = "Nemotron-3.5 Bolt-E4B 4GB (Haiku-tier executor)";
+          limit = {
+            context = 65536;
+            output = 65536;
+          };
+        };
       };
     };
     # Local Strata server (packages/strata): Strata runs on laptop-p16;
