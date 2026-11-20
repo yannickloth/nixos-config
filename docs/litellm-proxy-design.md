@@ -85,41 +85,46 @@ model_list:
   # Not a deployment here: 10K is too small for agentic sessions.
 
   # ===================================================================
-  # SENIOR OFFICERS — Frontier coding subscriptions (OF-3 to OF-5)
+  # SENIOR OFFICERS — Paid coding tiers (OF-3 to OF-5)
   # ===================================================================
-  # One rank, multiple deployments (Z.ai + Kimi) under the same name.
-  # Enable cost/latency-based routing (litellm_settings.routing_strategy)
-  # to prefer the cheaper-quota deployment within the rank.
 
-  # OF-5 Lieutenant Colonel — GLM-5.3 (dense flagship, token-efficient)
+  # OF-4 Major — Kimi K2.8 Preview (previous generation).
+  # "Approaches K3" but a generation below the frontier.
+  # Explicit selection only — not in the auto-fallback chain.
+  - model_name: "major"
+    litellm_params:
+      model: openai/kimi-for-coding
+      api_base: https://api.kimi.com/coding/v1
+      api_key: kimi.key
+
+  # OF-5 Lieutenant Colonel — frontier tier, text deployment
+  # (no image input — see lieutenant-colonel-v).
   - model_name: "lieutenant-colonel"
     litellm_params:
       model: openai/glm-5.3
       api_base: https://api.z.ai/api/coding/paas/v4
       api_key: zai.key
 
-  # OF-5 Lieutenant Colonel — Kimi K3 (2.8T params, flagship)
-  - model_name: "lieutenant-colonel"
+  # OF-5 Lieutenant Colonel (vision) — natively multimodal deployments.
+  # Vision routing is client-side: opencode only attaches images to
+  # models marked attachment-capable (see opencode.json below), so all
+  # image traffic enters the stack through this group.
+
+  # OF-5 Lieutenant Colonel (vision) — Kimi K3 (2.8T / 104B active, MoonViT-V2)
+  - model_name: "lieutenant-colonel-v"
     litellm_params:
       model: openai/k3
       api_base: https://api.kimi.com/coding/v1
       api_key: kimi.key
 
-  # OF-5 Lieutenant Colonel — Kimi K3, 256K window (cheaper quota)
-  - model_name: "lieutenant-colonel"
+  # OF-5 Lieutenant Colonel (vision) — Kimi K3, 256K window (cheaper quota)
+  - model_name: "lieutenant-colonel-v"
     litellm_params:
       model: openai/k3-256k
       api_base: https://api.kimi.com/coding/v1
       api_key: kimi.key
 
-  # OF-5 Lieutenant Colonel — Kimi K2.8 Preview (approaches K3)
-  - model_name: "lieutenant-colonel"
-    litellm_params:
-      model: openai/kimi-for-coding
-      api_base: https://api.kimi.com/coding/v1
-      api_key: kimi.key
-
-  # OF-5 Lieutenant Colonel (vision) — the multimodal model of the rank
+  # OF-5 Lieutenant Colonel (vision) — GLM-5.3-Flash (sparse MoE, 3× quota)
   - model_name: "lieutenant-colonel-v"
     litellm_params:
       model: openai/glm-5.3-flash
@@ -178,8 +183,10 @@ model_list:
 # No model_aliases: rank names are the only interface.
 
 general_fallbacks:
-  # Capability-ordered cascade. Fallbacks cross ranks only;
-  # intra-rank deployment failover is LiteLLM's job (same model_name).
+  # Capability-ordered cascade through the local stack only. Fallbacks
+  # cross ranks; intra-rank deployment failover is LiteLLM's job
+  # (same model_name). No entries for paid ranks — they are explicit
+  # selections, and circular fallbacks are unreliable in LiteLLM.
   lieutenant: [second-lieutenant, warrant-officer, sergeant]
   second-lieutenant: [warrant-officer, sergeant]
   warrant-officer: [sergeant]
@@ -223,16 +230,22 @@ Ranked models use display names that describe the role, never the model — the 
           "name": "Lieutenant — deep reasoning (default)",
           "limit": { "context": 393216, "output": 65536 }
         },
+        "major": {
+          "name": "Major — previous-generation coding (paid)",
+          "limit": { "context": 1048576, "output": 32768 }
+        },
         "lieutenant-colonel": {
           "name": "Lieutenant Colonel — frontier coding (paid)",
-          "limit": { "context": 262144, "output": 32768 }
+          "limit": { "context": 1048576, "output": 131072 }
         },
         "lieutenant-colonel-v": {
           "name": "Lieutenant Colonel (vision) — frontier multimodal (paid)",
-          "limit": { "context": 1048576, "output": 131072 }
+          "attachment": true,
+          "limit": { "context": 262144, "output": 32768 }
         },
         "deepseek-flash": {
           "name": "deepseek-flash (paid escalation)",
+          "attachment": true,
           "limit": { "context": 1048576, "output": 384000 }
         },
         "deepseek-v4-pro": {

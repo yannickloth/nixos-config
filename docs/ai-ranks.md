@@ -4,6 +4,8 @@ All rank names in English, using the Belgian Air Component (Luchtcomponent / For
 
 **A rank name is a pure abstraction over the model currently holding the slot.** It never contains a model name, provider name, or implementation detail (dense/sparse, quant, backend). The only permitted suffix is a *feature* suffix — currently `-v` for the vision-capable model of a rank. **Multiple models may share one rank**; in the proxy they are multiple deployments under a single model name (primary + redundant/failover).
 
+**The ladder covers the standing stack — local + subscription models.** The pay-as-you-go pool sits *outside* the ladder (explicit escalation, cost-ordered tiers); it currently includes models at and above frontier-rank capability. General officer ranks are reserved for paid models promoted to standing use. The size bands on empty slots are approximate and written for dense models; MoE models are slotted by capability (active params + knowledge capacity), not total params.
+
 Research date: 2026-11-20
 
 ## Enlisted (OR-1 to OR-4)
@@ -38,21 +40,20 @@ Research date: 2026-11-20
 | NATO | English | Model | Source | Purpose |
 |---|---|---|---|---|
 | OF-3 | **Captain Commandant** | | | Reserved. |
-| OF-4 | **Major** | | | Reserved. |
-| OF-5 | **Lieutenant Colonel** | `glm-5.3` | Z.ai Coding Plan | Dense flagship, full reasoning, token-efficient per token vs Opus. Credit mult: 6.9/1.7/24. |
-| OF-5 | **Lieutenant Colonel** | `k3` | Kimi Code subscription | 2.8T params, flagship coding model. |
-| OF-5 | **Lieutenant Colonel** | `k3-256k` | Kimi Code subscription | Same model, 256K window. ~½ the quota of the 1M variant. |
-| OF-5 | **Lieutenant Colonel** | `kimi-for-coding` (K2.8 Preview) | Kimi Code subscription | "Approaches K3", better thinking efficiency. |
-| OF-5 | **Lieutenant Colonel** (vision) | `glm-5.3-flash` | Z.ai Coding Plan | The rank's multimodal model → proxy name `lieutenant-colonel-v`. 3× quota, cheaper credits. Credit mult: 2.3/0.56/8. |
+| OF-4 | **Major** | `kimi-for-coding` (K2.8 Preview) | Kimi Code subscription | Previous-generation Kimi — "approaches K3" but a generation below the frontier. Explicit selection only, not in the auto-fallback chain. |
+| OF-5 | **Lieutenant Colonel** | `glm-5.3` | Z.ai Coding Plan | Dense flagship, full reasoning, token-efficient per token vs Opus. Text-only. Credit mult: 6.9/1.7/24. |
+| OF-5 | **Lieutenant Colonel** (vision) | `k3` | Kimi Code subscription | 2.8T params / 104B active, **natively multimodal** (MoonViT-V2), 1M ctx. Strongest open-weight in the stack; ties GLM-5.3 on the Intelligence Index, trails it on SWE-bench Verified (93.4 vs 95.4). |
+| OF-5 | **Lieutenant Colonel** (vision) | `k3-256k` | Kimi Code subscription | Same model, 256K window. ~½ the quota of the 1M variant. |
+| OF-5 | **Lieutenant Colonel** (vision) | `glm-5.3-flash` | Z.ai Coding Plan | Sparse MoE multimodal, 3× quota, cheaper credits. Credit mult: 2.3/0.56/8. |
 
 ## General Officers (OF-6 to OF-9)
 
 | NATO | English | Model | Source | Purpose |
 |---|---|---|---|---|
-| OF-6 | **Brigadier General** | | | Space for future top-tier models. |
-| OF-7 | **Major General** | | | Space for future top-tier models. |
-| OF-8 | **Lieutenant General** | | | Space for future top-tier models. |
-| OF-9 | **General** | | | Space for future top-tier models. |
+| OF-6 | **Brigadier General** | | | Reserved: paid model promoted to standing use. |
+| OF-7 | **Major General** | | | Reserved: paid model promoted to standing use. |
+| OF-8 | **Lieutenant General** | | | Reserved: paid model promoted to standing use. |
+| OF-9 | **General** | | | Reserved: paid model promoted to standing use. |
 
 ## Proxy names (LiteLLM model names)
 
@@ -62,14 +63,15 @@ Research date: 2026-11-20
 | Warrant Officer (OR-8) | `warrant-officer` | `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` @ Unsloth Studio (primary) · `Qwen/Qwen3.6-35B-A3B-FP8` @ Hetzner (cloud) |
 | Second Lieutenant (OF-1a) | `second-lieutenant` | `Qwen3.8-27B` @ Hetzner (free cloud) |
 | Lieutenant (OF-1b) | `lieutenant` | `swift-1.5-iq3_xxs` @ Strata (laptop-p16) |
-| Lieutenant Colonel (OF-5) | `lieutenant-colonel` | `glm-5.3` @ Z.ai · `k3` @ Kimi · `k3-256k` @ Kimi · `kimi-for-coding` (K2.8) @ Kimi |
-| Lieutenant Colonel, vision (OF-5) | `lieutenant-colonel-v` | `glm-5.3-flash` @ Z.ai (multimodal) |
+| Major (OF-4) | `major` | `kimi-for-coding` (K2.8) @ Kimi — previous generation |
+| Lieutenant Colonel (OF-5) | `lieutenant-colonel` | `glm-5.3` @ Z.ai — text deployment |
+| Lieutenant Colonel, vision (OF-5) | `lieutenant-colonel-v` | `k3` @ Kimi · `k3-256k` @ Kimi · `glm-5.3-flash` @ Z.ai — natively multimodal deployments |
 
 **Unranked models are named by model id** — the rank abstraction does not apply to them: `deepseek-flash`, `deepseek-v4-pro`, `gpt-5.6-luna`, `claude-sonnet-5.5`, `claude-opus-5.5` (pay-as-you-go escalation), and `unsloth/GLM-OCR` (specialized OCR utility — single image in, short text out; not on the general capability ladder).
 
 ## Pay-as-you-go (unassigned in rank structure)
 
-These are accessed only by escalation — the default model delegates down to lower ranks, and escalates upward to paid tiers. They occupy rank slots as new models mature.
+These are accessed only by **explicit selection, never auto-fallback**. Tiers are **cost-ordered (cheapest first), not capability-ordered** — the pool spans from below to above the frontier rank. They occupy rank slots (general officer) only when promoted to standing use.
 
 | Tier | Models | Provider | Notes |
 |---|---|---|---|
@@ -109,7 +111,7 @@ These are accessed only by escalation — the default model delegates down to lo
 |---|---|---|---|
 | `k3.1-pro` | K3.1 Pro — 3T-class, thinking-only | 1M (Pro+) | Plus+ |
 | `k3.1-pro-highspeed` | Same as K3.1 Pro, 2–3× speed, 2× quota | 1M | Pro+ |
-| `k3` | K3 — 2.8T params, previous flagship | 1M (Pro+) | Plus+ |
+| `k3` | K3 — 2.8T params / 104B active, natively multimodal, previous flagship | 1M (Pro+) | Plus+ |
 | `k3-256k` | K3, 256K context, cheaper quota | 262K | Plus+ |
 | `kimi-for-coding` | K2.8 Preview — approaches K3 | 1M | Plus+ |
 | `kimi-for-coding-highspeed` | K2.7 Code HighSpeed, 5–6× speed | 262K | Pro+ |
@@ -138,7 +140,7 @@ Peak hours: 01:00–04:00 UTC and 06:00–10:00 UTC, Mon–Fri. Everything else 
 | Model ID | Description | Context | Notes |
 |---|---|---|---|
 | `Qwen/Qwen3.6-35B-A3B-FP8` | 35B total / 3B active, MoE | 262K | 175 tok/s aggregate, ~1.5s TTFT |
-| `Qwen3.8-27B` | Dense 27B, cleaner German | 262K | 28 tok/s, too slow for agentic use |
+| `Qwen3.8-27B` | Dense 27B, cleaner German | 262K | 28 tok/s — fine for short agentic turns (second-lieutenant fallback), not for long-form generation |
 
 ### CheaperInference (wallet-backed, discounted marketplace)
 
@@ -167,7 +169,7 @@ sergeant (local, fast exec)
 [escalation tiers — paid APIs, explicit]
 ```
 
-Intra-rank deployment failover (e.g. warrant-officer local → cloud) is handled by LiteLLM itself under the same model name; `general_fallbacks` only crosses ranks:
+Intra-rank deployment failover (e.g. warrant-officer local → cloud) is handled by LiteLLM itself under the same model name; `general_fallbacks` only crosses ranks — and only downward through the local stack:
 
 ```yaml
 general_fallbacks:
@@ -176,6 +178,10 @@ general_fallbacks:
   warrant-officer: [sergeant]
   sergeant: []  # no further local fallback — escalates to paid (explicit)
 ```
+
+**No fallback between paid ranks** — `major`, `lieutenant-colonel`, and `lieutenant-colonel-v` are explicit selections. Auto-fallback across them would silently escalate cost, and circular fallbacks are unreliable in LiteLLM (it does not retry 4xx errors, and warns against cycles).
+
+**Vision routing is client-side:** opencode only sends images to models marked attachment-capable — `lieutenant-colonel-v` and `deepseek-flash`. An image therefore never lands on a text-only deployment, no fallback needed.
 
 Paid escalation is handled outside LiteLLM's automatic fallback chain — it's triggered when the user explicitly selects a paid model name, or when a higher-level orchestrator decides to escalate.
 
