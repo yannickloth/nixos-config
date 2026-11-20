@@ -31,6 +31,19 @@ with lib;
     # NixOS disables dhcpcd automatically once networkmanager is enabled.
     ../../services/network-manager.nix
 
+    # Printer stack (same as laptop-p16): avahi for mDNS, CUPS, hardware
+    # profiles, and the offline-aware ensure-printers wrapper.
+    # Override the server-base disables from environments/server.nix.
+    ../../hardware/printers/brother-mfcl2700dw.nix
+    ../../hardware/printers/epson-xp15000.nix
+    ../../services/avahi.nix
+    ../../services/printing.nix
+    ../../services/scanning.nix
+    {
+      services.avahi.enable = lib.mkForce true;
+      services.printing.enable = lib.mkForce true;
+    }
+
     # Pinned age host identity (services/host-age.nix): the keypair in
     # ssh-keys/hosts/server-nike is pinned as the /etc/ssh host key (private key installed per
     # secrets-structure/README.md) and audited against secrets.nix at build time, so a stale recipient set

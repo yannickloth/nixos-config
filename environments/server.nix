@@ -54,18 +54,14 @@ with lib;
   # The device name is set in hosts/server-nike/server-nike.nix.
 
   # No desktop by default (server-nike adds KDE Plasma as a host delta), no
-  # xrdp, no avahi, no printing, no sonos, no tor.
+  # sonos, no tor.
   # No parental controls, no flatpak, no android — the family user accounts
   # exist for Syncthing ACLs and SSH, just not the kids' service stack.
   # No peripherals, no databases, no security daemons that don't belong on a server.
-  services.avahi.enable = false;
-  services.printing.enable = false;
   services.samba.enable = false;
   services.xrdp.enable = false;
   services.tor.enable = false;
   services.postgresql.enable = false;
-  # (services.malcontent and the repo's services/clamav.nix are not imported
-  # here, so there is nothing to disable for them; hardware.printers has no
-  # enable toggle in current nixpkgs: without ensurePrinters it is inert, and
-  # services.printing above already disables CUPS.)
+  services.avahi.enable = false;
+  services.printing.enable = false;
 }
