@@ -589,6 +589,7 @@ in
           "postgresql.service"
         ];
         wants = [
+          "network-online.target"
           "tailscale.service"
         ];
         # Prisma needs Node to run the cached CLI, OpenSSL to detect the
