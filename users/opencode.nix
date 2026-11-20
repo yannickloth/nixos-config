@@ -74,10 +74,9 @@ let
           };
         };
         "warrant-officer" = {
-          name = "Warrant Officer — workhorse (local + free cloud)";
-          # Group max (the Hetzner deployment serves 262K); prompts between
-          # the local 131K and 262K are routed to the cloud deployment by the
-          # proxy's pre-call context check.
+          name = "Warrant Officer — workhorse (free cloud, local fallback)";
+          # Group max: Hetzner (primary) serves 262K; the local Studio fallback
+          # serves 131K, so longer prompts stay on the cloud deployment.
           limit = {
             context = 262144;
             output = 32768;

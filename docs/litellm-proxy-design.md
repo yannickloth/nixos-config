@@ -26,9 +26,9 @@ opencode / pi on every host
     ▼
 LiteLLM proxy (server-nike, loopback for local backends)
     ├──→ PostgreSQL 18    127.0.0.1:5432              (admin UI, keys, spend)
-    ├──→ Unsloth Studio   127.0.0.1:8888/v1          (sergeant, warrant-officer)
+    ├──→ Unsloth Studio   127.0.0.1:8888/v1          (sergeant, warrant-officer fallback)
     ├──→ Strata           laptop-p16:8080/v1         (lieutenant)
-    ├──→ Hetzner          inference.hetzner.com/v1   (second-lieutenant, warrant-officer order 2)
+    ├──→ Hetzner          inference.hetzner.com/v1   (second-lieutenant, warrant-officer primary)
     ├──→ DeepSeek         api.deepseek.com           (paid, explicit)
     ├──→ Z.AI             api.z.ai/api/coding/paas/v4 (paid subscription, explicit)
     ├──→ Kimi             api.kimi.com/coding/v1     (paid subscription, explicit)
@@ -65,7 +65,7 @@ its `model_list`.
 | Rank | Proxy name | Deployments (order) | Context | Notes |
 | --- | --- | --- | --- | --- |
 | Sergeant (OR-4) | `sergeant` | Nemotron @ Studio | 128256 | `temperature: 0.1`, 120s timeout, 30s stream, one retry |
-| Warrant Officer (OR-8) | `warrant-officer` | 1: Qwen3.6 @ Studio · 2: Qwen3.6 @ Hetzner | 131072 / 262144 | local primary, free-cloud redundant |
+| Warrant Officer (OR-8) | `warrant-officer` | 1: Qwen3.6 @ Hetzner · 2: Qwen3.6 @ Studio | 262144 / 131072 | same model; free-cloud primary, local fallback |
 | Second Lieutenant (OF-1a) | `second-lieutenant` | Qwen3.8-27B @ Hetzner | 262144 | free cloud |
 | Lieutenant (OF-1b) | `lieutenant` | Swift 1.5 @ Strata | 393216 | default; `max_parallel_requests: 1` so a busy engine 429s into the next rank |
 | Major (OF-4) | `major` | `kimi-for-coding` @ Kimi | 1048576 | previous generation, explicit |
@@ -91,9 +91,11 @@ Paid, unranked ids (explicit selection only, never auto-fallback):
   No `rpm`, `tpm` or `weight` knobs are used.
 - **Intra-rank failover** is a same-`model_name` deployment list. The router
   retries within the tier, then moves to the next order tier.
-- **Cross-rank fallbacks are local-only**:
-  `lieutenant → second-lieutenant → warrant-officer → sergeant`. Paid ranks have
-  no fallback in or out: silent cost escalation is worse than a visible error.
+- **Cross-rank fallbacks stop at warrant-officer**:
+  `lieutenant → second-lieutenant → warrant-officer`. Sergeant is a different
+  Studio model, so auto-falling into it would force an unload/load; it is
+  explicit-selection-only. Paid ranks have no fallback in or out: silent cost
+  escalation is worse than a visible error.
 - **Pre-call checks** drop deployments whose `max_input_tokens` is below the
   prompt length before a provider call, so a 300K prompt skips the 10K / 256K
   deployments without burning quota.
@@ -113,7 +115,7 @@ Per deployment:
 - `num_retries` — deployment-level retries before the router moves on.
 
 Proxy-wide: `litellm_settings.request_timeout: 600`, router `num_retries: 2`,
-`max_fallbacks: 3`. `drop_params: true` keeps local GGUF backends from
+`max_fallbacks: 2`. `drop_params: true` keeps local GGUF backends from
 rejecting provider-specific fields they do not understand.
 
 ## Cost tracking

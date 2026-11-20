@@ -196,37 +196,39 @@ let
           input_cost_per_token: 0
           output_cost_per_token: 0
 
-      # Warrant Officer (OR-8) — Qwen3.6-35B-A3B: one rank, two deployments.
-      # order 1 = Unsloth Studio (primary, co-located -> loopback),
-      # order 2 = Hetzner free cloud (redundant). Order-based failover
-      # instead of ad-hoc weights.
-      - model_name: "warrant-officer"
-        litellm_params:
-          model: openai/unsloth/Qwen3.6-35B-A3B-MTP-GGUF
-          api_base: http://127.0.0.1:8888/v1
-          api_key: os.environ/LITELLM_UNSLOTH_API_KEY
-          order: 1
-          timeout: 300
-          stream_timeout: 60
-          num_retries: 1
-        model_info:
-          id: warrant-officer-studio
-          max_input_tokens: 131072
-          supports_vision: false
-          input_cost_per_token: 0
-          output_cost_per_token: 0
+      # Warrant Officer (OR-8) — Qwen3.6-35B-A3B: one rank, two deployments
+      # of the SAME model.
+      # order 1 = Hetzner free cloud (FP8, 262K ctx) — default, keeps the
+      #           local GPU free and avoids Studio model swaps,
+      # order 2 = Unsloth Studio (local GGUF, 131K ctx) — fallback if the free
+      #           cloud is unavailable. Order-based failover, no weights.
       - model_name: "warrant-officer"
         litellm_params:
           model: openai/Qwen/Qwen3.6-35B-A3B-FP8
           api_base: https://inference.hetzner.com/v1
           api_key: os.environ/LITELLM_HETZNER_API_KEY
-          order: 2
+          order: 1
           timeout: 300
           stream_timeout: 60
           num_retries: 2
         model_info:
           id: warrant-officer-hetzner
           max_input_tokens: 262144
+          supports_vision: false
+          input_cost_per_token: 0
+          output_cost_per_token: 0
+      - model_name: "warrant-officer"
+        litellm_params:
+          model: openai/unsloth/Qwen3.6-35B-A3B-MTP-GGUF
+          api_base: http://127.0.0.1:8888/v1
+          api_key: os.environ/LITELLM_UNSLOTH_API_KEY
+          order: 2
+          timeout: 300
+          stream_timeout: 60
+          num_retries: 1
+        model_info:
+          id: warrant-officer-studio
+          max_input_tokens: 131072
           supports_vision: false
           input_cost_per_token: 0
           output_cost_per_token: 0
@@ -498,16 +500,17 @@ let
       optional_pre_call_checks:
         - session_affinity
 
-      # Cross-rank fallbacks — the local cascade only. Paid ranks are explicit
-      # selections: no auto-fallback between them (silent cost escalation, and
-      # cycles are unreliable in LiteLLM).
+      # Cross-rank fallbacks — local + free-cloud only. Sergeant is deliberately
+      # NOT in this chain: it is a different Studio model, so auto-falling into
+      # it would force an unload/load of the warrant-officer model. Sergeant is
+      # explicit-selection-only. Paid ranks are explicit for the same reason
+      # (silent cost escalation).
       fallbacks:
-        - lieutenant: [second-lieutenant, warrant-officer, sergeant]
-        - second-lieutenant: [warrant-officer, sergeant]
-        - warrant-officer: [sergeant]
+        - lieutenant: [second-lieutenant, warrant-officer]
+        - second-lieutenant: [warrant-officer]
 
-      # The cascade is at most three hops.
-      max_fallbacks: 3
+      # lieutenant -> second-lieutenant -> warrant-officer is two hops.
+      max_fallbacks: 2
 
     litellm_settings:
       # Local GGUF backends reject parameters they don't know; drop them
@@ -517,9 +520,8 @@ let
       request_timeout: 600
 
     general_settings:
-      # Single master key for all clients. No virtual keys / postgres: budgets
-      # and per-key model allowlists would need a DATABASE_URL — a documented
-      # upgrade path, not a current requirement (see the design doc).
+      # Single master key for all clients; PostgreSQL backs the admin UI,
+      # virtual keys, budgets and spend logs (see the design doc).
       master_key: os.environ/LITELLM_MASTER_KEY
   '';
 in

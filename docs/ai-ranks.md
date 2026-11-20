@@ -24,7 +24,7 @@ Research date: 2026-11-20
 | OR-5 | **First Sergeant** | | | 5–10B models. |
 | OR-6 | **First Sergeant Chief** | | | 10–15B models. |
 | OR-7 | **First Sergeant Major** | | | 15–20B models. |
-| OR-8 | **Warrant Officer** | `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` (local) · `Qwen/Qwen3.6-35B-A3B-FP8` (cloud) | Unsloth Studio + Hetzner (free cloud) | Workhorse. One rank, two deployments of the same model — local primary, cloud redundant. |
+| OR-8 | **Warrant Officer** | `Qwen/Qwen3.6-35B-A3B-FP8` (cloud) · `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` (local) | Hetzner (free cloud) + Unsloth Studio | Workhorse. One rank, two deployments of the same model — free-cloud primary, local fallback. |
 | OR-9 | **Chief Warrant Officer** | | | Reserved. |
 
 ## Junior Officers (OF-1a to OF-2)
@@ -60,7 +60,7 @@ Research date: 2026-11-20
 | Rank | Proxy name | Deployments (model @ backend) |
 |---|---|---|
 | Sergeant (OR-4) | `sergeant` | `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` @ Unsloth Studio (server-nike) |
-| Warrant Officer (OR-8) | `warrant-officer` | `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` @ Unsloth Studio (primary) · `Qwen/Qwen3.6-35B-A3B-FP8` @ Hetzner (cloud) |
+| Warrant Officer (OR-8) | `warrant-officer` | `Qwen/Qwen3.6-35B-A3B-FP8` @ Hetzner (primary) · `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` @ Unsloth Studio (fallback) |
 | Second Lieutenant (OF-1a) | `second-lieutenant` | `Qwen3.8-27B` @ Hetzner (free cloud) |
 | Lieutenant (OF-1b) | `lieutenant` | `swift-1.5-iq3_xxs` @ Strata (laptop-p16) |
 | Major (OF-4) | `major` | `kimi-for-coding` (K2.8) @ Kimi — previous generation |
@@ -157,30 +157,27 @@ Key models available at 17–60% off list:
 
 ## Fallback Strategy
 
-The lieutenant is the default. When it fails (Strata busy, overloaded, or not reachable), the request cascades down through the local + free-cloud stack. The automatic cascade stops at sergeant; paid escalation is always an explicit model selection:
+The lieutenant is the default. When it fails (Strata busy, overloaded, or not reachable), the request cascades down through the free-cloud/local stack. The automatic cascade stops at warrant-officer; sergeant is a different Studio model, so auto-falling into it would force an unload/load and is explicit-only. Paid escalation is always an explicit model selection:
 
 ```
 lieutenant (local, deep reasoning)
   ↓ fail
 second-lieutenant (Hetzner, free cloud)
   ↓ fail
-warrant-officer (local + cloud workhorse)
-  ↓ fail
-sergeant (local, fast exec)
-  ↓ stop — no automatic paid escalation
+warrant-officer (Hetzner primary → local Studio fallback)
+  ↓ stop — sergeant is explicit-only
 [paid tiers — explicit selection only]
 ```
 
-Intra-rank deployment failover (e.g. warrant-officer local → cloud) is handled by LiteLLM itself under the same model name; `router_settings.fallbacks` only crosses ranks — and only downward through the local stack:
+Intra-rank deployment failover (e.g. warrant-officer cloud → local) is handled by LiteLLM itself under the same model name; `router_settings.fallbacks` only crosses ranks — and only downward through the free-cloud stack:
 
 ```yaml
 router_settings:
   fallbacks:
-    - lieutenant: [second-lieutenant, warrant-officer, sergeant]
-    - second-lieutenant: [warrant-officer, sergeant]
-    - warrant-officer: [sergeant]
-  max_fallbacks: 3
-  # sergeant: last local option — escalation to paid models is explicit
+    - lieutenant: [second-lieutenant, warrant-officer]
+    - second-lieutenant: [warrant-officer]
+  max_fallbacks: 2
+  # sergeant: explicit-only; it is a different Studio model
 ```
 
 **No fallback between paid ranks** — `major`, `lieutenant-colonel`, and `lieutenant-colonel-v` are explicit selections. Auto-fallback across them would silently escalate cost, and circular fallbacks are unreliable in LiteLLM (it does not retry 4xx errors, and warns against cycles).
