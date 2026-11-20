@@ -15,7 +15,7 @@ Research date: 2026-11-20
 | OR-1 | **Private** | | | Sub-1B models. Space for tiny executors later. |
 | OR-2 | **Corporal** | | | 1–3B models. Space for smaller executors. |
 | OR-3 | **Corporal Chief** | | | 3–5B models. |
-| OR-4 | **Sergeant** | `nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-4GB` | Unsloth Studio (local) | Fast executor. Faithful instruction following, subagent-level tasks. |
+| OR-4 | **Sergeant** | `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` | Unsloth Studio (local) | Fast executor. Faithful instruction following, subagent-level tasks. |
 
 ## Warrant Officers (OR-5 to OR-9)
 
@@ -59,7 +59,7 @@ Research date: 2026-11-20
 
 | Rank | Proxy name | Deployments (model @ backend) |
 |---|---|---|
-| Sergeant (OR-4) | `sergeant` | `nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-4GB` @ Unsloth Studio (server-nike) |
+| Sergeant (OR-4) | `sergeant` | `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` @ Unsloth Studio (server-nike) |
 | Warrant Officer (OR-8) | `warrant-officer` | `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` @ Unsloth Studio (primary) · `Qwen/Qwen3.6-35B-A3B-FP8` @ Hetzner (cloud) |
 | Second Lieutenant (OF-1a) | `second-lieutenant` | `Qwen3.8-27B` @ Hetzner (free cloud) |
 | Lieutenant (OF-1b) | `lieutenant` | `swift-1.5-iq3_xxs` @ Strata (laptop-p16) |
@@ -67,7 +67,9 @@ Research date: 2026-11-20
 | Lieutenant Colonel (OF-5) | `lieutenant-colonel` | `glm-5.3` @ Z.ai — text deployment |
 | Lieutenant Colonel, vision (OF-5) | `lieutenant-colonel-v` | `k3` @ Kimi · `k3-256k` @ Kimi · `glm-5.3-flash` @ Z.ai — natively multimodal deployments |
 
-**Unranked models are named by model id** — the rank abstraction does not apply to them: `deepseek-flash`, `deepseek-v4-pro`, `gpt-5.6-luna`, `claude-sonnet-5.5`, `claude-opus-5.5` (pay-as-you-go escalation), and `unsloth/GLM-OCR` (specialized OCR utility — single image in, short text out; not on the general capability ladder).
+**Unranked models are named by model id** — the rank abstraction does not apply to them: `deepseek-flash`, `deepseek-v4-pro`, `deepseek-v4.1-flash`, `gpt-5.6-luna`, `claude-sonnet-5.5`, `claude-opus-5.5`, `glm-5.3` (pay-as-you-go escalation, explicit selection only).
+
+Local Studio utilities are not part of the client table anymore. Only the three local models behind the standing ladder — Nemotron (sergeant), Qwen3.6-35B-A3B (warrant-officer) and Swift 1.5 (lieutenant, via Strata) — are kept; add another local model only when a task needs it.
 
 ## Pay-as-you-go (unassigned in rank structure)
 
@@ -155,7 +157,7 @@ Key models available at 17–60% off list:
 
 ## Fallback Strategy
 
-The lieutenant is the default. When it fails (Strata busy, overloaded, or not reachable), the request cascades down through lower ranks, and escalates upward to paid tiers:
+The lieutenant is the default. When it fails (Strata busy, overloaded, or not reachable), the request cascades down through the local + free-cloud stack. The automatic cascade stops at sergeant; paid escalation is always an explicit model selection:
 
 ```
 lieutenant (local, deep reasoning)
@@ -165,18 +167,20 @@ second-lieutenant (Hetzner, free cloud)
 warrant-officer (local + cloud workhorse)
   ↓ fail
 sergeant (local, fast exec)
-  ↓ fail
-[escalation tiers — paid APIs, explicit]
+  ↓ stop — no automatic paid escalation
+[paid tiers — explicit selection only]
 ```
 
-Intra-rank deployment failover (e.g. warrant-officer local → cloud) is handled by LiteLLM itself under the same model name; `general_fallbacks` only crosses ranks — and only downward through the local stack:
+Intra-rank deployment failover (e.g. warrant-officer local → cloud) is handled by LiteLLM itself under the same model name; `router_settings.fallbacks` only crosses ranks — and only downward through the local stack:
 
 ```yaml
-general_fallbacks:
-  lieutenant: [second-lieutenant, warrant-officer, sergeant]
-  second-lieutenant: [warrant-officer, sergeant]
-  warrant-officer: [sergeant]
-  sergeant: []  # no further local fallback — escalates to paid (explicit)
+router_settings:
+  fallbacks:
+    - lieutenant: [second-lieutenant, warrant-officer, sergeant]
+    - second-lieutenant: [warrant-officer, sergeant]
+    - warrant-officer: [sergeant]
+  max_fallbacks: 3
+  # sergeant: last local option — escalation to paid models is explicit
 ```
 
 **No fallback between paid ranks** — `major`, `lieutenant-colonel`, and `lieutenant-colonel-v` are explicit selections. Auto-fallback across them would silently escalate cost, and circular fallbacks are unreliable in LiteLLM (it does not retry 4xx errors, and warns against cycles).

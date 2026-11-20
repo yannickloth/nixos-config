@@ -24,6 +24,10 @@ with the user key by home-manager (see `users/{nicky,aeiuno}/*-hm.nix`).
   materializes these entries as per-provider key files under
   `~/.config/opencode/keys/`. The generated `~/.config/opencode/opencode.json`
   reads those files through `{file:...}` substitution.
+- On server-nike, `litellm-proxy-env.service` (`services/litellm-proxy.nix`)
+  reads the same file and writes `/run/litellm-proxy.env` with the backend
+  keys. The proxy unit's `EnvironmentFile=` exports them, and the store config
+  references them through LiteLLM's `os.environ/VAR` resolver.
 
 ### Configured providers
 
@@ -33,8 +37,9 @@ with the user key by home-manager (see `users/{nicky,aeiuno}/*-hm.nix`).
 | Kimi for Coding | `https://api.kimi.com/coding/v1` | `kimi.key` |
 | Hetzner AI | `https://inference.hetzner.com/api/v1` | `hetzner.key` |
 | z.ai / GLM | `https://api.z.ai/api/coding/paas/v4` | `zai.key` |
-| Unsloth Studio (local) | `http://127.0.0.1:8888/v1` | `unsloth.key` |
+| Unsloth Studio (server-nike) | `http://server-nike.bee-blues.ts.net:8888/v1` | `unsloth.key` |
 | Cheaper Inference | `https://api.cheaperinference.com/v1` | `cheaperinference.key` |
+| LiteLLM proxy (server-nike) | `http://server-nike.bee-blues.ts.net:4000/v1` | `litellm-proxy.key` |
 
 The z.ai entry may use either this coding-plan URL or the general
 `https://api.z.ai/api/paas/v4/` URL; both resolve to `zai.key`.
@@ -80,8 +85,12 @@ sudo nixos-rebuild switch --flake ~/code/nixos-config
   coding-plan key is rejected by the pay-per-token endpoint
 - Cheaper Inference: the cheaperinference.com dashboard (a wallet-backed
   gateway; keys look like `ci_live_...`)
-- Unsloth Studio: the local server; copy the key from Studio's Settings → API
-  panel
+- Unsloth Studio: the server on server-nike; copy the key from Studio's
+  Settings → API panel
+- LiteLLM proxy: the master key is generated once (e.g.
+  `python3 -c 'import secrets; print("sk-litellm-" + secrets.token_hex(32))'`)
+  and stored under the proxy base URL; clients read it as
+  `litellm-proxy.key`
 
 ### Note
 

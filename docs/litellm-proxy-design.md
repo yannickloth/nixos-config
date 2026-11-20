@@ -1,373 +1,249 @@
 # LiteLLM Proxy Design
 
-## Architecture
+## Purpose
+
+One OpenAI-compatible endpoint for every agent on every host:
 
 ```
-opencode / pi
-    ↓  http://127.0.0.1:4000/v1  (LiteLLM proxy, single OpenAI-compatible endpoint)
-    ↓  API key: sk-litellm-proxy  (one key for all clients)
-LiteLLM Proxy (laptop-p16:4000)
-    ├──→ Strata       (laptop-p16:8080)        — key: strata
-    ├──→ Unsloth      (server-nike:8888)        — key: unsloth.key
-    ├──→ Hetzner      (inference.hetzner.com)   — key: hetzner.key
-    ├──→ DeepSeek     (api.deepseek.com)        — key: deepseek.key
-    ├──→ Z.AI         (api.z.ai)                — key: zai.key
-    ├──→ Kimi         (api.kimi.com)            — key: kimi.key
-    └──→ CheaperInf   (api.cheaperinference.com) — key: cheaperinference.key
+http://server-nike.bee-blues.ts.net:4000/v1
 ```
 
-**Proxy location: laptop-p16** — closest to Strata (localhost), Unsloth via Tailscale, Hetzner from Europe.
+opencode, pi and any other client speak the same protocol and select a **rank
+name** (the standing ladder in `docs/ai-ranks.md`) or a plain model id (the
+paid, explicit-selection pool). The proxy owns routing, deployment priority,
+retries, timeouts, cross-rank fallbacks and cost tracking.
 
-## `config.yaml` — model_list
+The proxy runs on **server-nike** only. Other hosts are clients over
+Tailscale; there is no proxy on laptop-p16, laptop-hera, laptop-xps or
+desktop-leto. The host firewall exposes `tcp/4000` to the LAN and tailnet via
+`lib.privateNetRules`.
 
-```yaml
-model_list:
-  # ===================================================================
-  # ENLISTED — Fast executors (OR-1 to OR-4)
-  # ===================================================================
+## Topology
 
-  # OR-4 Sergeant — fast, faithful executor (Unsloth Studio, server-nike)
-  - model_name: "sergeant"
-    litellm_params:
-      model: openai/nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-4GB
-      api_base: http://server-nike.bee-blues.ts.net:8888
-      api_key: unsloth.key
-      temperature: 0.1      # deterministic execution
-      timeout: 30           # fast model, short timeout
-
-  # ===================================================================
-  # WARRANT OFFICERS — Workhorse (OR-5 to OR-9)
-  # ===================================================================
-  # One rank, two deployments of the same model: local primary,
-  # free-cloud redundant. LiteLLM load-balances across same-named
-  # deployments (local preferred via weight) and fails over on error.
-
-  # OR-8 Warrant Officer — deployment 1: local (primary)
-  - model_name: "warrant-officer"
-    litellm_params:
-      model: openai/unsloth/Qwen3.6-35B-A3B-MTP-GGUF
-      api_base: http://server-nike.bee-blues.ts.net:8888
-      api_key: unsloth.key
-    model_info:
-      weight: 99
-
-  # OR-8 Warrant Officer — deployment 2: free cloud (redundant)
-  - model_name: "warrant-officer"
-    litellm_params:
-      model: openai/Qwen/Qwen3.6-35B-A3B-FP8
-      api_base: https://inference.hetzner.com/v1
-      api_key: hetzner.key
-      timeout: 120          # Hetzner experimental, allow extra time
-    model_info:
-      weight: 1
-
-  # ===================================================================
-  # JUNIOR OFFICERS — Deep reasoning (OF-1a to OF-2)
-  # ===================================================================
-
-  # OF-1a Second Lieutenant — Swift 1.5's 27B base model, free cloud
-  - model_name: "second-lieutenant"
-    litellm_params:
-      model: openai/Qwen3.8-27B
-      api_base: https://inference.hetzner.com/v1
-      api_key: hetzner.key
-      timeout: 120
-
-  # OF-1b Lieutenant — default model (Strata, laptop-p16)
-  - model_name: "lieutenant"
-    litellm_params:
-      model: openai/swift-1.5-iq3_xxs
-      api_base: http://laptop-p16.bee-blues.ts.net:8080/v1
-      api_key: strata
-      timeout: 300          # long context, allow time
-  # Note: a small-window copy of the same model also runs on Unsloth
-  # Studio (`ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF`, ~10K ctx).
-  # Not a deployment here: 10K is too small for agentic sessions.
-
-  # ===================================================================
-  # SENIOR OFFICERS — Paid coding tiers (OF-3 to OF-5)
-  # ===================================================================
-
-  # OF-4 Major — Kimi K2.8 Preview (previous generation).
-  # "Approaches K3" but a generation below the frontier.
-  # Explicit selection only — not in the auto-fallback chain.
-  - model_name: "major"
-    litellm_params:
-      model: openai/kimi-for-coding
-      api_base: https://api.kimi.com/coding/v1
-      api_key: kimi.key
-
-  # OF-5 Lieutenant Colonel — frontier tier, text deployment
-  # (no image input — see lieutenant-colonel-v).
-  - model_name: "lieutenant-colonel"
-    litellm_params:
-      model: openai/glm-5.3
-      api_base: https://api.z.ai/api/coding/paas/v4
-      api_key: zai.key
-
-  # OF-5 Lieutenant Colonel (vision) — natively multimodal deployments.
-  # Vision routing is client-side: opencode only attaches images to
-  # models marked attachment-capable (see opencode.json below), so all
-  # image traffic enters the stack through this group.
-
-  # OF-5 Lieutenant Colonel (vision) — Kimi K3 (2.8T / 104B active, MoonViT-V2)
-  - model_name: "lieutenant-colonel-v"
-    litellm_params:
-      model: openai/k3
-      api_base: https://api.kimi.com/coding/v1
-      api_key: kimi.key
-
-  # OF-5 Lieutenant Colonel (vision) — Kimi K3, 256K window (cheaper quota)
-  - model_name: "lieutenant-colonel-v"
-    litellm_params:
-      model: openai/k3-256k
-      api_base: https://api.kimi.com/coding/v1
-      api_key: kimi.key
-
-  # OF-5 Lieutenant Colonel (vision) — GLM-5.3-Flash (sparse MoE, 3× quota)
-  - model_name: "lieutenant-colonel-v"
-    litellm_params:
-      model: openai/glm-5.3-flash
-      api_base: https://api.z.ai/api/coding/paas/v4
-      api_key: zai.key
-
-  # ===================================================================
-  # PAY-AS-YOU-GO ESCALATION (unranked — named by model id)
-  # ===================================================================
-  # Unranked models have no rank abstraction, so they keep their model
-  # ids as proxy names. No high-speed models in our stack (see
-  # docs/ai-ranks.md).
-
-  - model_name: "deepseek-flash"
-    litellm_params:
-      model: openai/deepseek-flash
-      api_base: https://api.deepseek.com/v1
-      api_key: deepseek.key
-
-  - model_name: "deepseek-v4-pro"
-    litellm_params:
-      model: openai/deepseek-v4-pro
-      api_base: https://api.deepseek.com/v1
-      api_key: deepseek.key
-
-  - model_name: "gpt-5.6-luna"
-    litellm_params:
-      model: openai/gpt-5.6-luna
-      api_base: https://api.cheaperinference.com/v1
-      api_key: cheaperinference.key
-
-  - model_name: "claude-sonnet-5.5"
-    litellm_params:
-      # If CheaperInference only exposes the OpenAI-compatible route,
-      # switch to the openai/ prefix with the same /v1 base.
-      model: anthropic/claude-sonnet-5.5
-      api_base: https://api.cheaperinference.com/v1
-      api_key: cheaperinference.key
-
-  - model_name: "claude-opus-5.5"
-    litellm_params:
-      model: anthropic/claude-opus-5.5
-      api_base: https://api.cheaperinference.com/v1
-      api_key: cheaperinference.key
-
-  # ===================================================================
-  # FUTURE — General Officer slots (OF-6 to OF-9)
-  # Empty by design. A top-tier model assigned to a rank takes the
-  # rank name (e.g. "brigadier-general") — never its model name.
-  # ===================================================================
+```
+opencode / pi on every host
+    │  http://server-nike.bee-blues.ts.net:4000/v1
+    ▼
+LiteLLM proxy (server-nike, loopback for local backends)
+    ├──→ Unsloth Studio   127.0.0.1:8888/v1          (sergeant, warrant-officer)
+    ├──→ Strata           laptop-p16:8080/v1         (lieutenant)
+    ├──→ Hetzner          inference.hetzner.com/v1   (second-lieutenant, warrant-officer order 2)
+    ├──→ DeepSeek         api.deepseek.com           (paid, explicit)
+    ├──→ Z.AI             api.z.ai/api/coding/paas/v4 (paid subscription, explicit)
+    ├──→ Kimi             api.kimi.com/coding/v1     (paid subscription, explicit)
+    └──→ CheaperInference api.cheaperinference.com/v1 (paid, explicit)
 ```
 
-## `config.yaml` — aliases & fallbacks
+Unsloth Studio is reachable from the proxy on loopback; from other hosts it is
+still available directly at `http://server-nike.bee-blues.ts.net:8888/v1` for
+the System One MCP and for tools that need a Studio-native id.
 
-```yaml
-# No model_aliases: rank names are the only interface.
+### Local model policy
 
-general_fallbacks:
-  # Capability-ordered cascade through the local stack only. Fallbacks
-  # cross ranks; intra-rank deployment failover is LiteLLM's job
-  # (same model_name). No entries for paid ranks — they are explicit
-  # selections, and circular fallbacks are unreliable in LiteLLM.
-  lieutenant: [second-lieutenant, warrant-officer, sergeant]
-  second-lieutenant: [warrant-officer, sergeant]
-  warrant-officer: [sergeant]
-  # sergeant: last local option — escalation to paid models is explicit
+Only three local models are part of the stack:
 
-litellm_settings:
-  drop_params: true
-  retry_attempts: 2
-  max_retries: 3
-  request_timeout: 600
-```
+| Local model | Role |
+| --- | --- |
+| `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` | sergeant (fast executor) |
+| `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` | warrant-officer (workhorse) |
+| `ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF` | Swift 1.5, served by Strata as `swift-1.5-iq3_xxs` (lieutenant) |
 
-## opencode.json after LiteLLM
+The older Studio library entries (translation, OCR, LFM2.5, Qwythos,
+Swift-Bonsai, Qwen3.5-9B, Qwen3.8-9B-Distill, LFM3-Omni) were removed from the
+proxy and from the client provider table. Add one back only when a real task
+needs it, together with its served context window.
 
-Ranked models use display names that describe the role, never the model — the rank is the abstraction and the deployment behind it may rotate. Unranked models have no abstraction: their name *is* the model id.
+## Rank ladder
+
+`config.yaml` is generated by `services/litellm-proxy.nix`; the table mirrors
+its `model_list`.
+
+| Rank | Proxy name | Deployments (order) | Context | Notes |
+| --- | --- | --- | --- | --- |
+| Sergeant (OR-4) | `sergeant` | Nemotron @ Studio | 128256 | `temperature: 0.1`, 120s timeout, 30s stream, one retry |
+| Warrant Officer (OR-8) | `warrant-officer` | 1: Qwen3.6 @ Studio · 2: Qwen3.6 @ Hetzner | 131072 / 262144 | local primary, free-cloud redundant |
+| Second Lieutenant (OF-1a) | `second-lieutenant` | Qwen3.8-27B @ Hetzner | 262144 | free cloud |
+| Lieutenant (OF-1b) | `lieutenant` | Swift 1.5 @ Strata | 393216 | default; `max_parallel_requests: 1` so a busy engine 429s into the next rank |
+| Major (OF-4) | `major` | `kimi-for-coding` @ Kimi | 1048576 | previous generation, explicit |
+| Lieutenant Colonel (OF-5) | `lieutenant-colonel` | `glm-5.3` @ Z.AI | 1000000 | text-only, explicit |
+| Lieutenant Colonel, vision (OF-5) | `lieutenant-colonel-v` | 1: `k3-256k` · 2: `k3` @ Kimi · 3: `glm-5.3-flash` @ Z.AI | 262144 / 1048576 / 1000000 | cost-ordered multimodal deployments |
+
+Paid, unranked ids (explicit selection only, never auto-fallback):
+
+| Proxy name | Backend |
+| --- | --- |
+| `deepseek-flash` | DeepSeek direct |
+| `deepseek-v4-pro` | DeepSeek direct |
+| `deepseek-v4.1-flash` | CheaperInference |
+| `gpt-5.6-luna` | CheaperInference |
+| `claude-sonnet-5.5` | CheaperInference |
+| `claude-opus-5.5` | CheaperInference |
+| `glm-5.3` | CheaperInference pay-per-token (the Coding Plan `glm-5.3` is `lieutenant-colonel`) |
+
+## Routing behavior
+
+- **Priority is `litellm_params.order`**, not weights. Lower order is tried
+  first; `simple-shuffle` picks randomly only within the current order tier.
+  No `rpm`, `tpm` or `weight` knobs are used.
+- **Intra-rank failover** is a same-`model_name` deployment list. The router
+  retries within the tier, then moves to the next order tier.
+- **Cross-rank fallbacks are local-only**:
+  `lieutenant → second-lieutenant → warrant-officer → sergeant`. Paid ranks have
+  no fallback in or out: silent cost escalation is worse than a visible error.
+- **Pre-call checks** drop deployments whose `max_input_tokens` is below the
+  prompt length before a provider call, so a 300K prompt skips the 10K / 256K
+  deployments without burning quota.
+- **Session affinity** pins a conversation to the deployment that served its
+  first request when the client sends a session id. No-op for clients that do
+  not; a cooled-down pin falls through to healthy deployments.
+- **Fast cooldown**: `allowed_fails: 1` and `cooldown_time: 5` mean one failure
+  parks a deployment for five seconds, so a quota-exhausted subscription costs
+  at most one probe per cycle.
+
+## Retries and timeouts
+
+Per deployment:
+
+- `timeout` — full request budget.
+- `stream_timeout` — first-token / inactivity budget for streaming.
+- `num_retries` — deployment-level retries before the router moves on.
+
+Proxy-wide: `litellm_settings.request_timeout: 600`, router `num_retries: 2`,
+`max_fallbacks: 3`. `drop_params: true` keeps local GGUF backends from
+rejecting provider-specific fields they do not understand.
+
+## Cost tracking
+
+LiteLLM prices a deployment from its cost map by provider/model. The standing
+stack is explicitly zero-cost:
+
+- local Studio / Strata deployments: hardware, no per-token charge;
+- subscription deployments (`major`, `lieutenant-colonel`,
+  `lieutenant-colonel-v`): quota, not tokens.
+
+Paid deployments use the cost map where a row exists (`deepseek-flash`,
+`deepseek-v4-pro`, `gpt-5.6-luna`). The other CheaperInference rows
+(`deepseek-v4.1-flash`, `claude-sonnet-5.5`, `claude-opus-5.5`, `glm-5.3`) have
+no upstream row in LiteLLM 1.86.0, so they are pinned to zero with a TODO until
+the discounted rates are known.
+
+The service has `StateDirectory = "litellm"`, so the SQLite spend log survives
+restarts and `/spend/logs` / `/user/daily/activity` remain usable.
+
+DeepSeek off-peak pricing is not enabled yet. The config carries the commented
+shape (`model_info.off_peak_pricing` with `hours_utc` and half-rate costs); fill
+it from the DeepSeek price sheet before relying on spend reports for the paid
+DeepSeek rows.
+
+## Secrets
+
+Backend keys and the proxy master key live in the existing
+`secrets/opencode-keys.env.age` agenix secret. Its `OPENAI_API_KEYS` JSON maps
+each base URL to a key; see `services/secrets-README.md`.
+
+The store never contains a key. `litellm-proxy-env.service` (root oneshot):
+
+1. reads `/etc/secrets/opencode-keys.env`;
+2. writes `/run/litellm-proxy.env` (0600 root) with one `LITELLM_*` variable
+   per backend key.
+
+The proxy unit sets `EnvironmentFile=/run/litellm-proxy.env`, so every
+`LITELLM_*` variable is exported to the LiteLLM process, and the store config
+references them through LiteLLM's `os.environ/VAR` resolver. No secret is ever
+written into the Nix store or into a second config file.
+
+The same secret entry under `http://server-nike.bee-blues.ts.net:4000/v1` is
+the master key. `setupOpenCodeKeys` materializes it as
+`~/.config/opencode/keys/litellm-proxy.key`; clients and gateway therefore
+always agree.
+
+Rotating a key:
+
+1. update `secrets/opencode-keys.env.age` and commit it;
+2. `sudo nixos-rebuild switch --flake .` on server-nike;
+3. `litellm-proxy-env.service` rewrites `/run/litellm-proxy.env` and
+   `PartOf=` restarts the proxy.
+
+## Client wiring (`users/opencode.nix`)
+
+opencode and pi have one provider:
 
 ```json
 {
-  "$schema": "https://opencode.ai/config.json",
-  "providers": {
-    "proxy": {
-      "package": "aisdk:@ai-sdk/openai-compatible",
-      "settings": {
-        "baseURL": "http://127.0.0.1:4000/v1",
-        "apiKey": "{file:~/.config/opencode/keys/litellm-proxy.key}"
-      },
-      "models": {
-        "sergeant": {
-          "name": "Sergeant — fast executor",
-          "limit": { "context": 65536, "output": 65536 }
-        },
-        "warrant-officer": {
-          "name": "Warrant Officer — workhorse (local + free cloud)",
-          "limit": { "context": 131072, "output": 32768 }
-        },
-        "second-lieutenant": {
-          "name": "Second Lieutenant — free cloud reasoning",
-          "limit": { "context": 262144, "output": 32768 }
-        },
-        "lieutenant": {
-          "name": "Lieutenant — deep reasoning (default)",
-          "limit": { "context": 393216, "output": 65536 }
-        },
-        "major": {
-          "name": "Major — previous-generation coding (paid)",
-          "limit": { "context": 1048576, "output": 32768 }
-        },
-        "lieutenant-colonel": {
-          "name": "Lieutenant Colonel — frontier coding (paid)",
-          "limit": { "context": 1048576, "output": 131072 }
-        },
-        "lieutenant-colonel-v": {
-          "name": "Lieutenant Colonel (vision) — frontier multimodal (paid)",
-          "attachment": true,
-          "limit": { "context": 262144, "output": 32768 }
-        },
-        "deepseek-flash": {
-          "name": "deepseek-flash (paid escalation)",
-          "attachment": true,
-          "limit": { "context": 1048576, "output": 384000 }
-        },
-        "deepseek-v4-pro": {
-          "name": "deepseek-v4-pro (paid escalation)",
-          "limit": { "context": 1048576, "output": 384000 }
-        },
-        "gpt-5.6-luna": {
-          "name": "gpt-5.6-luna (paid escalation)",
-          "limit": { "context": 1000000, "output": 128000 }
-        },
-        "claude-sonnet-5.5": {
-          "name": "claude-sonnet-5.5 (paid escalation)",
-          "limit": { "context": 200000, "output": 64000 }
-        },
-        "claude-opus-5.5": {
-          "name": "claude-opus-5.5 (paid escalation)",
-          "limit": { "context": 200000, "output": 64000 }
-        }
-      }
+  "proxy": {
+    "package": "aisdk:@ai-sdk/openai-compatible",
+    "settings": {
+      "baseURL": "http://server-nike.bee-blues.ts.net:4000/v1",
+      "apiKey": "{file:~/.config/opencode/keys/litellm-proxy.key}"
+    },
+    "models": {
+      "lieutenant": { "name": "Lieutenant — deep reasoning (default)", "limit": { "context": 393216, "output": 65536 } },
+      "sergeant": { "name": "Sergeant — fast executor", "limit": { "context": 128256, "output": 65536 } }
     }
-  },
-  "mcp": {
-    "servers": {
-      "systemone": {
-        "type": "remote",
-        "url": "http://server-nike.bee-blues.ts.net:8888/mcp/decisions/",
-        "oauth": false,
-        "headers": {
-          "Authorization": "Bearer {file:~/.config/opencode/keys/unsloth.key}"
-        }
-      },
-      "designcraft": {
-        "type": "local",
-        "command": ["designcraft-cli", "mcp"]
-      }
-    }
-  },
-  "model": "proxy/lieutenant"
+  }
 }
 ```
 
-## Key management
+The full table also carries `warrant-officer`, `second-lieutenant`, the paid
+ranks and the unranked ids. The client table only holds display names, the
+researched context/output limits (opencode compacts at `limit.context`) and the
+modality flags consumed by pi. Routing and deployment metadata live in the
+proxy config; keep the two in step when adding a model.
 
-Only one key file is needed for opencode/pi: `~/.config/opencode/keys/litellm-proxy.key`.
-
-The LiteLLM proxy reads all backend keys directly from config or from its own key store. Backend keys are managed within the NixOS module, not exposed to opencode.
-
-```nix
-# Activation: generate the proxy API key
-home.activation.setupLiteLLMKey = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-  proxykeyfile="${config.home.homeDirectory}/.config/opencode/keys/litellm-proxy.key"
-  if [ ! -f "$proxykeyfile" ] || [ ! -s "$proxykeyfile" ]; then
-    openssl rand -hex 32 > "$proxykeyfile"
-    chmod 600 "$proxykeyfile"
-  fi
-'';
-```
-
-The proxy itself uses LiteLLM's built-in `api_key` or a `.env` file.
+`model` defaults to `proxy/lieutenant` on every host. pi reads the same
+provider from `~/.pi/agent/models.json`, generated from the same Nix table, with
+`apiKey: "!cat ~/.config/opencode/keys/litellm-proxy.key"`.
 
 ## Deployment
 
-Using Docker:
+`services/litellm-proxy.nix` is enabled from
+`hosts/server-nike/server-nike.nix`; that host also opens `tcp/4000` via
+`lib.privateNetRules`. There is no Docker container and no separate compose
+file. The unit is:
 
-```bash
-docker run -d \
-  --name litellm-proxy \
-  --restart unless-stopped \
-  -p 4000:4000 \
-  -v ~/litellm/config.yaml:/app/config.yaml \
-  --env-file ~/.litellm/proxy-env \
-  ghcr.io/anthropic/litellm:main
+- `litellm-proxy-env.service` — root oneshot, derives env + runtime config;
+- `litellm-proxy.service` — runs `${pkgs.litellm}/bin/litellm` as the proxy,
+  `Restart = always`, `PartOf = litellm-proxy-env.service`.
+
+## Operations
+
+Health and model list:
+
+```sh
+KEY=$(sudo cat /etc/secrets/opencode-keys.env | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().split("=",1)[1])["http://server-nike.bee-blues.ts.net:4000/v1"])')
+curl -s http://127.0.0.1:4000/health/liveliness
+curl -s -H "Authorization: Bearer $KEY" http://127.0.0.1:4000/v1/models
 ```
 
-Environment file (`~/.litellm/proxy-env`):
-```env
-PROXY_API_KEY=sk-litellm-proxy-<random>
+Completion smoke test (local rank):
+
+```sh
+curl -s -X POST \
+  -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"sergeant","messages":[{"role":"user","content":"Say hi"}],"max_tokens":5}' \
+  http://127.0.0.1:4000/v1/chat/completions
 ```
 
-## Telemetry & cost tracking (optional)
+Logs and spend:
 
-LiteLLM logs to SQLite by default (creates `litellm.db` in the working directory). Stores per-request metrics: model, tokens, latency, cost.
-
-```yaml
-litellm_settings:
-  success_callback: ["llm_router"]
-  failure_callback: ["llm_router"]
+```sh
+journalctl -u litellm-proxy -f
+journalctl -u litellm-proxy-env -n 20
 ```
 
-For docker: add `-v litellm-db:/app/db` to persist the SQLite database.
+Adding a model: add the deployment to `services/litellm-proxy.nix`, add the
+same name (display name / limits / modalities) to `users/opencode.nix`, commit,
+switch on server-nike, then run the health + completion checks. For a local
+Studio model, confirm its id and served context with
+`GET http://127.0.0.1:8888/api/inference/models` before wiring it.
 
-## NixOS systemd service
+## References
 
-```nix
-{ config, lib, pkgs, ... }:
-let
-  cfg = config.services.litellm-proxy;
-in {
-  options.services.litellm-proxy = {
-    enable = lib.mkEnableOption "LiteLLM proxy";
-    port = lib.mkOption { type = lib.types.port; default = 4000; };
-    configYaml = lib.mkOption { type = lib.types.lines; };
-    extraEnv = lib.mkOption { type = lib.types.attrsOf lib.types.str; default = {}; };
-  };
-
-  config = lib.mkIf cfg.enable {
-    systemd.services.litellm-proxy = {
-      description = "LiteLLM Proxy";
-      after = [ "network-online.target" ];
-      wantedBy = [ "multi-user.target" ];
-
-      serviceConfig = {
-        ExecStart = "${pkgs.litellm}/bin/litellm --config /etc/litellm/config.yaml";
-        Environment = builtins.concatStringsSep " " (
-          lib.mapAttrsToList (k: v: "${k}=${v}") cfg.extraEnv
-        );
-        Restart = "unless-stopped";
-        RuntimeDirectory = "litellm";
-      };
-    };
-
-    environment.etc."litellm/config.yaml".text = cfg.configYaml;
-  };
-}
-```
+- Routing / load balancing: <https://docs.litellm.ai/docs/routing>
+- Reliability / fallbacks / retries: <https://docs.litellm.ai/docs/proxy/reliability>
+- Timeouts: <https://docs.litellm.ai/docs/proxy/timeout>
+- Custom pricing: <https://docs.litellm.ai/docs/proxy/custom_pricing>
+- Off-peak pricing: <https://docs.litellm.ai/docs/proxy/off_peak_pricing>
+- Virtual keys (not used): <https://docs.litellm.ai/docs/proxy/virtual_keys>
+- Cost tracking: <https://docs.litellm.ai/docs/proxy/cost_tracking>

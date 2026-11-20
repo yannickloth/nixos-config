@@ -44,6 +44,11 @@ with lib;
       services.printing.enable = lib.mkForce true;
     }
 
+    # LiteLLM rank gateway (services/litellm-proxy.nix): the single LLM
+    # endpoint for opencode/pi on every host. Sits next to Unsloth Studio
+    # (loopback) and reaches Strata on laptop-p16 over Tailscale.
+    ../../services/litellm-proxy.nix
+
     # Pinned age host identity (services/host-age.nix): the keypair in
     # ssh-keys/hosts/server-nike is pinned as the /etc/ssh host key (private key installed per
     # secrets-structure/README.md) and audited against secrets.nix at build time, so a stale recipient set
@@ -218,18 +223,23 @@ with lib;
   # by Tailscale peers (other laptops pair to it over the mesh), same CGNAT gate
   # as nix-serve in environments/laptop-firewall.nix. Kept in the host rather
   # than the HM module because orca.server is a home-manager option and cannot
-  # touch networking.firewall. Same for strata (:8080) and unsloth-studio
-  # (:8888) below: reachable from the other inference host, the LAN and the
-  # tailnet (the private-range set from lib, IPv6 included). Loopback needs no
-  # rule: the firewall accepts lo by default.
+  # touch networking.firewall. Same for strata (:8080), unsloth-studio (:8888)
+  # and the LiteLLM proxy (:4000) below: reachable from the other inference
+  # host, the LAN and the tailnet (the private-range set from lib, IPv6
+  # included). Loopback needs no rule: the firewall accepts lo by default.
   networking.firewall.extraInputRules = ''
     tcp dport 5000 ip saddr 100.64.0.0/10 accept  # nix-serve (Tailscale)
     tcp dport 5000 ip saddr 192.168.178.0/24 accept # nix-serve (local LAN)
     tcp dport 6768 ip saddr 100.64.0.0/10 accept  # orca runtime server (Tailscale)
   ''
     + (import ../../lib).privateNetRules {
-      tcp = [ "8080" "8888" ];  # strata + unsloth studio
+      tcp = [ "8080" "8888" "4000" ];  # strata + unsloth studio + litellm proxy
     };
+
+  # LiteLLM proxy: the rank gateway all hosts' opencode/pi point at (see
+  # services/litellm-proxy.nix for the config and docs/litellm-proxy-design.md
+  # for the design).
+  services.litellm-proxy.enable = true;
 
   # videoDrivers, the kernel and the driver package come from
   # ../../hardware/nvidia_ampere.nix, which laptop-p16 imports as well.
