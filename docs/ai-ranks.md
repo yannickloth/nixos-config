@@ -24,7 +24,7 @@ Research date: 2026-11-20
 | OR-5 | **First Sergeant** | | | 5–10B models. |
 | OR-6 | **First Sergeant Chief** | | | 10–15B models. |
 | OR-7 | **First Sergeant Major** | | | 15–20B models. |
-| OR-8 | **Warrant Officer** | `Qwen/Qwen3.6-35B-A3B-FP8` (cloud) · `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` (local) | Hetzner (free cloud) + Unsloth Studio | Workhorse. One rank, two deployments of the same model — free-cloud primary, local fallback. |
+| OR-8 | **Warrant Officer** | `Qwen/Qwen3.6-35B-A3B-FP8` (cloud) · `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` (local) | Hetzner (free cloud) + Unsloth Studio | Workhorse. One rank, two deployments of the same model — free-cloud primary, local fallback. Natively multimodal model; the vision slot is the sibling rank `warrant-officer-v` (same model). |
 | OR-9 | **Chief Warrant Officer** | | | Reserved. |
 
 ## Junior Officers (OF-1a to OF-2)
@@ -32,7 +32,7 @@ Research date: 2026-11-20
 | NATO | English | Model | Source | Purpose |
 |---|---|---|---|---|
 | OF-1a | **Second Lieutenant** | `Qwen3.8-27B` | Hetzner Inference (free cloud) | The 27B base model of Swift 1.5 (same architecture, minus post-training). Cleaner output, ~28 tok/s. |
-| OF-1b | **Lieutenant** | `swift-1.5-iq3_xxs` | Strata (local) | **Default model.** Deep reasoning, 384K context. Smart, reliable, delegates to lower ranks. |
+| OF-1b | **Lieutenant** | `swift-1.5-iq3_xxs` | Strata (local) | **Default model.** Deep reasoning, 384K context. Smart, reliable, delegates to lower ranks. Natively multimodal model; the vision slot is the sibling rank `lieutenant-v` (same model). |
 | OF-2 | **Captain** | | | Reserved. |
 
 ## Senior Officers (OF-3 to OF-5)
@@ -61,11 +61,26 @@ Research date: 2026-11-20
 |---|---|---|
 | Sergeant (OR-4) | `sergeant` | `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` @ Unsloth Studio (server-nike) |
 | Warrant Officer (OR-8) | `warrant-officer` | `Qwen/Qwen3.6-35B-A3B-FP8` @ Hetzner (primary) · `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` @ Unsloth Studio (fallback) |
+| Warrant Officer (vision) | `warrant-officer-v` | same model as `warrant-officer` — the `-v` sibling exposes the multimodal slot (both deployments carry vision, verified) |
 | Second Lieutenant (OF-1a) | `second-lieutenant` | `Qwen3.8-27B` @ Hetzner (free cloud) |
 | Lieutenant (OF-1b) | `lieutenant` | `swift-1.5-iq3_xxs` @ Strata (laptop-p16) |
+| Lieutenant (vision) | `lieutenant-v` | same model as `lieutenant` — the `-v` sibling exposes the multimodal slot |
 | Major (OF-4) | `major` | `kimi-for-coding` (K2.8) @ Kimi — previous generation |
 | Lieutenant Colonel (OF-5) | `lieutenant-colonel` | `glm-5.3` @ Z.ai — text deployment |
 | Lieutenant Colonel, vision (OF-5) | `lieutenant-colonel-v` | `k3` @ Kimi · `k3-256k` @ Kimi · `glm-5.3-flash` @ Z.ai — natively multimodal deployments |
+
+**Every Hetzner model is also exposed under its own upstream id** — the free
+cloud is addressable by name, not only through the ranks that front it. The
+endpoint's `GET /v1/models` answers exactly these four ids over two serving
+deployments, so all four are proxy model names:
+
+| Proxy name (= the upstream id) | Deployment |
+|---|---|
+| `Qwen/Qwen3.6-35B-A3B` · `Qwen/Qwen3.6-35B-A3B-FP8` | 35B MoE @ Hetzner (FP8 weights) — the `warrant-officer` cloud deployment, without its Studio failover |
+| `Qwen/Qwen3.8-27B` · `Qwen3.8-27B` | dense 27B @ Hetzner — the `second-lieutenant` deployment |
+
+These ids are explicit selection: one name is one deployment, no intra-name
+failover and no cross-rank fallback in or out.
 
 **Unranked models are named by model id** — the rank abstraction does not apply to them: `deepseek-flash`, `deepseek-v4-pro`, `deepseek-v4.1-flash`, `gpt-5.6-luna`, `claude-sonnet-5.5`, `claude-opus-5.5`, `glm-5.3` (pay-as-you-go escalation, explicit selection only).
 
@@ -141,8 +156,15 @@ Peak hours: 01:00–04:00 UTC and 06:00–10:00 UTC, Mon–Fri. Everything else 
 
 | Model ID | Description | Context | Notes |
 |---|---|---|---|
-| `Qwen/Qwen3.6-35B-A3B-FP8` | 35B total / 3B active, MoE | 262K | 175 tok/s aggregate, ~1.5s TTFT |
-| `Qwen3.8-27B` | Dense 27B, cleaner German | 262K | 28 tok/s — fine for short agentic turns (second-lieutenant fallback), not for long-form generation |
+| `Qwen/Qwen3.6-35B-A3B` | 35B total / 3B active, MoE | 262K | Served from the FP8 weights (`root: qwen36-35b-a3b-fp8`) — an alias of the id below |
+| `Qwen/Qwen3.6-35B-A3B-FP8` | 35B total / 3B active, MoE | 262K | 175 tok/s aggregate, ~1.5s TTFT. `warrant-officer`'s primary deployment. Natively multimodal — accepts images (verified) |
+| `Qwen/Qwen3.8-27B` | Dense 27B, cleaner German | 262K | Alias of the bare id below |
+| `Qwen3.8-27B` | Dense 27B, cleaner German | 262K | 28 tok/s — fine for short agentic turns (second-lieutenant fallback), not for long-form generation. Also accepts images (verified) |
+
+All four ids are also proxy model names (explicit selection, no failover), so
+`proxy/Qwen3.8-27B` asks for the free-cloud 27B directly instead of going
+through `second-lieutenant`. Verified against `GET https://inference.hetzner.com/v1/models`:
+four ids, `max_model_len` 262144 on each, `owned_by: hetzner`.
 
 ### CheaperInference (wallet-backed, discounted marketplace)
 
@@ -176,13 +198,14 @@ router_settings:
   fallbacks:
     - lieutenant: [second-lieutenant, warrant-officer]
     - second-lieutenant: [warrant-officer]
+    - lieutenant-v: [warrant-officer-v]   # vision cascade stays inside -v ranks
   max_fallbacks: 2
   # sergeant: explicit-only; it is a different Studio model
 ```
 
 **No fallback between paid ranks** — `major`, `lieutenant-colonel`, and `lieutenant-colonel-v` are explicit selections. Auto-fallback across them would silently escalate cost, and circular fallbacks are unreliable in LiteLLM (it does not retry 4xx errors, and warns against cycles).
 
-**Vision routing is client-side:** opencode only sends images to models marked attachment-capable — `lieutenant-colonel-v` and `deepseek-flash`. An image therefore never lands on a text-only deployment, no fallback needed.
+**Vision routing is client-side, and the proxy does no vision filtering.** opencode (and pi) only send images to models marked attachment-capable — the `-v` ranks (`warrant-officer-v`, `lieutenant-v`, `lieutenant-colonel-v`) and the attachment-flagged paid ids (`deepseek-flash`, `deepseek-v4.1-flash`, `gpt-5.6-luna`, `claude-sonnet-5.5`, `claude-opus-5.5`). `major` is **not** in that list: the Kimi coding endpoint does not decode images (verified — 1×1 red/blue pixel tests answered "black", with the base64 tokenized as plain text), so its attachment flag was removed. The plain ranks are text-only by contract: their models are vision-capable, but no caller expects vision of them, so the model can be swapped freely. An image therefore never lands on a text-only rank — the client gates the modality. (LiteLLM 1.86.0 does **not** filter vision-incapable deployments out pre-call — no such check exists — so every deployment behind a `-v` name is itself vision-capable: verified for the Hetzner 35B/27B, the local Qwen3.6 GGUF, and Strata's Swift 1.5.) No fallback needed.
 
 Paid escalation is handled outside LiteLLM's automatic fallback chain — it's triggered when the user explicitly selects a paid model name, or when a higher-level orchestrator decides to escalate.
 

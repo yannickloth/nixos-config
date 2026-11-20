@@ -7,8 +7,10 @@
 # fallbacks, retries, timeouts and cost tracking — see
 # docs/litellm-proxy-design.md. Model names below are rank names for the
 # standing ladder (docs/ai-ranks.md) and plain model ids for the unranked pool
-# (no rank abstraction: the id IS the model). Every host (laptop-p16 included)
-# reaches the proxy over Tailscale: http://server-nike.bee-blues.ts.net:4000/v1.
+# (no rank abstraction: the id IS the model; the Hetzner free cloud is listed
+# under its own upstream ids next to the ranks that front it). Every host
+# (laptop-p16 included) reaches the proxy over Tailscale:
+# http://server-nike.bee-blues.ts.net:4000/v1.
 #
 # API keys are NOT stored here or in the nix store. They are read at runtime via
 # opencode's `{file:...}` substitution from per-key files that the
@@ -75,8 +77,17 @@ let
         };
         "warrant-officer" = {
           name = "Warrant Officer — workhorse (free cloud, local fallback)";
+          # Text-only rank; the vision slot is warrant-officer-v (same model).
           # Group max: Hetzner (primary) serves 262K; the local Studio fallback
           # serves 131K, so longer prompts stay on the cloud deployment.
+          limit = {
+            context = 262144;
+            output = 32768;
+          };
+        };
+        "warrant-officer-v" = {
+          name = "Warrant Officer (vision) — multimodal workhorse";
+          attachment = true;  # same model as warrant-officer; the -v slot carries vision
           limit = {
             context = 262144;
             output = 32768;
@@ -92,6 +103,16 @@ let
         "lieutenant" = {
           name = "Lieutenant — deep reasoning (default)";
           reasoning = true;
+          # Text-only rank; the vision slot is lieutenant-v (same model).
+          limit = {
+            context = 393216;
+            output = 65536;
+          };
+        };
+        "lieutenant-v" = {
+          name = "Lieutenant (vision) — deep reasoning, multimodal";
+          reasoning = true;
+          attachment = true;  # same model as lieutenant; the -v slot carries vision
           limit = {
             context = 393216;
             output = 65536;
@@ -100,7 +121,9 @@ let
         "major" = {
           name = "Major — previous-generation coding (paid)";
           reasoning = true;
-          attachment = true;
+          # Text-only: the Kimi coding endpoint does not decode images
+          # (verified: 1x1 red/blue pixel tests answered "black"; the base64
+          # is tokenized as plain text), so no attachment flag.
           limit = {
             context = 1048576;
             output = 131072;
@@ -121,6 +144,42 @@ let
           limit = {
             context = 1048576;
             output = 131072;
+          };
+        };
+
+        # --- Hetzner free cloud (the two cloud deployments the ladder fronts,
+        #     under their own upstream ids; explicit selection) -------------
+        # Same two serving deployments as warrant-officer / second-lieutenant:
+        # the endpoint answers the org-prefixed and the bare id of each model,
+        # so all four ids are listed. Asking for one of these names means
+        # asking for Hetzner — no local Studio failover (warrant-officer keeps
+        # that), no cross-rank fallback, free tier so no cost.
+        "Qwen/Qwen3.6-35B-A3B" = {
+          name = "Qwen3.6-35B-A3B @ Hetzner (free cloud)";
+          limit = {
+            context = 262144;
+            output = 32768;
+          };
+        };
+        "Qwen/Qwen3.6-35B-A3B-FP8" = {
+          name = "Qwen3.6-35B-A3B-FP8 @ Hetzner (free cloud)";
+          limit = {
+            context = 262144;
+            output = 32768;
+          };
+        };
+        "Qwen/Qwen3.8-27B" = {
+          name = "Qwen3.8-27B @ Hetzner (free cloud)";
+          limit = {
+            context = 262144;
+            output = 32768;
+          };
+        };
+        "Qwen3.8-27B" = {
+          name = "Qwen3.8-27B @ Hetzner (free cloud)";
+          limit = {
+            context = 262144;
+            output = 32768;
           };
         };
 

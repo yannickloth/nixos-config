@@ -5,8 +5,10 @@
 # Tailscale. server-nike hosts the proxy next to Unsloth Studio (loopback)
 # and one Tailscale hop away from Strata on laptop-p16. Model names are the
 # ranks from docs/ai-ranks.md (the ladder) plus the plain model ids of the
-# unranked pool. The design, and the doc-grounded reason for every knob,
-# lives in docs/litellm-proxy-design.md.
+# unranked pool — which also lists every Hetzner model under its own upstream
+# id, so the free cloud has a name of its own and is not reachable only through
+# the ranks that front it. The design, and the doc-grounded reason for every
+# knob, lives in docs/litellm-proxy-design.md.
 #
 # Secrets: the proxy's master key and all backend keys are entries in the
 # existing OPENAI_API_KEYS agenix secret (/etc/secrets/opencode-keys.env,
@@ -192,7 +194,8 @@ let
         model_info:
           id: sergeant-studio
           max_input_tokens: 128256
-          supports_vision: false  # image requests are filtered out pre-call
+          supports_vision: false  # text rank: clients are not wired to send
+                                 # images here (no attachment flag)
           input_cost_per_token: 0
           output_cost_per_token: 0
 
@@ -214,7 +217,7 @@ let
         model_info:
           id: warrant-officer-hetzner
           max_input_tokens: 262144
-          supports_vision: false
+          supports_vision: false  # text rank; images route via warrant-officer-v
           input_cost_per_token: 0
           output_cost_per_token: 0
       - model_name: "warrant-officer"
@@ -229,7 +232,46 @@ let
         model_info:
           id: warrant-officer-studio
           max_input_tokens: 131072
-          supports_vision: false
+          supports_vision: false  # text rank: contract, not capability — the
+                                  # GGUF does see images (verified), but images
+                                  # are addressed to warrant-officer-v
+          input_cost_per_token: 0
+          output_cost_per_token: 0
+
+      # Warrant Officer (vision) — SAME model as warrant-officer (Qwen3.6-35B-A3B
+      # is natively multimodal); the -v suffix exposes the vision slot, keeping
+      # the text rank text-only.
+      - model_name: "warrant-officer-v"
+        litellm_params:
+          model: openai/Qwen/Qwen3.6-35B-A3B-FP8
+          api_base: https://inference.hetzner.com/v1
+          api_key: os.environ/LITELLM_HETZNER_API_KEY
+          order: 1
+          timeout: 300
+          stream_timeout: 60
+          num_retries: 2
+        model_info:
+          id: warrant-officer-v-hetzner
+          max_input_tokens: 262144
+          supports_vision: true
+          input_cost_per_token: 0
+          output_cost_per_token: 0
+      - model_name: "warrant-officer-v"
+        litellm_params:
+          model: openai/unsloth/Qwen3.6-35B-A3B-MTP-GGUF
+          api_base: http://127.0.0.1:8888/v1
+          api_key: os.environ/LITELLM_UNSLOTH_API_KEY
+          order: 2
+          timeout: 300
+          stream_timeout: 60
+          num_retries: 1
+        model_info:
+          id: warrant-officer-v-studio
+          max_input_tokens: 131072
+          supports_vision: true    # verified: the GGUF serves its vision
+                                   # projection (1x1 pixel color tests answered
+                                   # correctly), so image requests can fail over
+                                   # to the local copy safely
           input_cost_per_token: 0
           output_cost_per_token: 0
 
@@ -267,7 +309,32 @@ let
         model_info:
           id: lieutenant-strata
           max_input_tokens: 393216
-          supports_vision: false
+          supports_vision: false  # text rank; images route via lieutenant-v
+          input_cost_per_token: 0
+          output_cost_per_token: 0
+
+      # Lieutenant (vision) — SAME model as lieutenant (Swift 1.5 on Strata is
+      # natively multimodal, verified by pixel-color tests); the -v suffix
+      # exposes the vision slot.
+      # max_parallel_requests is tracked per deployment (model_id), so
+      # lieutenant and lieutenant-v each get one in-flight slot; LiteLLM never
+      # cascades vision traffic into the text fallback chain because a text
+      # session is in flight (or vice versa). Genuine engine contention on the
+      # single-slot Strata instance is still answered by Strata itself (fast
+      # 429 -> the router falls through to the next vision rank).
+      - model_name: "lieutenant-v"
+        litellm_params:
+          model: openai/swift-1.5-iq3_xxs
+          api_base: http://laptop-p16.bee-blues.ts.net:8080/v1
+          api_key: strata            # Strata accepts any key
+          timeout: 600
+          stream_timeout: 180
+          num_retries: 1
+          max_parallel_requests: 1
+        model_info:
+          id: lieutenant-v-strata
+          max_input_tokens: 393216
+          supports_vision: true
           input_cost_per_token: 0
           output_cost_per_token: 0
 
@@ -351,6 +418,79 @@ let
         model_info:
           id: lc-v-glm-flash
           max_input_tokens: 1000000
+          input_cost_per_token: 0
+          output_cost_per_token: 0
+
+      # ---------------------------------------------------------------------------
+      # HETZNER FREE CLOUD — the ladder's two Hetzner deployments, exposed under
+      # their own upstream ids (explicit selection: one name = exactly one
+      # deployment, no intra-name failover, no cross-rank fallback in or out)
+      # ---------------------------------------------------------------------------
+      # GET https://inference.hetzner.com/v1/models answers four ids over two
+      # serving deployments, every one of them max_model_len 262144: the 35B MoE
+      # is served from the FP8 weights under both `Qwen/Qwen3.6-35B-A3B` and
+      # `Qwen/Qwen3.6-35B-A3B-FP8`, and the dense 27B answers both
+      # `Qwen/Qwen3.8-27B` and `Qwen3.8-27B`. Free tier -> zero cost, like the
+      # ranks. The rank names keep their own routing: warrant-officer still
+      # fails over to the local Studio copy, which these ids deliberately do not
+      # (asking for a Hetzner id means asking for Hetzner).
+      - model_name: "Qwen/Qwen3.6-35B-A3B"
+        litellm_params:
+          model: openai/Qwen/Qwen3.6-35B-A3B
+          api_base: https://inference.hetzner.com/v1
+          api_key: os.environ/LITELLM_HETZNER_API_KEY
+          timeout: 300
+          stream_timeout: 60
+          num_retries: 2
+        model_info:
+          id: hetzner-qwen3.6-35b-a3b
+          max_input_tokens: 262144
+          supports_vision: false
+          input_cost_per_token: 0
+          output_cost_per_token: 0
+
+      - model_name: "Qwen/Qwen3.6-35B-A3B-FP8"
+        litellm_params:
+          model: openai/Qwen/Qwen3.6-35B-A3B-FP8
+          api_base: https://inference.hetzner.com/v1
+          api_key: os.environ/LITELLM_HETZNER_API_KEY
+          timeout: 300
+          stream_timeout: 60
+          num_retries: 2
+        model_info:
+          id: hetzner-qwen3.6-35b-a3b-fp8
+          max_input_tokens: 262144
+          supports_vision: false
+          input_cost_per_token: 0
+          output_cost_per_token: 0
+
+      - model_name: "Qwen/Qwen3.8-27B"
+        litellm_params:
+          model: openai/Qwen/Qwen3.8-27B
+          api_base: https://inference.hetzner.com/v1
+          api_key: os.environ/LITELLM_HETZNER_API_KEY
+          timeout: 600
+          stream_timeout: 120
+          num_retries: 2
+        model_info:
+          id: hetzner-qwen3.8-27b-prefixed
+          max_input_tokens: 262144
+          supports_vision: false
+          input_cost_per_token: 0
+          output_cost_per_token: 0
+
+      - model_name: "Qwen3.8-27B"
+        litellm_params:
+          model: openai/Qwen3.8-27B
+          api_base: https://inference.hetzner.com/v1
+          api_key: os.environ/LITELLM_HETZNER_API_KEY
+          timeout: 600
+          stream_timeout: 120
+          num_retries: 2
+        model_info:
+          id: hetzner-qwen3.8-27b
+          max_input_tokens: 262144
+          supports_vision: false
           input_cost_per_token: 0
           output_cost_per_token: 0
 
@@ -508,6 +648,14 @@ let
       fallbacks:
         - lieutenant: [second-lieutenant, warrant-officer]
         - second-lieutenant: [warrant-officer]
+        # Vision cascade: -v ranks are the only image slots, so a vision
+        # request falls only to another -v rank. LiteLLM does NOT filter
+        # deployments by vision capability pre-call (no such check exists in
+        # 1.86.0 — verified in the source), so vision safety rests on every
+        # deployment behind a -v name actually seeing images (verified), plus
+        # the client-side modality gate (opencode/pi only send images to
+        # attachment-capable names).
+        - lieutenant-v: [warrant-officer-v]
 
       # lieutenant -> second-lieutenant -> warrant-officer is two hops.
       max_fallbacks: 2

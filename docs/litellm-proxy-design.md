@@ -28,7 +28,7 @@ LiteLLM proxy (server-nike, loopback for local backends)
     ├──→ PostgreSQL 18    127.0.0.1:5432              (admin UI, keys, spend)
     ├──→ Unsloth Studio   127.0.0.1:8888/v1          (sergeant, warrant-officer fallback)
     ├──→ Strata           laptop-p16:8080/v1         (lieutenant)
-    ├──→ Hetzner          inference.hetzner.com/v1   (second-lieutenant, warrant-officer primary)
+    ├──→ Hetzner          inference.hetzner.com/v1   (ranks + every Hetzner id)
     ├──→ DeepSeek         api.deepseek.com           (paid, explicit)
     ├──→ Z.AI             api.z.ai/api/coding/paas/v4 (paid subscription, explicit)
     ├──→ Kimi             api.kimi.com/coding/v1     (paid subscription, explicit)
@@ -49,8 +49,8 @@ Only three local models are part of the stack:
 | Local model | Role |
 | --- | --- |
 | `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` | sergeant (fast executor) |
-| `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` | warrant-officer (workhorse) |
-| `ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF` | Swift 1.5, served by Strata as `swift-1.5-iq3_xxs` (lieutenant) |
+| `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` | warrant-officer / warrant-officer-v (workhorse; the `-v` sibling also uses it for images) |
+| `ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF` | Swift 1.5, served by Strata as `swift-1.5-iq3_xxs` (lieutenant / lieutenant-v) |
 
 The older Studio library entries (translation, OCR, LFM2.5, Qwythos,
 Swift-Bonsai, Qwen3.5-9B, Qwen3.8-9B-Distill, LFM3-Omni) were removed from the
@@ -66,8 +66,10 @@ its `model_list`.
 | --- | --- | --- | --- | --- |
 | Sergeant (OR-4) | `sergeant` | Nemotron @ Studio | 128256 | `temperature: 0.1`, 120s timeout, 30s stream, one retry |
 | Warrant Officer (OR-8) | `warrant-officer` | 1: Qwen3.6 @ Hetzner · 2: Qwen3.6 @ Studio | 262144 / 131072 | same model; free-cloud primary, local fallback |
+| Warrant Officer (vision) | `warrant-officer-v` | same deployments as `warrant-officer` | 262144 / 131072 | same model; the `-v` slot carries vision (both deployments are vision-capable, verified) |
 | Second Lieutenant (OF-1a) | `second-lieutenant` | Qwen3.8-27B @ Hetzner | 262144 | free cloud |
 | Lieutenant (OF-1b) | `lieutenant` | Swift 1.5 @ Strata | 393216 | default; `max_parallel_requests: 1` so a busy engine 429s into the next rank |
+| Lieutenant (vision) | `lieutenant-v` | same deployment as `lieutenant` | 393216 | same model; the `-v` slot carries vision |
 | Major (OF-4) | `major` | `kimi-for-coding` @ Kimi | 1048576 | previous generation, explicit |
 | Lieutenant Colonel (OF-5) | `lieutenant-colonel` | `glm-5.3` @ Z.AI | 1000000 | text-only, explicit |
 | Lieutenant Colonel, vision (OF-5) | `lieutenant-colonel-v` | 1: `k3-256k` · 2: `k3` @ Kimi · 3: `glm-5.3-flash` @ Z.AI | 262144 / 1048576 / 1000000 | cost-ordered multimodal deployments |
@@ -84,6 +86,23 @@ Paid, unranked ids (explicit selection only, never auto-fallback):
 | `claude-opus-5.5` | CheaperInference |
 | `glm-5.3` | CheaperInference pay-per-token (the Coding Plan `glm-5.3` is `lieutenant-colonel`) |
 
+Free-cloud ids (Hetzner, explicit selection). The endpoint answers `GET /v1/models`
+with exactly these four ids over two serving deployments, so the proxy exposes
+them verbatim next to the ranks that front the same models:
+
+| Proxy name (= the upstream id) | Serving deployment | Context |
+| --- | --- | --- |
+| `Qwen/Qwen3.6-35B-A3B` | 35B-A3B MoE @ Hetzner (FP8 weights) | 262144 |
+| `Qwen/Qwen3.6-35B-A3B-FP8` | the same deployment | 262144 |
+| `Qwen/Qwen3.8-27B` | dense 27B @ Hetzner | 262144 |
+| `Qwen3.8-27B` | the same deployment | 262144 |
+
+Asking for one of these names lands on that single deployment: no Studio
+failover (that is `warrant-officer`'s job), no cross-rank fallback in or out.
+Free tier, so zero cost. Both models are natively multimodal (verified by
+pixel-color tests), so these ids can carry images too; the rank names stay
+the recommended path.
+
 ## Routing behavior
 
 - **Priority is `litellm_params.order`**, not weights. Lower order is tried
@@ -96,6 +115,18 @@ Paid, unranked ids (explicit selection only, never auto-fallback):
   Studio model, so auto-falling into it would force an unload/load; it is
   explicit-selection-only. Paid ranks have no fallback in or out: silent cost
   escalation is worse than a visible error.
+- **Vision lives on `-v` ranks**: the ladder ranks whose models are natively
+  multimodal get a `-v` sibling serving the same model (`warrant-officer-v`,
+  `lieutenant-v` — both verified by pixel-color tests; `second-lieutenant`'s
+  Qwen3.8-27B accepts images too but stays text-only by contract). A plain
+  rank is text-only by contract, so its model can be swapped freely and no
+  caller expects vision from it. LiteLLM does **no** vision filtering
+  (verified in 1.86.0: no pre-call check inspects message content), so an
+  image reaches whatever deployment the router picks — which is why every
+  deployment behind a `-v` name is vision-capable, and why opencode/pi only
+  send images to attachment-capable names in the first place. The vision
+  cascade is `lieutenant-v → warrant-officer-v` and never leaves the `-v`
+  ladder.
 - **Pre-call checks** drop deployments whose `max_input_tokens` is below the
   prompt length before a provider call, so a 300K prompt skips the 10K / 256K
   deployments without burning quota.
@@ -125,7 +156,9 @@ stack is explicitly zero-cost:
 
 - local Studio / Strata deployments: hardware, no per-token charge;
 - subscription deployments (`major`, `lieutenant-colonel`,
-  `lieutenant-colonel-v`): quota, not tokens.
+  `lieutenant-colonel-v`): quota, not tokens;
+- Hetzner deployments (the `warrant-officer` / `second-lieutenant` cloud
+  deployments and the four free-cloud ids): free tier, no per-token charge.
 
 Paid deployments use the cost map where a row exists (`deepseek-flash`,
 `deepseek-v4-pro`, `gpt-5.6-luna`). The other CheaperInference rows
@@ -201,11 +234,11 @@ opencode and pi have one provider:
 }
 ```
 
-The full table also carries `warrant-officer`, `second-lieutenant`, the paid
-ranks and the unranked ids. The client table only holds display names, the
-researched context/output limits (opencode compacts at `limit.context`) and the
-modality flags consumed by pi. Routing and deployment metadata live in the
-proxy config; keep the two in step when adding a model.
+The full table also carries `warrant-officer`, `second-lieutenant`, the four
+Hetzner ids, the paid ranks and the other unranked ids. The client table only
+holds display names, the researched context/output limits (opencode compacts at
+`limit.context`) and the modality flags consumed by pi. Routing and deployment
+metadata live in the proxy config; keep the two in step when adding a model.
 
 `model` defaults to `proxy/lieutenant` on every host. pi reads the same
 provider from `~/.pi/agent/models.json`, generated from the same Nix table, with
