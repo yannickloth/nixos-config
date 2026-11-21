@@ -42,6 +42,10 @@ with lib;
         # Re-listing a subset would CONCATENATE with that default, producing
         # duplicates and failing to drop big-parallel. Leave it to the default.
 
+        # Short timeout for unreachable binary caches so Nix doesn't hang
+        # waiting 15 s × 5 retries per cache during evaluation (direnv, nixd).
+        connect-timeout = 3;
+
         #         # set explicit binary cache and add additional binary caches
         substituters = [
           # CachyOS kernel binary cache; re-enable together with a
