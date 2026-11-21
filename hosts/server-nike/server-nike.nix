@@ -183,8 +183,9 @@ with lib;
     AllowHybridSleep = false;
   };
 
-  # No Strata on server-nike: it is the daily workstation. Strata inference
-  # is delegated to laptop-p16 (RTX A3000 12GB). No hugepage pool needed.
+  # Strata runs on server-nike beside Unsloth Studio (both 12 GB sm_86 cards,
+  # each host serves its own :8080). The hugepage pool and the locked-memory
+  # limits below are gated on nicky's profile enabling Strata here.
 
   # Bootloader — keep 5 generations max to prevent EFI partition fill-up.
   boot.loader.systemd-boot.enable = true;
@@ -198,6 +199,16 @@ with lib;
   # builds with all cores.
   roles.nix.maxJobs = 16;
   roles.nix.cores = 0;
+
+  # Strata's expert arena uses MAP_HUGETLB|MAP_HUGE_2MB and needs the whole mmap
+  # covered (all-or-nothing, else it falls back to 4 KiB pages). 22528 * 2 MiB =
+  # 44 GiB: the arena plus headroom, the value this host ran with on 2026-11-19
+  # (its own settings.json calibration). Only reserve it while nicky's
+  # home-manager profile enables Strata here; a fixed pool is parked RAM that
+  # normal allocations cannot use, and Unsloth Studio runs beside Strata on this
+  # 94 GiB host. laptop-p16 sets the same pool in its own host file.
+  boot.kernel.sysctl."vm.nr_hugepages" =
+    lib.mkIf (config.home-manager.users.nicky.strata.enable or false) 22528;
 
   # Strata's expert arena uses MAP_HUGETLB|MAP_HUGE_2MB; that needs both the
   # global hugepage pool (boot.kernel.sysctl) and an unlimited locked-memory

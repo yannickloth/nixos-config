@@ -1,4 +1,4 @@
-# Strata engine 0.1.63 for Strata 0.2.17 — CUDA 12.9, sm_86 (RTX A3000).
+# Strata engine 0.1.63 for Strata 0.2.17 — CUDA 12.9, sm_86 (RTX A3000, RTX 3060).
 #
 # Upstream 0.2.16 restructured the repo: engine/ is now a separate top-level
 # directory with a vendored ggml (third_party/strata-ggml). No more FetchContent
@@ -23,7 +23,7 @@
   cudaPackages,
   cmake,
   fetchFromGitHub,
-  cudaArch ? "86", # laptop-p16: RTX A3000 12GB Laptop GPU (compute capability 8.6)
+  cudaArch ? "86", # both inference hosts are compute capability 8.6: RTX A3000 Laptop (laptop-p16), RTX 3060 (server-nike)
   withVision ? false,
   isCachyOS ? false,
   strataSrc ? fetchFromGitHub {

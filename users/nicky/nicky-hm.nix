@@ -203,10 +203,14 @@ in
   unsloth-studio.strataGpuHandoff = isP16 || isNike;
 
   # Strata (Qwen3.8-Flash-Next 125B MoE inference, OpenAI/Anthropic API on
-  # localhost). GPU-gated to laptop-p16 only: its RTX A3000 12GB (sm_86) + 128 GiB
-  # RAM qualify. server-nike is the daily workstation — no Strata engine here. The
-  # opencode strata-local provider (users/opencode.nix) reaches P16 over Tailscale
-  # instead of localhost. `dataOnDataVolume` keeps the model files on /data.
+  # localhost). Both inference hosts qualify on the card: laptop-p16's RTX A3000
+  # 12GB and server-nike's RTX 3060 12GB are sm_86, and both have the RAM for the
+  # expert arena (128 GiB and 94 GiB). server-nike ran the same model line before
+  # 2026-11-19 — its own settings.json calibration records 39.4 tok/s on
+  # swift-1.5-iq3_xxs at 131072 context. Each host serves its own :8080; the
+  # LiteLLM proxy (services/litellm-proxy.nix) is the single place that decides
+  # which host the shared ranks point at. `dataOnDataVolume` keeps the model files
+  # on /data (laptop-p16 only, see below).
   #
   # Upstream 0.2.17: route-tail-skip OFF by default, setup keeps 17 GB RAM (not 24).
   # The engine is an upstream engine component (versioned, per-file manifest)
@@ -214,7 +218,7 @@ in
   # All engine tuning (context, KV format, rope scaling, PCIe fraction, pool
   # workers, adapt-every, spec-min-p) is left to `strata --setup` at runtime.
   # Nix manages only service lifecycle: start/stop, GPU handoff, deployment layout.
-  strata = lib.mkIf isP16 {
+  strata = lib.mkIf (isP16 || isNike) {
     enable = true;
     # Reachable beyond loopback (the other inference host, the LAN, the
     # tailnet); the host firewall scopes it to private ranges (see
@@ -267,7 +271,10 @@ in
     # ~10 min at 200 MB/s (~5 min at 400 MB/s, ~21 min at 100 MB/s), so run
     # the rebuild from a terminal, not from a chat session that is using the
     # model.
-    dataOnDataVolume = true;
+    # laptop-p16 only: server-nike keeps both trees on its home partition (its
+    # ~167 GB of models already live there, and /home has 1.5 TB free). Set this
+    # to true on nike to move them to /data/strata and /data/Strata-data.
+    dataOnDataVolume = isP16;
   };
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
