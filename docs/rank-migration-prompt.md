@@ -23,7 +23,7 @@ frontmatter, or skill docs.
 | `proxy/second-lieutenant` | free cloud (Hetzner) | parallel-safe | clean-output language judgment |
 | `proxy/lieutenant` | local (Strata) | **single-slot — sequential only** | deep reasoning, judgment, main session |
 | `proxy/*-v` | siblings of the ranks above, same model | as parent rank | **the only vision slots** |
-| higher ranks (`major`, `lieutenant-colonel*`, unranked paid ids) | paid | — | explicit per-task escalation only, never an agent default |
+| higher ranks (`captain` and up: `captain*`, `captain-commandant`, `major*`, `lieutenant-colonel*`, `brigadier-general*`, plus every explicit model id) | paid | — | explicit per-task escalation only, never an agent default |
 
 **Hard contracts (do not violate):**
 
@@ -163,8 +163,9 @@ do not assume.
    re-run on config + frontmatter + skills + context only).
 3. Frontmatter ↔ config consistency: script-compare every `model:` line
    against the config map; zero mismatches.
-4. No agent on a rank above `lieutenant` (no `major`,
-   `lieutenant-colonel*`, unranked paid ids in any default mapping).
+4. No agent on a paid rank (no `captain`/`captain*`/`captain-commandant`/
+   `major`/`major*`/`lieutenant-colonel*`/`brigadier-general*` or explicit
+   paid model id in any default mapping).
 5. **Parallel-set audit:** every agent a skill launches in N > 1 sits on
    a cloud rank. Cross-check the list against the skills' launch
    statements.

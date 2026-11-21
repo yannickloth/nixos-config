@@ -5,10 +5,11 @@
 #
 # The proxy owns routing, intra-rank failover (deployment order), cross-rank
 # fallbacks, retries, timeouts and cost tracking — see
-# docs/litellm-proxy-design.md. Model names below are rank names for the
-# standing ladder (docs/ai-ranks.md) and plain model ids for the unranked pool
-# (no rank abstraction: the id IS the model; the Hetzner free cloud is listed
-# under its own upstream ids next to the ranks that front it). Every host
+# docs/litellm-proxy-design.md. Model names below are rank names for the ladder
+# (docs/ai-ranks.md — every model of every ranked provider holds a rank slot)
+# plus one explicit name per ranked model, spelled like its upstream id, for
+# callers that want the model itself. The unranked pool is CheaperInference only
+# (plus glm-5.3-payg, the cash twin of the Coding Plan's glm-5.3). Every host
 # (laptop-p16 included) reaches the proxy over Tailscale:
 # http://server-nike.bee-blues.ts.net:4000/v1.
 #
@@ -23,18 +24,24 @@
 #
 # Backends behind the proxy (the proxy config is the source of truth):
 #   strata      http://laptop-p16.bee-blues.ts.net:8080/v1   (Strata on
-#                  laptop-p16; any key; vision off; the long-context path)
+#                  laptop-p16; any key; vision off; the engine's served window is
+#                  131072 — `--max-context` as probed by `strata --setup`, live
+#                  `n_ctx` 131072 — so it is the SHORTEST window in the ladder,
+#                  not a long-context path)
 #   unsloth     http://server-nike.bee-blues.ts.net:8888/v1  (Unsloth Studio on
 #                  server-nike; Studio enforces its own per-model context budget)
 #   hetzner     https://inference.hetzner.com/v1             (free cloud; the
-#                  `/api` prefix 404s)
+#                  official docs' base URL is the `/api/v1` variant — 2026-11-21
+#                  probe: both routes live, 401 without a key)
 #   deepseek    https://api.deepseek.com                     (V4 flash/pro: 1M ctx,
 #                  384K out)
 #   z.ai/GLM    https://api.z.ai/api/coding/paas/v4          (GLM Coding Plan
 #                  subscription; NOT the pay-per-token endpoint
 #                  https://api.z.ai/api/paas/v4/ — a coding-plan key is rejected
 #                  there and never draws the subscription quota)
-#   Kimi        https://api.kimi.com/coding/v1               (Kimi Code plan;
+#   Kimi        https://api.kimi.com/coding/v1               (Kimi Code on the
+#                  legacy Allegretto plan: every coding-plan model id is entitled
+#                  there, and 1M context on k3.1-pro / k3 is Allegretto's tier;
 #                  the pay-per-token platform API (api.moonshot.ai) uses
 #                  different IDs)
 #   cheaper     https://api.cheaperinference.com/v1          (wallet-backed
@@ -59,6 +66,16 @@ let
   # docs/litellm-proxy-design.md). This table only carries display names, the
   # researched context/output limits (opencode compacts at limit.context) and
   # the modality flags (consumed by pi).
+  #
+  # Three name classes, in the order they appear below:
+  #   1. rank names (the ladder in docs/ai-ranks.md). A rank is a pure
+  #      abstraction over the model holding the slot: multiple models may share
+  #      a rank, so a model swap never touches this file;
+  #   2. explicit model names — one per ranked model, spelled exactly like the
+  #      upstream id, for callers that want that model and not a rank;
+  #   3. the unranked pay-as-you-go pool (CheaperInference + glm-5.3-payg).
+  # Only -v ranks and the model ids whose model really sees images carry
+  # `attachment = true`; plain ranks stay text-only by contract.
   providers = {
     proxy = {
       package = "aisdk:@ai-sdk/openai-compatible";
@@ -67,7 +84,8 @@ let
         apiKey = keyfile "litellm-proxy";
       };
       models = {
-        # --- rank ladder (standing stack: local + subscription) ----------
+        # --- rank ladder: every model of the ranked providers holds a rank slot
+        #     (subscription order -> pay-per-token -> free cloud -> local) -----
         "sergeant" = {
           name = "Sergeant — fast executor";
           limit = {
@@ -104,8 +122,18 @@ let
           name = "Lieutenant — deep reasoning (default)";
           reasoning = true;
           # Text-only rank; the vision slot is lieutenant-v (same model).
+          # Context is the window the engine actually SERVES on laptop-p16, not
+          # what the model can do natively: `strata --setup` probes the card and
+          # writes --max-context 131072 into the run config, and live
+          # `GET laptop-p16:8080/v1/models` reports n_ctx 131072 (2026-11-21).
+          # The 384K the model supports natively is not what this card serves.
+          # Output 65536 sits INSIDE that window: the engine's 131072 is one
+          # shared n_ctx (prompt and generation come out of the same capacity),
+          # so a full 65536-token answer only fits a short prompt, and a long
+          # prompt leaves proportionally less. Above 128K the proxy's context
+          # check hands the request to second-lieutenant (262K @ Hetzner).
           limit = {
-            context = 393216;
+            context = 131072;
             output = 65536;
           };
         };
@@ -113,17 +141,57 @@ let
           name = "Lieutenant (vision) — deep reasoning, multimodal";
           reasoning = true;
           attachment = true;  # same model as lieutenant; the -v slot carries vision
+          # Same deployment, same served window as `lieutenant` (see above).
           limit = {
-            context = 393216;
+            context = 131072;
             output = 65536;
           };
         };
-        "major" = {
-          name = "Major — previous-generation coding (paid)";
+        "captain" = {
+          name = "Captain — cheap fast coding (DeepSeek, paid)";
           reasoning = true;
-          # Text-only: the Kimi coding endpoint does not decode images
-          # (verified: 1x1 red/blue pixel tests answered "black"; the base64
-          # is tokenized as plain text), so no attachment flag.
+          # Text-only rank (deepseek-flash); the vision slot is captain-v.
+          limit = {
+            context = 1048576;
+            output = 393216;
+          };
+        };
+        "captain-v" = {
+          name = "Captain (vision) — cheap fast coding, multimodal (paid)";
+          reasoning = true;
+          attachment = true;  # deepseek-flash: input_modalities [text, image]
+          limit = {
+            context = 1048576;
+            output = 393216;
+          };
+        };
+        "captain-commandant" = {
+          name = "Captain Commandant — mid paid coding (Z.ai, then DeepSeek)";
+          reasoning = true;
+          # No -v sibling: glm-5-turbo and deepseek-v4-pro are both text-only.
+          # Group max: the Z.ai row serves 200K, deepseek-v4-pro 1M, so the
+          # pre-call check keeps a long prompt on the DeepSeek deployment.
+          limit = {
+            context = 1048576;
+            output = 393216;
+          };
+        };
+        "major" = {
+          name = "Major — strong coding, not frontier (paid)";
+          reasoning = true;
+          # Deployments: kimi-for-coding (K2.8) -> glm-5.3-flash -> deepseek-v4-pro.
+          # Text-only by rank contract (plain rank): all three deployments are
+          # image-capable, but images are addressed to major-v.
+          limit = {
+            context = 1048576;
+            output = 131072;
+          };
+        };
+        "major-v" = {
+          name = "Major (vision) — strong coding, multimodal (paid)";
+          reasoning = true;
+          attachment = true;  # kimi-for-coding (K2.8, image+video) then
+          # glm-5.3-flash (Z.ai multimodal line, 3x quota)
           limit = {
             context = 1048576;
             output = 131072;
@@ -132,8 +200,10 @@ let
         "lieutenant-colonel" = {
           name = "Lieutenant Colonel — frontier coding (paid)";
           reasoning = true;
+          # Deployments: glm-5.3 @ Z.ai -> k3 -> k3-256k @ Kimi.
+          # Group max: k3 serves 1,048,576; glm-5.3 1M; k3-256k 262K.
           limit = {
-            context = 1000000;
+            context = 1048576;
             output = 131072;
           };
         };
@@ -146,63 +216,157 @@ let
             output = 131072;
           };
         };
+        "brigadier-general" = {
+          name = "Brigadier General — k3.1-pro flagship (paid)";
+          reasoning = true;
+          # Text-only rank; the vision slot is brigadier-general-v. Thinking
+          # cannot be disabled on k3.1-pro — the proxy pins reasoning_effort.
+          limit = {
+            context = 1048576;
+            output = 131072;
+          };
+        };
+        "brigadier-general-v" = {
+          name = "Brigadier General (vision) — k3.1-pro multimodal (paid)";
+          reasoning = true;
+          attachment = true;  # Kimi model table: image+video; live test OK
+          limit = {
+            context = 1048576;
+            output = 131072;
+          };
+        };
 
-        # --- Hetzner free cloud (the two cloud deployments the ladder fronts,
-        #     under their own upstream ids; explicit selection) -------------
+        # --- explicit model names: one name per ranked model, spelled like the
+        #     upstream id, for callers that want the model and not the rank ------
+        # Kimi Code (legacy Allegretto plan: all six ids are entitled, and the
+        # 1M context on k3.1-pro / k3 is Allegretto's 1M tier).
+        "k3.1-pro" = {
+          name = "k3.1-pro @ Kimi (Brigadier General)";
+          reasoning = true;
+          attachment = true;  # Kimi model table: image+video; live pixel test
+          # 2026-11-17 on the K3.1 Pro line answered correctly
+          limit = {
+            context = 1048576;
+            output = 131072;
+          };
+        };
+        "k3" = {
+          name = "k3 @ Kimi (Lieutenant Colonel)";
+          reasoning = true;
+          attachment = true;  # Kimi model table: image+video; live pixel tests
+          # 2026-09 answered correctly
+          limit = {
+            context = 1048576;
+            output = 131072;
+          };
+        };
+        "k3-256k" = {
+          name = "k3-256k @ Kimi (Lieutenant Colonel, 262K)";
+          reasoning = true;
+          attachment = true;  # Kimi model table: image only (no video)
+          limit = {
+            context = 262144;
+            output = 131072;
+          };
+        };
+        "kimi-for-coding" = {
+          name = "kimi-for-coding @ Kimi (Major, K2.8)";
+          reasoning = true;
+          attachment = true;  # Kimi model table: image+video; live /v1/models
+          # reports supports_image_in true and a live pixel test on this id
+          # answered correctly (supersedes the old endpoint finding)
+          limit = {
+            context = 1048576;
+            output = 131072;
+          };
+        };
+        # Z.ai Coding Plan (subscription quota, coding endpoint only).
+        "glm-5.3" = {
+          name = "glm-5.3 @ Z.ai Coding Plan (Lieutenant Colonel)";
+          reasoning = true;
+          # GLM-5.3 is text-only by provider spec.
+          limit = {
+            context = 1000000;
+            output = 131072;
+          };
+        };
+        "glm-5.3-flash" = {
+          name = "glm-5.3-flash @ Z.ai Coding Plan (Major)";
+          reasoning = true;
+          attachment = true;  # the GLM-5.3 series' multimodal line
+          limit = {
+            context = 1000000;
+            output = 131072;
+          };
+        };
+        "glm-5-turbo" = {
+          name = "glm-5-turbo @ Z.ai Coding Plan (Captain Commandant)";
+          reasoning = true;
+          limit = {
+            context = 200000;
+            output = 131072;
+          };
+        };
+        # DeepSeek API (pay-per-token).
+        "deepseek-flash" = {
+          name = "deepseek-flash (Captain)";
+          reasoning = true;
+          attachment = true;
+          limit = {
+            context = 1048576;
+            output = 393216;
+          };
+        };
+        "deepseek-v4-pro" = {
+          name = "deepseek-v4-pro (Captain Commandant / Major)";
+          reasoning = true;
+          limit = {
+            context = 1048576;
+            output = 393216;
+          };
+        };
+        # Hetzner free cloud (the two cloud deployments the ladder fronts,
+        # under their own upstream ids; explicit selection).
         # Same two serving deployments as warrant-officer / second-lieutenant:
         # the endpoint answers the org-prefixed and the bare id of each model,
         # so all four ids are listed. Asking for one of these names means
         # asking for Hetzner — no local Studio failover (warrant-officer keeps
         # that), no cross-rank fallback, free tier so no cost.
         "Qwen/Qwen3.6-35B-A3B" = {
-          name = "Qwen3.6-35B-A3B @ Hetzner (free cloud)";
+          name = "Qwen3.6-35B-A3B @ Hetzner (Warrant Officer, free cloud)";
           limit = {
             context = 262144;
             output = 32768;
           };
         };
         "Qwen/Qwen3.6-35B-A3B-FP8" = {
-          name = "Qwen3.6-35B-A3B-FP8 @ Hetzner (free cloud)";
+          name = "Qwen3.6-35B-A3B-FP8 @ Hetzner (Warrant Officer, free cloud)";
           limit = {
             context = 262144;
             output = 32768;
           };
         };
         "Qwen/Qwen3.8-27B" = {
-          name = "Qwen3.8-27B @ Hetzner (free cloud)";
+          name = "Qwen3.8-27B @ Hetzner (Second Lieutenant, free cloud)";
           limit = {
             context = 262144;
             output = 32768;
           };
         };
         "Qwen3.8-27B" = {
-          name = "Qwen3.8-27B @ Hetzner (free cloud)";
+          name = "Qwen3.8-27B @ Hetzner (Second Lieutenant, free cloud)";
           limit = {
             context = 262144;
             output = 32768;
           };
         };
 
-        # --- unranked (pay-as-you-go pool; explicit selection) -----------
-        "deepseek-flash" = {
-          name = "deepseek-flash (paid escalation)";
-          reasoning = true;
-          attachment = true;
-          limit = {
-            context = 1000000;
-            output = 384000;
-          };
-        };
-        "deepseek-v4-pro" = {
-          name = "deepseek-v4-pro (paid escalation)";
-          reasoning = true;
-          limit = {
-            context = 1000000;
-            output = 384000;
-          };
-        };
+        # --- unranked (CheaperInference pay-as-you-go pool; explicit selection) ---
+        # No model of the four ranked providers is unranked; this pool is the
+        # reseller's OpenAI/Anthropic catalogue plus glm-5.3-payg, the cash twin
+        # of the Coding Plan's glm-5.3.
         "deepseek-v4.1-flash" = {
-          name = "deepseek-v4.1-flash (paid escalation, CI)";
+          name = "deepseek-v4.1-flash (paid, CI: Captain's model at 56% off)";
           reasoning = true;
           attachment = true;
           limit = {
@@ -211,7 +375,7 @@ let
           };
         };
         "gpt-5.6-luna" = {
-          name = "gpt-5.6-luna (paid escalation)";
+          name = "gpt-5.6-luna (paid escalation, CI)";
           reasoning = true;
           attachment = true;
           limit = {
@@ -220,7 +384,7 @@ let
           };
         };
         "claude-sonnet-5.5" = {
-          name = "claude-sonnet-5.5 (paid escalation)";
+          name = "claude-sonnet-5.5 (paid escalation, CI)";
           reasoning = true;
           attachment = true;
           limit = {
@@ -229,7 +393,7 @@ let
           };
         };
         "claude-opus-5.5" = {
-          name = "claude-opus-5.5 (paid escalation)";
+          name = "claude-opus-5.5 (paid escalation, CI)";
           reasoning = true;
           attachment = true;
           limit = {
@@ -237,12 +401,12 @@ let
             output = 128000;
           };
         };
-        "glm-5.3" = {
-          name = "glm-5.3 (paid, per-token)";
+        "glm-5.3-payg" = {
+          name = "glm-5.3-payg (paid, per-token, CI)";
           reasoning = true;
           limit = {
             context = 1000000;
-            output = 1000000;
+            output = 131072;
           };
         };
       };

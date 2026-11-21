@@ -8,6 +8,20 @@
 # "API mismatch: the client nvidia-ctk" and
 # "Failed to initialize NVML: Driver/Library version mismatch".
 #
+# THE PINNED KERNEL IS `linux_6_12` (see the mkForce below). A kernel update
+# must be checked against EVERYTHING built against or inside it, not just
+# nixpkgs:
+#   1. the NVIDIA stack (this file): the driver must come from the same
+#      evaluation as the kernel (see above), and the open/proprietary module
+#      split must still fit the card;
+#   2. the USB Wi-Fi driver: server-nike's RTL8191SU/RTL8188SU dongles run on
+#      r8712u, which mainline removed in the 6.12 merge window (last in-tree
+#      kernel: 6.11). The pinned linux_6_12 therefore already has NO in-tree
+#      driver — it comes from the out-of-tree package packages/r8712u
+#      (hardware/usb-wifi.nix). A kernel bump must keep that package
+#      building: `nix build .#r8712u` against the new kernel; if it no longer
+#      compiles, update the pinned rev in packages/r8712u/default.nix first.
+#
 # The proprietary modules are used on both hosts. On these cards the open
 # modules spin kwin_wayland and kmscon on their KMS/DRM paths.
 {

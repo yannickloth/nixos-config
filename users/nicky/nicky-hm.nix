@@ -206,13 +206,14 @@ in
   # localhost). GPU-gated to laptop-p16 only: its RTX A3000 12GB (sm_86) + 128 GiB
   # RAM qualify. server-nike is the daily workstation — no Strata engine here. The
   # opencode strata-local provider (users/opencode.nix) reaches P16 over Tailscale
-  # instead of localhost. `strata --setup` still downloads the model (~70-84 GB) into
-  # Strata's data folder; `dataOnDataVolume` keeps it on /data.
+  # instead of localhost. `dataOnDataVolume` keeps the model files on /data.
   #
+  # Upstream 0.2.17: route-tail-skip OFF by default, setup keeps 17 GB RAM (not 24).
+  # The engine is an upstream engine component (versioned, per-file manifest)
+  # built in the Nix store — the app and the Terminal are version-locked together.
   # All engine tuning (context, KV format, rope scaling, PCIe fraction, pool
   # workers, adapt-every, spec-min-p) is left to `strata --setup` at runtime.
-  # Nix manages only service lifecycle: start/stop, GPU handoff, deployment
-  # layout, and the mandatory --expert-cache flag (native packs refuse without it).
+  # Nix manages only service lifecycle: start/stop, GPU handoff, deployment layout.
   strata = lib.mkIf isP16 {
     enable = true;
     # Reachable beyond loopback (the other inference host, the LAN, the

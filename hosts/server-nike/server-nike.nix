@@ -44,6 +44,11 @@ with lib;
       services.printing.enable = lib.mkForce true;
     }
 
+    # USB Wi-Fi dongles (two Realtek RTL8191SU/RTL8188SU sticks). Driven by
+    # the in-tree r8712u staging driver, which only exists in kernels <= 6.12 -
+    # see hardware/usb-wifi.nix for the kernel-update constraint.
+    ../../hardware/usb-wifi.nix
+
     # PostgreSQL backs the LiteLLM proxy's admin UI, virtual keys and spend
     # ledger. The module creates the `litellm` role/database only when the
     # proxy is enabled (services/postgresql.nix).

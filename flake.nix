@@ -19,11 +19,14 @@
     namaka.inputs.nixpkgs.follows = "nixpkgs";
     namaka.inputs.haumea.inputs.nixpkgs.follows = "nixpkgs";
     # Strata (github.com/Niko1221/Strata) is not a flake input: packages/strata
-    # fetches it directly with fetchFromGitHub, pinned to v0.2.15 (engine 0.1.60;
-    # the app and the engine are versioned separately since 0.2.0) in
-    # engine.nix/default.nix. (It used to be the private yannickloth/forks-Strata
-    # fork's sm_86 branch; upstream 0.1.40.3 now carries every engine change the
-    # fork had, so the fork only added a bench harness - see git history.)
+    # fetches it directly with fetchFromGitHub, pinned to v0.2.17 (engine 0.1.63,
+    # feed 129). The engine is a separately-versioned CUDA build (engine.nix) and
+    # the desktop AppImage is a separate package (desktop.nix), version-locked to
+    # the Terminal in the flake declaration. (Since 0.2.16 the engine is an
+    # "engine component" with a per-file SHA-256 manifest — both the Terminal and
+    # the desktop app install models through setup.py in CONTROL mode, writing
+    # exe: "component:strata-engine". The store engine is installed into the
+    # component folder by the wrapper and by strata-server.)
     # hermes-agent packaging (packages/hermes-agent): builds the upstream
     # uv.lock into a Python virtualenv. Pin all three to this repo's
     # nixpkgs-unstable so there is a single evaluation of nixpkgs.
@@ -369,6 +372,23 @@
             assert "args_written" not in cfg, cfg
             ' "$STRATA_HOME/strata-kvnone.json"
 
+            # 6c. component migration: a config with a legacy store-path `exe`
+            #     (from a Nix build before 0.2.16) must be migrated to
+            #     `component:strata-engine` in one pass. Idempotent: no change
+            #     on rerun.
+            printf '{"exe":"/nix/store/abc123-strata-0.2.15/bin/strata","args":["--expert-cache","auto"]}' > "$STRATA_HOME/strata-migrate.json"
+            python3 ${./packages/strata/config_patch.py} ${strataShare} true
+            grep -q '"component:strata-engine"' "$STRATA_HOME/strata-migrate.json"
+            grep -q '"exe":"/nix/store' "$STRATA_HOME/strata-migrate.json" && { echo "migration did not replace exe" >&2; exit 1; }
+
+            # 6d. component migration idempotent: a second run must not change
+            #     the file (mtime stays).
+            m1=$(stat -c %Y "$STRATA_HOME/strata-migrate.json")
+            sleep 1
+            python3 ${./packages/strata/config_patch.py} ${strataShare} true
+            m2=$(stat -c %Y "$STRATA_HOME/strata-migrate.json")
+            [ "$m1" = "$m2" ] || { echo "migrated config rewritten on rerun" >&2; exit 1; }
+
             # 7. last, because this file makes EVERY later run fail: an
             #    unreadable config is a hard failure, since this script is the
             #    enforcement point of the policy and must not fail open with
@@ -403,7 +423,7 @@
           # deployment decides that separately with `strata.visionEncoder`
           # (binary present, setup asks) and `strata.vision` (images by
           # default). Serving images drops throughput from ~35 to ~22 tok/s.
-          strata = pkgs.callPackage ./packages/strata { vision = false; };
+          strata = pkgs.callPackage ./packages/strata {};
           # Orca (packages/orca): the released Electron AppImage wrapped as a
           # normal derivation (appimageTools.wrapType2). Consumed via home-manager
           # (packages/orca/home.nix) and also exposed here for `nix build .#orca`
@@ -425,6 +445,16 @@
           # Microsoft Aptos font family; consumed via roles/fonts.nix and also
           # exposed here so `nix build .#aptos` works.
           aptos = pkgs.callPackage ./packages/aptos { };
+          # r8712u (packages/r8712u): out-of-tree kernel module for the
+          # RTL8191SU/RTL8188SU USB Wi-Fi dongles on server-nike (consumed by
+          # hardware/usb-wifi.nix). Mainline removed the staging driver in
+          # 6.12, so the pinned linux_6_12 kernel cannot provide it. Pinned to
+          # linux_6_12 here only for `nix build .#r8712u`; the system builds
+          # it against config.boot.kernelPackages instead.
+          r8712u = pkgs.callPackage ./packages/r8712u {
+            kernel = pkgs.linuxKernel.kernels.linux_6_12;
+            kernelModuleMakeFlags = pkgs.linuxKernel.packages.linux_6_12.kernelModuleMakeFlags;
+          };
         };
 
       nixosConfigurations =
@@ -487,7 +517,12 @@
           # zen kernel; p16 overrides it to the unstable zen set, hera to XanMod
           # for its Pascal + legacy driver, and server-nike overrides it inside
           # the host file (mkForce), because its NVIDIA driver must come from the
-          # same evaluation as the kernel.
+          # same evaluation as the kernel. When bumping any host's kernel, also
+          # re-check the out-of-tree / in-tree module constraints pinned to it
+          # (NVIDIA on the Ampere hosts - hardware/nvidia_ampere.nix; and
+          # server-nike's r8712u USB Wi-Fi driver, out-of-tree because mainline
+          # removed the staging driver in 6.12 - packages/r8712u +
+          # hardware/usb-wifi.nix).
           mkHost =
             {
               configModule,

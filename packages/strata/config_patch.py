@@ -42,6 +42,12 @@
 # args do not have was added by hand"). This script leaves such a file without
 # "args_written" rather than inventing it, because inventing it would mark those
 # hand edits as generated - and the next `strata --setup` would drop them.
+#
+# Component migration (0.2.16+): configs from older Nix builds have
+# `exe` pointing at a store path (e.g. /nix/store/.../strata-0.2.15/bin/strata)
+# or a legacy engine/ path. In 0.2.16+ both `strata launch` and the desktop
+# app write `exe: "component:strata-engine"` (the upstream component model).
+# This script does one-time, idempotent migration: path → component reference.
 import glob, json, os, sys
 
 # argv[1]: the runtime share path - upstream's own strata_control/user_args.py
@@ -63,6 +69,48 @@ from strata_control import user_args as UA
 POLICY = {
     "--expert-cache",
 }
+
+# --- Component migration (0.2.16+) ---
+# Migrates old path-based `exe` to `component:strata-engine`. Idempotent:
+# once written, it's stable (no mtime change on rerun). Also migrates
+# `vision.exe` paths the same way. Done before the policy rewrite because
+# the policy rewrite already touches the file; doing migration first means
+# the config only gets written once.
+component_ref = "component:strata-engine"
+for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
+    if p.endswith(".shared-settings.json"):
+        continue
+    try:
+        with open(p, encoding="utf-8") as f:
+            text = f.read()
+        c = json.loads(text)
+        if not isinstance(c, dict):
+            continue
+        migrated = False
+        # Migrate main exe
+        exe = c.get("exe")
+        if exe and not exe.startswith(component_ref) and not exe.startswith("component:"):
+            # Check if it looks like a store path (starts with /nix/store)
+            # or a legacy engine/ relative path. Skip anything that looks
+            # like a .gguf model file path.
+            if exe.startswith("/nix/store") or exe.startswith("./engine/") or exe.startswith("engine/"):
+                c["exe"] = component_ref
+                migrated = True
+        # Migrate vision.exe
+        vision = c.get("vision")
+        if isinstance(vision, dict):
+            vexe = vision.get("exe")
+            if vexe and not vexe.startswith(component_ref) and not vexe.startswith("component:"):
+                if vexe.startswith("/nix/store") or vexe.startswith("./engine/") or vexe.startswith("engine/"):
+                    vision["exe"] = component_ref
+                    migrated = True
+        if migrated:
+            tmp = p + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(json.dumps(c, indent=1))
+            os.replace(tmp, p)
+    except Exception:
+        pass  # migration failures are non-fatal, skip to policy check
 
 failed = []
 for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):

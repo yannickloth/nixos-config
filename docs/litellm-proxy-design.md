@@ -9,9 +9,10 @@ http://server-nike.bee-blues.ts.net:4000/v1
 ```
 
 opencode, pi and any other client speak the same protocol and select a **rank
-name** (the standing ladder in `docs/ai-ranks.md`) or a plain model id (the
-paid, explicit-selection pool). The proxy owns routing, deployment priority,
-retries, timeouts, cross-rank fallbacks and cost tracking.
+name** (the ladder in `docs/ai-ranks.md`), an **explicit model id** of a ranked
+model (spelled like the upstream id), or an **unranked pay-as-you-go id**
+(CheaperInference only). The proxy owns routing, deployment priority, retries,
+timeouts, cross-rank fallbacks and cost tracking.
 
 The proxy runs on **server-nike** only. Other hosts are clients over
 Tailscale; there is no proxy on laptop-p16, laptop-hera, laptop-xps or
@@ -68,40 +69,45 @@ its `model_list`.
 | Warrant Officer (OR-8) | `warrant-officer` | 1: Qwen3.6 @ Hetzner · 2: Qwen3.6 @ Studio | 262144 / 131072 | same model; free-cloud primary, local fallback |
 | Warrant Officer (vision) | `warrant-officer-v` | same deployments as `warrant-officer` | 262144 / 131072 | same model; the `-v` slot carries vision (both deployments are vision-capable, verified) |
 | Second Lieutenant (OF-1a) | `second-lieutenant` | Qwen3.8-27B @ Hetzner | 262144 | free cloud |
-| Lieutenant (OF-1b) | `lieutenant` | Swift 1.5 @ Strata | 393216 | default; `max_parallel_requests: 1` so a busy engine 429s into the next rank |
-| Lieutenant (vision) | `lieutenant-v` | same deployment as `lieutenant` | 393216 | same model; the `-v` slot carries vision |
-| Major (OF-4) | `major` | `kimi-for-coding` @ Kimi | 1048576 | previous generation, explicit |
-| Lieutenant Colonel (OF-5) | `lieutenant-colonel` | `glm-5.3` @ Z.AI | 1000000 | text-only, explicit |
-| Lieutenant Colonel, vision (OF-5) | `lieutenant-colonel-v` | 1: `k3-256k` · 2: `k3` @ Kimi · 3: `glm-5.3-flash` @ Z.AI | 262144 / 1048576 / 1000000 | cost-ordered multimodal deployments |
+| Lieutenant (OF-1b) | `lieutenant` | Swift 1.5 @ Strata | 131072 | default; `max_parallel_requests: 1` so a busy engine 429s into the next rank; 131072 is the engine's probed window on p16 (`--max-context`, live `n_ctx`), not the model's native 384K |
+| Lieutenant (vision) | `lieutenant-v` | same deployment as `lieutenant` | 131072 | same model; the `-v` slot carries vision |
+| Captain (OF-2) | `captain` | `deepseek-flash` @ DeepSeek | 1048576 | pay-per-token, explicit; cost-mapped |
+| Captain (vision) | `captain-v` | `deepseek-flash` @ DeepSeek | 1048576 | image input per `GET /v1/models` |
+| Captain Commandant (OF-3) | `captain-commandant` | 1: `glm-5-turbo` @ Z.AI · 2: `deepseek-v4-pro` @ DeepSeek | 200000 / 1048576 | subscription first; both text-only, no `-v` |
+| Major (OF-4) | `major` | 1: `kimi-for-coding` @ Kimi · 2: `glm-5.3-flash` @ Z.AI · 3: `deepseek-v4-pro` @ DeepSeek | 1048576 / 1000000 / 1048576 | text-only by contract (all three deployments image-capable; images go to `major-v`) |
+| Major (vision) | `major-v` | 1: `kimi-for-coding` @ Kimi · 2: `glm-5.3-flash` @ Z.AI | 1048576 / 1000000 | K2.8 per docs + live endpoint metadata (see Vision verification); the Z.ai row is the 3×-quota fallback |
+| Lieutenant Colonel (OF-5) | `lieutenant-colonel` | 1: `glm-5.3` @ Z.AI · 2: `k3` @ Kimi · 3: `k3-256k` @ Kimi | 1000000 / 1048576 / 262144 | frontier tier, all subscription |
+| Lieutenant Colonel, vision (OF-5) | `lieutenant-colonel-v` | 1: `k3` · 2: `k3-256k` @ Kimi | 1048576 / 262144 | `glm-5.3` absent (text-only model); K3 line per model table + live metadata, third-party pixel tests OK; through-proxy test is the remaining TODO |
+| Brigadier General (OF-6) | `brigadier-general` | `k3.1-pro` @ Kimi | 1048576 | thinking-only; proxy pins `reasoning_effort: high` |
+| Brigadier General (vision) | `brigadier-general-v` | `k3.1-pro` @ Kimi | 1048576 | model table image+video; live pixel test 2026-11-17 OK; through-proxy test is the remaining TODO |
 
-Paid, unranked ids (explicit selection only, never auto-fallback):
+Every ranked model also has an **explicit model name**, spelled exactly like the
+upstream id — one name, one deployment, no failover in or out:
+
+| Proxy name (= the upstream id) | Backend |
+| --- | --- |
+| `k3.1-pro` · `k3` · `k3-256k` · `kimi-for-coding` | Kimi |
+| `glm-5.3` · `glm-5.3-flash` · `glm-5-turbo` | Z.AI Coding Plan |
+| `deepseek-flash` · `deepseek-v4-pro` | DeepSeek direct |
+| `Qwen/Qwen3.6-35B-A3B` · `Qwen/Qwen3.6-35B-A3B-FP8` | 35B-A3B MoE @ Hetzner (FP8 weights) — the `warrant-officer` cloud deployment, without its Studio failover |
+| `Qwen/Qwen3.8-27B` · `Qwen3.8-27B` | dense 27B @ Hetzner — the `second-lieutenant` deployment |
+
+Unranked pay-as-you-go (explicit selection only, never auto-fallback) is
+**CheaperInference only** — the reseller's OpenAI/Anthropic catalogue plus the
+cash twin of the Coding Plan's GLM-5.3:
 
 | Proxy name | Backend |
 | --- | --- |
-| `deepseek-flash` | DeepSeek direct |
-| `deepseek-v4-pro` | DeepSeek direct |
 | `deepseek-v4.1-flash` | CheaperInference |
 | `gpt-5.6-luna` | CheaperInference |
 | `claude-sonnet-5.5` | CheaperInference |
 | `claude-opus-5.5` | CheaperInference |
-| `glm-5.3` | CheaperInference pay-per-token (the Coding Plan `glm-5.3` is `lieutenant-colonel`) |
+| `glm-5.3-payg` | CheaperInference pay-per-token (named `-payg` so the plan id `glm-5.3` stays the subscription) |
 
-Free-cloud ids (Hetzner, explicit selection). The endpoint answers `GET /v1/models`
-with exactly these four ids over two serving deployments, so the proxy exposes
-them verbatim next to the ranks that front the same models:
-
-| Proxy name (= the upstream id) | Serving deployment | Context |
-| --- | --- | --- |
-| `Qwen/Qwen3.6-35B-A3B` | 35B-A3B MoE @ Hetzner (FP8 weights) | 262144 |
-| `Qwen/Qwen3.6-35B-A3B-FP8` | the same deployment | 262144 |
-| `Qwen/Qwen3.8-27B` | dense 27B @ Hetzner | 262144 |
-| `Qwen3.8-27B` | the same deployment | 262144 |
-
-Asking for one of these names lands on that single deployment: no Studio
+Asking for an explicit name lands on that single deployment: no Studio
 failover (that is `warrant-officer`'s job), no cross-rank fallback in or out.
-Free tier, so zero cost. Both models are natively multimodal (verified by
-pixel-color tests), so these ids can carry images too; the rank names stay
-the recommended path.
+Both Hetzner models are natively multimodal (verified by pixel-color tests), so
+their ids can carry images too; the rank names stay the recommended path.
 
 ## Routing behavior
 
@@ -109,27 +115,46 @@ the recommended path.
   first; `simple-shuffle` picks randomly only within the current order tier.
   No `rpm`, `tpm` or `weight` knobs are used.
 - **Intra-rank failover** is a same-`model_name` deployment list. The router
-  retries within the tier, then moves to the next order tier.
+  retries within the tier, then moves to the next order tier. Multi-model ranks
+  order their deployments subscription → pay-per-token → free cloud → local, so
+  a quota-exhausted subscription is the first tier to be promoted through.
 - **Cross-rank fallbacks stop at warrant-officer**:
   `lieutenant → second-lieutenant → warrant-officer`. Sergeant is a different
   Studio model, so auto-falling into it would force an unload/load; it is
-  explicit-selection-only. Paid ranks have no fallback in or out: silent cost
-  escalation is worse than a visible error.
+  explicit-selection-only. Paid ranks (`captain`, `captain-v`,
+  `captain-commandant`, `major`, `major-v`, `lieutenant-colonel`,
+  `lieutenant-colonel-v`, `brigadier-general`, `brigadier-general-v`) and every
+  explicit model id have no fallback in or out: silent cost escalation is
+  worse than a visible error.
+- **The pre-call context check enforces the local ceiling.** The Strata rows'
+  `max_input_tokens: 131072` is the window the engine serves on laptop-p16
+  (`--max-context`, live `n_ctx`), so a prompt above 128K drops `lieutenant` /
+  `lieutenant-v` and the request lands on the 262K free-cloud deployment of the
+  next rank. Long context is the free cloud's job; the local rank is the
+  deep-reasoning default with a 128K window.
 - **Vision lives on `-v` ranks**: the ladder ranks whose models are natively
   multimodal get a `-v` sibling serving the same model (`warrant-officer-v`,
   `lieutenant-v` — both verified by pixel-color tests; `second-lieutenant`'s
-  Qwen3.8-27B accepts images too but stays text-only by contract). A plain
-  rank is text-only by contract, so its model can be swapped freely and no
-  caller expects vision from it. LiteLLM does **no** vision filtering
-  (verified in 1.86.0: no pre-call check inspects message content), so an
-  image reaches whatever deployment the router picks — which is why every
-  deployment behind a `-v` name is vision-capable, and why opencode/pi only
-  send images to attachment-capable names in the first place. The vision
-  cascade is `lieutenant-v → warrant-officer-v` and never leaves the `-v`
-  ladder.
+  Qwen3.8-27B accepts images too but stays text-only by contract). Paid
+  vision slots: `captain-v` (deepseek-flash, provider-spec modality),
+  `major-v` (1: kimi-for-coding → 2: glm-5.3-flash — K2.8 is image-capable per
+  Kimi's model table + live endpoint metadata + third-party pixel tests,
+  glm-5.3-flash is Z.ai's documented multimodal line),
+  `lieutenant-colonel-v` (k3 / k3-256k, model table + live
+  `GET /coding/v1/models` metadata), `brigadier-general-v` (k3.1-pro, model
+  table + live pixel test 2026-11-17). `captain-commandant` has no `-v` sibling: both of
+  its models are text-only. A plain rank is text-only by contract, so its
+  model can be swapped freely and no caller expects vision from it. LiteLLM
+  does **no** vision filtering (verified in 1.86.0: no pre-call check inspects
+  message content), so an image reaches whatever deployment the router picks —
+  which is why every deployment behind a `-v` name is vision-capable (see
+  docs/ai-ranks.md "Vision verification" for what is verified vs provider-spec),
+  and why opencode/pi only send images to attachment-capable names in the
+  first place. The vision cascade is `lieutenant-v → warrant-officer-v` and
+  never leaves the `-v` ladder; paid `-v` ranks do not cascade at all.
 - **Pre-call checks** drop deployments whose `max_input_tokens` is below the
-  prompt length before a provider call, so a 300K prompt skips the 10K / 256K
-  deployments without burning quota.
+  prompt length before a provider call, so a 300K prompt skips the 200K
+  (`glm-5-turbo`) / 262K (`k3-256k`) deployments without burning quota.
 - **Session affinity** pins a conversation to the deployment that served its
   first request when the client sends a session id. No-op for clients that do
   not; a cooled-down pin falls through to healthy deployments.
@@ -152,19 +177,22 @@ rejecting provider-specific fields they do not understand.
 ## Cost tracking
 
 LiteLLM prices a deployment from its cost map by provider/model. The standing
-stack is explicitly zero-cost:
+stack and every subscription deployment are explicitly zero-cost:
 
 - local Studio / Strata deployments: hardware, no per-token charge;
-- subscription deployments (`major`, `lieutenant-colonel`,
-  `lieutenant-colonel-v`): quota, not tokens;
+- subscription deployments (`captain-commandant`'s Z.ai row, `major`,
+  `major-v`, `lieutenant-colonel`, `lieutenant-colonel-v`,
+  `brigadier-general`, `brigadier-general-v`, and the Kimi / Z.ai explicit
+  ids): quota, not tokens;
 - Hetzner deployments (the `warrant-officer` / `second-lieutenant` cloud
   deployments and the four free-cloud ids): free tier, no per-token charge.
 
-Paid deployments use the cost map where a row exists (`deepseek-flash`,
-`deepseek-v4-pro`, `gpt-5.6-luna`). The other CheaperInference rows
-(`deepseek-v4.1-flash`, `claude-sonnet-5.5`, `claude-opus-5.5`, `glm-5.3`) have
-no upstream row in LiteLLM 1.86.0, so they are pinned to zero with a TODO until
-the discounted rates are known.
+The DeepSeek rows (`captain` / `captain-v`, `captain-commandant`'s cash row,
+`major`'s order-3 row, and the `deepseek-flash` / `deepseek-v4-pro` explicit
+ids) have cost-map rows, so they are priced normally. `gpt-5.6-luna` likewise.
+The other CheaperInference rows (`deepseek-v4.1-flash`, `claude-sonnet-5.5`,
+`claude-opus-5.5`, `glm-5.3-payg`) have no upstream row in LiteLLM 1.86.0, so
+they are pinned to zero with a TODO until the discounted rates are known.
 
 Spend, virtual keys, budgets and the admin UI live in PostgreSQL 18 on
 server-nike (`services/postgresql.nix`, dedicated `litellm` role/database).
@@ -227,18 +255,19 @@ opencode and pi have one provider:
       "apiKey": "{file:~/.config/opencode/keys/litellm-proxy.key}"
     },
     "models": {
-      "lieutenant": { "name": "Lieutenant — deep reasoning (default)", "limit": { "context": 393216, "output": 65536 } },
+      "lieutenant": { "name": "Lieutenant — deep reasoning (default)", "limit": { "context": 131072, "output": 65536 } },
       "sergeant": { "name": "Sergeant — fast executor", "limit": { "context": 128256, "output": 65536 } }
     }
   }
 }
 ```
 
-The full table also carries `warrant-officer`, `second-lieutenant`, the four
-Hetzner ids, the paid ranks and the other unranked ids. The client table only
-holds display names, the researched context/output limits (opencode compacts at
-`limit.context`) and the modality flags consumed by pi. Routing and deployment
-metadata live in the proxy config; keep the two in step when adding a model.
+The full table also carries the other ranks (including every `-v` slot), the
+explicit model ids of the ranked models, the four Hetzner ids and the
+unranked CheaperInference ids. The client table only holds display names, the
+researched context/output limits (opencode compacts at `limit.context`) and the
+modality flags consumed by pi. Routing and deployment metadata live in the
+proxy config; keep the two in step when adding a model.
 
 `model` defaults to `proxy/lieutenant` on every host. pi reads the same
 provider from `~/.pi/agent/models.json`, generated from the same Nix table, with

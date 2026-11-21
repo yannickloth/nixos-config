@@ -3,33 +3,28 @@
 #   imports = [ ../../packages/strata/home.nix ];
 #   strata.enable = true;   # gated on the host with the CUDA GPU (laptop-p16)
 #
-# Installs `strata` (first-run setup + foreground start), `strata-chat` and
-# `strata-server`. The first `strata` run asks the model/size/context questions
-# and downloads the model (~70-84 GB per quantization) into Strata's data
-# folder, ~/.local/share/Strata-data (models/, packs/, mtp/, dflash2/); the
-# runtime tree it runs from is ~/.local/share/strata (override with
-# STRATA_HOME). `dataOnDataVolume = true` puts both on the /data volume.
+# Installs `strata` (Terminal CLI entry point + launcher), `strata-chat`,
+# `strata-server`, and the desktop AppImage.
 #
-# All engine tuning is left to `strata --setup` at runtime: the configPatch
-# script (run on every engine start) re-asserts only --expert-cache (native
-# packs refuse to start without it) and drops a stale "vision" block when this
-# package ships no encoder. The `context` option is the one knob Nix still
-# passes - as `--context` to a first-run setup when set, null (the default)
-# leaves the window entirely to the runtime.
+# The engine is installed as an upstream engine component (~/.local/share/strata/
+# components/engine/0.1.63-linux-x86_64-cuda/) with a per-file SHA-256 manifest,
+# built in the Nix store by engine.nix. The Terminal tree (setup.py, strata.py,
+# serve/, strata_cli/, strata_control/, tools/, data/, requirements*.txt) is
+# refreshed from the store on every `strata` invocation. Both `strata launch`
+# (Terminal) and the desktop app install models through setup.py in CONTROL mode,
+# writing `exe: "component:strata-engine"`.
 #
-# `strata-server` is the always-on, engine-optional server behind the Unsloth
-# Studio integration (Studio's Custom provider points at
-# http://127.0.0.1:8080/v1). It passes `--lazy` (upstream's replacement for the
-# fork's removed `--no-preload`): it holds no model until a request arrives, then
-# frees the ~55 GB of RAM and most of the 12 GB card again after
-# STRATA_IDLE_UNLOAD seconds (default 300) without a request, reloading on the
-# next one. With `vision` on the engine is preloaded instead:
-# `--lazy` is dropped so the image encoder is ready. Vision is off by default
-# (using the encoder costs ~35 -> ~22 tok/s), so the server runs `--lazy`; the
-# ENCODER is still shipped by default on this host (`visionEncoder`), so
-# `strata --setup` can turn images on per run without a rebuild. Runs as a user
-# service so Studio can reach it whenever; Studio's own models keep the GPU the
-# rest of the time.
+# Upstream 0.2.17 changes:
+# - Route-tail-skip is OFF by default (strata Control sets
+#   STRATA_ROUTE_TAIL_SKIP=0 per start). Bench baseline delta expected.
+# - Setup leaves 17 GB of RAM free (not 24): only affects non-fitting models
+#   on PCs with <128 GB RAM. Our 125B is fully resident.
+# - Engine 0.1.63, feed 129: no Nix involvement needed for the engine
+#   (we build it in the store).
+#
+# `dataOnDataVolume = true` moves both the runtime tree and the data folder
+# (~70-120 GB) to the /data volume, leaving symlinks in place so existing
+# paths resolve unchanged.
 { config, lib, pkgs, ... }:
 with lib;
 let
@@ -253,6 +248,16 @@ in
           # that is told to serve images it cannot encode.
           assertion = !cfg.vision || cfg.visionEncoder;
           message = "strata.vision = true needs strata.visionEncoder = true: the package must ship the strata-vision encoder it is told to serve with.";
+        }
+        {
+          # Desktop app and Terminal must be the same version: the AppImage
+          # cannot update itself from the Nix store (write-protected), so
+          # any version mismatch means the app has no engine (ships none
+          # since 0.2.5) or a divergent one. Enforced by checking that
+          # the desktop package's version (from desktop.nix) equals the
+          # Terminal package's version (from default.nix).
+          assertion = !cfg.desktop.enable || cfg.package.meta.version == desktop.passthru.version;
+          message = "strata.desktop.enable = true requires the desktop AppImage to be at the same version as the Terminal package: Terminal is ${cfg.package.meta.version} but desktop.nix has ${desktop.passthru.version}. Bump both in the same change.";
         }
       ];
 
