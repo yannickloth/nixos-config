@@ -42,3 +42,6 @@ laptop-*-dotconfig-syncthing/
 laptop-*-dotconfig-syncthing.zip
 # Home network inventory (MAC addresses, IPs, SSIDs). Keep local only.
 network-devices.md
+
+# direnv cache (local per-shell state, not source)
+.direnv/
