@@ -43,11 +43,21 @@
 # "args_written" rather than inventing it, because inventing it would mark those
 # hand edits as generated - and the next `strata --setup` would drop them.
 #
-# Component migration (0.2.16+): configs from older Nix builds have
-# `exe` pointing at a store path (e.g. /nix/store/.../strata-0.2.15/bin/strata)
-# or a legacy engine/ path. In 0.2.16+ both `strata launch` and the desktop
-# app write `exe: "component:strata-engine"` (the upstream component model).
-# This script does one-time, idempotent migration: path → component reference.
+# Component migration (0.2.16+): configurations written by older packages name
+# the engine by path. Up to 0.2.15 this package kept it at
+# $STRATA_HOME/engine/strata (a symlink into the store), so a run config holds
+# an absolute path there; an older Nix build could also point into /nix/store
+# directly. 0.2.17 keeps the engine in the component folder instead, and both
+# `strata launch` and the desktop app write `exe: "component:strata-engine"`.
+# This script rewrites every such path once; a component reference is left as
+# it is, so a rerun changes nothing.
+#
+# `vision.exe` is NOT rewritten to a component reference: a reference always
+# resolves to the engine entrypoint (serve/server.py -> _component_exe ->
+# engine_component.expand), which would start the engine as the picture
+# reader. It is written as the absolute path of the reader inside the
+# component folder, which is where setup.py puts it and where
+# serve/server.py's with_current_reader() looks for it.
 import glob, json, os, sys
 
 # argv[1]: the runtime share path - upstream's own strata_control/user_args.py
@@ -55,9 +65,18 @@ import glob, json, os, sys
 # drift apart (it is stdlib-only).
 # argv[2]: "true"/"false" - whether THIS package ships the vision encoder
 # (packages/strata/default.nix, visionEncoder): see the "vision" rule above.
+# argv[3]: the component folder name ("0.1.63-linux-x86_64-cuda"); optional, so
+# a call without it simply skips the vision.exe rewrite.
 share = sys.argv[1]
 vision_encoder = sys.argv[2] == "true"
+component_folder = sys.argv[3] if len(sys.argv) > 3 else ""
 home = os.environ.get("STRATA_HOME") or os.path.expanduser("~/.local/share/strata")
+
+# Where upstream keeps the engine packages: components_dir() in
+# strata_control/engine_component.py uses XDG_DATA_HOME, not STRATA_HOME.
+components = os.path.join(
+    os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "strata", "components")
+vision_exe = os.path.join(components, "engine", component_folder, "strata-vision") if component_folder else ""
 
 sys.path.insert(0, share)
 from strata_control import user_args as UA
@@ -71,12 +90,29 @@ POLICY = {
 }
 
 # --- Component migration (0.2.16+) ---
-# Migrates old path-based `exe` to `component:strata-engine`. Idempotent:
-# once written, it's stable (no mtime change on rerun). Also migrates
-# `vision.exe` paths the same way. Done before the policy rewrite because
-# the policy rewrite already touches the file; doing migration first means
-# the config only gets written once.
+# Rewrites a path-based `exe` to the component reference. Idempotent: once
+# written, a rerun changes nothing (so the mtime order strata-server uses to
+# pick the served model survives). Done before the policy rewrite because that
+# rewrite already touches the file; doing it first means one write, not two.
 component_ref = "component:strata-engine"
+
+
+def stale_path(value):
+    """True for a binary path an older Strata wrote: a store path, the old
+    engine/ tree, or a path that is simply not there any more. A current path
+    (or a component reference) is not stale."""
+    if not isinstance(value, str) or not value:
+        return False
+    if value.startswith("component:"):
+        return False
+    if value.startswith("/nix/store/") or value.startswith("./engine/") or value.startswith("engine/"):
+        return True
+    old_engine = os.path.join(home, "engine")
+    if value == old_engine or value.startswith(old_engine + os.sep):
+        return True
+    return not os.path.exists(value) and not os.path.exists(os.path.join(home, value))
+
+
 for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
     if p.endswith(".shared-settings.json"):
         continue
@@ -87,23 +123,17 @@ for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
         if not isinstance(c, dict):
             continue
         migrated = False
-        # Migrate main exe
-        exe = c.get("exe")
-        if exe and not exe.startswith(component_ref) and not exe.startswith("component:"):
-            # Check if it looks like a store path (starts with /nix/store)
-            # or a legacy engine/ relative path. Skip anything that looks
-            # like a .gguf model file path.
-            if exe.startswith("/nix/store") or exe.startswith("./engine/") or exe.startswith("engine/"):
-                c["exe"] = component_ref
-                migrated = True
-        # Migrate vision.exe
+        if stale_path(c.get("exe")):
+            c["exe"] = component_ref
+            migrated = True
+        # The picture reader: a concrete path inside the component folder, never
+        # a component reference (a reference resolves to the ENGINE, not to
+        # strata-vision). A build without the encoder drops the block below.
         vision = c.get("vision")
-        if isinstance(vision, dict):
-            vexe = vision.get("exe")
-            if vexe and not vexe.startswith(component_ref) and not vexe.startswith("component:"):
-                if vexe.startswith("/nix/store") or vexe.startswith("./engine/") or vexe.startswith("engine/"):
-                    vision["exe"] = component_ref
-                    migrated = True
+        if isinstance(vision, dict) and vision_encoder and vision_exe and "exe" in vision:
+            if vision["exe"] != vision_exe:
+                vision["exe"] = vision_exe
+                migrated = True
         if migrated:
             tmp = p + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:

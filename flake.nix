@@ -275,25 +275,30 @@
             nativeBuildInputs = [ pkgs.python3 pkgs.coreutils ];
           } ''
             export STRATA_HOME=$TMPDIR/strata
+            export XDG_DATA_HOME=$TMPDIR/xdg
             mkdir -p "$STRATA_HOME"
+            # How the package calls it: share, "vision encoder shipped",
+            # component folder name (argv[3]).
+            comp=0.1.63-linux-x86_64-cuda
+            patch() { python3 ${./packages/strata/config_patch.py} ${strataShare} "$1" "$comp"; }
 
             # 1. a config with no expert-cache: the module enforces it.
             printf '{"args":["--max-context","4096"]}' > "$STRATA_HOME/strata-good.json"
-            python3 ${./packages/strata/config_patch.py} ${strataShare} true
+            patch true
             grep -q -- '--expert-cache' "$STRATA_HOME/strata-good.json"
 
             # 2. an unchanged rerun must leave the file alone: strata-server picks
             #    the served model by mtime, so rewriting reorders what is served.
             m1=$(stat -c %Y "$STRATA_HOME/strata-good.json")
             sleep 1
-            python3 ${./packages/strata/config_patch.py} ${strataShare} true
+            patch true
             m2=$(stat -c %Y "$STRATA_HOME/strata-good.json")
             [ "$m1" = "$m2" ] || { echo "config rewritten on an unchanged rerun" >&2; exit 1; }
 
             # 3. a config with expert-cache + user_args: user_args must be preserved,
             #    and the module doesn't touch any of them (all tuning left to setup).
             printf '{"args":["--expert-cache","auto","--spec","4"],"args_written":["--expert-cache","auto","--spec","4"],"user_args":["--max-context","4096","--vram-reserve-mib","0","--control-vector","/cv.gguf"]}' > "$STRATA_HOME/strata-ua.json"
-            python3 ${./packages/strata/config_patch.py} ${strataShare} true
+            patch true
             python3 -c '
             import json, sys
             cfg = json.load(open(sys.argv[1]))
@@ -312,7 +317,7 @@
             #    but those hand edits must survive, and no "args_written" may be
             #    invented for them or the next `strata --setup` drops them.
             printf '{"args":["--expert-cache","auto","--spec","4","--adapt-swaps","160","--adapt-decay","0.97"]}' > "$STRATA_HOME/strata-old.json"
-            python3 ${./packages/strata/config_patch.py} ${strataShare} true
+            patch true
             grep -q -- '--adapt-swaps' "$STRATA_HOME/strata-old.json"
             grep -q -- '--adapt-decay' "$STRATA_HOME/strata-old.json"
             if grep -q -- 'args_written' "$STRATA_HOME/strata-old.json"; then
@@ -324,7 +329,7 @@
             #    stay - otherwise `strata --setup --vision yes` would be undone
             #    at every start, by this script or by strata-server's run of it.
             printf '{"args":["--expert-cache","auto"],"vision":{"encoder":"/x/strata-vision"}}' > "$STRATA_HOME/strata-vis.json"
-            python3 ${./packages/strata/config_patch.py} ${strataShare} true
+            patch true
             # the block itself, not just the key: a script that wrote nothing
             # would also satisfy a bare '"vision"' match
             grep -q -- '"encoder": "/x/strata-vision"' "$STRATA_HOME/strata-vis.json"
@@ -334,7 +339,7 @@
             #     (argv[2] = false): the stale block points at a binary this
             #     install does not have, and the server would fail every model
             #     load trying to start it.
-            python3 ${./packages/strata/config_patch.py} ${strataShare} false
+            patch false
             if grep -q -- '"vision"' "$STRATA_HOME/strata-vis.json"; then
               echo "vision block kept although the package ships no encoder" >&2; exit 1
             fi
@@ -344,7 +349,7 @@
             #    --max-context in "user_args" must not be dropped (the script
             #    doesn't touch them at all).
             printf '{"args":["--max-context","4096","--rope-scaling","linear","--rope-scale","3"],"user_args":["--max-context","2048"]}' > "$STRATA_HOME/strata-null.json"
-            python3 ${./packages/strata/config_patch.py} ${strataShare} true
+            patch true
             python3 -c '
             import json, sys
             cfg = json.load(open(sys.argv[1]))
@@ -360,7 +365,7 @@
             #     in "args" AND a hand-set --kv-resident in "user_args" must not
             #     be dropped (the script doesn't touch them at all).
             printf '{"args":["--kv","int8","--kv-resident","32768"],"user_args":["--kv-resident","40960"]}' > "$STRATA_HOME/strata-kvnone.json"
-            python3 ${./packages/strata/config_patch.py} ${strataShare} true
+            patch true
             python3 -c '
             import json, sys
             cfg = json.load(open(sys.argv[1]))
@@ -377,7 +382,7 @@
             #     `component:strata-engine` in one pass. Idempotent: no change
             #     on rerun.
             printf '{"exe":"/nix/store/abc123-strata-0.2.15/bin/strata","args":["--expert-cache","auto"]}' > "$STRATA_HOME/strata-migrate.json"
-            python3 ${./packages/strata/config_patch.py} ${strataShare} true
+            patch true
             grep -q '"component:strata-engine"' "$STRATA_HOME/strata-migrate.json"
             grep -q '"exe":"/nix/store' "$STRATA_HOME/strata-migrate.json" && { echo "migration did not replace exe" >&2; exit 1; }
 
@@ -385,16 +390,43 @@
             #     the file (mtime stays).
             m1=$(stat -c %Y "$STRATA_HOME/strata-migrate.json")
             sleep 1
-            python3 ${./packages/strata/config_patch.py} ${strataShare} true
+            patch true
             m2=$(stat -c %Y "$STRATA_HOME/strata-migrate.json")
             [ "$m1" = "$m2" ] || { echo "migrated config rewritten on rerun" >&2; exit 1; }
+
+            # 6e. the layout the package actually shipped up to 0.2.15: `exe`
+            #     is an absolute path into $STRATA_HOME/engine, NOT a store path.
+            #     Missing this case leaves a run config that names a binary the
+            #     package removes, and every start fails with "server_exited".
+            printf '{"exe":"%s/engine/strata","args":["--expert-cache","auto"]}' "$STRATA_HOME" > "$STRATA_HOME/strata-old-engine.json"
+            patch true
+            grep -q '"component:strata-engine"' "$STRATA_HOME/strata-old-engine.json" || {
+              echo "engine/ path not migrated" >&2; exit 1; }
+
+            # 6f. the picture reader is never a component reference: a reference
+            #     resolves to the ENGINE entrypoint, so the server would start
+            #     the engine as the reader. It becomes the absolute path inside
+            #     the installed component folder instead.
+            printf '{"exe":"component:strata-engine","vision":{"exe":"%s/engine/strata-vision","mmproj":"/m.gguf"},"args":["--expert-cache","auto"]}' "$STRATA_HOME" > "$STRATA_HOME/strata-vis-migrate.json"
+            patch true
+            python3 - "$STRATA_HOME/strata-vis-migrate.json" "$XDG_DATA_HOME/strata/components/engine/0.1.63-linux-x86_64-cuda/strata-vision" <<'PYV'
+            import json, sys
+            cfg = json.load(open(sys.argv[1]))
+            assert cfg["exe"] == "component:strata-engine", cfg["exe"]
+            assert cfg["vision"]["exe"] == sys.argv[2], cfg["vision"]["exe"]
+            PYV
+            m1=$(stat -c %Y "$STRATA_HOME/strata-vis-migrate.json")
+            sleep 1
+            patch true
+            m2=$(stat -c %Y "$STRATA_HOME/strata-vis-migrate.json")
+            [ "$m1" = "$m2" ] || { echo "vision.exe rewrite not idempotent" >&2; exit 1; }
 
             # 7. last, because this file makes EVERY later run fail: an
             #    unreadable config is a hard failure, since this script is the
             #    enforcement point of the policy and must not fail open with
             #    stale settings.
             printf 'not json' > "$STRATA_HOME/strata-bad.json"
-            if python3 ${./packages/strata/config_patch.py} ${strataShare} true; then
+            if patch true; then
               echo "invalid config did not fail" >&2; exit 1
             fi
             touch $out

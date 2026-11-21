@@ -8,11 +8,12 @@
 #
 # The engine is installed as an upstream engine component (~/.local/share/strata/
 # components/engine/0.1.63-linux-x86_64-cuda/) with a per-file SHA-256 manifest,
-# built in the Nix store by engine.nix. The Terminal tree (setup.py, strata.py,
-# serve/, strata_cli/, strata_control/, tools/, data/, requirements*.txt) is
+# built in the Nix store by engine.nix. The component folder holds a small
+# `strata` wrapper, the picture reader and BUILD.json; the engine binary itself
+# stays in the store. The Terminal tree (setup.py, strata.py, serve/,
+# strata_cli/, strata_control/, tools/, data/, requirements*.txt, ...) is
 # refreshed from the store on every `strata` invocation. Both `strata launch`
-# (Terminal) and the desktop app install models through setup.py in CONTROL mode,
-# writing `exe: "component:strata-engine"`.
+# (Terminal) and the desktop app write `exe: "component:strata-engine"`.
 #
 # Upstream 0.2.17 changes:
 # - Route-tail-skip is OFF by default (strata Control sets

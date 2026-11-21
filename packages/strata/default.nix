@@ -55,10 +55,12 @@
 #   not 24 (the 125B is fully resident on 125 GB RAM regardless).
 # - Component model: the engine is an installed component (~/.local/share/strata/
 #   components/engine/<version>-<platform>-<backend>/) with a per-file manifest.
-#   `strata launch` writes `exe: "component:strata-engine"`. The store engine
-#   is installed into that folder by the wrapper (on every invocation) and by
-#   strata-server (on every service start, covering `home-manager switch`).
-#   The manifest (engine-component.json) is generated natively in the build.
+#   `strata launch` writes `exe: "component:strata-engine"`. The component is
+#   installed from the store by `strata` and by `strata-server` (the latter
+#   covers `home-manager switch` service restarts). It holds a small `strata`
+#   wrapper (configPatch, then the store engine), the picture reader and
+#   BUILD.json; the manifest (engine-component.json) is generated in the build
+#   in the schema Control validates.
 
 {
   lib,
@@ -88,10 +90,9 @@
 let
   version = "0.2.17";
   engineVersion = "0.1.63";
-  visionMarker = if visionEncoder then (if vision then "gpu" else "cpu") else "none";
-  dollarBrace = "$" + "{";  # literal "${" to avoid Nix interpolation in bash vars
-  helpers = import ../../lib;
-  optArg = helpers.optArg;
+  # The component folder name upstream's package_engine.py builds:
+  #   f"{version}-{platform}-{backend}"  (0.1.63-linux-x86_64-cuda)
+  componentDirName = "${engineVersion}-linux-x86_64-cuda";
 
   # Config patch: run on every engine start to ensure --expert-cache is present
   # and a stale "vision" block cannot survive in a build without the encoder.
@@ -102,7 +103,7 @@ let
     name = "strata-patch-config";
     runtimeInputs = [ python3 ];
     text = ''
-      python3 - ${share} ${lib.boolToString visionEncoder} <<'PY'
+      python3 - ${share} ${lib.boolToString visionEncoder} ${componentDirName} <<'PY'
       ${builtins.readFile ./config_patch.py}
       PY
     '';
@@ -137,110 +138,153 @@ let
 
   share = "${runtime}/share/strata";
 
-  # Environment preamble: same as before but without the now-unnecessary
-  # `third_party/llama.cpp` symlink (setup uses its own GGUF tools).
-  # Uses $+{ to produce literal ${ in bash (avoiding Nix interpolation).
+  # Environment preamble shared by every wrapper. ''${ is Nix's escape for a
+  # literal ${ (an unescaped one would be interpolation).
   env = ''
-    STRATA_HOME="${dollarBrace}STRATA_HOME:-$HOME/.local/share/strata"
+    export STRATA_HOME="''${STRATA_HOME:-$HOME/.local/share/strata}"
     export PYTHONUTF8=1
     if [ -f /usr/lib/locale/locale-archive ] && ! grep -qs '^ID=nixos' /etc/os-release; then
       export LOCALE_ARCHIVE=/usr/lib/locale/locale-archive
     fi
-    export LD_LIBRARY_PATH="${engine}/lib-driver:${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib${dollarBrace}LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH"
+    export LD_LIBRARY_PATH="${engine}/lib-driver:${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     if [ -e /run/opengl-driver/lib/libcuda.so.1 ]; then
       export LD_LIBRARY_PATH="/run/opengl-driver/lib:$LD_LIBRARY_PATH"
     fi
-    export STRATA_IQ256_GATHER="${dollarBrace}STRATA_IQ256_GATHER:-1"
+    export STRATA_IQ256_GATHER="''${STRATA_IQ256_GATHER:-1}"
   '';
 
   # --- Component ---
-  # The engine installed as an upstream engine component (~/.local/share/strata/
-  # components/engine/<version>-linux-x86_64-cuda/). The component carries:
-  #   - strata: the wrapper script (configPatch re-asserts --expert-cache on
-  #     every start, closing the web-UI-settings-save-restart hole)
-  #   - strata-bin: the raw ELF (what the component manifest hashes)
-  #   - strata-vision: the image encoder (when visionEncoder is true)
-  #   - BUILD.json: version, archs, vision_archs, source metadata
-  #   - engine-component.json: per-file SHA-256 manifest
+  # The engine installed as an upstream engine component. Control reads it at
+  # ~/.local/share/strata/components/engine/<version>-<platform>-<backend>/
+  # (strata_control/engine_component.py), so the folder name and the manifest
+  # below must match what tools/packaging/package_engine.py produces:
   #
-  # The manifest is generated natively (same format as upstream's
-  # package_engine.py: every file's SHA-256 and size, arch list, build id,
-  # empty signature for unsigned local builds).
+  #   {"schema_version": 2, "id": "strata-engine", "name": "strata-engine",
+  #    "version": "0.1.63", "platform": "linux-x86_64", "backend": "cuda",
+  #    "archs": ["sm_86", "compute_86"], "min_driver": {"nvidia": "575.51"},
+  #    "build_id": "...", "entrypoint": "strata",
+  #    "files": [{"path": ..., "sha256": ..., "bytes": ...}, ...],
+  #    "signature": null}
+  #
+  # The component folder holds only small files. The engine ELF stays in the
+  # store: `strata` is a wrapper that re-asserts --expert-cache (the web UI's
+  # settings form drops flags it does not know) and then execs the store
+  # binary. The picture reader must sit beside the entrypoint (serve/server.py,
+  # with_current_reader), so strata-vision is copied in when it is built.
+  #
+  # read_manifest is strict: a missing schema_version/id/backend/entrypoint,
+  # `files` as an object, `min_driver` as a string or `signature` as "" all
+  # raise ComponentProblem and the engine is then invisible to Control.
   component = pkgs.runCommand "strata-component-${engineVersion}" {
     nativeBuildInputs = [ pkgs.python3 ];
     buildInputs = [ engine ];
   } ''
-    dest=$out/${engineVersion}-linux-x86_64-cuda
+    dest=$out/${componentDirName}
     mkdir -p $dest
 
-    # The wrapper: configPatch re-asserts --expert-cache on every start.
-    # This is the ONLY non-ELF file in the component, and it must be hashed
-    # like everything else by the component manifest.
+    # The entrypoint: re-assert the policy, then hand over to the engine.
+    # NOT two `exec`s - the first one replaces this shell and the engine would
+    # never start.
     cat > $dest/strata <<'WRAPPER'
     #!/bin/sh
-    exec ${configPatch}/bin/strata-patch-config
+    ${configPatch}/bin/strata-patch-config || exit $?
     exec "${engineBin}" "$@"
     WRAPPER
-    chmod +x $dest/strata
+    chmod 755 $dest/strata
 
-    # Raw engine binary
-    cp -a "${engineBin}" $dest/strata-bin
-
-    # Vision encoder (when built)
+    # The picture reader, beside the entrypoint. -L: the engine derivation is a
+    # symlinkJoin, so bin/strata-vision is a symlink and verify() refuses any
+    # symlink in the component folder.
     ${lib.optionalString visionEncoder ''
-    cp -a "${engineVisionBin}" $dest/strata-vision
+      cp -L "${engineVisionBin}" $dest/strata-vision
     ''}
 
-    # BUILD.json — upstream's setup.py reads this for source_version() and
-    # stale_binary() checks (both of which fall through for component refs).
+    # BUILD.json - the engine's own build record. setup.py/doctor.py read
+    # "version"; package_lib_dirs reads "lib_dirs" (none: the RUNPATH carries
+    # the CUDA libraries); package_engine.py reads "archs"/"vision_archs" as
+    # arch numbers ("86").
     python3 - "$dest" "${engineVersion}" "${cudaArch}" \
-      "${if visionEncoder then "true" else "false"}" \
-      "${if visionEncoder then visionMarker else ""}" <<'BUILDJSON'
+      "${if visionEncoder then "true" else "false"}" <<'BUILDJSON'
     import json, sys
-    dest = sys.argv[1]
-    meta = {
-        "version": sys.argv[2],
-        "source": "local",
-        "archs": ["sm_" + sys.argv[3]],
-        "cuda_dirs": []
-    }
-    if sys.argv[4] == "true":
-        meta["vision"] = sys.argv[5]
-        meta["vision_archs"] = ["sm_" + sys.argv[3]]
-    json.dump(meta, open(dest + "/BUILD.json", "w"), indent=1)
+    dest, version, arch, vision = sys.argv[1:5]
+    meta = {"version": version, "source": "nix", "archs": arch, "portable": True, "lib_dirs": []}
+    if vision == "true":
+        meta["vision_archs"] = arch
+    with open(dest + "/BUILD.json", "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=1)
     BUILDJSON
 
-    # Generate engine-component.json manifest (SHA-256 per file).
-    python3 - "$dest" "${engineVersion}" "${version}" "${cudaArch}" \
-      "${if visionEncoder then "true" else "false"}" \
-      "${if visionEncoder then visionMarker else ""}" <<'PYEOF'
+    # The manifest: schema 2, exactly the shape read_manifest() validates.
+    # It hashes the files it lists (BUILD.json included) and is not listed
+    # itself. `signature: null` is the unsigned local build; STRATA_REQUIRE_
+    # SIGNED_COMPONENTS would refuse it, nothing else does.
+    python3 - "$dest" "${engineVersion}" "${cudaArch}" <<'MANIFEST'
     import hashlib, json, os, sys
-    dest = sys.argv[1]
-    engineVersion, version, cudaArch = sys.argv[2], sys.argv[3], sys.argv[4]
-    visionEncoder = sys.argv[5] == "true"
-    visionMarker = sys.argv[6]
-    files = {}
+    dest, version, arch = sys.argv[1:4]
+    files = []
     for name in sorted(os.listdir(dest)):
-        p = os.path.join(dest, name)
-        if not os.path.isfile(p):
+        path = os.path.join(dest, name)
+        if name == "engine-component.json" or not os.path.isfile(path):
             continue
-        with open(p, 'rb') as f:
+        with open(path, "rb") as f:
             data = f.read()
-        files[name] = {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
+        files.append({"path": name, "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)})
     manifest = {
-        "files": files,
-        "archs": ["sm_" + cudaArch],
-        "min_driver": "nvidia=575.51",
-        "build_id": "nix-v" + version + "-cuda12.9",
-        "version": engineVersion,
+        "schema_version": 2,
+        "id": "strata-engine",
+        "name": "strata-engine",
+        "version": version,
         "platform": "linux-x86_64",
-        "signature": ""
+        "backend": "cuda",
+        "archs": ["sm_" + arch, "compute_" + arch],
+        "min_driver": {"nvidia": "575.51"},
+        "build_id": "nix-0.2.17-engine-" + version + "-cuda12",
+        "entrypoint": "strata",
+        "files": files,
+        "signature": None,
     }
-    if visionEncoder:
-        manifest["vision"] = visionMarker
-    json.dump(manifest, open(os.path.join(dest, 'engine-component.json'), 'w'), indent=1)
-    PYEOF
+    with open(os.path.join(dest, "engine-component.json"), "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=1)
+        f.write("\n")
+    MANIFEST
   '';
+
+  # Install/refresh the component from the store. Called by `strata` and by
+  # `strata-server` (the latter covers `home-manager switch` service restarts).
+  #
+  # Path: upstream derives it from XDG_DATA_HOME, not from STRATA_HOME, so the
+  # same rule is used here. A stamp makes this a no-op when the store component
+  # is already installed: the folder is small, but this runs on every CLI call.
+  componentInstall = writeShellApplication {
+    name = "strata-install-component";
+    runtimeInputs = [ coreutils ];
+    text = ''
+      comps="''${STRATA_COMPONENTS_DIR:-''${XDG_DATA_HOME:-$HOME/.local/share}/strata/components}"
+      dest="$comps/engine/${componentDirName}"
+      stamp="$comps/engine/.nix-component"
+
+      want="${component}"
+      if [ "$(cat "$stamp" 2>/dev/null || true)" = "$want" ] && [ -f "$dest/engine-component.json" ]; then
+        exit 0
+      fi
+
+      mkdir -p "$comps/engine"
+      # The store's directories are read-only, so `rm -rf` cannot unlink what a
+      # previous copy left behind. Make the tree writable first.
+      chmod -R u+w "$comps/engine" 2>/dev/null || true
+      # Nix owns the engine: drop every other package (an engine `strata
+      # update` downloaded, an older version). .updates/ is left alone.
+      for d in "$comps/engine"/*; do
+        [ -d "$d" ] || continue
+        [ "$d" = "$dest" ] && continue
+        rm -rf "$d"
+      done
+      rm -rf "$dest"
+      cp -r "$want/${componentDirName}" "$dest"
+      chmod -R u+w "$dest"
+      printf '%s\n' "$want" > "$stamp"
+    '';
+  };
 
   # --- The `strata` wrapper ---
   # Entry point for `strata`, `strata-chat`, and systemd `strata-server`.
@@ -261,10 +305,13 @@ let
         exec 9>"$STRATA_HOME/.runtime.lock"
         flock 9
 
-        # Refresh the program files from the store:
-        for d in tools data serve strata_cli strata_control; do
+        # Refresh the program files from the store. This is upstream's own
+        # TERMINAL_ENTRIES list (setup.py) - every folder a Terminal install
+        # has at its root. Only those are replaced; model files, packs, logs
+        # and run configs are left alone.
+        for d in tools data serve strata_cli strata_control ref crates integrations bin; do
           chmod -R u+rwX "$STRATA_HOME/$d" 2>/dev/null || true
-          rm -rf "$STRATA_HOME/$d"
+          rm -rf "''${STRATA_HOME:?}/$d"
           cp -r "${share}/$d" "$STRATA_HOME/"
           chmod -R u+rwX "$STRATA_HOME/$d"
         done
@@ -273,14 +320,15 @@ let
         done
 
         # Install/refresh the engine component from the store.
-        rm -rf "$STRATA_HOME/components"
-        cp -r "${component}" "$STRATA_HOME/components/engine"
+        ${componentInstall}/bin/strata-install-component
 
-        # Legacy engine directory cleanup: if the old `engine/` dir exists
-        # and contains only legacy files (strata symlink, BUILD.json, no model
-        # data), remove it to prevent upstream's engine_src() detection from
-        # mistaking the runtime root for a source checkout.
-        if [ -d "$STRATA_HOME/engine" ] && ! find "$STRATA_HOME/engine" -name "*.gguf" -o -name "*.bin" -o -name "*.gguf" 2>/dev/null | grep -q .; then
+        # Legacy engine directory cleanup: if the old `engine/` dir exists and
+        # holds no model data, remove it. 0.2.16 looks the engine up in the
+        # component folder; a leftover engine/ tree makes setup.py read the
+        # runtime root as a source checkout. (Capture the find result instead
+        # of piping into grep -q: under `set -o pipefail` grep's early exit
+        # makes find report SIGPIPE and the test would say "no model data".)
+        if [ -d "$STRATA_HOME/engine" ] && [ -z "$(find "$STRATA_HOME/engine" \( -name '*.gguf' -o -name '*.bin' \) -print -quit 2>/dev/null)" ]; then
           rm -rf "$STRATA_HOME/engine"
         fi
 
@@ -338,35 +386,35 @@ let
         # Legacy flags map to `launch`: bare `strata` = `launch`,
         # --setup = removed (launch is the default), --vision yes/no = on/off,
         # --context <int> passes through.
+        # A sub-command goes to the CLI unchanged. This list is upstream's own
+        # parser (strata_cli/cli.py, the _SubParsersAction): anything missing
+        # here would be handed to `launch` and rejected as an unknown flag, so
+        # `strata launch` itself and `strata split-engine` are in it too.
         case "''${1:-}" in
-          --version | -V | serve | profile | repair-access | doctor | components | update | \
-          models | drafting | engine | install | runtime | ops | bench | timeskip | tune | \
-          presets | connect | status | monitor | logs | connection | config | code)
-            exec "$STRATA_HOME/.venv/bin/python" "$STRATA_HOME/strata.py" "$@"
-            ;;
-          split)
+          -h | --help | -V | --version | \
+          launch | serve | bench | code | complete | components | config | connect | \
+          connection | doctor | drafting | engine | install | logs | models | monitor | ops | \
+          presets | profile | repair-access | runtime | split-engine | status | timeskip | \
+          tune | update)
             exec "$STRATA_HOME/.venv/bin/python" "$STRATA_HOME/strata.py" "$@"
             ;;
         esac
 
         # Legacy mapping: bare `strata` = `launch`. Transform --vision yes/no -> on/off,
-        # pass through other flags. Build a space-separated arg string to avoid
-        # bash array interpolation (which Nix would try to parse).
-        launch_args=""
+        # pass every other flag through. A bash array keeps arguments with spaces
+        # intact. The Nix `context` option (when set) comes last, so it wins over
+        # a --context typed on the command line - argparse keeps the last value.
+        launch_args=()
         for arg in "$@"; do
           case "$arg" in
-            --setup|"-s") ;;  # no-op — launch is default
-            --vision=yes) launch_args="$launch_args --vision on" ;;
-            --vision=no) launch_args="$launch_args --vision off" ;;
-            --vision=*) launch_args="$launch_args $arg" ;;
-            --context=*) launch_args="$launch_args $arg" ;;
-            --context) ;;  # Nix context overrides (handled below)
-            *) launch_args="$launch_args $arg" ;;
+            --setup | "-s") ;;                                # no-op - launch is the default
+            --vision=yes) launch_args+=(--vision on) ;;
+            --vision=no) launch_args+=(--vision off) ;;
+            *) launch_args+=("$arg") ;;
           esac
         done
-        exec "$STRATA_HOME/.venv/bin/python" "$STRATA_HOME/strata.py" launch \
-          ${if context != null then "-c ${context} " else ""} \
-          $(echo $launch_args)
+        ${lib.optionalString (context != null) "launch_args+=(--context ${toString context})"}
+        exec "$STRATA_HOME/.venv/bin/python" "$STRATA_HOME/strata.py" launch "''${launch_args[@]}"
       '';
   };
 
@@ -403,8 +451,7 @@ let
         ${configPatch}/bin/strata-patch-config
         # Re-install the engine component from the store (covers home-manager
         # switch service restarts: the store may have a newer engine).
-        rm -rf "$STRATA_HOME/components"
-        cp -r "${component}" "$STRATA_HOME/components/engine"
+        ${componentInstall}/bin/strata-install-component
         CFG=""
         for f in "$STRATA_HOME"/strata-*.json; do
           [ -f "$f" ] || continue
@@ -440,7 +487,7 @@ symlinkJoin {
   # REAL strata_control/user_args.py through here.
   passthru = { runtimeShare = share; };
   meta = with lib; {
-    version = "0.2.17";
+    version = version;
     description = "Strata: local Qwen3.8-Flash-Next (125B MoE) inference with an OpenAI/Anthropic-compatible API";
     homepage = "https://github.com/Niko1221/Strata";
     license = licenses.mit;
