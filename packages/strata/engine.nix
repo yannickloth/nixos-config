@@ -1,4 +1,4 @@
-# Strata engine 0.1.63 for Strata 0.2.17 — CUDA 12.9, sm_86 (RTX A3000, RTX 3060).
+# Strata engine 0.1.64 for Strata 0.2.18 — CUDA 12.9, sm_86 (RTX A3000, RTX 3060).
 #
 # Upstream 0.2.16 restructured the repo: engine/ is now a separate top-level
 # directory with a vendored ggml (third_party/strata-ggml). No more FetchContent
@@ -29,10 +29,10 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "v0.2.17";  # Engine 0.1.63, feed 129
-    hash = "sha256:1cf9fsyzq3mzdp4kqrpm9inrxg8xg2pn3d1yllhxlci56487r99z";
+    rev = "v0.2.18";  # Engine 0.1.64, feed 130
+    hash = "sha256:091d6805504193770e4ea622c0846130d65e53e6ac215bd11e85a76f0f198913";
   },
-  engineVersion ? "0.1.63",
+  engineVersion ? "0.1.64",
 }:
 
 let

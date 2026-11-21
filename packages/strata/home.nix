@@ -7,7 +7,7 @@
 # `strata-server`, and the desktop AppImage.
 #
 # The engine is installed as an upstream engine component (~/.local/share/strata/
-# components/engine/0.1.63-linux-x86_64-cuda/) with a per-file SHA-256 manifest,
+# components/engine/0.1.64-linux-x86_64-cuda/) with a per-file SHA-256 manifest,
 # built in the Nix store by engine.nix. The component folder holds a small
 # `strata` wrapper, the picture reader and BUILD.json; the engine binary itself
 # stays in the store. The Terminal tree (setup.py, strata.py, serve/,
@@ -15,13 +15,15 @@
 # refreshed from the store on every `strata` invocation. Both `strata launch`
 # (Terminal) and the desktop app write `exe: "component:strata-engine"`.
 #
-# Upstream 0.2.17 changes:
-# - Route-tail-skip is OFF by default (strata Control sets
-#   STRATA_ROUTE_TAIL_SKIP=0 per start). Bench baseline delta expected.
-# - Setup leaves 17 GB of RAM free (not 24): only affects non-fitting models
-#   on PCs with <128 GB RAM. Our 125B is fully resident.
-# - Engine 0.1.63, feed 129: no Nix involvement needed for the engine
-#   (we build it in the store).
+# Upstream 0.2.18 changes (Terminal/app 0.2.18, Control and engine 0.1.64):
+# - Tencent Hy4-Flash and its own "shape" engine (strata-hy4 0.1.64). That
+#   engine is a separate component (components/shapes/...), fetched from the
+#   signed feed when a Hy4-Flash pack is chosen; this package builds only the
+#   Strata engine for the Qwen 125B, and the shapes folder is left alone.
+# - Run-config keys, the --expert-cache rule and the component manifest schema
+#   are unchanged, so existing configs keep working.
+# - Still 0.2.17 behaviour: route-tail-skip OFF by default, setup keeps 17 GB
+#   of RAM free (not 24; the 125B is fully resident on 125 GB RAM regardless).
 #
 # `dataOnDataVolume = true` moves both the runtime tree and the data folder
 # (~70-120 GB) to the /data volume, leaving symlinks in place so existing

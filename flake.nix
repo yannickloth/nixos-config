@@ -19,8 +19,8 @@
     namaka.inputs.nixpkgs.follows = "nixpkgs";
     namaka.inputs.haumea.inputs.nixpkgs.follows = "nixpkgs";
     # Strata (github.com/Niko1221/Strata) is not a flake input: packages/strata
-    # fetches it directly with fetchFromGitHub, pinned to v0.2.17 (engine 0.1.63,
-    # feed 129). The engine is a separately-versioned CUDA build (engine.nix) and
+    # fetches it directly with fetchFromGitHub, pinned to v0.2.18 (engine 0.1.64,
+    # feed 130). The engine is a separately-versioned CUDA build (engine.nix) and
     # the desktop AppImage is a separate package (desktop.nix), version-locked to
     # the Terminal in the flake declaration. (Since 0.2.16 the engine is an
     # "engine component" with a per-file SHA-256 manifest — both the Terminal and
@@ -279,7 +279,7 @@
             mkdir -p "$STRATA_HOME"
             # How the package calls it: share, "vision encoder shipped",
             # component folder name (argv[3]).
-            comp=0.1.63-linux-x86_64-cuda
+            comp=0.1.64-linux-x86_64-cuda
             patch() { python3 ${./packages/strata/config_patch.py} ${strataShare} "$1" "$comp"; }
 
             # 1. a config with no expert-cache: the module enforces it.
@@ -409,7 +409,7 @@
             #     the installed component folder instead.
             printf '{"exe":"component:strata-engine","vision":{"exe":"%s/engine/strata-vision","mmproj":"/m.gguf"},"args":["--expert-cache","auto"]}' "$STRATA_HOME" > "$STRATA_HOME/strata-vis-migrate.json"
             patch true
-            python3 - "$STRATA_HOME/strata-vis-migrate.json" "$XDG_DATA_HOME/strata/components/engine/0.1.63-linux-x86_64-cuda/strata-vision" <<'PYV'
+            python3 - "$STRATA_HOME/strata-vis-migrate.json" "$XDG_DATA_HOME/strata/components/engine/0.1.64-linux-x86_64-cuda/strata-vision" <<'PYV'
             import json, sys
             cfg = json.load(open(sys.argv[1]))
             assert cfg["exe"] == "component:strata-engine", cfg["exe"]

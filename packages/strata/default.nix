@@ -1,9 +1,9 @@
-# Strata 0.2.17 — NixOS packaging.
+# Strata 0.2.18 — NixOS packaging.
 #
 # Upstream 0.2.16 restructured the repo (Terminal → terminal/, Engine → engine/),
-# and 0.2.17 ships the engine as a versioned "component" with a per-file SHA-256
-# manifest (engine-component.json). Both `strata launch` (Terminal) and the
-# desktop app install models through setup.py in CONTROL mode, writing
+# and 0.2.16+ ships the engine as a versioned "component" with a per-file
+# SHA-256 manifest (engine-component.json). Both `strata launch` (Terminal) and
+# the desktop app install models through setup.py in CONTROL mode, writing
 # `exe: "component:strata-engine"`.
 #
 # This package ships a Nix-built engine as an engine component, and the Terminal
@@ -16,8 +16,8 @@
 # lives in the runtime directory, untouched by Nix.
 #
 # Since Strata 0.2.0 the tree holds three separately versioned products: the
-# engine (0.1.63), the Terminal (0.2.17, `strata.py` + `strata_cli`), and the
-# desktop app (0.2.17). The engine is versioned apart from the app. The desktop
+# engine (0.1.64), the Terminal (0.2.18, `strata.py` + `strata_cli`), and the
+# desktop app (0.2.18). The engine is versioned apart from the app. The desktop
 # AppImage is packaged separately (desktop.nix) and version-locked to the
 # Terminal in the flake declaration (home.nix).
 #
@@ -53,6 +53,13 @@
 # - 0.2.17: route-tail-skip is OFF by default (upstream Control sets
 #   STRATA_ROUTE_TAIL_SKIP=0 per start). Setup leaves 17 GB of RAM free,
 #   not 24 (the 125B is fully resident on 125 GB RAM regardless).
+# - 0.2.18 adds the Tencent Hy4-Flash model and its own "shape" engine. That
+#   engine is a SEPARATE component (components/shapes/<shape>/engine/...,
+#   strata-hy4 0.1.64) which this package does not build; the Terminal and the
+#   app fetch it from the signed feed when a Hy4-Flash pack is chosen. The
+#   Qwen 125B keeps the Strata engine built here (0.1.64). Nothing else
+#   changes for this package: same run-config keys, same --expert-cache rule,
+#   same component manifest schema.
 # - Component model: the engine is an installed component (~/.local/share/strata/
 #   components/engine/<version>-<platform>-<backend>/) with a per-file manifest.
 #   `strata launch` writes `exe: "component:strata-engine"`. The component is
@@ -82,17 +89,20 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "v0.2.17";  # App and Terminal 0.2.17, Control 0.1.62; engine 0.1.63
-    hash = "sha256:1cf9fsyzq3mzdp4kqrpm9inrxg8xg2pn3d1yllhxlci56487r99z";
+    rev = "v0.2.18";  # App and Terminal 0.2.18, Control 0.1.64; engine 0.1.64
+    hash = "sha256:091d6805504193770e4ea622c0846130d65e53e6ac215bd11e85a76f0f198913";
   },
 }:
 
 let
-  version = "0.2.17";
-  engineVersion = "0.1.63";
+  version = "0.2.18";
+  engineVersion = "0.1.64";
   # The component folder name upstream's package_engine.py builds:
-  #   f"{version}-{platform}-{backend}"  (0.1.63-linux-x86_64-cuda)
+  #   f"{version}-{platform}-{backend}"  (0.1.64-linux-x86_64-cuda)
   componentDirName = "${engineVersion}-linux-x86_64-cuda";
+
+  # The engine build's own id (read_manifest requires a non-empty one).
+  buildId = "nix-${version}-engine-${engineVersion}-cuda12";
 
   # Config patch: run on every engine start to ensure --expert-cache is present
   # and a stale "vision" block cannot survive in a build without the encoder.
@@ -160,7 +170,7 @@ let
   # below must match what tools/packaging/package_engine.py produces:
   #
   #   {"schema_version": 2, "id": "strata-engine", "name": "strata-engine",
-  #    "version": "0.1.63", "platform": "linux-x86_64", "backend": "cuda",
+  #    "version": "0.1.64", "platform": "linux-x86_64", "backend": "cuda",
   #    "archs": ["sm_86", "compute_86"], "min_driver": {"nvidia": "575.51"},
   #    "build_id": "...", "entrypoint": "strata",
   #    "files": [{"path": ..., "sha256": ..., "bytes": ...}, ...],
@@ -218,9 +228,9 @@ let
     # It hashes the files it lists (BUILD.json included) and is not listed
     # itself. `signature: null` is the unsigned local build; STRATA_REQUIRE_
     # SIGNED_COMPONENTS would refuse it, nothing else does.
-    python3 - "$dest" "${engineVersion}" "${cudaArch}" <<'MANIFEST'
+    python3 - "$dest" "${engineVersion}" "${cudaArch}" "${buildId}" <<'MANIFEST'
     import hashlib, json, os, sys
-    dest, version, arch = sys.argv[1:4]
+    dest, version, arch, build_id = sys.argv[1:5]
     files = []
     for name in sorted(os.listdir(dest)):
         path = os.path.join(dest, name)
@@ -238,7 +248,7 @@ let
         "backend": "cuda",
         "archs": ["sm_" + arch, "compute_" + arch],
         "min_driver": {"nvidia": "575.51"},
-        "build_id": "nix-0.2.17-engine-" + version + "-cuda12",
+        "build_id": build_id,
         "entrypoint": "strata",
         "files": files,
         "signature": None,

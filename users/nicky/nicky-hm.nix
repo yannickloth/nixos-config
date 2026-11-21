@@ -212,7 +212,9 @@ in
   # which host the shared ranks point at. `dataOnDataVolume` keeps the model files
   # on /data (laptop-p16 only, see below).
   #
-  # Upstream 0.2.17: route-tail-skip OFF by default, setup keeps 17 GB RAM (not 24).
+  # Upstream 0.2.18: engine/Control 0.1.64. The new Hy4-Flash shape engine is a
+  # separate component fetched on demand; the Qwen 125B keeps the engine this
+  # package builds. Still 0.2.17 defaults: route-tail-skip OFF, 17 GB RAM free.
   # The engine is an upstream engine component (versioned, per-file manifest)
   # built in the Nix store — the app and the Terminal are version-locked together.
   # All engine tuning (context, KV format, rope scaling, PCIe fraction, pool
