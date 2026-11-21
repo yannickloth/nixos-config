@@ -18,6 +18,12 @@
 # such a block is dropped. With the encoder shipped, the block is the
 # person's setup answer and stays.
 #
+# Configs of a model-shape engine are not touched at all (strata-hy4 for
+# Tencent Hy4-Flash, strata-q4-lite, ...): serve picks that engine by the
+# config's "exe"/"arch", it has its own options (--engram, --vram-experts-gb,
+# --ram-experts-gb), and upstream's setup writes no --expert-cache for it.
+# Adding one there would be an option this package cannot vouch for.
+#
 # Everything else - --max-context, the rope flags, --kv/--kv-resident,
 # --vram-reserve-mib, --pcie-frac, --spec-min-p, --pool-workers,
 # --pool-affinity, --adapt-every, --prompt-cache-tail - is left to
@@ -143,6 +149,22 @@ for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
         pass  # migration failures are non-fatal, skip to policy check
 
 failed = []
+def shape_engine_config(c) -> bool:
+    """True when the config starts an engine of its own shape (strata-hy4,
+    strata-q4-lite, ...): serve selects it by the config's "exe" and "arch".
+    Those engines have their own options (--engram, --vram-experts-gb,
+    --ram-experts-gb) and upstream's setup writes no --expert-cache for them,
+    so this module leaves the file alone."""
+    if str(c.get("arch") or "").lower() == "hy4flash":     # not a run config of the Strata engine
+        return True
+    exe = c.get("exe")
+    if isinstance(exe, str) and exe.startswith("component:"):
+        return exe[len("component:"):] != "strata-engine"
+    if isinstance(exe, str) and exe:
+        return os.path.basename(exe).lower() not in ("strata", "strata.exe")
+    return False                                           # no exe: a config of this package's engine
+
+
 for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
     if p.endswith(".shared-settings.json"):     # the web app's Chat settings, not a model
         continue
@@ -152,8 +174,15 @@ for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
         c = json.loads(text)
         if not isinstance(c, dict) or not isinstance(c.get("args"), list):
             continue
+        if shape_engine_config(c):
+            continue                       # another engine's run config: not this module's policy
         a = c["args"]
-        if "--expert-cache" not in a:
+        # --expert-cache is Flash-Next's (Qwen3.8) requirement. The Qwen3.6
+        # engine path (arch qwen35moe) places its experts with --expert-vram /
+        # --expert-slots and says "not an option of this engine" to anything
+        # else, so it gets no flag of ours.
+        qwen36 = str(c.get("arch") or "").lower() == "qwen35moe"
+        if not qwen36 and "--expert-cache" not in a:
             a += ["--expert-cache", "auto"]
         if not vision_encoder:
             c.pop("vision", None)

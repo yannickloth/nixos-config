@@ -421,6 +421,37 @@
             m2=$(stat -c %Y "$STRATA_HOME/strata-vis-migrate.json")
             [ "$m1" = "$m2" ] || { echo "vision.exe rewrite not idempotent" >&2; exit 1; }
 
+            # 6g. a run config of a MODEL-SHAPE engine (0.2.18: strata-hy4 for
+            #     Tencent Hy4-Flash) is not this package's to rewrite: its engine
+            #     has its own options, upstream's setup writes no --expert-cache
+            #     for it, and the vision file is an argument, not a "vision"
+            #     block. The file must come out byte-identical.
+            printf '{"exe":"component:strata-hy4","args":["--native","/m/Hy4-Flash-SQ-64.strata","--engram","/m/Hy4-Flash-Engram-Q8.strata","--max-context","131072","--vision","/m/Hy4-Flash-Vision.strata","--vram-experts-gb","8.00","--ram-experts-gb","30.00"],"cwd":"/w","tokenizer":"/t","model_name":"hy4-flash-sq-64","arch":"hy4flash","drafting":"dfly2"}' > "$STRATA_HOME/strata-hy4-flash-sq-64.json"
+            cp "$STRATA_HOME/strata-hy4-flash-sq-64.json" "$TMPDIR/hy4.before"
+            patch true
+            cmp -s "$TMPDIR/hy4.before" "$STRATA_HOME/strata-hy4-flash-sq-64.json" || {
+              echo "shape-engine config was rewritten" >&2; diff -u "$TMPDIR/hy4.before" "$STRATA_HOME/strata-hy4-flash-sq-64.json" >&2; exit 1; }
+
+
+            # 6h. Qwen3.6-35B-A3B runs on the same engine binary but its own path
+            #     (arch qwen35moe), which places experts with --expert-vram and
+            #     calls anything else "not an option of this engine": no
+            #     --expert-cache of ours. Its "vision" block is still ours (the
+            #     same strata-vision reader), so it must survive with the encoder.
+            printf '{"exe":"component:strata-engine","arch":"qwen35moe","args":["--native","/m/q.gguf","--max-context","32768","--mtp","2","--vision"],"vision":{"exe":"%s/engine/strata-vision","mmproj":"/m/mmproj-F16.gguf"}}' "$STRATA_HOME" > "$STRATA_HOME/strata-qwen36-ud-q4-k-xl.json"
+            patch true
+            python3 - "$STRATA_HOME/strata-qwen36-ud-q4-k-xl.json" "$XDG_DATA_HOME/strata/components/engine/0.1.64-linux-x86_64-cuda/strata-vision" <<'PYQ'
+            import json, sys
+            cfg = json.load(open(sys.argv[1]))
+            assert "--expert-cache" not in cfg["args"], cfg["args"]
+            assert cfg["args"][-1] == "--vision", cfg["args"]
+            assert cfg["vision"]["exe"] == sys.argv[2], cfg["vision"]["exe"]
+            PYQ
+            python3 ${./packages/strata/config_patch.py} ${strataShare} false "$comp"
+            if grep -q '"vision"' "$STRATA_HOME/strata-qwen36-ud-q4-k-xl.json"; then
+              echo "qwen36 vision block kept although the package ships no encoder" >&2; exit 1
+            fi
+
             # 7. last, because this file makes EVERY later run fail: an
             #    unreadable config is a hard failure, since this script is the
             #    enforcement point of the policy and must not fail open with
@@ -448,13 +479,13 @@
         # with stdenvNoCC (no FHS sandbox, no CachyOS extras).
         (import ./packages/craft-apps { pkgs = pkgs; })
         // {
-          # Strata (packages/strata): CUDA inference engine for the A3000
-          # (sm_86) + runtime wrappers; consumed via home-manager
+          # Strata (packages/strata): CUDA inference engine for the sm_86 cards
+          # (A3000, RTX 3060) + runtime wrappers; consumed via home-manager
           # (packages/strata/home.nix, `strata.enable`). This generic attribute
           # ships WITHOUT the strata-vision image encoder; the home-manager
-          # deployment decides that separately with `strata.visionEncoder`
-          # (binary present, setup asks) and `strata.vision` (images by
-          # default). Serving images drops throughput from ~35 to ~22 tok/s.
+          # deployment decides that with `strata.visionEncoder` (binary present,
+          # launch asks). Whether a model serves images is a run-config answer;
+          # serving them drops throughput from ~35 to ~22 tok/s.
           strata = pkgs.callPackage ./packages/strata {};
           # Orca (packages/orca): the released Electron AppImage wrapped as a
           # normal derivation (appimageTools.wrapType2). Consumed via home-manager
