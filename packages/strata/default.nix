@@ -21,13 +21,14 @@
 # AppImage is packaged separately (desktop.nix) and version-locked to the
 # Terminal in the flake declaration (home.nix).
 #
-# Images (the strata-vision encoder) are two separate choices. `visionEncoder`
-# says whether the package BUILDS and ships the encoder; `vision` says whether
-# setup and strata-server default to using it. Off by default, and flake.nix
-# builds the attribute without them. Shipping the encoder costs only disk
-# (~1.2 GB of VRAM and a few % of text speed are paid when it is used, plus
-# ~0.9 GB of mmproj weights that setup downloads); with it shipped and `vision`
-# false, `strata --setup` asks and either answer works. See home.nix.
+# Pictures (the strata-vision encoder) are a build-time choice only:
+# `visionEncoder` says whether the package BUILDS and ships the encoder. Whether
+# a model serves images is the run config's `vision` block, answered by
+# `strata launch` and left alone by Nix. `preloadEngine` is the service's start
+# behaviour: with it false, `strata-server` passes --lazy and the engine loads on
+# the first request. Shipping the encoder costs only disk (~1.2 GB of VRAM and a
+# few % of text speed are paid when a model uses it, plus ~0.9 GB of mmproj
+# weights that setup downloads). See home.nix.
 #
 # Runtime notes (laptop-p16, established 2026-09-27):
 # - The wrapper and `strata-server` run configPatch.py on every engine start.
@@ -82,10 +83,9 @@
   util-linux,
   coreutils,
   cudaArch ? "86",
-  vision ? false,
-  visionEncoder ? vision,
+  visionEncoder ? false,
   isCachyOS ? false,
-  context ? null,
+  preloadEngine ? false,
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
@@ -394,8 +394,9 @@ let
 
         # Route to strata.py (the Terminal CLI).
         # Legacy flags map to `launch`: bare `strata` = `launch`,
-        # --setup = removed (launch is the default), --vision yes/no = on/off,
-        # --context <int> passes through.
+        # --setup = removed (launch is the default), --vision yes/no = on/off.
+        # Everything else - --context, --model, --kv, --tune - is passed to
+        # `launch` as typed; Nix injects no engine flag.
         # A sub-command goes to the CLI unchanged. This list is upstream's own
         # parser (strata_cli/cli.py, the _SubParsersAction): anything missing
         # here would be handed to `launch` and rejected as an unknown flag, so
@@ -412,8 +413,7 @@ let
 
         # Legacy mapping: bare `strata` = `launch`. Transform --vision yes/no -> on/off,
         # pass every other flag through. A bash array keeps arguments with spaces
-        # intact. The Nix `context` option (when set) comes last, so it wins over
-        # a --context typed on the command line - argparse keeps the last value.
+        # intact.
         launch_args=()
         for arg in "$@"; do
           case "$arg" in
@@ -423,7 +423,6 @@ let
             *) launch_args+=("$arg") ;;
           esac
         done
-        ${lib.optionalString (context != null) "launch_args+=(--context ${toString context})"}
         exec "$STRATA_HOME/.venv/bin/python" "$STRATA_HOME/strata.py" launch "''${launch_args[@]}"
       '';
   };
@@ -446,7 +445,7 @@ let
   # Unsloth Studio integration.
   # Reinstalls the component from the store before starting (covers
   # `home-manager switch` service restarts). Same flags as before:
-  # --lazy (when vision off), --idle-unload, --min-free-vram-mib,
+  # --lazy (when preloadEngine is false), --idle-unload, --min-free-vram-mib,
   # --before-load, --host/--port, STRATA_CONFIG.
   strata-server = writeShellApplication {
     name = "strata-server";
@@ -477,7 +476,7 @@ let
           exit 1
         fi
         extra=(--host "''${STRATA_HOST:-127.0.0.1}" --port "''${STRATA_PORT:-8080}")
-        ${lib.optionalString (!vision) "extra+=(--lazy)"}
+        ${lib.optionalString (!preloadEngine) "extra+=(--lazy)"}
         extra+=(--idle-unload "''${STRATA_IDLE_UNLOAD:-300}")
         if [ -n "''${STRATA_MIN_FREE_VRAM:-}" ]; then
           extra+=(--min-free-vram-mib "$STRATA_MIN_FREE_VRAM")

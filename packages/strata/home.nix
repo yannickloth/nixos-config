@@ -1,7 +1,7 @@
 # home-manager wrapper for the Strata package (see ./default.nix).
 #
 #   imports = [ ../../packages/strata/home.nix ];
-#   strata.enable = true;   # gated on the host with the CUDA GPU (laptop-p16)
+#   strata.enable = true;   # gated per host on a CUDA card (laptop-p16, server-nike)
 #
 # Installs `strata` (Terminal CLI entry point + launcher), `strata-chat`,
 # `strata-server`, and the desktop AppImage.
@@ -48,41 +48,40 @@ in
     package = mkOption {
       type = types.package;
       default = pkgs.callPackage ./default.nix {
-        # context is the only tuning value we keep in Nix (engine KV/window
-        # capacity); every other engine knob is owned by `strata --setup` at
-        # runtime.
-        inherit (cfg) context vision visionEncoder;
+        # Build-time choices and the service's start behaviour. Every engine
+        # knob (context window, KV format, rope, pcie fraction, ...) is a
+        # `strata launch` answer in the run config, decided at runtime.
+        inherit (cfg) preloadEngine visionEncoder;
         # CachyOS needs the /usr/lib/libcuda shim; NixOS uses the driver runpath
         # (set by the standalone CachyOS flake / left false on NixOS).
         inherit (config.commonHm) isCachyOS;
       };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) context vision visionEncoder; inherit (config.commonHm) isCachyOS; }";
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) preloadEngine visionEncoder; inherit (config.commonHm) isCachyOS; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
     };
 
-    vision = mkOption {
+    preloadEngine = mkOption {
       type = types.bool;
       default = false;
       description = ''
-        Serve images by default: the wrapper passes `--vision yes` to setup
-        (`--vision no` overrides it for one run) and strata-server preloads the
-        engine instead of loading it lazily. Off by default: it drops throughput
-        from ~35 to ~22 tok/s. Costs ~1.2 GB of VRAM for the encoder and a
-        ~0.9 GB mmproj download on first setup. Implies `visionEncoder`.
+        Start `strata-server` with the engine already loaded (no `--lazy`)
+        instead of loading it on the first request. This is a service setting,
+        not a model setting: pictures, context and the rest stay `strata launch`
+        answers in the run config. Off by default, because a preloaded engine
+        holds the weights in RAM and most of the card while no request is open.
       '';
     };
 
     visionEncoder = mkOption {
       type = types.bool;
-      default = cfg.vision;
-      defaultText = literalExpression "config.strata.vision";
+      default = false;
       description = ''
-        Build and ship the strata-vision image encoder, without deciding what
-        setup does with it. With the binary installed, `strata --setup` asks the
-        images question and both answers work (yes: CPU encoder on a 12 GB card,
-        ~35 -> ~22 tok/s; no: text only). Costs only disk until images are used.
-        Leave it false and the setup run is forced text-only, because the
-        package has no encoder to enable.
+        Build and ship the strata-vision image encoder. This is the only
+        build-time piece of the picture support: without the binary the engine
+        can never read images, whatever the run config says. With it installed,
+        `strata launch` asks the images question and both answers work (yes: the
+        reader runs on the CPU of a 12 GB card, ~35 -> ~22 tok/s; no: text
+        only). Costs only disk until images are used.
       '';
     };
 
@@ -111,17 +110,6 @@ in
           server back.
         '';
       };
-    };
-
-    context = mkOption {
-      type = types.nullOr types.ints.positive;
-      default = null;
-      description = ''
-        Engine KV/state capacity (`--max-context`). Null — this module does not
-        enforce any context window: `strata --setup` probes the card and writes
-        the optimal value into the run config. The package's default is also
-        null (it leaves the window to `strata --setup`).
-      '';
     };
 
     autoStart = mkOption {
@@ -245,14 +233,6 @@ in
     (mkIf cfg.enable {
       assertions = [
         {
-          # `vision` means "serve images by default", which needs the encoder
-          # binary in the package. Only the option DEFAULT ties the two, so an
-          # explicit `visionEncoder = false` would otherwise produce a package
-          # that is told to serve images it cannot encode.
-          assertion = !cfg.vision || cfg.visionEncoder;
-          message = "strata.vision = true needs strata.visionEncoder = true: the package must ship the strata-vision encoder it is told to serve with.";
-        }
-        {
           # Desktop app and Terminal must be the same version: the AppImage
           # cannot update itself from the Nix store (write-protected), so
           # any version mismatch means the app has no engine (ships none
@@ -293,7 +273,7 @@ in
 
       systemd.user.services.strata = {
         Unit = {
-          Description = "Strata server (${if cfg.vision then "image encoder preloaded" else "engine loads on demand"}; Unsloth Studio's 125B endpoint)";
+          Description = "Strata server (${if cfg.preloadEngine then "engine preloaded at start" else "engine loads on demand"}; Unsloth Studio's 125B endpoint)";
           After = [ "network-online.target" ];
           # Unlimited restarts: a unit that gives up would leave Studio's 125B
           # endpoint dead. StartLimit* belongs in [Unit] - in [Service] systemd

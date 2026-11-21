@@ -233,13 +233,11 @@ in
     # RAM and most of the GPU idle between turns instead — the trade-off is
     # explicitness over latency, so lower it if another GPU job needs the card.
     idleUnloadSeconds = 900;
-    # Vision is not the default: using the strata-vision image encoder drops
-    # throughput from ~35 to ~22 tok/s. The ENCODER is still built and shipped
-    # (visionEncoder), so `strata --setup` asks the images question and both
-    # answers work instead of failing on a package without the binary. Answer
-    # that prompt explicitly - upstream's default is "y" - and the cost of
-    # shipping the encoder is disk only.
-    vision = false;
+    # The picture reader is built and shipped (visionEncoder), so `strata launch`
+    # asks the images question and either answer works instead of failing on a
+    # package without the binary. Answer it in the run config, not here: on this
+    # 12 GB card images cost ~35 -> ~22 tok/s. Shipping the encoder costs disk
+    # only until a model uses it.
     visionEncoder = true;
     # The desktop app (upstream AppImage): shares the models below and can
     # either load one with its own engine or use the API of a running server -
