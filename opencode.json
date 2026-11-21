@@ -15,79 +15,29 @@
   ],
   "agents": {
     "driver-identifier": {
-      "model": "deepseek/deepseek-v4-pro",
+      "model": "proxy/lieutenant",
       "mode": "subagent",
-      "system": "{file:../llm-harness-plugins/ivp/agents/driver-identifier.md}",
-      "variants": [
-        {
-          "id": "default",
-          "body": {
-            "thinking": {
-              "type": "enabled"
-            }
-          }
-        }
-      ]
+      "system": "{file:../llm-harness-plugins/ivp/agents/driver-identifier.md}"
     },
     "driver-assignment-auditor": {
-      "model": "deepseek/deepseek-v4-pro",
+      "model": "proxy/lieutenant",
       "mode": "subagent",
-      "system": "{file:../llm-harness-plugins/ivp/agents/driver-assignment-auditor.md}",
-      "variants": [
-        {
-          "id": "default",
-          "body": {
-            "thinking": {
-              "type": "enabled"
-            }
-          }
-        }
-      ]
+      "system": "{file:../llm-harness-plugins/ivp/agents/driver-assignment-auditor.md}"
     },
     "gamma-modularizer": {
-      "model": "deepseek/deepseek-v4-pro",
+      "model": "proxy/lieutenant",
       "mode": "subagent",
-      "system": "{file:../llm-harness-plugins/ivp/agents/gamma-modularizer.md}",
-      "variants": [
-        {
-          "id": "default",
-          "body": {
-            "thinking": {
-              "type": "enabled"
-            }
-          }
-        }
-      ]
+      "system": "{file:../llm-harness-plugins/ivp/agents/gamma-modularizer.md}"
     },
     "nest-decider": {
-      "model": "deepseek/deepseek-v4-pro",
+      "model": "proxy/lieutenant",
       "mode": "subagent",
-      "system": "{file:../llm-harness-plugins/ivp/agents/nest-decider.md}",
-      "variants": [
-        {
-          "id": "default",
-          "body": {
-            "thinking": {
-              "type": "enabled"
-            }
-          }
-        }
-      ]
+      "system": "{file:../llm-harness-plugins/ivp/agents/nest-decider.md}"
     },
     "ivp-refactor-auditor": {
-      "model": "deepseek/deepseek-v4-pro",
+      "model": "proxy/lieutenant",
       "mode": "subagent",
-      "system": "{file:../llm-harness-plugins/ivp/agents/ivp-refactor-auditor.md}",
-      "variants": [
-        {
-          "id": "default",
-          "body": {
-            "thinking": {
-              "type": "enabled"
-            }
-          }
-        }
-      ]
+      "system": "{file:../llm-harness-plugins/ivp/agents/ivp-refactor-auditor.md}"
     }
   }
 }
