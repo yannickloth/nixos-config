@@ -9,6 +9,14 @@
 # it on every rewrite. "auto" is the value setup.py writes: a bare flag would
 # make the engine take the next option as its value.
 #
+# Plus one per-host correctness rule: a --pool-workers count above what THIS
+# machine can use well is removed. The count is measured per host (15 suits a
+# 16-thread PC; on a 12-thread one the extra workers spin and cost about half
+# the decode speed). A run config copied from another host keeps that host's
+# number, and the engine would run it as given. The ceiling is the engine's own
+# plan: the fewer of "threads - 1" and "physical cores - 1" (one CPU kept free),
+# so 5 on a 6-core / 12-thread CPU. Removing it lets the engine pick its own.
+#
 # Plus one package-correctness rule: a "vision" block points at
 # engine/strata-vision, which THIS package ships only when it was built with
 # the encoder (argv[2]). A config written by an older install (or by setup
@@ -149,6 +157,87 @@ for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
         pass  # migration failures are non-fatal, skip to policy check
 
 failed = []
+
+
+def host_threads() -> int:
+    """The CPU threads this process may run on (the host's, or the cgroup's)."""
+    try:
+        return len(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        return os.cpu_count() or 0
+
+
+def host_cores() -> int:
+    """The physical cores of the largest socket, from the kernel's topology
+    files; 0 when they cannot be read."""
+    base = "/sys/devices/system/cpu"
+    cores: dict[str, set[str]] = {}
+    try:
+        names = [n for n in os.listdir(base) if n.startswith("cpu") and n[3:].isdigit()]
+    except OSError:
+        return 0
+    for name in names:
+        topo = os.path.join(base, name, "topology")
+        try:
+            with open(os.path.join(topo, "physical_package_id"), encoding="utf-8") as f:
+                package = f.read().strip()
+            with open(os.path.join(topo, "core_id"), encoding="utf-8") as f:
+                core = f.read().strip()
+        except OSError:
+            return 0
+        cores.setdefault(package, set()).add(core)
+    return max((len(c) for c in cores.values()), default=0)
+
+
+def pool_workers_ceiling() -> int:
+    """The most --pool-workers this host can use well: the engine's own plan.
+
+    strata's plan_pool_workers takes the fewer of "threads - 1" and "physical
+    cores - 1" (one CPU kept free for the host thread), so 5 on this 6-core /
+    12-thread CPU. A count above it is a number from another host: it either
+    cannot run or shares cores ("the extra workers spin and take time from the
+    others").
+    """
+    limits = [n for n in (host_threads() - 1, host_cores() - 1) if n > 0]
+    return min(limits) if limits else 0
+
+
+def drop_foreign_pool_workers(c) -> str | None:
+    """Remove a --pool-workers count this host cannot use well, in place;
+    returns the value and this host's ceiling ("8 (this host runs 5)"), or None.
+
+    The count is per host: 15 workers suit a 16-thread machine and cost about
+    half the decode speed on a 12-thread one. A run config copied from another
+    host carries the other host's number, and the engine runs it as given.
+    Dropping it is not a choice of value: the engine then picks its own.
+    """
+    ceiling = pool_workers_ceiling()
+    if ceiling <= 0:
+        return None
+    removed = None
+    for key in ("args", "args_written"):
+        args = c.get(key)
+        if not isinstance(args, list):
+            continue
+        out, i, changed = [], 0, False
+        while i < len(args):
+            if args[i] == "--pool-workers" and i + 1 < len(args):
+                try:
+                    value = int(str(args[i + 1]).strip())
+                except ValueError:
+                    value = 0
+                if value > ceiling:
+                    removed = f"{value} (this host runs {ceiling})"
+                    changed = True
+                    i += 2
+                    continue
+            out.append(args[i])
+            i += 1
+        if changed:
+            c[key] = out
+    return removed
+
+
 def shape_engine_config(c) -> bool:
     """True when the config starts an engine of its own shape (strata-hy4,
     strata-q4-lite, ...): serve selects it by the config's "exe" and "arch".
@@ -176,6 +265,10 @@ for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
             continue
         if shape_engine_config(c):
             continue                       # another engine's run config: not this module's policy
+        dropped = drop_foreign_pool_workers(c)
+        if dropped:
+            print(f"strata: {os.path.basename(p)}: removed --pool-workers {dropped} "
+                  f"- the engine picks its own", file=sys.stderr)
         a = c["args"]
         # --expert-cache is Flash-Next's (Qwen3.8) requirement. The Qwen3.6
         # engine path (arch qwen35moe) places its experts with --expert-vram /

@@ -452,6 +452,23 @@
               echo "qwen36 vision block kept although the package ships no encoder" >&2; exit 1
             fi
 
+            # 6i. --pool-workers is a per-host number. A count above what this
+            #     machine can use well (the engine's plan: the fewer of threads-1
+            #     and physical cores-1) comes from a bigger host, and is removed
+            #     from "args" and "args_written" so the engine picks its own; a
+            #     count that fits is kept untouched.
+            printf '{"exe":"component:strata-engine","args":["--native","/m/a.gguf","--pool-workers","4000","--spec","4"],"args_written":["--native","/m/a.gguf","--pool-workers","4000","--spec","4"]}' > "$STRATA_HOME/strata-pw-big.json"
+            printf '{"exe":"component:strata-engine","args":["--native","/m/b.gguf","--pool-workers","1","--spec","4"]}' > "$STRATA_HOME/strata-pw-ok.json"
+            patch true
+            python3 - "$STRATA_HOME/strata-pw-big.json" "$STRATA_HOME/strata-pw-ok.json" <<'PYP'
+            import json, sys
+            big, ok = (json.load(open(p)) for p in sys.argv[1:3])
+            assert "--pool-workers" not in big["args"], big["args"]
+            assert "--pool-workers" not in big["args_written"], big["args_written"]
+            assert "--expert-cache" in big["args"], big["args"]          # the policy still applies
+            assert ok["args"][ok["args"].index("--pool-workers") + 1] == "1", ok["args"]
+            PYP
+
             # 7. last, because this file makes EVERY later run fail: an
             #    unreadable config is a hard failure, since this script is the
             #    enforcement point of the policy and must not fail open with
