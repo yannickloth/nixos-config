@@ -23,64 +23,47 @@
   symlinkJoin,
   fetchurl,
   coreutils,
+  writeShellApplication,
   pkgs,
   isCachyOS ? false,
 }:
 
 let
   version = "1.1.1";
-  bundleHash = "sha256-0d55dd1bc0e943276208ea8343e95d93a42b3f5a025c11c7000c9d95e092d701";
-  modelHash = "sha256-0510bae82445dc53dbc7d0d842d8b7e146b8eafce0837e39b157d411e48c8a74";
+  bundleUrl = "https://github.com/professorpalmer/Kintsugi-27B/releases/download/v${version}/Kintsugi-27B-v${version}-linux-x86_64.tar.gz";
+  bundleHash = "sha256:0d55dd1bc0e943276208ea8343e95d93a42b3f5a025c11c7000c9d95e092d701";
+  modelUrl = "https://huggingface.co/CaryPalmer/Kintsugi-27B/resolve/main/Kintsugi-27B-12G.gguf";
+  modelHash = "sha256:0510bae82445dc53dbc7d0d842d8b7e146b8eafce0837e39b157d411e48c8a74";
 
-  # The engine bundle from the GitHub release.
-  bundle = stdenv.mkDerivation {
-    pname = "kintsugi-27b-bundle";
-    inherit version;
-    src = fetchurl {
-      url = "https://github.com/professorpalmer/Kintsugi-27B/releases/download/v${version}/Kintsugi-27B-v${version}-linux-x86_64.tar.gz";
-      sha256 = bundleHash;
-    };
-    dontBuild = true;
-    installPhase = ''
-      runHook preInstall
-      mkdir -p $out
-      tar -xzf $src -C $out
-      runHook postInstall
-    '';
-  };
-
-  # Model file from HuggingFace (10,546,687,168 bytes).
+  # Engine derivation: unpacks the tarball directly and copies the Kintsugi-27B
+  # directory into the store with the model file and driver libraries.
   modelFile = fetchurl {
-    url = "https://huggingface.co/CaryPalmer/Kintsugi-27B/resolve/main/Kintsugi-27B-12G.gguf";
-    sha256 = modelHash;
+    inherit modelUrl modelHash;
   };
 
-  # Engine derivation with NVIDIA driver libraries for runtime resolution
-  # of libcuda.so.1. Follows the exact Strata engine.nix pattern:
-  # - NixOS: autoAddDriverRunpath injects the driver's rpath
-  # - CachyOS: lib-driver/ symlinks to /usr/lib (distro driver), patchelf adds rpath
   engine = stdenv.mkDerivation {
     pname = "kintsugi-27b-engine";
     inherit version;
-    src = bundle;
+    src = fetchurl {
+      inherit bundleUrl bundleHash;
+    };
     nativeBuildInputs = [ pkgs.autoAddDriverRunpath ];
-    buildInputs = [ pkgs.nvidia_x11 ];
     dontBuild = true;
     installPhase = ''
       runHook preInstall
       mkdir -p $out
-      cp -r source/Kintsugi-27B $out/
+      cp -r Kintsugi-27B $out/
       cp ${modelFile} $out/Kintsugi-27B/models/Kintsugi-27B-12G.gguf
 
       # NVIDIA driver libraries for runtime resolution of libcuda.so.1.
       # The engine binary (bin/llama-server) dlopen's it at startup.
-      mkdir -p $out/lib-driver
+      mkdir -p $out/Kintsugi-27B/lib-driver
       ${lib.optionalString isCachyOS ''
         # CachyOS: the NVIDIA driver is installed by the distro into /usr/lib.
         # Create symlinks so the engine finds libcuda.so.1 at runtime via
         # the rpath we patch below.
-        ln -sf /usr/lib/libcuda.so.1 $out/lib-driver/libcuda.so.1
-        ln -sf /usr/lib/libnvidia-ml.so.1 $out/lib-driver/libnvidia-ml.so.1
+        ln -sf /usr/lib/libcuda.so.1 $out/Kintsugi-27B/lib-driver/libcuda.so.1
+        ln -sf /usr/lib/libnvidia-ml.so.1 $out/Kintsugi-27B/lib-driver/libnvidia-ml.so.1
       ''}
       runHook postInstall
     '';
@@ -88,11 +71,11 @@ let
 
   # Runtime wrapper: sets LD_LIBRARY_PATH (engine's bundled CUDA runtime +
   # NVIDIA driver libs) and starts the engine in --wait mode.
-  wrapper = lib.writeShellApplication {
+  wrapper = writeShellApplication {
     name = "kintsugi-27b";
     runtimeInputs = [ coreutils pkgs.bash ];
     text = ''
-      export LD_LIBRARY_PATH="${engine}/Kintsugi-27B/bin:${engine}/lib-driver:''${LD_LIBRARY_PATH:-}"
+      export LD_LIBRARY_PATH="${engine}/Kintsugi-27B/bin:${engine}/Kintsugi-27B/lib-driver:''${LD_LIBRARY_PATH:-}"
 
       runtime="$HOME/.local/share/kintsugi-27b"
       mkdir -p "$runtime/models"
