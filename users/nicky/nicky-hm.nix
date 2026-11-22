@@ -282,12 +282,12 @@ in
   # independent engine (the Kintsugi llama.cpp fork with trellis kernels) and
   # its own service/port. Cannot be served by Unsloth Studio or Strata — the
   # EXL3 trellis quantization requires the Kintsugi bundle's engine binary
-  # and its CUDA 12.8 runtime. One instance per inference host, each owning
-  # the GPU card when loaded. The engine listens on :9931 by default (the
-  # llama.cpp convention used by Pi, Hermes, and OpenClaw in this user's
-  # setup); the port is configurable via the `port` option. Clients point
+  # and its CUDA 12.8 runtime. Disabled on laptop-p16 (Strata's 125B MoE
+  # at ~30+ tok/s is faster and stronger; Kintsugi manages only ~26 tok/s
+  # with a weaker 27B model). Server-nike still qualifies (headless, full
+  # 12 GB VRAM available for the model). Clients point
   # at http://127.0.0.1:<port>/v1 (OpenAI-compatible).
-  kintsugi-27b = lib.mkIf (isP16 || isNike) {
+  kintsugi-27b = lib.mkIf isNike {
     enable = true;
     # Default 9931 — the llama.cpp convention used by Pi, Hermes, OpenClaw
     # in this user's setup (see HuggingFace pages for Kintsugi-27B).

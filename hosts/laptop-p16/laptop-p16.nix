@@ -138,14 +138,14 @@ with lib;
   # as nix-serve in environments/laptop-firewall.nix. Kept in the host rather
   # than the HM module because orca.server is a home-manager option and cannot
   # touch networking.firewall. Same for strata (:8080), unsloth-studio (:8888)
-  # and kintsugi-27b (:9931) below: reachable from the other inference host,
-  # the LAN and the tailnet (the private-range set from lib, IPv6 included -
-  # the tailnet ULA fd7a::/48 reaches them over IPv6 too). Loopback needs no
-  # rule: the firewall accepts lo by default.
+  # and kintsugi-27b (:9931, server-nike only) below: reachable from the other
+  # inference host, the LAN and the tailnet (the private-range set from lib,
+  # IPv6 included — the tailnet ULA fd7a::/48 reaches them over IPv6 too).
+  # Loopback needs no rule: the firewall accepts lo by default.
   networking.firewall.extraInputRules = ''
     tcp dport 6768 ip saddr 100.64.0.0/10 accept
   ''
     + (import ../../lib).privateNetRules {
-      tcp = [ "8080" "8888" "9931" ];  # strata + unsloth studio + kintsugi-27b
+      tcp = [ "8080" "8888" ];  # strata + unsloth studio
     };
 }
