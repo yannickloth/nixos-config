@@ -85,20 +85,29 @@ let
       # read-only and the script writes logs/PID files there).
       if [ ! -d "$engineDir" ]; then
         cp -r ${engine}/Kintsugi-27B "$engineDir"
+        # Nix store files are read-only; make the runtime copy writable
+        # so the engine can write logs, PIDs, and session data.
+        chmod -R +w "$engineDir"
       fi
 
-      # Symlink the model from the store into the runtime copy.
+      # Ensure the model file exists in the runtime copy.
       model="$engineDir/models/Kintsugi-27B-12G.gguf"
       want="${engine}/Kintsugi-27B/models/Kintsugi-27B-12G.gguf"
-      if [ ! -e "$model" ] || [ "$(readlink -f "$model" 2>/dev/null)" != "$want" ]; then
+      if [ ! -e "$model" ] || [ -L "$model" ] || \
+         [ "$(readlink -f "$model" 2>/dev/null)" != "$want" ]; then
+        # If the model is a symlink from a previous broken attempt,
+        # remove it first. Otherwise the engine already has a copy.
+        rm -f "$model"
         ln -sf "$want" "$model"
       fi
 
-      # Use the runtime copy's lib-driver symlinks (the store copy has
-      # none on NixOS, only on CachyOS where /usr/lib is always available).
+      # Runtime lib-driver symlinks (NixOS needs these; CachyOS also has
+      # /usr/lib/libcuda.so.1 so the rpath injection covers it).
       mkdir -p "$engineDir/lib-driver"
       if [ -f /usr/lib/libcuda.so.1 ]; then
+        rm -f "$engineDir/lib-driver/libcuda.so.1"
         ln -sf /usr/lib/libcuda.so.1 "$engineDir/lib-driver/libcuda.so.1"
+        rm -f "$engineDir/lib-driver/libnvidia-ml.so.1"
         ln -sf /usr/lib/libnvidia-ml.so.1 "$engineDir/lib-driver/libnvidia-ml.so.1"
       fi
 
