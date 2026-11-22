@@ -89,7 +89,7 @@ let
       fi
 
       cd "$runtime"
-      PORT="${KINTSUGI_PORT:-9931}"
+      PORT="$${KINTSUGI_PORT:-9931}"
       exec ${engine}/Kintsugi-27B/start-server.sh --port "$PORT" --wait
     '';
   };
