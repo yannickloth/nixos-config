@@ -2,9 +2,9 @@
 #
 # One OpenAI-compatible endpoint (server-nike:4000) for opencode, pi and any
 # other agent client on every host (laptop-p16 included), reached over
-# Tailscale. server-nike hosts the proxy next to the local Strata engine
-# (loopback) and one Tailscale hop away from Strata on laptop-p16. Three classes
-# of model name:
+# Tailscale. server-nike hosts the proxy next to the swift-1.5 pool (two Strata
+# instances: loopback on server-nike, one Tailscale hop from laptop-p16).
+# Three classes of model name:
 #   - the rank ladder of docs/ai-ranks.md. Every model of every ranked provider
 #     — Z.ai Coding Plan, Kimi Code (legacy Allegretto plan), DeepSeek API,
 #     Hetzner Inference — plus the two local models (Swift 1.5 on Strata,
@@ -215,45 +215,69 @@ let
       # ---------------------------------------------------------------------------
       # Standing stack (local + free cloud): the auto-fallback ladder
       #
-      # The local tiers all point at the Strata engine on server-nike. Reason:
-      # this host cannot hold more than one model in VRAM at a time, and every
-      # swap costs a full load (~30 s) plus the decode rate the card pays while
-      # it streams weights. One resident Strata model keeps the GPU warm across
-      # ranks; Studio GGUF copies are used only where nothing else can answer.
+      # One Strata model (swift-1.5-iq3_xxs) runs on two machines: server-nike
+      # (loopback, co-located with the proxy) and laptop-p16 (one Tailscale hop).
+      # A single `swift-1.5` model_name with both at order 1 distributes calls
+      # via simple-shuffle across both engines, giving two in-flight slots
+      # (vs. 1 on any single instance). When both engines are down, the rank's
+      # fallback chain fires. Studio GGUF copies are used only where nothing
+      # else can answer.
       # ---------------------------------------------------------------------------
 
-      # Sergeant (OR-4) — fast executor. Local first: the Strata engine
-      # co-located with the proxy (server-nike:8080, loopback), the same
-      # resident weights as warrant-officer's local fallback.
-      # order 1 = Strata swift-1.5-iq3_xxs (256K ctx) — no model load
-      # order 2 = Unsloth Studio Nemotron (128K ctx) — only when Strata is
-      #           absent; this tier costs one model load, which is why it sits
-      #           behind the resident engine.
-      # max_parallel_requests: 1 on the Strata tier — the engine is single-slot:
-      # a second concurrent request gets a fast 429 instead of queueing behind
-      # a long turn.
-      # stream_timeout: 120 on the Strata tier — the first token waits for a
-      # possible engine load (~30 s) after idleUnloadSeconds; after the first
-      # token the stream must keep moving.
+      # ---------------------------------------------------------------------------
+      # swift-1.5 — load-balanced across both Strata instances (simple-shuffle)
+      # ---------------------------------------------------------------------------
+      # Both Strata engines serve the same model (swift-1.5-iq3_xxs, 256K ctx).
+      # simple-shuffle picks randomly between them at order 1. Each engine is
+      # single-slot (max_parallel_requests: 1): a 429 from one promotes the
+      # other mid-retry (same order tier), not the next rank. Only when both
+      # instances fail does the rank's fallback chain fire.
+      - model_name: "swift-1.5"
+        litellm_params:
+          model: openai/swift-1.5-iq3_xxs
+          api_base: http://127.0.0.1:8080/v1        # server-nike (loopback)
+          api_key: strata            # Strata accepts any key
+          order: 1
+          timeout: 300
+          stream_timeout: 120        # first token waits for engine load
+          num_retries: 1
+          max_parallel_requests: 1
+        model_info:
+          id: swift-1.5-nike
+          max_input_tokens: 262144   # served window (live n_ctx on nike)
+          input_cost_per_token: 0
+          output_cost_per_token: 0
+      - model_name: "swift-1.5"
+        litellm_params:
+          model: openai/swift-1.5-iq3_xxs
+          api_base: http://laptop-p16.bee-blues.ts.net:8080/v1  # laptop-p16
+          api_key: strata            # Strata accepts any key
+          order: 1
+          timeout: 300
+          stream_timeout: 120
+          num_retries: 1
+          max_parallel_requests: 1
+        model_info:
+          id: swift-1.5-laptop
+          max_input_tokens: 262144   # served window (live n_ctx on laptop)
+          input_cost_per_token: 0
+          output_cost_per_token: 0
+
+      # Sergeant (OR-4) — fast executor. Local first: reference to the
+      # shared swift-1.5 load-balanced pool (order 1), Unsloth Studio fallback
+      # only when Strata is absent (order 2, costs a model load).
       - model_name: "sergeant"
         litellm_params:
           model: openai/swift-1.5-iq3_xxs
-          api_base: http://127.0.0.1:8080/v1
           api_key: strata            # Strata accepts any key
           temperature: 0.1        # deterministic execution
           order: 1
           timeout: 300
           stream_timeout: 120
           num_retries: 1          # local: one retry, then move on
-          max_parallel_requests: 1
         model_info:
-          id: sergeant-strata
-          # The window the nike engine serves: `strata launch` writes
-          # --max-context 262144, and live GET :8080/v1/models reports
-          # n_ctx 262144. The model's native window is 384K.
+          id: sergeant-swift1.5
           max_input_tokens: 262144
-          supports_vision: false  # text rank: clients are not wired to send
-                                 # images here (no attachment flag)
           input_cost_per_token: 0
           output_cost_per_token: 0
       - model_name: "sergeant"
@@ -273,13 +297,13 @@ let
           input_cost_per_token: 0
           output_cost_per_token: 0
 
-      # Warrant Officer (OR-8) — Qwen3.6-35B-A3B on Hetzner, with the resident
-      # Strata engine co-located with the proxy as the fallback. No Unsloth
-      # Studio deployment: one resident local model, and a cloud outage must not
-      # swap in (and later swap out) a second set of weights.
+      # Warrant Officer (OR-8) — Qwen3.6-35B-A3B on Hetzner, with Strata
+      # (swift-1.5) as the fallback. No Unsloth Studio deployment: one local
+      # model, and a cloud outage must not swap in (and later swap out) a
+      # second set of weights.
       # order 1 = Hetzner free cloud (FP8, 262K ctx) — default: no local model
-      #           load, and the GPU stays free for the Strata engine,
-      # order 2 = Strata on server-nike (swift-1.5-iq3_xxs, 256K ctx).
+      #           load, and the GPU stays free for the Strata engines.
+      # order 2 = swift-1.5 (shuffle picks between server-nike and laptop-p16).
       # The two orders serve different models; the rank is the workhorse slot,
       # not a single-model pair.
       - model_name: "warrant-officer"
@@ -300,16 +324,14 @@ let
       - model_name: "warrant-officer"
         litellm_params:
           model: openai/swift-1.5-iq3_xxs
-          api_base: http://127.0.0.1:8080/v1
           api_key: strata            # Strata accepts any key
           order: 2
           timeout: 600
           stream_timeout: 180
           num_retries: 1
-          max_parallel_requests: 1
         model_info:
           id: warrant-officer-strata
-          max_input_tokens: 262144   # served window on nike (live n_ctx)
+          max_input_tokens: 262144
           supports_vision: false  # text rank: contract, not capability — the
                                   # model does see images (live GET /v1/models:
                                   # input_modalities text+image); images are
@@ -339,16 +361,14 @@ let
       - model_name: "warrant-officer-v"
         litellm_params:
           model: openai/swift-1.5-iq3_xxs
-          api_base: http://127.0.0.1:8080/v1
           api_key: strata            # Strata accepts any key
           order: 2
           timeout: 600
           stream_timeout: 180
           num_retries: 1
-          max_parallel_requests: 1
         model_info:
           id: warrant-officer-v-strata
-          max_input_tokens: 262144   # served window on nike (live n_ctx)
+          max_input_tokens: 262144
           supports_vision: true    # verified: live GET /v1/models reports
                                    # input_modalities text+image, and the same
                                    # weights served the lieutenant-v pixel tests
@@ -356,12 +376,12 @@ let
           output_cost_per_token: 0
 
       # Second Lieutenant (OF-1a) — Qwen3.8-27B (Swift 1.5's base), free cloud,
-      # with the resident Strata engine on server-nike as fallback.
+      # with swift-1.5 as fallback.
       # order 1 = Hetzner free cloud (256K ctx)
-      # order 2 = Strata swift-1.5-iq3_xxs on server-nike (256K ctx) — the
-      #           same resident weights as sergeant and warrant-officer's local
-      #           fallback, so the fallback needs no model load. Both orders
-      #           hold the same window, so the context check never picks one.
+      # order 2 = swift-1.5 (shuffle picks between server-nike and laptop-p16)
+      #           — the same model as sergeant's local pool, so the fallback
+      #           needs no model load. Both orders hold the same window, so
+      #           the context check never picks one.
       - model_name: "second-lieutenant"
         litellm_params:
           model: openai/Qwen3.8-27B
@@ -380,45 +400,40 @@ let
       - model_name: "second-lieutenant"
         litellm_params:
           model: openai/swift-1.5-iq3_xxs
-          api_base: http://127.0.0.1:8080/v1
           api_key: strata            # Strata accepts any key
           order: 2
           timeout: 600
           stream_timeout: 180
           num_retries: 1
-          max_parallel_requests: 1
         model_info:
           id: second-lieutenant-strata
-          max_input_tokens: 262144   # served window on nike (live n_ctx)
+          max_input_tokens: 262144
           supports_vision: false  # text rank; the local model does see images,
                                   # but images are addressed to -v ranks only
           input_cost_per_token: 0
           output_cost_per_token: 0
 
-      # Lieutenant (OF-1b) — Swift 1.5 on Strata (laptop-p16, one Tailscale
-      # hop from the proxy). The default model.
-      # max_parallel_requests: 1 — the engine is single-slot: a second
-      # concurrent request gets a fast internal 429 and falls through to
-      # second-lieutenant instead of queueing behind a long reasoning turn
-      # (the documented "delegates to lower ranks when busy" behavior).
-      # 256K window: `strata launch` writes --max-context 262144 and the live
-      # GET :8080/v1/models reports n_ctx 262144, so the local rank no longer
-      # drops a long prompt early. A prompt above 262144 tokens has no local
-      # or free-cloud deployment left in this ladder.
+      # Lieutenant (OF-1b) — Swift 1.5 on Strata. The default model.
+      # References the shared swift-1.5 pool (shuffle picks between server-nike
+      # and laptop-p16).
+      # max_parallel_requests: 1 on each instance — each engine is single-slot:
+      # a 429 from one promotes the other mid-retry (same order tier), not the
+      # next rank. When both Strata instances fail, lieutenant falls through to
+      # second-lieutenant (the documented "delegates to lower ranks when busy"
+      # behavior).
+      # 256K window: both Strata instances serve --max-context 262144 (live
+      # n_ctx), so the rank no longer drops a long prompt early. A prompt
+      # above 262144 tokens has no local or free-cloud deployment left in this
+      # ladder.
       - model_name: "lieutenant"
         litellm_params:
           model: openai/swift-1.5-iq3_xxs
-          api_base: http://laptop-p16.bee-blues.ts.net:8080/v1
           api_key: strata            # Strata accepts any key
           timeout: 600
           stream_timeout: 180
           num_retries: 1
-          max_parallel_requests: 1
         model_info:
           id: lieutenant-strata
-          # The window the Strata engine serves on laptop-p16: --max-context
-          # 262144 in its run config, live GET :8080/v1/models -> n_ctx 262144.
-          # The model's native window is 384K.
           max_input_tokens: 262144
           supports_vision: false  # text rank; images route via lieutenant-v
           input_cost_per_token: 0
@@ -427,24 +442,22 @@ let
       # Lieutenant (vision) — SAME model as lieutenant (Swift 1.5 on Strata is
       # natively multimodal, verified by pixel-color tests); the -v suffix
       # exposes the vision slot.
-      # max_parallel_requests is tracked per deployment (model_id), so
-      # lieutenant and lieutenant-v each get one in-flight slot; LiteLLM never
-      # cascades vision traffic into the text fallback chain because a text
-      # session is in flight (or vice versa). Genuine engine contention on the
-      # single-slot Strata instance is still answered by Strata itself (fast
-      # 429 -> the router falls through to the next vision rank).
+      # max_parallel_requests is tracked per deployment (model_id), so the
+      # swift-1.5 pool gets one slot per instance (2 total); lieutenant-v uses
+      # the same pool. LiteLLM never cascades vision traffic into the text
+      # fallback chain because a text session is in flight (or vice versa).
+      # Genuine engine contention on any Strata instance is answered by Strata
+      # itself (fast 429 -> the router falls through to the next vision rank).
       - model_name: "lieutenant-v"
         litellm_params:
           model: openai/swift-1.5-iq3_xxs
-          api_base: http://laptop-p16.bee-blues.ts.net:8080/v1
           api_key: strata            # Strata accepts any key
           timeout: 600
           stream_timeout: 180
           num_retries: 1
-          max_parallel_requests: 1
         model_info:
           id: lieutenant-v-strata
-          max_input_tokens: 262144   # same served window as lieutenant-strata
+          max_input_tokens: 262144
           supports_vision: true
           input_cost_per_token: 0
           output_cost_per_token: 0
@@ -1127,8 +1140,8 @@ let
         - session_affinity
 
       # Cross-rank fallbacks — local + free-cloud only. Sergeant is deliberately
-      # NOT in this chain: its Strata tier is the same deployment that
-      # warrant-officer and second-lieutenant use as their local fallback, so a
+      # NOT in this chain: its swift-1.5 pool is the same Strata deployment
+      # that warrant-officer and second-lieutenant use as their fallback, so a
       # rank entry would add no new capacity (only its Studio Nemotron tier would
       # be new, and that costs a model load). Sergeant is
       # explicit-selection-only. Paid ranks are explicit for the same reason
@@ -1137,7 +1150,7 @@ let
       # brigadier-general-v, and every explicit model id — no fallback in or out
       # of any of them.
       fallbacks:
-        - lieutenant: [second-lieutenant, warrant-officer]
+        - lieutenant: [second-lieutenant]
         - second-lieutenant: [warrant-officer]
         # Vision cascade: -v ranks are the only image slots, so a vision
         # request falls only to another -v rank. Only the free ranks cascade;

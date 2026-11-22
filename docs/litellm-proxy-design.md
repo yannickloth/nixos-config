@@ -63,7 +63,7 @@ sergeant's last-resort tier:
 
 | Local model | Role |
 | --- | --- |
-| `swift-1.5-iq3_xxs` (Swift 1.5, served by Strata) | sergeant order 1, second-lieutenant order 2, warrant-officer / warrant-officer-v order 2 on server-nike (127.0.0.1); lieutenant / lieutenant-v on laptop-p16 |
+| `swift-1.5-iq3_xxs` (Swift 1.5, served by Strata) | sergeant order 1, second-lieutenant order 2, warrant-officer / warrant-officer-v order 2, lieutenant / lieutenant-v — all via the shared `swift-1.5` pool (simple-shuffle between server-nike loopback and laptop-p16 Tailscale) |
 | `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` (Unsloth Studio) | sergeant order 2 — only when the Strata engine cannot answer |
 
 The rest of the Studio library (`unsloth/Qwen3.6-35B-A3B-MTP-GGUF` and the
@@ -78,11 +78,11 @@ its `model_list`.
 
 | Rank | Proxy name | Deployments (order) | Context | Notes |
 | --- | --- | --- | --- | --- |
-| Sergeant (OR-4) | `sergeant` | 1: `swift-1.5-iq3_xxs` @ Strata (server-nike) · 2: Nemotron @ Studio | 262144 / 128256 | `temperature: 0.1`, `max_parallel_requests: 1` on order 1, 300s timeout / 120s stream on order 1, explicit-only; order 2 is last resort |
-| Warrant Officer (OR-8) | `warrant-officer` | 1: Qwen3.6 @ Hetzner · 2: `swift-1.5-iq3_xxs` @ Strata (server-nike) | 262144 / 262144 | free-cloud primary, local Strata fallback; different models per order, same window |
+| Sergeant (OR-4) | `sergeant` | 1: `swift-1.5` @ Strata (shuffle server-nike + laptop-p16) · 2: Nemotron @ Studio | 262144 / 128256 | `temperature: 0.1`, 300s timeout / 120s stream, explicit-only; order 2 is last resort |
+| Warrant Officer (OR-8) | `warrant-officer` | 1: Qwen3.6 @ Hetzner · 2: `swift-1.5` @ Strata (shuffle) | 262144 / 262144 | free-cloud primary, local Strata fallback; different models per order, same window |
 | Warrant Officer (vision) | `warrant-officer-v` | same deployments as `warrant-officer` | 262144 / 262144 | the `-v` slot carries vision (both deployments are vision-capable, verified) |
-| Second Lieutenant (OF-1a) | `second-lieutenant` | 1: Qwen3.8-27B @ Hetzner · 2: `swift-1.5-iq3_xxs` @ Strata (server-nike) | 262144 / 262144 | free cloud primary, resident local fallback |
-| Lieutenant (OF-1b) | `lieutenant` | Swift 1.5 @ Strata | 262144 | default; `max_parallel_requests: 1` so a busy engine 429s into the next rank; 262144 is the window the engine serves (`--max-context`, live `n_ctx`), not the model's native 384K |
+| Second Lieutenant (OF-1a) | `second-lieutenant` | 1: Qwen3.8-27B @ Hetzner · 2: `swift-1.5` @ Strata (shuffle) | 262144 / 262144 | free cloud primary, resident local fallback |
+| Lieutenant (OF-1b) | `lieutenant` | `swift-1.5` @ Strata (shuffle) | 262144 | default; two in-flight slots (one per Strata instance) via shuffle; 262144 is the window the engines serve (`--max-context`, live `n_ctx`), not the model's native 384K |
 | Lieutenant (vision) | `lieutenant-v` | same deployment as `lieutenant` | 262144 | same model; the `-v` slot carries vision |
 | Captain (OF-2) | `captain` | `deepseek-flash` @ DeepSeek | 1048576 | pay-per-token, explicit; cost-mapped |
 | Captain (vision) | `captain-v` | `deepseek-flash` @ DeepSeek | 1048576 | image input per `GET /v1/models` |
@@ -133,7 +133,7 @@ their ids can carry images too; the rank names stay the recommended path.
   a quota-exhausted subscription is the first tier to be promoted through.
 - **Cross-rank fallbacks stop at warrant-officer**:
   `lieutenant → second-lieutenant → warrant-officer`. Sergeant is explicit-only:
-  its order-1 Strata deployment is the same one that second-lieutenant and
+  its swift-1.5 pool is the same Strata deployment that second-lieutenant and
   warrant-officer use as their local fallback, so a rank entry adds no new
   capacity; its Studio tier would only add a model load. Paid ranks (`captain`,
   `captain-v`, `captain-commandant`, `major`, `major-v`, `lieutenant-colonel`,
