@@ -72,6 +72,7 @@ in
     ../emacs-adult.nix
     ../../packages/strata/home.nix
     ../../packages/unsloth-studio/home.nix
+    ../../packages/kintsugi-27b/home.nix
     ../natural-scroll.nix
     ../nix-serve.nix
     ../opencode.nix
@@ -275,6 +276,25 @@ in
     # ~167 GB of models already live there, and /home has 1.5 TB free). Set this
     # to true on nike to move them to /data/strata and /data/Strata-data.
     dataOnDataVolume = isP16;
+  };
+
+  # Kintsugi-27B (Qwen3.8-27B at 2.47 bits, EXL3 trellis format): its own
+  # independent engine (the Kintsugi llama.cpp fork with trellis kernels) and
+  # its own service/port. Cannot be served by Unsloth Studio or Strata — the
+  # EXL3 trellis quantization requires the Kintsugi bundle's engine binary
+  # and its CUDA 12.8 runtime. One instance per inference host, each owning
+  # the GPU card when loaded. The engine listens on :9931 by default (the
+  # llama.cpp convention used by Pi, Hermes, and OpenClaw in this user's
+  # setup); the port is configurable via the `port` option. Clients point
+  # at http://127.0.0.1:<port>/v1 (OpenAI-compatible).
+  kintsugi-27b = lib.mkIf (isP16 || isNike) {
+    enable = true;
+    # Default 9931 — the llama.cpp convention used by Pi, Hermes, OpenClaw
+    # in this user's setup (see HuggingFace pages for Kintsugi-27B).
+    port = 9931;
+    # Loopback only: the other inference host reaches it over the private
+    # network; the host firewall (in hosts/<host>/<host>.nix) scopes access.
+    host = "127.0.0.1";
   };
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)

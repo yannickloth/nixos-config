@@ -244,8 +244,9 @@ with lib;
   # by Tailscale peers (other laptops pair to it over the mesh), same CGNAT gate
   # as nix-serve in environments/laptop-firewall.nix. Kept in the host rather
   # than the HM module because orca.server is a home-manager option and cannot
-  # touch networking.firewall. Same for strata (:8080), unsloth-studio (:8888)
-  # and the LiteLLM proxy (:4000) below: reachable from the other inference
+  # touch networking.firewall. Same for strata (:8080), unsloth-studio (:8888),
+  # kintsugi-27b (:9931) and the LiteLLM proxy (:4000) below: reachable from the
+  # other inference host, the LAN and the tailnet (the private-range set from
   # host, the LAN and the tailnet (the private-range set from lib, IPv6
   # included). Loopback needs no rule: the firewall accepts lo by default.
   networking.firewall.extraInputRules = ''
@@ -254,7 +255,7 @@ with lib;
     tcp dport 6768 ip saddr 100.64.0.0/10 accept  # orca runtime server (Tailscale)
   ''
     + (import ../../lib).privateNetRules {
-      tcp = [ "8080" "8888" "4000" ];  # strata + unsloth studio + litellm proxy
+      tcp = [ "8080" "8888" "9931" "4000" ];  # strata + unsloth studio + kintsugi + litellm proxy
     };
 
   # LiteLLM proxy: the rank gateway all hosts' opencode/pi point at (see
