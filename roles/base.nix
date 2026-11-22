@@ -28,7 +28,9 @@ with lib;
     boot.tmp.cleanOnBoot = mkDefault true;
 
     # enable NTFS support (bcachefs removed: no bcachefs filesystems in use,
-    # and it pulled the heavy bcachefs-tools Rust build into every system)
+    # and it pulled the heavy bcachefs-tools Rust build into every system).
+    # ntfs3 is the in-tree kernel driver; ntfs3 (userspace) provides ntfs3fs
+    # and ntfsinfo (installed in the sysadmin tools block below).
     boot.supportedFilesystems = [ "ntfs" ];
 
     # i think apple will sue me before oss does
@@ -47,6 +49,11 @@ with lib;
       revision = mkDefault "latest-2";
     };
 
+    # General-purpose sysadmin tools.
+    environment.systemPackages = with pkgs; [
+      btop  # top/htop replacement, CPU/memory/network/disk view
+      ntfs3 # userspace NTFS tools (ntfs3fs, ntfsinfo) for the in-tree ntfs3 driver
+    ];
     # enable systemd-oomd on all systems (replaces earlyoom: first-class,
     # kills the heaviest process on memory pressure instead of locking up)
     systemd.oomd = {
