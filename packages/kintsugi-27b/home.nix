@@ -28,7 +28,11 @@ in
   imports = [ ../ai-slice.nix ];
 
   options.kintsugi-27b = {
-    enable = mkEnableOption "Kintsugi-27B (local Qwen3.8-27B inference, OpenAI-compatible API on localhost)";
+    enable = mkEnableOption ''
+      Kintsugi-27B (local Qwen3.8-27B inference, OpenAI-compatible API
+      on localhost). Requires 12 GB free GPU VRAM — not suitable for
+      laptops where the display GPU claims most of the card. On
+      headless servers the full 12 GB is available.'';
 
     package = mkOption {
       type = types.package;
