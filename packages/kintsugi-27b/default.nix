@@ -70,7 +70,8 @@ let
   };
 
   # Runtime wrapper: sets LD_LIBRARY_PATH (engine's bundled CUDA runtime +
-  # NVIDIA driver libs) and starts the engine in --wait mode.
+  # NVIDIA driver libs), reads KINTSUGI_PORT from the environment, and starts
+  # the engine with --port and --wait.
   wrapper = writeShellApplication {
     name = "kintsugi-27b";
     runtimeInputs = [ coreutils pkgs.bash ];
@@ -88,7 +89,8 @@ let
       fi
 
       cd "$runtime"
-      exec ${engine}/Kintsugi-27B/start-server.sh --wait
+      PORT="${KINTSUGI_PORT:-9931}"
+      exec ${engine}/Kintsugi-27B/start-server.sh --port "$PORT" --wait
     '';
   };
 
