@@ -77,21 +77,36 @@ let
     name = "kintsugi-27b";
     runtimeInputs = [ coreutils pkgs.bash ];
     text = ''
-      export LD_LIBRARY_PATH="${engine}/Kintsugi-27B/bin:${engine}/Kintsugi-27B/lib-driver:''${LD_LIBRARY_PATH:-}"
-
       runtime="$HOME/.local/share/kintsugi-27b"
-      mkdir -p "$runtime/models"
+      engineDir="$runtime/Kintsugi-27B"
 
-      # Symlink the model from the store into the runtime directory.
-      model="$runtime/models/Kintsugi-27B-12G.gguf"
+      # Copy the engine to the runtime directory so start-server.sh's
+      # ROOT variable resolves to a writable location (the Nix store is
+      # read-only and the script writes logs/PID files there).
+      if [ ! -d "$engineDir" ]; then
+        cp -r ${engine}/Kintsugi-27B "$engineDir"
+      fi
+
+      # Symlink the model from the store into the runtime copy.
+      model="$engineDir/models/Kintsugi-27B-12G.gguf"
       want="${engine}/Kintsugi-27B/models/Kintsugi-27B-12G.gguf"
       if [ ! -e "$model" ] || [ "$(readlink -f "$model" 2>/dev/null)" != "$want" ]; then
         ln -sf "$want" "$model"
       fi
 
-      cd "$runtime"
+      # Use the runtime copy's lib-driver symlinks (the store copy has
+      # none on NixOS, only on CachyOS where /usr/lib is always available).
+      mkdir -p "$engineDir/lib-driver"
+      if [ -f /usr/lib/libcuda.so.1 ]; then
+        ln -sf /usr/lib/libcuda.so.1 "$engineDir/lib-driver/libcuda.so.1"
+        ln -sf /usr/lib/libnvidia-ml.so.1 "$engineDir/lib-driver/libnvidia-ml.so.1"
+      fi
+
+      export LD_LIBRARY_PATH="$engineDir/bin:$engineDir/lib-driver:''${LD_LIBRARY_PATH:-}"
+
+      cd "$engineDir"
       PORT=${dollar}{KINTSUGI_PORT:-9931}
-      exec ${engine}/Kintsugi-27B/start-server.sh --port "$PORT" --wait
+      exec start-server.sh --port "$PORT" --wait
     '';
   };
 
