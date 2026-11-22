@@ -42,14 +42,14 @@ let
     };
     nativeBuildInputs = [ pkgs.autoAddDriverRunpath ];
     dontBuild = true;
-    # stdenv's single-directory heuristic detects Kintsugi-27B/ and sets
-    # sourceRoot=Kintsugi-27B, renaming the directory to $PWD.  Override
-    # to "" to keep the tarball's Kintsugi-27B/ as a subdirectory.
-    sourceRoot = "";
+    # stdenv's single-directory heuristic sets sourceRoot=Kintsugi-27B and
+    # renames that directory to $PWD during unpack.  So the contents of
+    # Kintsugi-27B/ are at $PWD/ after unpack.  We wrap them into the same
+    # directory structure the runtime expects ($out/Kintsugi-27B/*).
     installPhase = ''
       runHook preInstall
-      mkdir -p $out
-      cp -r Kintsugi-27B $out/
+      mkdir -p $out/Kintsugi-27B
+      cp -r ./* $out/Kintsugi-27B/
       cp ${fetchurl {
         url = "https://huggingface.co/CaryPalmer/Kintsugi-27B/resolve/main/Kintsugi-27B-12G.gguf";
         sha256 = "sha256:0510bae82445dc53dbc7d0d842d8b7e146b8eafce0837e39b157d411e48c8a74";
