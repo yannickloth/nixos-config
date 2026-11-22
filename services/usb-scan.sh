@@ -21,7 +21,7 @@ notify() {
   done
 }
 
-# Give udisks2/KDE a moment to mount it (read-only per the udev rule).
+# Give udisks2/KDE a moment to mount it (read-write per services/usb-mount.nix).
 sleep 3
 
 MP=$(findmnt -rn -S "$DEVICE" -o TARGET 2>/dev/null | head -n1)

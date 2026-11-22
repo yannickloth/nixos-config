@@ -12,6 +12,7 @@ with lib;
     ./fhs-compat.nix
     ../security/kids.nix
     ../services/snapshots.nix
+    ../services/usb-mount.nix
     ../services/usb-scan.nix
     ../services/secrets.nix
   ];
@@ -27,11 +28,12 @@ with lib;
     # clean tmp on boot and remove all residuals there
     boot.tmp.cleanOnBoot = mkDefault true;
 
-    # enable NTFS support (bcachefs removed: no bcachefs filesystems in use,
-    # and it pulled the heavy bcachefs-tools Rust build into every system).
-    # ntfs3 is the in-tree kernel driver; ntfs3 (userspace) provides ntfs3fs
-    # and ntfsinfo (installed in the sysadmin tools block below).
-    boot.supportedFilesystems = [ "ntfs" ];
+    # NTFS support for the filesystem layer lives in services/usb-mount.nix
+    # (imported above), together with the udisks2 user-mount stack. bcachefs
+    # removed: no bcachefs filesystems in use, and it pulled the heavy
+    # bcachefs-tools Rust build into every system.
+    # The NTFS userspace tools (ntfsinfo, mkfs.ntfs, ntfsfix) come from
+    # ntfs3g, which boot.supportedFilesystems = [ "ntfs" ] installs.
 
     # i think apple will sue me before oss does
     nixpkgs.config.allowUnfree = true;
@@ -49,10 +51,13 @@ with lib;
       revision = mkDefault "latest-2";
     };
 
-    # General-purpose sysadmin tools.
+    # General-purpose sysadmin tools, plus the interpreters every user gets.
     environment.systemPackages = with pkgs; [
-      btop  # top/htop replacement, CPU/memory/network/disk view
-      ntfs3 # userspace NTFS tools (ntfs3fs, ntfsinfo) for the in-tree ntfs3 driver
+      btop # top/htop replacement, CPU/memory/network/disk view
+      # Python interpreter available to every user (kids' programming). The repo's
+      # own scripts are Java 25 compact source files (users/NaturalScroll.java,
+      # services/MalcontentMerge.java).
+      python3
     ];
     # enable systemd-oomd on all systems (replaces earlyoom: first-class,
     # kills the heaviest process on memory pressure instead of locking up)
@@ -92,10 +97,8 @@ with lib;
       "kernel.kexec_load_disabled" = 1;
     };
 
-    # Python interpreter available to every user (kids' programming). The repo's
-    # own scripts are Java 25 compact source files (users/NaturalScroll.java,
-    # services/MalcontentMerge.java).
-    environment.systemPackages = [ pkgs.python3 ];
+    # python3 is installed in the systemPackages block above. One module may
+    # define an option once, so package additions belong in that single block.
 
     # Root-owned, immutable README.md in each family member's home, on every host
     # (see roles/home-readme.nix). Parents share one file; sven and aaron get

@@ -64,9 +64,9 @@ something by accident, mum or dad can get it back for you.
 
 ## USB sticks
 
-When you plug in a USB stick, the computer checks it for viruses first. It
-opens it in a safe, read-only way — you can look at files, but you can't save
-files onto the stick. If you need to put files on a stick, ask mum or dad.
+When you plug in a USB stick, the computer checks it for viruses first and
+shows you the result. It opens the stick so you can look at files and copy
+files onto it.
 
 ## Help
 

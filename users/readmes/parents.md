@@ -218,8 +218,9 @@ make it a flatpak; if it needs groups/GPU/policies, keep it native.**
   `security/kids.nix`) — so they can't reroute around the family DNS filter;
   connecting to configured networks still works. A build-time assertion also
   guarantees they never get added to `wheel` (no sudo).
-- **USB drives:** when a USB stick is plugged in, it is mounted **read-only**
-  and scanned with ClamAV automatically (`services/usb-scan.nix`); a desktop
+- **USB drives:** when a USB stick is plugged in, it is mounted
+  **read-write** and scanned with ClamAV automatically
+  (`services/usb-mount.nix`, `services/usb-scan.nix`); a desktop
   notification reports the result (clean / threats found). Infected files are
-  **reported, never deleted**. For write access to a stick, mount it yourself:
-  `sudo mount -o remount,rw <mountpoint>` (kids can't).
+  **reported, never deleted**. No special permission is needed to read or
+  write to the drive; only `noexec` and `nosuid` apply to the mount.

@@ -50,7 +50,7 @@ Want something new? **Ask mum or dad** — they can add it for you.
 ## USB sticks
 
 If you plug in a USB stick, the computer checks it for viruses first and opens
-it safely. If you want to put files on it, ask mum or dad.
+it so you can look at files and copy files onto it.
 
 ## Help
 
