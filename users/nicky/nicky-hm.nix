@@ -278,24 +278,14 @@ in
     dataOnDataVolume = isP16;
   };
 
-  # Kintsugi-27B (Qwen3.8-27B at 2.47 bits, EXL3 trellis format): its own
-  # independent engine (the Kintsugi llama.cpp fork with trellis kernels) and
-  # its own service/port. Cannot be served by Unsloth Studio or Strata — the
-  # EXL3 trellis quantization requires the Kintsugi bundle's engine binary
-  # and its CUDA 12.8 runtime. Disabled on laptop-p16 (Strata's 125B MoE
-  # at ~30+ tok/s is faster and stronger; Kintsugi manages only ~26 tok/s
-  # with a weaker 27B model). Server-nike still qualifies (headless, full
-  # 12 GB VRAM available for the model). Clients point
-  # at http://127.0.0.1:<port>/v1 (OpenAI-compatible).
-  kintsugi-27b = lib.mkIf isNike {
-    enable = true;
-    # Default 9931 — the llama.cpp convention used by Pi, Hermes, OpenClaw
-    # in this user's setup (see HuggingFace pages for Kintsugi-27B).
-    port = 9931;
-    # Loopback only: the other inference host reaches it over the private
-    # network; the host firewall (in hosts/<host>/<host>.nix) scopes access.
-    host = "127.0.0.1";
-  };
+  # Kintsugi-27B (Qwen3.8-27B at 2.47 bits, EXL3 trellis format): disabled
+  # everywhere on both inference hosts. Strata (125B MoE at ~30+ tok/s) is
+  # faster and stronger; Unsloth Studio provides its own 125B and 32B models.
+  # The EXL3 trellis quantization requires the Kintsugi bundle's engine binary,
+  # which is not served by Unsloth Studio or Strata. Kintsugi is disabled
+  # because the only model it serves (27B) is outclassed by Strata's 125B MoE.
+  # Recoverable from git if a stronger EXL3 model ever appears.
+  kintsugi-27b = {
 
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
