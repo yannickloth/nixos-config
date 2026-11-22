@@ -22,6 +22,7 @@
   stdenv,
   symlinkJoin,
   fetchurl,
+  coreutils,
   pkgs,
   isCachyOS ? false,
 }:
@@ -89,7 +90,7 @@ let
   # NVIDIA driver libs) and starts the engine in --wait mode.
   wrapper = lib.writeShellApplication {
     name = "kintsugi-27b";
-    runtimeInputs = [ coreutils bash ];
+    runtimeInputs = [ coreutils pkgs.bash ];
     text = ''
       export LD_LIBRARY_PATH="${engine}/Kintsugi-27B/bin:${engine}/lib-driver:''${LD_LIBRARY_PATH:-}"
 
