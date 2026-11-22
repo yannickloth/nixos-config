@@ -47,22 +47,20 @@ let
   #
   # Update: bump skillRev to the new `v<version>` tag (== default.nix version)
   # and refresh skillHashes from that release's manifest.
-  skillRev = "v1.4.254";
+  skillRev = "v1.4.269";
 
   skillHashes = {
-    # Renamed from "computer-use" to "orca-computer-use" in v1.4.254 (the
-    # repo path and the app's manifest both use the new name).
-    "orca-computer-use" = "sha256-aTdkVhhUg+pJTrNUvgm85bi96dHHkujLHOdodpHRoCE=";
-    "jira-tickets" = "sha256-VTTaQAD09Mh/fbsmM0WiEwaMAJmhRAGGreqGXhfZDf4=";
-    "linear-tickets" = "sha256-4YH4YHPaZcSSNhRp1QT+FeeuYbyZmQvEG+pHqhNFVhk=";
-    "orca-cli" = "sha256-6XWa6mZPVFYZRu60CmMoAxMwhgzaCBfywqos9SnVwbM=";
-    "orca-emulator" = "sha256-PacZEXnkbLDhpqk28etUJU9umOw4hJ4clfDhEHMHa0g=";
-    "orca-emulator-android" = "sha256-Ot5Ob48nF8qJn9hB5h8RaWOkBulScBW4A4VMFtAS4ng=";
-    "orca-jira" = "sha256-yoPEZi+8IwbvuQQ2dJmLDKWrrMeOwuX4Xl24Aojmd3o=";
-    "orca-linear" = "sha256-jaI++WRwkGMVys6P+E+AViVe430bLV24TYt7MnCgug8=";
-    "orca-per-workspace-env" = "sha256-wAXRJqE9KRM1FHLwdpDxwaZg1PKG4qXyGGSu4pT0Ns4=";
-    "orca-plugin-authoring" = "sha256-Yz2bjdF6dAandUFjPhA5HZXf4QoMJfzQ4E1qJI6i9Zc=";
-    "orchestration" = "sha256-Sz5obLKxBsLbjsq1PUsAC0NWzKY9Sn9+PPbbh5jDj+0=";
+    "orca-computer-use" = "sha256-wgTo+z+4h3ckdBNeW+1hQ8SeBoD91F9tLML5+P0azD0=";
+    "jira-tickets" = "sha256-jO7AoQi9CtXNfT6oY/2toiQdvQHE99X/gKSq1ezXZo0=";
+    "linear-tickets" = "sha256-2I43adAklSJkdpSI3rH/VA4QqEQk9yhS8LP1uMpA4FM=";
+    "orca-cli" = "sha256-4fsQmZeAJRV1GuuYSsARczwQQy8uL0yaQfxW7hsGrR0=";
+    "orca-emulator" = "sha256-okvW4hr3eEtYd/EAmCgCPcpDAxEn9yB4h0JbJrnAzzY=";
+    "orca-emulator-android" = "sha256-3WUnIeQlkr2AFfGO/w0RC8xpUQnvCdJyfXUTHwoeO+E=";
+    "orca-jira" = "sha256-jHAgbRttbohLbEzsHrnrXgdaS+lD0synXJc9GXkTkvs=";
+    "orca-linear" = "sha256-OxWxK7x7+M7nAjA+EXnXc2In+IczfKiK0oumVPV+Dp0=";
+    "orca-per-workspace-env" = "sha256-OcRXraBuMgEIUW+X6oGjMea/pIS9fcz00CWnymvemaQ=";
+    "orca-plugin-authoring" = "sha256-ko6vjmmyZld4iXpSUMaXXiyWGZKTMoobAa9bzckYCCY=";
+    "orchestration" = "sha256-49UoIjTbiigX7XxcZg0HhRrVCdnjYl1bQqFkHKWnceY=";
   };
 
   skillFile = name: hash:

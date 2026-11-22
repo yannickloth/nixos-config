@@ -224,8 +224,8 @@ in
         # Pinned release (fetchurl verifies the hash): "releases/latest"
         # downloaded and installed whatever GitHub served at switch time.
         UNSLOTH_DESKTOP_APPIMAGE=${pkgs.fetchurl {
-          url = "https://github.com/unslothai/unsloth/releases/download/v0.1.919-beta/Unsloth-Desktop-Linux.AppImage";
-          sha256 = "1frc5dfcyvd1b5z0sdhqpzxas84irm29hj2ln16cw3ky8n48si3a";
+          url = "https://github.com/unslothai/unsloth/releases/download/v0.1.922-beta/Unsloth-Desktop-Linux.AppImage";
+          sha256 = "1fzc0xafnlcmpp33nvjmglz3027mksg80w28xih94ms0zbw8rf8l";
         }}
         $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -Dm0755 "$UNSLOTH_DESKTOP_APPIMAGE" "$app"
       fi
