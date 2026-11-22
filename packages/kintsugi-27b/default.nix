@@ -115,6 +115,7 @@ let
       export LD_LIBRARY_PATH="$engineDir/bin:$engineDir/lib-driver:''${LD_LIBRARY_PATH:-}"
 
       export KINTSUGI_MARGIN=0
+      export KINTSUGI_CELLS=0
 
       cd "$engineDir"
       PORT=${dollar}{KINTSUGI_PORT:-9931}
