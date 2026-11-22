@@ -118,7 +118,11 @@ let
 
       cd "$engineDir"
       PORT=${dollar}{KINTSUGI_PORT:-9931}
-      exec ./start-server.sh --port "$PORT"
+      # start-server.sh launches llama-server and the layer as separate
+      # setsid processes, then exits.  Keep the service alive with a
+      # long-running wait loop so systemd can monitor and restart on failure.
+      ./start-server.sh --port "$PORT"
+      while true; do sleep 3600; done
     '';
   };
 
