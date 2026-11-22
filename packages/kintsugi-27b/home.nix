@@ -84,12 +84,12 @@ in
       description = "K/V cache quantization. Affects VRAM usage and speed.";
     };
 
-    # Context window in tokens (default 8192 — the max that fits on
-    # a 12 GB card with the model weights; 262144 would overflow).
+    # Context window in tokens (default 131072 — fits on a 12 GB card
+    # with ~3 GB margin for the display compositor).
     context = mkOption {
       type = types.ints.unsigned;
-      default = 8192;
-      description = "Context window in tokens. Must be ≤ 8192 on 12 GB cards.";
+      default = 131072;
+      description = "Context window in tokens.";
     };
   };
 

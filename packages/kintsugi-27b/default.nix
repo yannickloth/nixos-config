@@ -114,12 +114,12 @@ let
 
       export LD_LIBRARY_PATH="$engineDir/bin:$engineDir/lib-driver:''${LD_LIBRARY_PATH:-}"
 
-      # Model weights take ~7.5 GB on a 12 GB card.
-      # KV cache at q4_0 for 262144 tokens needs ~4.6 GB (too much).
-      # Context=8192 fits within the remaining ~4.5 GB.
+      # Model weights take ~6.7 GB on a 12 GB card.
+      # KV cache at q4_0 for 131072 tokens needs ~2.3 GB.
+      # Total ~9 GB, leaving ~3 GB margin for the display compositor.
       export KINTSUGI_MARGIN=0
       export KINTSUGI_CELLS=0
-      export KINTSUGI_CTX=8192
+      export KINTSUGI_CTX=131072
 
       cd "$engineDir"
       PORT=${dollar}{KINTSUGI_PORT:-9931}
