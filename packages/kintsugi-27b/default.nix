@@ -116,7 +116,7 @@ let
 
       cd "$engineDir"
       PORT=${dollar}{KINTSUGI_PORT:-9931}
-      exec start-server.sh --port "$PORT" --wait
+      exec ./start-server.sh --port "$PORT" --wait
     '';
   };
 
