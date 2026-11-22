@@ -461,20 +461,70 @@ let
         # Re-install the engine component from the store (covers home-manager
         # switch service restarts: the store may have a newer engine).
         ${componentInstall}/bin/strata-install-component
+        # What to serve, in order of precedence:
+        #
+        # 1. STRATA_CONFIG (set by the `strata.defaultConfig` option): an
+        #    absolute path, or a name under $STRATA_HOME. It wins over
+        #    everything, because naming one config is an explicit decision.
+        # 2. The newest run config `strata launch` wrote:
+        #    $XDG_STATE_HOME/strata/launch/<name>.json (upstream's
+        #    strata_cli/launch/runner.py:746). The launch screens answer every
+        #    engine choice - model, context, kv, vision, drafting, cards - and
+        #    launch writes the answers there as a run config. So the unit starts
+        #    what the last `strata launch` specified. Sidecars in that folder
+        #    (*.choices.json, *.tune.json) are not run configs: they carry no
+        #    "args", and the greedy test below skips them.
+        # 3. The newest setup-era config in $STRATA_HOME (strata-*.json), for a
+        #    host that has never run `strata launch`: the desktop app and the
+        #    old `strata --setup` write these.
+        #
+        # A launch preset saved with no start (no run config yet) cannot be
+        # served here: it holds choices, not engine arguments. Start that preset
+        # once (`strata launch --preset NAME`) to write its run config.
         CFG=""
-        for f in "$STRATA_HOME"/strata-*.json; do
+        LAUNCH_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/strata/launch"
+        for f in "$LAUNCH_DIR"/*.json; do
           [ -f "$f" ] || continue
-          case "$f" in *.shared-settings.json) continue ;; esac
+          case "$f" in *.choices.json | *.shared-settings.json | *.tune.json) continue ;; esac
           grep -q '"args"' "$f" 2>/dev/null || continue
           if [ -z "$CFG" ] || [ "$f" -nt "$CFG" ]; then CFG="$f"; fi
         done
-        if [ -n "''${STRATA_CONFIG:-}" ] && [ -f "''${STRATA_CONFIG}" ]; then
-          CFG="$STRATA_CONFIG"
+        if [ -z "$CFG" ]; then
+          for f in "$STRATA_HOME"/strata-*.json; do
+            [ -f "$f" ] || continue
+            case "$f" in *.shared-settings.json) continue ;; esac
+            grep -q '"args"' "$f" 2>/dev/null || continue
+            if [ -z "$CFG" ] || [ "$f" -nt "$CFG" ]; then CFG="$f"; fi
+          done
+        fi
+        if [ -n "''${STRATA_CONFIG:-}" ]; then
+          case "''${STRATA_CONFIG}" in
+            /*) asked="''${STRATA_CONFIG}" ;;
+            *) asked="$STRATA_HOME/''${STRATA_CONFIG}" ;;
+          esac
+          if [ -f "$asked" ]; then
+            CFG="$asked"
+          else
+            echo "Strata: STRATA_CONFIG=$STRATA_CONFIG is not a file - ignored, the newest run config is served instead." >&2
+          fi
         fi
         if [ -z "$CFG" ]; then
-          echo "Strata: no model configured - run 'strata' once first." >&2
+          echo "Strata: no model configured - run 'strata launch' once first." >&2
           exit 1
         fi
+        echo "Strata: serving $(basename "$CFG")" >&2
+        # A preset that was saved but never started has no run config, so the
+        # unit cannot follow it. Say so once per start instead of serving the
+        # previous model without a word. `last_used` is set by the first start of
+        # the preset, so a preset saved after a successful launch stays quiet.
+        PRESET_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/strata/launch-presets"
+        for p in "$PRESET_DIR"/*.json; do
+          [ -f "$p" ] || continue
+          [ "$p" -nt "$CFG" ] || continue
+          grep -Eq '"last_used"[[:space:]]*:[[:space:]]*null' "$p" 2>/dev/null || continue
+          echo "Strata: the launch preset '$(basename "$p" .json)' was saved but never started, so it has no run config yet. Start it once (strata launch --preset NAME) to make the unit follow it." >&2
+          break
+        done
         extra=(--host "''${STRATA_HOST:-127.0.0.1}" --port "''${STRATA_PORT:-8080}")
         ${lib.optionalString (!preloadEngine) "extra+=(--lazy)"}
         extra+=(--idle-unload "''${STRATA_IDLE_UNLOAD:-300}")

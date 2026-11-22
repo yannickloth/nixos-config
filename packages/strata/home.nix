@@ -221,10 +221,15 @@ in
     defaultConfig = mkOption {
       type = types.str;
       default = "";
-      example = "strata-iq2_xs.json";
+      example = "/home/nicky/.local/share/strata/strata-swift-iq2_xs.json";
       description = ''
-        Config file (name under the Strata home, or an absolute path) that
-        `strata-server` serves. "" lets the most recently written config win.
+        Config file that `strata-server` serves, when the unit must not follow
+        `strata launch`. Use the absolute path: a bare name is read under the
+        Strata home. "" (the default) serves the run config of the newest
+        `strata launch` (state folder `launch/<name>.json`), and falls back to
+        the newest `strata-*.json` in the Strata home on a host that has never
+        run `strata launch`. A value that names no file is reported in the
+        journal and ignored.
       '';
     };
   };
