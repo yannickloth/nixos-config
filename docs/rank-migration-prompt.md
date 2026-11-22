@@ -18,11 +18,11 @@ frontmatter, or skill docs.
 
 | Rank | Backend class | Concurrency | Use |
 |---|---|---|---|
-| `proxy/sergeant` | local (Unsloth Studio) | **single-slot — sequential only** | mechanical, build-verified, faithful execution |
+| `proxy/sergeant` | local (Strata, server-nike) | **single-slot — sequential only** | mechanical, build-verified, faithful execution |
 | `proxy/warrant-officer` | free cloud (Hetzner) + local fallback | **parallel-safe** | workhorse volume, generation, fix loops, **all parallel fan-out** |
 | `proxy/second-lieutenant` | free cloud (Hetzner) | parallel-safe | clean-output language judgment |
 | `proxy/lieutenant` | local (Strata) | **single-slot — sequential only** | deep reasoning, judgment, main session |
-| `proxy/*-v` | siblings of the ranks above, same model | as parent rank | **the only vision slots** |
+| `proxy/*-v` | siblings of the ranks above, same deployment list | as parent rank | **the only vision slots** |
 | higher ranks (`captain` and up: `captain*`, `captain-commandant`, `major*`, `lieutenant-colonel*`, `brigadier-general*`, plus every explicit model id) | paid | — | explicit per-task escalation only, never an agent default |
 
 **Hard contracts (do not violate):**

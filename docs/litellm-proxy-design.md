@@ -27,7 +27,8 @@ opencode / pi on every host
     ▼
 LiteLLM proxy (server-nike, loopback for local backends)
     ├──→ PostgreSQL 18    127.0.0.1:5432              (admin UI, keys, spend)
-    ├──→ Unsloth Studio   127.0.0.1:8888/v1          (sergeant, warrant-officer fallback)
+    ├──→ Strata           127.0.0.1:8080/v1          (sergeant, second-lieutenant and warrant-officer fallback)
+    ├──→ Unsloth Studio   127.0.0.1:8888/v1          (sergeant order-2 tier only)
     ├──→ Strata           laptop-p16:8080/v1         (lieutenant)
     ├──→ Hetzner          inference.hetzner.com/v1   (ranks + every Hetzner id)
     ├──→ DeepSeek         api.deepseek.com           (paid, explicit)
@@ -39,24 +40,33 @@ LiteLLM proxy (server-nike, loopback for local backends)
 PostgreSQL is local to server-nike and only the proxy talks to it. It stores the
 virtual-key/spend schema the admin UI needs; it is not exposed on the network.
 
-Unsloth Studio is reachable from the proxy on loopback; from other hosts it is
-still available directly at `http://server-nike.bee-blues.ts.net:8888/v1` for
-the System One MCP and for tools that need a Studio-native id.
+Unsloth Studio stays reachable from the proxy on loopback
+(`127.0.0.1:8888/v1`) for one deployment only: sergeant's order-2 Nemotron
+fallback, which answers when the resident Strata engine is absent. From other
+hosts Studio is still available directly at
+`http://server-nike.bee-blues.ts.net:8888/v1` for the System One MCP and for
+tools that need a Studio-native id.
+
+**Why the local tiers share one model.** server-nike cannot hold two different
+models in VRAM at the same time. Every swap costs a full load (~30 s) and
+competes with decode while the weights stream in, so the local ranks all point
+at the single resident Strata model. A second local model is a last-resort
+tier, never a routine target.
 
 ### Local model policy
 
-Only three local models are part of the stack:
+One resident Strata model serves the whole local stack; the Studio Nemotron is
+sergeant's last-resort tier:
 
 | Local model | Role |
 | --- | --- |
-| `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` | sergeant (fast executor) |
-| `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` | warrant-officer / warrant-officer-v (workhorse; the `-v` sibling also uses it for images) |
-| `ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF` | Swift 1.5, served by Strata as `swift-1.5-iq3_xxs` (lieutenant / lieutenant-v) |
+| `swift-1.5-iq3_xxs` (Swift 1.5, served by Strata) | sergeant order 1, second-lieutenant order 2, warrant-officer / warrant-officer-v order 2 on server-nike (127.0.0.1); lieutenant / lieutenant-v on laptop-p16 |
+| `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` (Unsloth Studio) | sergeant order 2 — only when the Strata engine cannot answer |
 
-The older Studio library entries (translation, OCR, LFM2.5, Qwythos,
-Swift-Bonsai, Qwen3.5-9B, Qwen3.8-9B-Distill, LFM3-Omni) were removed from the
-proxy and from the client provider table. Add one back only when a real task
-needs it, together with its served context window.
+The rest of the Studio library (`unsloth/Qwen3.6-35B-A3B-MTP-GGUF` and the
+older entries: translation, OCR, LFM2.5, Qwythos, Swift-Bonsai, Qwen3.5-9B,
+Qwen3.8-9B-Distill, LFM3-Omni) stays outside the proxy. Add a Studio model back
+only when a real task needs it, together with its served context window.
 
 ## Rank ladder
 
@@ -65,12 +75,12 @@ its `model_list`.
 
 | Rank | Proxy name | Deployments (order) | Context | Notes |
 | --- | --- | --- | --- | --- |
-| Sergeant (OR-4) | `sergeant` | Nemotron @ Studio | 128256 | `temperature: 0.1`, 120s timeout, 30s stream, one retry |
-| Warrant Officer (OR-8) | `warrant-officer` | 1: Qwen3.6 @ Hetzner · 2: Qwen3.6 @ Studio | 262144 / 131072 | same model; free-cloud primary, local fallback |
-| Warrant Officer (vision) | `warrant-officer-v` | same deployments as `warrant-officer` | 262144 / 131072 | same model; the `-v` slot carries vision (both deployments are vision-capable, verified) |
-| Second Lieutenant (OF-1a) | `second-lieutenant` | Qwen3.8-27B @ Hetzner | 262144 | free cloud |
-| Lieutenant (OF-1b) | `lieutenant` | Swift 1.5 @ Strata | 131072 | default; `max_parallel_requests: 1` so a busy engine 429s into the next rank; 131072 is the engine's probed window on p16 (`--max-context`, live `n_ctx`), not the model's native 384K |
-| Lieutenant (vision) | `lieutenant-v` | same deployment as `lieutenant` | 131072 | same model; the `-v` slot carries vision |
+| Sergeant (OR-4) | `sergeant` | 1: `swift-1.5-iq3_xxs` @ Strata (server-nike) · 2: Nemotron @ Studio | 262144 / 128256 | `temperature: 0.1`, `max_parallel_requests: 1` on order 1, 300s timeout / 120s stream on order 1, explicit-only; order 2 is last resort |
+| Warrant Officer (OR-8) | `warrant-officer` | 1: Qwen3.6 @ Hetzner · 2: `swift-1.5-iq3_xxs` @ Strata (server-nike) | 262144 / 262144 | free-cloud primary, local Strata fallback; different models per order, same window |
+| Warrant Officer (vision) | `warrant-officer-v` | same deployments as `warrant-officer` | 262144 / 262144 | the `-v` slot carries vision (both deployments are vision-capable, verified) |
+| Second Lieutenant (OF-1a) | `second-lieutenant` | 1: Qwen3.8-27B @ Hetzner · 2: `swift-1.5-iq3_xxs` @ Strata (server-nike) | 262144 / 262144 | free cloud primary, resident local fallback |
+| Lieutenant (OF-1b) | `lieutenant` | Swift 1.5 @ Strata | 262144 | default; `max_parallel_requests: 1` so a busy engine 429s into the next rank; 262144 is the window the engine serves (`--max-context`, live `n_ctx`), not the model's native 384K |
+| Lieutenant (vision) | `lieutenant-v` | same deployment as `lieutenant` | 262144 | same model; the `-v` slot carries vision |
 | Captain (OF-2) | `captain` | `deepseek-flash` @ DeepSeek | 1048576 | pay-per-token, explicit; cost-mapped |
 | Captain (vision) | `captain-v` | `deepseek-flash` @ DeepSeek | 1048576 | image input per `GET /v1/models` |
 | Captain Commandant (OF-3) | `captain-commandant` | 1: `glm-5-turbo` @ Z.AI · 2: `deepseek-v4-pro` @ DeepSeek | 200000 / 1048576 | subscription first; both text-only, no `-v` |
@@ -89,7 +99,7 @@ upstream id — one name, one deployment, no failover in or out:
 | `k3.1-pro` · `k3` · `k3-256k` · `kimi-for-coding` | Kimi |
 | `glm-5.3` · `glm-5.3-flash` · `glm-5-turbo` | Z.AI Coding Plan |
 | `deepseek-flash` · `deepseek-v4-pro` | DeepSeek direct |
-| `Qwen/Qwen3.6-35B-A3B` · `Qwen/Qwen3.6-35B-A3B-FP8` | 35B-A3B MoE @ Hetzner (FP8 weights) — the `warrant-officer` cloud deployment, without its Studio failover |
+| `Qwen/Qwen3.6-35B-A3B` · `Qwen/Qwen3.6-35B-A3B-FP8` | 35B-A3B MoE @ Hetzner (FP8 weights) — the `warrant-officer` cloud deployment, without its local Strata fallback |
 | `Qwen/Qwen3.8-27B` · `Qwen3.8-27B` | dense 27B @ Hetzner — the `second-lieutenant` deployment |
 
 Unranked pay-as-you-go (explicit selection only, never auto-fallback) is
@@ -104,7 +114,7 @@ cash twin of the Coding Plan's GLM-5.3:
 | `claude-opus-5.5` | CheaperInference |
 | `glm-5.3-payg` | CheaperInference pay-per-token (named `-payg` so the plan id `glm-5.3` stays the subscription) |
 
-Asking for an explicit name lands on that single deployment: no Studio
+Asking for an explicit name lands on that single deployment: no local Strata
 failover (that is `warrant-officer`'s job), no cross-rank fallback in or out.
 Both Hetzner models are natively multimodal (verified by pixel-color tests), so
 their ids can carry images too; the rank names stay the recommended path.
@@ -119,21 +129,23 @@ their ids can carry images too; the rank names stay the recommended path.
   order their deployments subscription → pay-per-token → free cloud → local, so
   a quota-exhausted subscription is the first tier to be promoted through.
 - **Cross-rank fallbacks stop at warrant-officer**:
-  `lieutenant → second-lieutenant → warrant-officer`. Sergeant is a different
-  Studio model, so auto-falling into it would force an unload/load; it is
-  explicit-selection-only. Paid ranks (`captain`, `captain-v`,
-  `captain-commandant`, `major`, `major-v`, `lieutenant-colonel`,
+  `lieutenant → second-lieutenant → warrant-officer`. Sergeant is explicit-only:
+  its order-1 Strata deployment is the same one that second-lieutenant and
+  warrant-officer use as their local fallback, so a rank entry adds no new
+  capacity; its Studio tier would only add a model load. Paid ranks (`captain`,
+  `captain-v`, `captain-commandant`, `major`, `major-v`, `lieutenant-colonel`,
   `lieutenant-colonel-v`, `brigadier-general`, `brigadier-general-v`) and every
   explicit model id have no fallback in or out: silent cost escalation is
   worse than a visible error.
-- **The pre-call context check enforces the local ceiling.** The Strata rows'
-  `max_input_tokens: 131072` is the window the engine serves on laptop-p16
-  (`--max-context`, live `n_ctx`), so a prompt above 128K drops `lieutenant` /
-  `lieutenant-v` and the request lands on the 262K free-cloud deployment of the
-  next rank. Long context is the free cloud's job; the local rank is the
-  deep-reasoning default with a 128K window.
-- **Vision lives on `-v` ranks**: the ladder ranks whose models are natively
-  multimodal get a `-v` sibling serving the same model (`warrant-officer-v`,
+- **The pre-call context check enforces each deployment's window.** The Strata
+  rows now advertise `max_input_tokens: 262144` (the window `strata launch`
+  writes and the engine reports as `n_ctx`), the same window the Hetzner rows
+  serve. The check therefore no longer moves a long prompt from a local rank to
+  the free cloud; it only separates the smaller paid rows (200K `glm-5-turbo`,
+  262K `k3-256k`) from the 1M rows. Above 262144 tokens nothing in the free
+  stack can hold the prompt.
+- **Vision lives on `-v` ranks**: the ladder ranks whose deployments see images
+  get a `-v` sibling serving the same deployment list (`warrant-officer-v`,
   `lieutenant-v` — both verified by pixel-color tests; `second-lieutenant`'s
   Qwen3.8-27B accepts images too but stays text-only by contract). Paid
   vision slots: `captain-v` (deepseek-flash, provider-spec modality),
@@ -179,7 +191,7 @@ rejecting provider-specific fields they do not understand.
 LiteLLM prices a deployment from its cost map by provider/model. The standing
 stack and every subscription deployment are explicitly zero-cost:
 
-- local Studio / Strata deployments: hardware, no per-token charge;
+- local Strata / Studio deployments: hardware, no per-token charge;
 - subscription deployments (`captain-commandant`'s Z.ai row, `major`,
   `major-v`, `lieutenant-colonel`, `lieutenant-colonel-v`,
   `brigadier-general`, `brigadier-general-v`, and the Kimi / Z.ai explicit
@@ -255,8 +267,8 @@ opencode and pi have one provider:
       "apiKey": "{file:~/.config/opencode/keys/litellm-proxy.key}"
     },
     "models": {
-      "lieutenant": { "name": "Lieutenant — deep reasoning (default)", "limit": { "context": 131072, "output": 65536 } },
-      "sergeant": { "name": "Sergeant — fast executor", "limit": { "context": 128256, "output": 65536 } }
+      "lieutenant": { "name": "Lieutenant — deep reasoning (default)", "limit": { "context": 262144, "output": 65536 } },
+      "sergeant": { "name": "Sergeant — fast executor", "limit": { "context": 262144, "output": 65536 } }
     }
   }
 }
@@ -337,8 +349,9 @@ journalctl -u litellm-proxy-env -n 20
 Adding a model: add the deployment to `services/litellm-proxy.nix`, add the
 same name (display name / limits / modalities) to `users/opencode.nix`, commit,
 switch on server-nike, then run the health + completion checks. For a local
-Studio model, confirm its id and served context with
-`GET http://127.0.0.1:8888/api/inference/models` before wiring it.
+model, confirm its id and served context first: `GET
+http://127.0.0.1:8080/v1/models` for Strata, `GET
+http://127.0.0.1:8888/api/inference/models` for Studio.
 
 ## References
 

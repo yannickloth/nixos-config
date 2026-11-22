@@ -2,13 +2,14 @@
 #
 # One OpenAI-compatible endpoint (server-nike:4000) for opencode, pi and any
 # other agent client on every host (laptop-p16 included), reached over
-# Tailscale. server-nike hosts the proxy next to Unsloth Studio (loopback)
-# and one Tailscale hop away from Strata on laptop-p16. Three classes of
-# model name:
+# Tailscale. server-nike hosts the proxy next to the local Strata engine
+# (loopback) and one Tailscale hop away from Strata on laptop-p16. Three classes
+# of model name:
 #   - the rank ladder of docs/ai-ranks.md. Every model of every ranked provider
 #     — Z.ai Coding Plan, Kimi Code (legacy Allegretto plan), DeepSeek API,
-#     Hetzner Inference — plus the three local models holds a rank slot, so a
-#     model swap never needs a client-config change;
+#     Hetzner Inference — plus the two local models (Swift 1.5 on Strata,
+#     Nemotron on Studio) holds a rank slot, so a model swap never needs a
+#     client-config change;
 #   - one explicit name per ranked model, spelled exactly like the upstream id
 #     (k3.1-pro, glm-5.3-flash, deepseek-flash, the four Hetzner ids, ...), for
 #     callers that want the model itself rather than a rank;
@@ -116,6 +117,8 @@ let
 
     # env var -> base URL under which the key is stored in the secret
     # (the secret maps base URLs to keys; see secrets-README.md).
+    # LITELLM_UNSLOTH_API_KEY backs sergeant's order-2 tier (Studio Nemotron),
+    # used only when the resident Strata engine cannot answer.
     mapping = {
         "LITELLM_MASTER_KEY": "http://server-nike.bee-blues.ts.net:4000/v1",
         "LITELLM_UNSLOTH_API_KEY": "http://server-nike.bee-blues.ts.net:8888/v1",
@@ -192,9 +195,10 @@ let
       # RANK LADDER
       #
       # Every model of the ranked providers — Z.ai Coding Plan, Kimi Code (legacy
-      # Allegretto plan), DeepSeek API, Hetzner Inference — plus the three local
-      # models holds a rank slot; docs/ai-ranks.md carries the mapping and its
-      # evidence. Two rules govern the ladder:
+      # Allegretto plan), DeepSeek API, Hetzner Inference — plus the two local
+      # models (Swift 1.5 on Strata, Nemotron on Studio) holds a rank slot;
+      # docs/ai-ranks.md carries the mapping and its evidence. Two rules govern
+      # the ladder:
       #   - Intra-rank deployment order (litellm_params.order, lowest first):
       #     subscription quota -> pay-per-token API -> free cloud -> local.
       #     A quota-exhausted subscription falls to the next tier, never the
@@ -210,33 +214,74 @@ let
 
       # ---------------------------------------------------------------------------
       # Standing stack (local + free cloud): the auto-fallback ladder
+      #
+      # The local tiers all point at the Strata engine on server-nike. Reason:
+      # this host cannot hold more than one model in VRAM at a time, and every
+      # swap costs a full load (~30 s) plus the decode rate the card pays while
+      # it streams weights. One resident Strata model keeps the GPU warm across
+      # ranks; Studio GGUF copies are used only where nothing else can answer.
       # ---------------------------------------------------------------------------
 
-      # Sergeant (OR-4) — fast, faithful executor (Unsloth Studio, co-located
-      # with the proxy on server-nike -> loopback)
+      # Sergeant (OR-4) — fast executor. Local first: the Strata engine
+      # co-located with the proxy (server-nike:8080, loopback), the same
+      # resident weights as warrant-officer's local fallback.
+      # order 1 = Strata swift-1.5-iq3_xxs (256K ctx) — no model load
+      # order 2 = Unsloth Studio Nemotron (128K ctx) — only when Strata is
+      #           absent; this tier costs one model load, which is why it sits
+      #           behind the resident engine.
+      # max_parallel_requests: 1 on the Strata tier — the engine is single-slot:
+      # a second concurrent request gets a fast 429 instead of queueing behind
+      # a long turn.
+      # stream_timeout: 120 on the Strata tier — the first token waits for a
+      # possible engine load (~30 s) after idleUnloadSeconds; after the first
+      # token the stream must keep moving.
+      - model_name: "sergeant"
+        litellm_params:
+          model: openai/swift-1.5-iq3_xxs
+          api_base: http://127.0.0.1:8080/v1
+          api_key: strata            # Strata accepts any key
+          temperature: 0.1        # deterministic execution
+          order: 1
+          timeout: 300
+          stream_timeout: 120
+          num_retries: 1          # local: one retry, then move on
+          max_parallel_requests: 1
+        model_info:
+          id: sergeant-strata
+          # The window the nike engine serves: `strata launch` writes
+          # --max-context 262144, and live GET :8080/v1/models reports
+          # n_ctx 262144. The model's native window is 384K.
+          max_input_tokens: 262144
+          supports_vision: false  # text rank: clients are not wired to send
+                                 # images here (no attachment flag)
+          input_cost_per_token: 0
+          output_cost_per_token: 0
       - model_name: "sergeant"
         litellm_params:
           model: openai/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF
           api_base: http://127.0.0.1:8888/v1
           api_key: os.environ/LITELLM_UNSLOTH_API_KEY
           temperature: 0.1        # deterministic execution
+          order: 2
           timeout: 120
           stream_timeout: 30      # fast model: abort early, retry/fail fast
-          num_retries: 1          # local: one retry, then move on
+          num_retries: 1
         model_info:
           id: sergeant-studio
           max_input_tokens: 128256
-          supports_vision: false  # text rank: clients are not wired to send
-                                 # images here (no attachment flag)
+          supports_vision: false  # text rank
           input_cost_per_token: 0
           output_cost_per_token: 0
 
-      # Warrant Officer (OR-8) — Qwen3.6-35B-A3B: one rank, two deployments
-      # of the SAME model.
-      # order 1 = Hetzner free cloud (FP8, 262K ctx) — default, keeps the
-      #           local GPU free and avoids Studio model swaps,
-      # order 2 = Unsloth Studio (local GGUF, 131K ctx) — fallback if the free
-      #           cloud is unavailable. Order-based failover, no weights.
+      # Warrant Officer (OR-8) — Qwen3.6-35B-A3B on Hetzner, with the resident
+      # Strata engine co-located with the proxy as the fallback. No Unsloth
+      # Studio deployment: one resident local model, and a cloud outage must not
+      # swap in (and later swap out) a second set of weights.
+      # order 1 = Hetzner free cloud (FP8, 262K ctx) — default: no local model
+      #           load, and the GPU stays free for the Strata engine,
+      # order 2 = Strata on server-nike (swift-1.5-iq3_xxs, 256K ctx).
+      # The two orders serve different models; the rank is the workhorse slot,
+      # not a single-model pair.
       - model_name: "warrant-officer"
         litellm_params:
           model: openai/Qwen/Qwen3.6-35B-A3B-FP8
@@ -254,25 +299,28 @@ let
           output_cost_per_token: 0
       - model_name: "warrant-officer"
         litellm_params:
-          model: openai/unsloth/Qwen3.6-35B-A3B-MTP-GGUF
-          api_base: http://127.0.0.1:8888/v1
-          api_key: os.environ/LITELLM_UNSLOTH_API_KEY
+          model: openai/swift-1.5-iq3_xxs
+          api_base: http://127.0.0.1:8080/v1
+          api_key: strata            # Strata accepts any key
           order: 2
-          timeout: 300
-          stream_timeout: 60
+          timeout: 600
+          stream_timeout: 180
           num_retries: 1
+          max_parallel_requests: 1
         model_info:
-          id: warrant-officer-studio
-          max_input_tokens: 131072
+          id: warrant-officer-strata
+          max_input_tokens: 262144   # served window on nike (live n_ctx)
           supports_vision: false  # text rank: contract, not capability — the
-                                  # GGUF does see images (verified), but images
-                                  # are addressed to warrant-officer-v
+                                  # model does see images (live GET /v1/models:
+                                  # input_modalities text+image); images are
+                                  # addressed to warrant-officer-v
           input_cost_per_token: 0
           output_cost_per_token: 0
 
-      # Warrant Officer (vision) — SAME model as warrant-officer (Qwen3.6-35B-A3B
-      # is natively multimodal); the -v suffix exposes the vision slot, keeping
-      # the text rank text-only.
+      # Warrant Officer (vision) — same two deployments as warrant-officer: the
+      # Hetzner FP8 copy (natively multimodal, verified) and the local Strata
+      # Swift 1.5 fallback. The -v suffix exposes the vision slot, keeping the
+      # text rank text-only.
       - model_name: "warrant-officer-v"
         litellm_params:
           model: openai/Qwen/Qwen3.6-35B-A3B-FP8
@@ -290,29 +338,36 @@ let
           output_cost_per_token: 0
       - model_name: "warrant-officer-v"
         litellm_params:
-          model: openai/unsloth/Qwen3.6-35B-A3B-MTP-GGUF
-          api_base: http://127.0.0.1:8888/v1
-          api_key: os.environ/LITELLM_UNSLOTH_API_KEY
+          model: openai/swift-1.5-iq3_xxs
+          api_base: http://127.0.0.1:8080/v1
+          api_key: strata            # Strata accepts any key
           order: 2
-          timeout: 300
-          stream_timeout: 60
+          timeout: 600
+          stream_timeout: 180
           num_retries: 1
+          max_parallel_requests: 1
         model_info:
-          id: warrant-officer-v-studio
-          max_input_tokens: 131072
-          supports_vision: true    # verified: the GGUF serves its vision
-                                   # projection (1x1 pixel color tests answered
-                                   # correctly), so image requests can fail over
-                                   # to the local copy safely
+          id: warrant-officer-v-strata
+          max_input_tokens: 262144   # served window on nike (live n_ctx)
+          supports_vision: true    # verified: live GET /v1/models reports
+                                   # input_modalities text+image, and the same
+                                   # weights served the lieutenant-v pixel tests
           input_cost_per_token: 0
           output_cost_per_token: 0
 
-      # Second Lieutenant (OF-1a) — Qwen3.8-27B (Swift 1.5's base), free cloud
+      # Second Lieutenant (OF-1a) — Qwen3.8-27B (Swift 1.5's base), free cloud,
+      # with the resident Strata engine on server-nike as fallback.
+      # order 1 = Hetzner free cloud (256K ctx)
+      # order 2 = Strata swift-1.5-iq3_xxs on server-nike (256K ctx) — the
+      #           same resident weights as sergeant and warrant-officer's local
+      #           fallback, so the fallback needs no model load. Both orders
+      #           hold the same window, so the context check never picks one.
       - model_name: "second-lieutenant"
         litellm_params:
           model: openai/Qwen3.8-27B
           api_base: https://inference.hetzner.com/v1
           api_key: os.environ/LITELLM_HETZNER_API_KEY
+          order: 1
           timeout: 600
           stream_timeout: 120
           num_retries: 2
@@ -322,6 +377,23 @@ let
           supports_vision: false
           input_cost_per_token: 0
           output_cost_per_token: 0
+      - model_name: "second-lieutenant"
+        litellm_params:
+          model: openai/swift-1.5-iq3_xxs
+          api_base: http://127.0.0.1:8080/v1
+          api_key: strata            # Strata accepts any key
+          order: 2
+          timeout: 600
+          stream_timeout: 180
+          num_retries: 1
+          max_parallel_requests: 1
+        model_info:
+          id: second-lieutenant-strata
+          max_input_tokens: 262144   # served window on nike (live n_ctx)
+          supports_vision: false  # text rank; the local model does see images,
+                                  # but images are addressed to -v ranks only
+          input_cost_per_token: 0
+          output_cost_per_token: 0
 
       # Lieutenant (OF-1b) — Swift 1.5 on Strata (laptop-p16, one Tailscale
       # hop from the proxy). The default model.
@@ -329,10 +401,10 @@ let
       # concurrent request gets a fast internal 429 and falls through to
       # second-lieutenant instead of queueing behind a long reasoning turn
       # (the documented "delegates to lower ranks when busy" behavior).
-      # 128K ceiling: at max_input_tokens 131072 the pre-call context check
-      # drops this deployment for a longer prompt, so a >128K request lands on
-      # second-lieutenant (262K @ Hetzner) on its own. The local rank is the
-      # deep-reasoning default, NOT the ladder's long-context tier.
+      # 256K window: `strata launch` writes --max-context 262144 and the live
+      # GET :8080/v1/models reports n_ctx 262144, so the local rank no longer
+      # drops a long prompt early. A prompt above 262144 tokens has no local
+      # or free-cloud deployment left in this ladder.
       - model_name: "lieutenant"
         litellm_params:
           model: openai/swift-1.5-iq3_xxs
@@ -344,10 +416,10 @@ let
           max_parallel_requests: 1
         model_info:
           id: lieutenant-strata
-          # The window the Strata engine serves on laptop-p16: --max-context 131072
-          # in its run config (`strata --setup` probes the card), live
-          # GET :8080/v1/models -> n_ctx 131072. Not the model's native 384K.
-          max_input_tokens: 131072
+          # The window the Strata engine serves on laptop-p16: --max-context
+          # 262144 in its run config, live GET :8080/v1/models -> n_ctx 262144.
+          # The model's native window is 384K.
+          max_input_tokens: 262144
           supports_vision: false  # text rank; images route via lieutenant-v
           input_cost_per_token: 0
           output_cost_per_token: 0
@@ -372,7 +444,7 @@ let
           max_parallel_requests: 1
         model_info:
           id: lieutenant-v-strata
-          max_input_tokens: 131072   # same served window as lieutenant-strata
+          max_input_tokens: 262144   # same served window as lieutenant-strata
           supports_vision: true
           input_cost_per_token: 0
           output_cost_per_token: 0
@@ -870,8 +942,8 @@ let
       # `Qwen/Qwen3.6-35B-A3B-FP8`, and the dense 27B answers both
       # `Qwen/Qwen3.8-27B` and `Qwen3.8-27B`. Free tier -> zero cost, like the
       # ranks. The rank names keep their own routing: warrant-officer still
-      # fails over to the local Studio copy, which these ids deliberately do not
-      # (asking for a Hetzner id means asking for Hetzner).
+      # fails over to the local Strata engine, which these ids deliberately do
+      # not (asking for a Hetzner id means asking for Hetzner).
       - model_name: "Qwen/Qwen3.6-35B-A3B"
         litellm_params:
           model: openai/Qwen/Qwen3.6-35B-A3B
@@ -1055,8 +1127,10 @@ let
         - session_affinity
 
       # Cross-rank fallbacks — local + free-cloud only. Sergeant is deliberately
-      # NOT in this chain: it is a different Studio model, so auto-falling into
-      # it would force an unload/load of the warrant-officer model. Sergeant is
+      # NOT in this chain: its Strata tier is the same deployment that
+      # warrant-officer and second-lieutenant use as their local fallback, so a
+      # rank entry would add no new capacity (only its Studio Nemotron tier would
+      # be new, and that costs a model load). Sergeant is
       # explicit-selection-only. Paid ranks are explicit for the same reason
       # (silent cost escalation): captain, captain-v, captain-commandant, major,
       # major-v, lieutenant-colonel, lieutenant-colonel-v, brigadier-general,

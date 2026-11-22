@@ -24,10 +24,10 @@
 #
 # Backends behind the proxy (the proxy config is the source of truth):
 #   strata      http://laptop-p16.bee-blues.ts.net:8080/v1   (Strata on
-#                  laptop-p16; any key; vision off; the engine's served window is
-#                  131072 — `--max-context` as probed by `strata --setup`, live
-#                  `n_ctx` 131072 — so it is the SHORTEST window in the ladder,
-#                  not a long-context path)
+#                  laptop-p16, and :8080 on server-nike for the local tiers;
+#                  any key; the engine's served window is 262144 — `--max-context`
+#                  written by `strata launch`, live `n_ctx` 262144 — the same
+#                  window as the free-cloud tiers)
 #   unsloth     http://server-nike.bee-blues.ts.net:8888/v1  (Unsloth Studio on
 #                  server-nike; Studio enforces its own per-model context budget)
 #   hetzner     https://inference.hetzner.com/v1             (free cloud; the
@@ -88,16 +88,20 @@ let
         #     (subscription order -> pay-per-token -> free cloud -> local) -----
         "sergeant" = {
           name = "Sergeant — fast executor";
+          # order 1 = Strata on server-nike (n_ctx 262144, the served window);
+          # order 2 = Studio Nemotron (128256) when the Strata engine cannot
+          # answer. Output 65536 sits inside both windows (prompt and
+          # generation share one n_ctx), same as lieutenant.
           limit = {
-            context = 128256;
+            context = 262144;
             output = 65536;
           };
         };
         "warrant-officer" = {
           name = "Warrant Officer — workhorse (free cloud, local fallback)";
-          # Text-only rank; the vision slot is warrant-officer-v (same model).
-          # Group max: Hetzner (primary) serves 262K; the local Studio fallback
-          # serves 131K, so longer prompts stay on the cloud deployment.
+          # Text-only rank; the vision slot is warrant-officer-v.
+          # Both deployments hold 262144 (Hetzner and the local Strata
+          # fallback), so the group has one window.
           limit = {
             context = 262144;
             output = 32768;
@@ -105,7 +109,8 @@ let
         };
         "warrant-officer-v" = {
           name = "Warrant Officer (vision) — multimodal workhorse";
-          attachment = true;  # same model as warrant-officer; the -v slot carries vision
+          attachment = true;  # both deployments see images; the -v slot carries
+                              # the vision contract
           limit = {
             context = 262144;
             output = 32768;
@@ -113,6 +118,8 @@ let
         };
         "second-lieutenant" = {
           name = "Second Lieutenant — free-cloud reasoning";
+          # Both deployments hold 262144 (Hetzner and the local Strata
+          # fallback), so the group has one window.
           limit = {
             context = 262144;
             output = 32768;
@@ -122,18 +129,17 @@ let
           name = "Lieutenant — deep reasoning (default)";
           reasoning = true;
           # Text-only rank; the vision slot is lieutenant-v (same model).
-          # Context is the window the engine actually SERVES on laptop-p16, not
-          # what the model can do natively: `strata --setup` probes the card and
-          # writes --max-context 131072 into the run config, and live
-          # `GET laptop-p16:8080/v1/models` reports n_ctx 131072 (2026-11-21).
-          # The 384K the model supports natively is not what this card serves.
-          # Output 65536 sits INSIDE that window: the engine's 131072 is one
+          # Context is the window the engine actually SERVES, not what the model
+          # can do natively: `strata launch` writes --max-context 262144 into the
+          # run config, and live `GET :8080/v1/models` reports n_ctx 262144 on
+          # both hosts. The 384K the model supports natively is not what these
+          # cards serve.
+          # Output 65536 sits INSIDE that window: the engine's 262144 is one
           # shared n_ctx (prompt and generation come out of the same capacity),
           # so a full 65536-token answer only fits a short prompt, and a long
-          # prompt leaves proportionally less. Above 128K the proxy's context
-          # check hands the request to second-lieutenant (262K @ Hetzner).
+          # prompt leaves proportionally less.
           limit = {
-            context = 131072;
+            context = 262144;
             output = 65536;
           };
         };
@@ -143,7 +149,7 @@ let
           attachment = true;  # same model as lieutenant; the -v slot carries vision
           # Same deployment, same served window as `lieutenant` (see above).
           limit = {
-            context = 131072;
+            context = 262144;
             output = 65536;
           };
         };

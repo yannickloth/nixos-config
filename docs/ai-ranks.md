@@ -4,7 +4,7 @@ All rank names in English, using the Belgian Air Component (Luchtcomponent / For
 
 **A rank name is a pure abstraction over the models currently holding the slot.** It never contains a model name, provider name, or implementation detail (dense/sparse, quant, backend). The only permitted suffix is a *feature* suffix — currently `-v` for the vision-capable slot of a rank. **Multiple models may share one rank** (docs/ai-ranks.md is the source of truth; the proxy lists them as multiple deployments under a single model name).
 
-**The ladder now covers every model of every ranked provider** — Z.ai Coding Plan, Kimi Code (legacy **Allegretto** plan), DeepSeek API, Hetzner Inference — plus the three local models. The CheaperInference reseller catalogue (OpenAI/Anthropic) stays *outside* the ladder: the explicit pay-as-you-go pool, escalated by explicit selection, promoted to a general-officer rank only when a model moves into standing use.
+**The ladder now covers every model of every ranked provider** — Z.ai Coding Plan, Kimi Code (legacy **Allegretto** plan), DeepSeek API, Hetzner Inference — plus the two local models (Swift 1.5 on Strata, Nemotron on Studio). The CheaperInference reseller catalogue (OpenAI/Anthropic) stays *outside* the ladder: the explicit pay-as-you-go pool, escalated by explicit selection, promoted to a general-officer rank only when a model moves into standing use.
 
 Research date: 2026-11-21. Sources: Kimi Code docs (`kimi.com/code/docs/en/kimi-code/models`, `.../membership`) plus the live `GET /coding/v1/models` metadata, Z.ai docs (GLM-5.3, GLM-5.3-Flash/FlashX, and the devpack model-switching pages), DeepSeek API docs (`api-docs.deepseek.com` models & pricing, `GET /v1/models`), Hetzner docs (Inference API) plus the live route probe, hermes-agent #18990 / PR #18999 (third-party pixel tests against the Kimi coding endpoint, 2026-09/11), plus the repo's own pixel-color verification notes.
 
@@ -24,7 +24,7 @@ Research date: 2026-11-21. Sources: Kimi Code docs (`kimi.com/code/docs/en/kimi-
 | OR-1 | **Private** | | | Sub-1B models. Space for tiny executors later. |
 | OR-2 | **Corporal** | | | 1–3B models. Space for smaller executors. |
 | OR-3 | **Corporal Chief** | | | 3–5B models. |
-| OR-4 | **Sergeant** | `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` | Unsloth Studio (local) | Fast executor. Faithful instruction following, subagent-level tasks. |
+| OR-4 | **Sergeant** | `swift-1.5-iq3_xxs` (primary) · `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` (fallback) | Strata (local, server-nike) + Unsloth Studio | Fast executor. Faithful instruction following, subagent-level tasks. The primary tier serves the same resident weights as the Warrant Officer's local fallback; the Studio Nemotron answers only when Strata is absent. |
 
 ## Warrant Officers (OR-5 to OR-9)
 
@@ -33,15 +33,15 @@ Research date: 2026-11-21. Sources: Kimi Code docs (`kimi.com/code/docs/en/kimi-
 | OR-5 | **First Sergeant** | | | 5–10B models. |
 | OR-6 | **First Sergeant Chief** | | | 10–15B models. |
 | OR-7 | **First Sergeant Major** | | | 15–20B models. |
-| OR-8 | **Warrant Officer** | `Qwen/Qwen3.6-35B-A3B-FP8` (cloud) · `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` (local) | Hetzner (free cloud) + Unsloth Studio | Workhorse. One rank, two deployments of the same model — free-cloud primary, local fallback. Natively multimodal model; the vision slot is the sibling rank `warrant-officer-v` (same model). |
+| OR-8 | **Warrant Officer** | `Qwen/Qwen3.6-35B-A3B-FP8` (cloud) · `swift-1.5-iq3_xxs` (local) | Hetzner (free cloud) + Strata (local) | Workhorse. One rank, two deployments — free-cloud primary, local Strata fallback. The two orders serve different models. Both are natively multimodal; the vision slot is the sibling rank `warrant-officer-v` (same two deployments). |
 | OR-9 | **Chief Warrant Officer** | | | Reserved. |
 
 ## Junior Officers (OF-1a to OF-2)
 
 | NATO | English | Model | Source | Purpose |
 |---|---|---|---|---|
-| OF-1a | **Second Lieutenant** | `Qwen3.8-27B` | Hetzner Inference (free cloud) | The 27B base model of Swift 1.5 (same architecture, minus post-training). Cleaner output, ~28 tok/s. |
-| OF-1b | **Lieutenant** | `swift-1.5-iq3_xxs` | Strata (local) | **Default model.** Deep reasoning, 128K context (the window Strata serves on the p16 card — `--max-context 131072`, live `n_ctx 131072`; the 384K the model supports natively is not served here). Smart, reliable, delegates to lower ranks. Natively multimodal model; the vision slot is the sibling rank `lieutenant-v` (same model). |
+| OF-1a | **Second Lieutenant** | `Qwen3.8-27B` (primary) · `swift-1.5-iq3_xxs` (fallback) | Hetzner Inference (free cloud) + Strata (local) | The 27B base model of Swift 1.5 (same architecture, minus post-training). Cleaner output, ~28 tok/s. Falls back to the resident Strata model when the free cloud is absent. |
+| OF-1b | **Lieutenant** | `swift-1.5-iq3_xxs` | Strata (local) | **Default model.** Deep reasoning, 256K context (the window Strata serves — `--max-context 262144`, live `n_ctx 262144` on both hosts; the 384K the model supports natively is not served here). Smart, reliable, delegates to lower ranks. Natively multimodal model; the vision slot is the sibling rank `lieutenant-v` (same model). |
 | OF-2 | **Captain** | `deepseek-flash` (DeepSeek-V4.1-Flash-1017) | DeepSeek API (pay-per-token) | Cheapest paid coder above the free stack: 1M ctx, 384K out, image input, fastest in the pool. Vision slot: `captain-v`. $0.15/$0.60 off-peak. |
 
 ## Senior Officers (OF-3 to OF-5)
@@ -121,21 +121,21 @@ Four ids over two serving deployments, all `max_model_len` 262144, all accepting
 
 | Model | Rank | Purpose |
 |---|---|---|
-| `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` | Sergeant (OR-4) | Fast executor (local). |
-| `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` | Warrant Officer (OR-8) local deployment | Local fallback of the cloud primary; the `-v` slot also uses it. |
-| `swift-1.5-iq3_xxs` (Swift 1.5, via Strata) | Lieutenant (OF-1b) | The default model; the `-v` slot uses it too. |
+| `swift-1.5-iq3_xxs` (Swift 1.5, via Strata on server-nike) | Sergeant (OR-4) primary, Second Lieutenant (OF-1a) fallback, Warrant Officer (OR-8) fallback | The single resident local model on server-nike; the `-v` slots use it too. One model serves every local tier because the host cannot hold two at once, and a swap costs a load plus decode rate. |
+| `swift-1.5-iq3_xxs` (Swift 1.5, via Strata on laptop-p16) | Lieutenant (OF-1b) | The default model; the `-v` slot uses it too. |
+| `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` (Unsloth Studio) | Sergeant (OR-4) fallback | Answers only when the Strata engine is absent; it costs a model load. |
 ## Proxy names (LiteLLM model names)
 
 ### Rank names (one name per rank; deployments ordered subscription → pay-per-token → free cloud → local)
 
 | Rank | Proxy name | Deployments (model @ backend, order) | Context | Notes |
 |---|---|---|---|---|
-| Sergeant (OR-4) | `sergeant` | `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` @ Unsloth Studio | 128256 | `temperature: 0.1`, explicit-only (different Studio model). |
-| Warrant Officer (OR-8) | `warrant-officer` | 1: `Qwen/Qwen3.6-35B-A3B-FP8` @ Hetzner · 2: `unsloth/...-MTP-GGUF` @ Studio | 262144 / 131072 | same model; free-cloud primary, local fallback. |
-| Warrant Officer (vision) | `warrant-officer-v` | same deployments as `warrant-officer` | 262144 / 131072 | the `-v` slot carries vision (both verified). |
-| Second Lieutenant (OF-1a) | `second-lieutenant` | `Qwen3.8-27B` @ Hetzner | 262144 | free cloud. |
-| Lieutenant (OF-1b) | `lieutenant` | `swift-1.5-iq3_xxs` @ Strata | 131072 | **default**; `max_parallel_requests: 1`; 131072 is the window the engine serves (`--max-context`, live `n_ctx`), not the model's native 384K. |
-| Lieutenant (vision) | `lieutenant-v` | same deployment as `lieutenant` | 131072 | the `-v` slot carries vision (verified). |
+| Sergeant (OR-4) | `sergeant` | 1: `swift-1.5-iq3_xxs` @ Strata (server-nike) · 2: Nemotron @ Studio | 262144 / 128256 | `temperature: 0.1`, `max_parallel_requests: 1`, explicit-only; order 2 is last resort. |
+| Warrant Officer (OR-8) | `warrant-officer` | 1: `Qwen/Qwen3.6-35B-A3B-FP8` @ Hetzner · 2: `swift-1.5-iq3_xxs` @ Strata (server-nike) | 262144 / 262144 | free-cloud primary, local Strata fallback; different models per order, same window. |
+| Warrant Officer (vision) | `warrant-officer-v` | same deployments as `warrant-officer` | 262144 / 262144 | the `-v` slot carries vision (both deployments verified). |
+| Second Lieutenant (OF-1a) | `second-lieutenant` | 1: `Qwen3.8-27B` @ Hetzner · 2: `swift-1.5-iq3_xxs` @ Strata (server-nike) | 262144 / 262144 | free cloud primary; the resident local model is the fallback. |
+| Lieutenant (OF-1b) | `lieutenant` | `swift-1.5-iq3_xxs` @ Strata | 262144 | **default**; `max_parallel_requests: 1`; 262144 is the window the engine serves (`--max-context`, live `n_ctx`), not the model's native 384K. |
+| Lieutenant (vision) | `lieutenant-v` | same deployment as `lieutenant` | 262144 | the `-v` slot carries vision (verified). |
 | Captain (OF-2) | `captain` | `deepseek-flash` @ DeepSeek | 1048576 | pay-per-token, explicit; cost-mapped. |
 | Captain (vision) | `captain-v` | `deepseek-flash` @ DeepSeek | 1048576 | image input per `GET /v1/models`. |
 | Captain Commandant (OF-3) | `captain-commandant` | 1: `glm-5-turbo` @ Z.ai · 2: `deepseek-v4-pro` @ DeepSeek | 200000 / 1048576 | subscription first; both text-only (no `-v`). |
@@ -170,7 +170,7 @@ Explicit names are single-deployment: one name = exactly one provider's deployme
 
 Every deployment behind a `-v` name (or carrying `attachment = true`) must actually see images:
 
-- **Verified by repo pixel-color tests (1×1 red/blue):** `warrant-officer` / `warrant-officer-v` (Hetzner FP8 and the local GGUF), `second-lieutenant` (Qwen3.8-27B), `lieutenant` / `lieutenant-v` (Swift 1.5 on Strata).
+- **Verified by repo pixel-color tests (1×1 red/blue):** `warrant-officer` / `warrant-officer-v` (Hetzner FP8 verified; local fallback is Swift 1.5 on Strata — the same weights that answered the `lieutenant-v` tests, and the live `GET :8080/v1/models` reports `input_modalities: [text, image]`), `second-lieutenant` (Qwen3.8-27B), `lieutenant` / `lieutenant-v` (Swift 1.5 on Strata).
 - **Verified by official docs + live endpoint metadata (Kimi K2.8 / K3 / K3.1 Pro line):** `kimi-for-coding` (image+video), `k3` (image+video), `k3-256k` (image only), `k3.1-pro` (image+video). Kimi's model table declares image (+video) input for all of them, the live `GET /coding/v1/models` reports `supports_image_in: true`, and independent third-party pixel tests against this exact endpoint (hermes-agent #18990 / PR #18999, 2026-09 and 2026-11) answered a 1×1 pixel correctly.
   - **Format caveat (Kimi docs):** image parts must be content-array `image_url` entries with a base64 data URL; a public image URL is rejected (400 "unsupported image url").
   - The repo's earlier "Kimi coding endpoint answered black" finding is **superseded**: the image had been embedded as base64 in a plain text string, which the model correctly reported as no image. Sent as a proper `image_url` part, the coding endpoint decodes it. (Kimi also recommends its native APIs for K3.1 Pro — protocol translation through a proxy may vary model behavior.)
@@ -216,21 +216,21 @@ The CheaperInference pool is the only unranked pool. Accessed by **explicit sele
 
 ## Fallback Strategy
 
-The lieutenant is the default. When it fails (Strata busy, overloaded, or not reachable) — **or when the prompt no longer fits its 128K window** — the request cascades down through the free-cloud/local stack:
+The lieutenant is the default. When it fails (Strata busy, overloaded, or not reachable), the request cascades down through the free-cloud/local stack:
 
 ```
-lieutenant (local, deep reasoning)
+lieutenant (local, deep reasoning — Strata on laptop-p16)
   ↓ fail
-second-lieutenant (Hetzner, free cloud)
+second-lieutenant (Hetzner free cloud → resident Strata model on server-nike)
   ↓ fail
-warrant-officer (Hetzner primary → local Studio fallback)
+warrant-officer (Hetzner free cloud → resident Strata model on server-nike)
   ↓ stop — sergeant is explicit-only
 [paid ranks + every explicit model id — explicit selection only]
 ```
 
-**A long prompt leaves the local rank by itself.** The `lieutenant` deployment's `max_input_tokens` is 131072 — the window the Strata engine serves on laptop-p16 — so LiteLLM's pre-call context check drops that deployment once the prompt exceeds 128K and the request goes to `second-lieutenant` (262K @ Hetzner). The ladder's long-context tier is the free cloud; the local rank is the deep-reasoning default.
+**Local and free-cloud ranks hold the same window.** Strata now serves 262144 tokens, so `lieutenant`, `second-lieutenant` and the Strata tiers of `sergeant` / `warrant-officer` all advertise 262144. The pre-call context check therefore no longer moves a long prompt from the local rank to the free cloud. Above 262144 tokens the free stack has no deployment left; only the paid ranks (1M) can hold such a prompt, and only by explicit selection.
 
-Intra-rank deployment failover (order tiers within one name) is handled by LiteLLM under the same model name — e.g. `major` Kimi → Z.ai → DeepSeek, or `warrant-officer` cloud → local. `router_settings.fallbacks` only crosses ranks, and only downward through the free stack:
+Intra-rank deployment failover (order tiers within one name) is handled by LiteLLM under the same model name — e.g. `major` Kimi → Z.ai → DeepSeek, `warrant-officer` cloud → local Strata, or `sergeant` Strata → Studio Nemotron. `router_settings.fallbacks` only crosses ranks, and only downward through the free stack:
 
 ```yaml
 router_settings:
@@ -240,6 +240,7 @@ router_settings:
     - lieutenant-v: [warrant-officer-v]   # vision cascade stays inside -v ranks
   max_fallbacks: 2
   # sergeant, all paid ranks, all explicit model ids: explicit-only, no fallback in or out
+  # (sergeant's own order-2 Studio tier is intra-rank, not a cross-rank fallback)
 ```
 
 **No fallback between paid ranks** — `captain`, `captain-v`, `captain-commandant`, `major`, `major-v`, `lieutenant-colonel`, `lieutenant-colonel-v`, `brigadier-general`, `brigadier-general-v` are explicit selections. Auto-fallback across them would silently escalate cost, and circular fallbacks are unreliable in LiteLLM (it does not retry 4xx errors, and warns against cycles).
