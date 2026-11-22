@@ -64,6 +64,23 @@
   # Settings only if you accept that its agents would run as THAT user.
   orca.enable = true;
 
+  # hermes-agent: route through the LiteLLM rank gateway on server-nike. Same
+  # pattern as nicky's config (see nicky-hm.nix). No unsloth studio custom
+  # provider here — aeiuno doesn't run Unsloth Studio locally, so inference
+  # stays on the proxy.
+  #
+  # Written as an activation running after herdrIntegrations for the same
+  # reason as nicky's config.
+  home.activation.writeHermesConfig = lib.hm.dag.entryAfter [ "writeBoundary" "herdrIntegrations" ] ''
+    if $DRY_RUN_CMD ${pkgs.yq}/bin/yq -e '.model.default' "$HOME/.hermes/config.yaml" >/dev/null 2>&1; then
+      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -i '
+        .model = {"default": "lieutenant", "provider": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1"}
+      ' "$HOME/.hermes/config.yaml"
+    else
+      echo "hermes: config.yaml not yet present; skipping model override" >&2
+    fi
+  '';
+
   # Unsloth Studio (packages/unsloth-studio/home.nix) is deliberately NOT
   # enabled for aeiuno: it installs per-user into $HOME and binds :8888, so a
   # second instance on the same laptop would collide with nicky's (which runs

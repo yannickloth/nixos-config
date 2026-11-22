@@ -108,6 +108,28 @@ in
   # user's real logins in its own profile.
   browseros.enable = true;
 
+  # hermes-agent: route through the LiteLLM rank gateway on server-nike. The
+  # `model.default` uses a rank name (lieutenant) so the proxy handles routing,
+  # fallback and cost tracking. The unsloth studio custom provider stays so
+  # local inference models are still reachable for experimentation.
+  #
+  # Written as an activation running after herdrIntegrations: the herdr
+  # integration install command rewrites the model/provider/base_url section,
+  # so a plain home.file would be clobbered. This activation patches those
+  # three fields (and adds the orca-status plugin) after herdr finishes.
+  home.activation.writeHermesConfig = lib.hm.dag.entryAfter [ "writeBoundary" "herdrIntegrations" ] ''
+    if $DRY_RUN_CMD ${pkgs.yq}/bin/yq -e '.model.default' "$HOME/.hermes/config.yaml" >/dev/null 2>&1; then
+      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -i '
+        .model = {"default": "lieutenant", "provider": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1"}
+      ' "$HOME/.hermes/config.yaml"
+      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -i '
+        .plugins.enabled = (.plugins.enabled // []) | (.plugins.enabled | unique) += ["orca-status"]
+      ' "$HOME/.hermes/config.yaml"
+    else
+      echo "hermes: config.yaml not yet present; skipping model override" >&2
+    fi
+  '';
+
   # LibreOffice MCP extension (packages/libreoffice-mcp): an MCP server runs
   # inside the open LibreOffice window on https://localhost:8765/mcp (the
   # default port; aeiuno uses 8766 so parallel sessions cannot attach to each
@@ -285,8 +307,6 @@ in
   # which is not served by Unsloth Studio or Strata. Kintsugi is disabled
   # because the only model it serves (27B) is outclassed by Strata's 125B MoE.
   # Recoverable from git if a stronger EXL3 model ever appears.
-  kintsugi-27b = {
-
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
 
