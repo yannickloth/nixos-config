@@ -119,12 +119,10 @@ in
   # three fields (and adds the orca-status plugin) after herdr finishes.
   home.activation.writeHermesConfig = lib.hm.dag.entryAfter [ "writeBoundary" "herdrIntegrations" ] ''
     if $DRY_RUN_CMD ${pkgs.yq}/bin/yq -e '.model.default' "$HOME/.hermes/config.yaml" >/dev/null 2>&1; then
-      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -i '
+      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
         .model = {"default": "lieutenant", "provider": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1"}
       ' "$HOME/.hermes/config.yaml"
-      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -i '
-        .plugins.enabled = (.plugins.enabled // []) | (.plugins.enabled | unique) += ["orca-status"]
-      ' "$HOME/.hermes/config.yaml"
+      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '.plugins.enabled += ["orca-status"]' "$HOME/.hermes/config.yaml"
     else
       echo "hermes: config.yaml not yet present; skipping model override" >&2
     fi

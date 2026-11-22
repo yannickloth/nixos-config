@@ -73,7 +73,7 @@
   # reason as nicky's config.
   home.activation.writeHermesConfig = lib.hm.dag.entryAfter [ "writeBoundary" "herdrIntegrations" ] ''
     if $DRY_RUN_CMD ${pkgs.yq}/bin/yq -e '.model.default' "$HOME/.hermes/config.yaml" >/dev/null 2>&1; then
-      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -i '
+      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
         .model = {"default": "lieutenant", "provider": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1"}
       ' "$HOME/.hermes/config.yaml"
     else
