@@ -38,14 +38,16 @@ let
   # Engine derivation: unpacks the tarball directly and copies the Kintsugi-27B
   # directory into the store with the model file and driver libraries.
   modelFile = fetchurl {
-    inherit modelUrl modelHash;
+    url = "https://huggingface.co/CaryPalmer/Kintsugi-27B/resolve/main/Kintsugi-27B-12G.gguf";
+    sha256 = "sha256:0510bae82445dc53dbc7d0d842d8b7e146b8eafce0837e39b157d411e48c8a74";
   };
 
   engine = stdenv.mkDerivation {
     pname = "kintsugi-27b-engine";
     inherit version;
     src = fetchurl {
-      inherit bundleUrl bundleHash;
+      url = "https://github.com/professorpalmer/Kintsugi-27B/releases/download/v${version}/Kintsugi-27B-v${version}-linux-x86_64.tar.gz";
+      sha256 = "sha256:0d55dd1bc0e943276208ea8343e95d93a42b3f5a025c11c7000c9d95e092d701";
     };
     nativeBuildInputs = [ pkgs.autoAddDriverRunpath ];
     dontBuild = true;
