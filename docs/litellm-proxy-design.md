@@ -37,8 +37,11 @@ LiteLLM proxy (server-nike, loopback for local backends)
     └──→ CheaperInference api.cheaperinference.com/v1 (paid, explicit)
 ```
 
-PostgreSQL is local to server-nike and only the proxy talks to it. It stores the
-virtual-key/spend schema the admin UI needs; it is not exposed on the network.
+The proxy `After=` `user@1000.service` (server-nike) so it waits for the
+user manager, within which `strata.service` runs. `Wants=`, not `Requires=`,
+so the proxy still boots if the user manager is absent. PostgreSQL is local to
+server-nike and only the proxy talks to it. It stores the virtual-key/spend
+schema the admin UI needs; it is not exposed on the network.
 
 Unsloth Studio stays reachable from the proxy on loopback
 (`127.0.0.1:8888/v1`) for one deployment only: sergeant's order-2 Nemotron
