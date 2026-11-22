@@ -42,6 +42,10 @@ let
     };
     nativeBuildInputs = [ pkgs.autoAddDriverRunpath ];
     dontBuild = true;
+    # stdenv's single-directory heuristic detects Kintsugi-27B/ and sets
+    # sourceRoot=Kintsugi-27B, renaming the directory to $PWD.  Override
+    # to "" to keep the tarball's Kintsugi-27B/ as a subdirectory.
+    sourceRoot = "";
     installPhase = ''
       runHook preInstall
       mkdir -p $out
