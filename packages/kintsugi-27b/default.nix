@@ -84,6 +84,7 @@ let
       # ROOT variable resolves to a writable location (the Nix store is
       # read-only and the script writes logs/PID files there).
       if [ ! -d "$engineDir" ]; then
+        mkdir -p "$runtime"
         cp -r ${engine}/Kintsugi-27B "$engineDir"
         # Nix store files are read-only; make the runtime copy writable
         # so the engine can write logs, PIDs, and session data.
