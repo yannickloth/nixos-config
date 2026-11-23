@@ -87,10 +87,22 @@ with lib;
   boot.kernel.sysctl."vm.nr_hugepages" =
     lib.mkIf (config.home-manager.users.nicky.strata.enable or false) 22528;
 
+  # While the Strata engine loads, it faults in ~24 GiB of model file pages
+  # and locks them (mlock), while the desktop and the 44 GiB parked hugepage
+  # pool share the rest of the 125 GiB. A high swappiness (CachyOS runs 100-150)
+  # spends the load time compressing anonymous pages into zram instead of
+  # dropping file cache, which is what the 14-minute cold load on the live
+  # CachyOS install is (measured 2026-11-22: 869 s vs 116 s on server-nike).
+  # The live equivalent is /etc/sysctl.d/99-performance.conf (hosts/laptop-p16/cachyos).
+  boot.kernel.sysctl."vm.swappiness" =
+    lib.mkIf (config.home-manager.users.nicky.strata.enable or false) 10;
+
   # 128 GiB RAM -> /tmp in RAM. Volatile by nature, so no cleanOnBoot wipe
   # (deleting psd's tens of thousands of small profile files was slow at boot).
+  # 16 GiB, not 50%: the default 62.7 GiB sat between the desktop and the
+  # Strata load for reclaim (10.2 GiB in use, 2026-11-22).
   boot.tmp.useTmpfs = true;
-  boot.tmp.tmpfsSize = "50%";
+  boot.tmp.tmpfsSize = "16G";
   boot.tmp.cleanOnBoot = false;
 
   # Bootloader — keep 5 generations max to prevent EFI partition fill-up.

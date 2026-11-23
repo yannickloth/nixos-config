@@ -29,6 +29,24 @@ grep HugePages_Total /proc/meminfo          # 22528
 ulimit -l                                   # unlimited
 ```
 
+### Swappiness (Strata's cold load)
+
+The engine's cold load faults in ~24 GiB of model file pages and `mlock`s
+them while the desktop and the 44 GiB parked hugepage pool share the rest of
+the 125 GiB. A high `vm.swappiness` (CachyOS's stock value is 100-150) spends
+that time compressing anonymous pages into zram instead of dropping file
+cache. The live cold load ran ~869 s here versus ~116 s on server-nike
+(measured 2026-11-22); part of the gap is that reclaim work, part is the
+/data drive's read rate. Keep it low:
+
+```sh
+sudo sysctl -w vm.swappiness=10            # persist in /etc/sysctl.d/99-*.conf
+```
+
+Note: a value already set in `/etc/sysctl.d/99-performance.conf` can be
+overwritten at runtime by a zram/swap setup service, so re-check after a
+reboot with `sysctl -n vm.swappiness`.
+
 The NixOS host config in `hosts/laptop-p16/` (`hardware-configuration.nix`,
 `laptop-p16.nix`) keeps the equivalent settings for the day this laptop is
 reinstalled with NixOS; nothing in the shared home-manager modules depends on

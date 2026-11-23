@@ -213,6 +213,15 @@ in
   # firewall scopes the exposure, see hosts/<host>/<host>.nix). The other hosts
   # keep the loopback-only publish.
   unsloth-studio.host = lib.mkIf (isP16 || isNike) "0.0.0.0";
+
+  # Unsloth Studio needs $STRATA_API_KEY for the handoff script (see
+  # handoff.nix).  The unsloth-studio module doesn't import the strata module
+  # so it can't reference config.strata.apiKey directly: we write a shared
+  # env-file via home.activation and read it from systemd here.
+  config.systemd.user.services.unsloth-studio.Service.EnvironmentFile = [
+    "${config.home.homeDirectory}/.config/strata/api-key.env"
+  ];
+
   # Only the CachyOS install has the distro podman: there it shares conmon,
   # netavark and the CDI spec with the `podman` in the shell. On NixOS the
   # module's default (pkgs.podman) is used.
@@ -249,11 +258,16 @@ in
     # non-localhost names - see allowedHosts below.
     host = "0.0.0.0";
     # Keep the engine resident far longer than the 5-minute default: a reload
-    # puts the weights back in VRAM in ~27-30 s before decode can start, and at
-    # the old 300 s every >5-minute gap cost that stall. 900 s holds ~55 GB of
-    # RAM and most of the GPU idle between turns instead — the trade-off is
-    # explicitness over latency, so lower it if another GPU job needs the card.
-    idleUnloadSeconds = 900;
+    # puts the weights back before decode can start, and an idle window shorter
+    # than the reload costs that stall on every gap longer than the window.
+    # - server-nike: reload ~116 s (39.97 GiB of experts at 0.51 GiB/s,
+    #   measured 2026-11-22), so 900 s pays off up to 15-minute gaps.
+    # - laptop-p16: the same reload takes ~869 s (2026-11-22): the 70 GiB of
+    #   model files read from the /data NVMe at ~50-120 MB/s, and the 24 GiB of
+    #   mlocked model pages must be resident in a machine that has ~4 GiB free.
+    #   At 900 s almost every gap over 15 minutes costs a 14-minute load that
+    #   no client timeout can wait for, so hold the ~55 GB for the hour: 3600 s.
+    idleUnloadSeconds = if isP16 then 3600 else 900;
     # The picture reader is built and shipped (visionEncoder), so `strata launch`
     # asks the images question and either answer works instead of failing on a
     # package without the binary. Answer it in the run config, not here: on this
@@ -271,7 +285,8 @@ in
     # in a failed cudaMalloc: beforeLoad asks Studio to unload its own model
     # first, and minFreeVramMib is the backstop that refuses the load (503 +
     # Retry-After) if VRAM is still short after the hook. idleUnloadSeconds
-    # above is 900, so Strata holds the card deliberately long - a Studio turn
+    # above is 3600 on laptop-p16 and 900 on server-nike, so Strata holds the
+     # card deliberately long - a Studio turn
     # inside that window is exactly the case this covers.
     minFreeVramMib = 8000;
     # The Studio container reaches Strata through pasta's host loopback
@@ -282,6 +297,7 @@ in
     # own name pass the check without an entry.
     allowedHosts = [ "host.containers.internal" "169.254.1.2" ".bee-blues.ts.net" ];
     beforeLoad = "${config.home.homeDirectory}/.local/bin/unsloth-studio-unload.sh";
+    apiKey = "strata";
     # Store everything Strata reads and writes on the /data volume: the
     # runtime tree (~/.local/share/strata -> /data/strata) and the model files
     # (~/.local/share/Strata-data -> /data/Strata-data). The activation moves
@@ -601,8 +617,21 @@ in
     # Pretty man pages via bat: strips the raw formatting and syntax-highlights
     # the man source. `-l man` tells bat the language, `-p` plain (no header).
     MANPAGER = "sh -c 'col -bx | bat -l man -p'";
+    # Strata API key: exported so `strata launch` uses it instead of generating
+    # a random one (accessed via $STRATA_API_KEY) and so the user can echo it.
+    STRATA_API_KEY = "${config.strata.apiKey}";
   };
   home.shellAliases = { };
+
+  # Shared env-file for Unsloth Studio services: they can't reference
+  # config.strata.apiKey directly (the unsloth-studio module doesn't import
+  # the strata module), so we write a file here and the services read it via
+  # EnvironmentFile=.  The handoff scripts use $STRATA_API_KEY.
+  home.activation.strataApiKeyFile = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    mkdir -p "$HOME/.config/strata"
+    printf 'STRATA_API_KEY=%s\n' '${config.strata.apiKey}' > "$HOME/.config/strata/api-key.env"
+    chmod 0600 "$HOME/.config/strata/api-key.env"
+  '';
 
   # agenix (home-manager module): decrypt nicky's personal API keys at activation
   # to $XDG_RUNTIME_DIR/agenix/nicky.nix, then sourced by the shell. The key is
