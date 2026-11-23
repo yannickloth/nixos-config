@@ -401,20 +401,45 @@ let
         # parser (strata_cli/cli.py, the _SubParsersAction): anything missing
         # here would be handed to `launch` and rejected as an unknown flag, so
         # `strata launch` itself and `strata split-engine` are in it too.
+        # When running `strata launch` the wrapper inserts --api-key-env
+        # STRATA_API_KEY (unless the user already set --api-key or --api-key-env
+        # explicitly), so the TUI reads the key from the environment instead of
+        # generating a random one on first setup.
+        add_api_key_env() {
+          has_key=0
+          for a in "$@"; do
+            case "$a" in --api-key*|--no-api-key) has_key=1 ;; esac
+          done
+          if [ "$has_key" -eq 0 ] && [ -n "''${STRATA_API_KEY:-}" ]; then
+            set -- "$@" "--api-key-env" "STRATA_API_KEY"
+          fi
+        }
+
         case "''${1:-}" in
           -h | --help | -V | --version | \
           launch | serve | bench | code | complete | components | config | connect | \
           connection | doctor | drafting | engine | install | logs | models | monitor | ops | \
           presets | profile | repair-access | runtime | split-engine | status | timeskip | \
           tune | update)
+            # For 'strata launch' only, inject the env-var reader so a random
+            # key is never generated (the key comes from STRATA_API_KEY set by
+            # the systemd unit / home.sessionVariables).  If the user already
+            # passed --api-key/--api-key-env/--no-api-key the wrapper stays out.
+            if [ "${1}" = "launch" ]; then
+              shift; set -- launch "$@"
+              add_api_key_env "$@"
+            fi
             exec "$STRATA_HOME/.venv/bin/python" "$STRATA_HOME/strata.py" "$@"
             ;;
         esac
 
         # Legacy mapping: bare `strata` = `launch`. Transform --vision yes/no -> on/off,
         # pass every other flag through. A bash array keeps arguments with spaces
-        # intact.
+        # intact. Also injects --api-key-env STRATA_API_KEY unless the user
+        # already passed --api-key/--api-key-env/--no-api-key (same check as
+        # add_api_key_env above) so we do not override an explicit --no-api-key.
         launch_args=()
+        has_key=0
         for arg in "$@"; do
           case "$arg" in
             --setup | "-s") ;;                                # no-op - launch is the default
@@ -422,7 +447,11 @@ let
             --vision=no) launch_args+=(--vision off) ;;
             *) launch_args+=("$arg") ;;
           esac
+          case "$arg" in --api-key*|--no-api-key) has_key=1 ;; esac
         done
+        if [ "$has_key" -eq 0 ] && [ -n "''${STRATA_API_KEY:-}" ]; then
+          launch_args+=("--api-key-env" "STRATA_API_KEY")
+        fi
         exec "$STRATA_HOME/.venv/bin/python" "$STRATA_HOME/strata.py" launch "''${launch_args[@]}"
       '';
   };

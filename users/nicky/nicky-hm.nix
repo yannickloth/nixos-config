@@ -218,8 +218,10 @@ in
   # handoff.nix).  The unsloth-studio module doesn't import the strata module
   # so it can't reference config.strata.apiKey directly: we write a shared
   # env-file via home.activation and read it from systemd here.
+  # The leading dash makes it optional: if the file is missing (first boot
+  # before activation), systemd skips it instead of failing the unit.
   config.systemd.user.services.unsloth-studio.Service.EnvironmentFile = [
-    "${config.home.homeDirectory}/.config/strata/api-key.env"
+    "-${config.home.homeDirectory}/.config/strata/api-key.env"
   ];
 
   # Only the CachyOS install has the distro podman: there it shares conmon,

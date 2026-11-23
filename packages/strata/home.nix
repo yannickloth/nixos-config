@@ -195,6 +195,21 @@ in
       '';
     };
 
+    apiKey = mkOption {
+      type = types.str;
+      default = "strata";
+      description = ''
+        API key for the Strata server (`STRATA_API_KEY`). When set, all `/v1/*`
+        endpoints require `Authorization: Bearer <key>` (or the `x-api-key`
+        header). Also read by `strata launch` during setup so it does not
+        generate a random key — this value is used instead.
+        The key must match what all clients send: the LiteLLM proxy uses the
+        literal string `"strata"` for every Strata deployment, and the
+        unsloth-studio handoff script checks `STRATA_API_KEY` for the same
+        header on `/health` and `/v1/unload` calls.
+      '';
+    };
+
     dataOnDataVolume = mkOption {
       type = types.bool;
       default = false;
@@ -304,6 +319,7 @@ in
             "STRATA_PORT=${toString cfg.port}"
             "STRATA_HOST=${cfg.host}"
             "STRATA_IDLE_UNLOAD=${toString cfg.idleUnloadSeconds}"
+            "STRATA_API_KEY=${cfg.apiKey}"
           ]
           ++ optional (cfg.minFreeVramMib > 0) "STRATA_MIN_FREE_VRAM=${toString cfg.minFreeVramMib}"
           ++ optional (cfg.allowedHosts != [ ]) "STRATA_ALLOWED_HOSTS=${concatStringsSep "," cfg.allowedHosts}"
