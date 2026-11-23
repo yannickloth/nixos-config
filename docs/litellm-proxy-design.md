@@ -320,7 +320,12 @@ not leave them without a model:
 
 Every direct provider reuses the model cards of the proxy table (one card per
 model in `users/opencode.nix`, grouped per backend), so display names, limits
-and modality flags cannot drift between the two paths. Selection is explicit:
+and modality flags cannot drift between the two paths. One known mismatch is
+inherited from the earlier client table: the four CheaperInference cards
+carry `attachment = true`, while the proxy's rows for those ids leave
+`supports_vision` unset. Harmless at runtime (LiteLLM does no vision
+pre-call filtering); tighten both sides together once the CI pool's image
+support is verified. Selection is explicit:
 neither opencode nor pi fails over across providers, so when the gateway is
 down, pick a direct model (for example `zai/glm-5.3`, `kimi/k3.1-pro` or
 `strata-p16/swift-1.5-iq3_xxs`). A direct call draws the same quota or
@@ -328,7 +333,8 @@ billing that the proxy's deployment of the same backend draws.
 
 `model` defaults to `proxy/lieutenant` on every host. pi reads the same
 provider set from `~/.pi/agent/models.json`, generated from the same Nix
-table, with `apiKey: "!cat ~/.config/opencode/keys/<name>.key"`.
+table, with `apiKey: "!cat ~/.config/opencode/keys/<name>.key"` (literal
+keys, such as Strata's `strata`, pass through unchanged).
 
 hermes (Nicky only, `users/nicky/nicky-hm.nix`) is wired through the same
 secret: a `proxy` custom provider carries the gateway master key via

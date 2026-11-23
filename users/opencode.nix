@@ -177,7 +177,7 @@ let
   # Same two serving deployments as warrant-officer / second-lieutenant:
   # the endpoint answers the org-prefixed and the bare id of each model,
   # so all four ids are listed. Asking for one of these names means
-  # asking for Hetzner — no local Studio failover (warrant-officer keeps
+  # asking for Hetzner — no local Strata failover (warrant-officer keeps
   # that), no cross-rank fallback, free tier so no cost.
   hetznerModels = {
     "Qwen/Qwen3.6-35B-A3B" = {
@@ -269,6 +269,10 @@ let
   strataModels = {
     "swift-1.5-iq3_xxs" = {
       name = "swift-1.5-iq3_xxs @ Strata (local engine)";
+      attachment = true;  # the same weights serve the proxy's lieutenant-v
+      # vision slot (pixel tests passed; live /v1/models reports
+      # input_modalities text+image), so the direct path keeps a vision slot
+      # while the gateway is down
       limit = {
         context = 262144;
         output = 65536;
@@ -509,11 +513,12 @@ let
     # deepseek and cheaperinference are pay-per-token, hetzner is free
     # cloud, and the strata/unsloth engines are local hardware.
     #
-    # Reasoning depth is not pinned here. The proxy pins reasoning_effort on
-    # its Z.ai and Kimi deployments (max / high); the providers' own
-    # defaults already match on the direct path (Z.ai: GLM-5.3 / GLM-5.3-Flash
-    # always think, default max; Kimi k3.1-pro: thinking cannot be disabled,
-    # default high).
+    # Reasoning depth is not pinned here. The proxy pins reasoning_effort only
+    # on glm-5.3 / glm-5.3-flash (max) and k3.1-pro (high); its other Kimi and
+    # Z.ai deployments are unpinned. On the direct path the provider defaults
+    # cover it: Z.ai GLM-5.3 / GLM-5.3-Flash always think (default max), Kimi
+    # k3.1-pro cannot disable thinking (default high), and the unpinned ids
+    # keep their provider defaults.
     # -----------------------------------------------------------------------
 
     # Z.ai Coding Plan — subscription quota; the coding endpoint only (a plan
@@ -714,9 +719,10 @@ in
             # packages/laya MCP server (a separate streamable-HTTP endpoint on
             # port 8765) is gone with the package: Studio's Decision API serves
             # the same shape locally, so there is nothing else to register.
-            # opencode's built-in Z.AI provider stays unconfigured: Z.AI access
-            # is the proxy's rank deployments (providers.proxy) or the direct
-            # zai provider (the Coding Plan endpoint), both defined above.
+            # The custom zai/deepseek providers above shadow opencode's
+            # built-in catalog entries with the same ids: Z.AI access is the
+            # proxy's rank deployments (providers.proxy) or the direct zai
+            # provider (the Coding Plan endpoint).
             mcp = optionalAttrs hasLocalInference {
               servers = {
                 # System One decision tools straight from local Unsloth Studio, so
@@ -873,7 +879,8 @@ in
       export PATH="${pkgs.coreutils}/bin:${pkgs.bun}/bin:$PATH"
       for dir in "${config.home.homeDirectory}/.node_modules" "${config.home.homeDirectory}/@opencode"; do
         ${pkgs.coreutils}/bin/mkdir -p "$dir"
-        # bun --cwd misparses args (treats them as scripts), so cd instead:
+        # --cwd must come after the subcommand: "bun --cwd <dir> install"
+        # misparses "install" as a script name (bun 1.3).
         ${pkgs.bun}/bin/bun install --cwd "$dir" @opencode/ai 2>&1 || true
       done
     '';

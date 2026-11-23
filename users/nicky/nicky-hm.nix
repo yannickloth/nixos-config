@@ -168,7 +168,11 @@ in
   # hermes-gateway service is hermes' own unit (not HM-managed), so it sees
   # new or rotated values only after its next restart.
   home.activation.writeHermesEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" '${config.opencode.envFile}' <<'PYEOF'
+    # Wrapped in $DRY_RUN_CMD like writeHermesConfig, so a dry activation
+    # touches nothing under ~/.hermes. (The key-file materialization in
+    # users/opencode.nix deliberately stays unwrapped; this file follows the
+    # wrapped convention.)
+    $DRY_RUN_CMD ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" '${config.opencode.envFile}' <<'PYEOF'
     import json, os, sys
 
     home = sys.argv[1]
@@ -204,7 +208,8 @@ in
     missing = sorted(managed - set(values))
     if missing:
         print(f"hermes: no secret key for {', '.join(missing)}; those vars not written")
-    # Keep unmanaged lines verbatim; managed ones move to the end, upserted.
+    # Keep unmanaged lines in order (blank lines are dropped); managed ones
+    # move to the end, upserted.
     kept = []
     try:
         with open(env_path, encoding="utf-8") as fh:
