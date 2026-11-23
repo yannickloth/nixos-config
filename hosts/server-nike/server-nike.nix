@@ -195,7 +195,7 @@ with lib;
   # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
   time.timeZone = "Europe/Brussels";
 
-  # Dell 5810: Xeon E5-1650 v3 (6C/12T, Haswell-EP, 3.5 GHz) — parallel
+  # Dell 5810: 2× Xeon E5-2699C v4 (Broadwell-EP, 22C/44T) — parallel
   # builds with all cores.
   roles.nix.maxJobs = 16;
   roles.nix.cores = 0;

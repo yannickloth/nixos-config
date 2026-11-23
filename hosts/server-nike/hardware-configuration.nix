@@ -2,7 +2,7 @@
 # Values transcribed from the running system (lsblk, /etc/nixos, /sys).
 #
 # Dell Precision Tower 5810 hardware (serial J35FZG2):
-# - CPU: Xeon E5-1650 v3 (Haswell-EP, 3.5 GHz)
+# - CPU: 2× Xeon E5-2699C v4 (Broadwell-EP, dual-socket, 22C/44T total, 2.2 GHz)
 # - GPU: NVIDIA RTX 3060 12GB (Ampere GA106, sm_86) — PCIe 3.0 x16, Slot 1 (only GPU)
 #   - the former NVIDIA GT 730 (Kepler) in Slot 3 was removed
 # - RAM: DDR4 ECC Registered (Xeon platform)
