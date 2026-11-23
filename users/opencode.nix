@@ -1,7 +1,10 @@
-# Global opencode configuration for nicky: one LLM provider — the LiteLLM
-# rank gateway on server-nike (services/litellm-proxy.nix) — in front of every
-# local + paid backend, plus the per-model context/output limits researched
-# for each rank and unranked model.
+# Global opencode configuration for nicky: the LiteLLM rank gateway on
+# server-nike (services/litellm-proxy.nix) as the primary provider — in front
+# of every local + paid backend — plus one DIRECT provider per backend, so
+# the subscription and other models stay usable when the gateway itself is
+# down (server-nike offline, its litellm unit failed, or the Tailscale path
+# gone). Both paths share one model card per model; see the shared *Models
+# bindings and DIRECT PROVIDERS below.
 #
 # The proxy owns routing, intra-rank failover (deployment order), cross-rank
 # fallbacks, retries, timeouts and cost tracking — see
@@ -18,14 +21,20 @@
 # setupOpenCodeKeys activation script materializes out of
 # /etc/secrets/opencode-keys.env (itself decrypted by agenix, see
 # services/secrets.nix). The activation runs as the user, who can read that file
-# through the `secrets` group. opencode itself only needs litellm-proxy.key
-# (the proxy's master key); the backend key files are kept for tools that talk
-# to a provider directly (the systemone MCP reads unsloth.key).
+# through the `secrets` group. opencode uses litellm-proxy.key (the proxy's
+# master key) for the gateway and the backend key files (zai, kimi, deepseek,
+# hetzner, cheaperinference, unsloth) for the direct providers — the same
+# files tools that talk to a provider directly already read (the systemone
+# MCP reads unsloth.key). The strata providers carry the literal key
+# "strata": Strata 0.2.18 requires Bearer STRATA_API_KEY, and that is the
+# packages/strata apiKey default — the same value the proxy sends. A host
+# that overrides strata.apiKey must update these literals too.
 #
 # Backends behind the proxy (the proxy config is the source of truth):
 #   strata      http://laptop-p16.bee-blues.ts.net:8080/v1   (Strata on
 #                  laptop-p16, and :8080 on server-nike for the local tiers;
-#                  any key; the engine's served window is 262144 — `--max-context`
+#                  key: the literal `strata` (the STRATA_API_KEY default); the
+#                  engine's served window is 262144 — `--max-context`
 #                  written by `strata launch`, live `n_ctx` 262144 — the same
 #                  window as the free-cloud tiers)
 #   unsloth     http://server-nike.bee-blues.ts.net:8888/v1  (Unsloth Studio on
@@ -58,22 +67,251 @@ let
   # every host over Tailscale, so providers are no longer gated by this.
   hasLocalInference = hn == "laptop-p16" || hn == "server-nike";
 
+  # ---------------------------------------------------------------------------
+  # Shared model cards — one definition per model, referenced by BOTH paths:
+  # providers.proxy (the gateway's explicit ids and unranked pool) and the
+  # direct per-backend providers below (see DIRECT PROVIDERS). Grouped by
+  # backend, so a new model card lands on the gateway and on that backend's
+  # direct provider in one edit. Rank association lives in the display name
+  # (docs/ai-ranks.md); it stays accurate whichever path a call takes.
+  # ---------------------------------------------------------------------------
+
+  # Kimi Code (legacy Allegretto plan: all six ids are entitled, and the
+  # 1M context on k3.1-pro / k3 is Allegretto's 1M tier).
+  kimiModels = {
+    "k3.1-pro" = {
+      name = "k3.1-pro @ Kimi (Brigadier General)";
+      reasoning = true;
+      attachment = true;  # Kimi model table: image+video; live pixel test
+      # 2026-11-17 on the K3.1 Pro line answered correctly
+      limit = {
+        context = 1048576;
+        output = 131072;
+      };
+    };
+    "k3" = {
+      name = "k3 @ Kimi (Lieutenant Colonel)";
+      reasoning = true;
+      attachment = true;  # Kimi model table: image+video; live pixel tests
+      # 2026-09 answered correctly
+      limit = {
+        context = 1048576;
+        output = 131072;
+      };
+    };
+    "k3-256k" = {
+      name = "k3-256k @ Kimi (Lieutenant Colonel, 262K)";
+      reasoning = true;
+      attachment = true;  # Kimi model table: image only (no video)
+      limit = {
+        context = 262144;
+        output = 131072;
+      };
+    };
+    "kimi-for-coding" = {
+      name = "kimi-for-coding @ Kimi (Major, K2.8)";
+      reasoning = true;
+      attachment = true;  # Kimi model table: image+video; live /v1/models
+      # reports supports_image_in true and a live pixel test on this id
+      # answered correctly (supersedes the old endpoint finding)
+      limit = {
+        context = 1048576;
+        output = 131072;
+      };
+    };
+  };
+
+  # Z.ai Coding Plan (subscription quota, coding endpoint only).
+  zaiModels = {
+    "glm-5.3" = {
+      name = "glm-5.3 @ Z.ai Coding Plan (Lieutenant Colonel)";
+      reasoning = true;
+      # GLM-5.3 is text-only by provider spec.
+      limit = {
+        context = 1000000;
+        output = 131072;
+      };
+    };
+    "glm-5.3-flash" = {
+      name = "glm-5.3-flash @ Z.ai Coding Plan (Major)";
+      reasoning = true;
+      attachment = true;  # the GLM-5.3 series' multimodal line
+      limit = {
+        context = 1000000;
+        output = 131072;
+      };
+    };
+    "glm-5-turbo" = {
+      name = "glm-5-turbo @ Z.ai Coding Plan (Captain Commandant)";
+      reasoning = true;
+      limit = {
+        context = 200000;
+        output = 131072;
+      };
+    };
+  };
+
+  # DeepSeek API (pay-per-token).
+  deepseekModels = {
+    "deepseek-flash" = {
+      name = "deepseek-flash (Captain)";
+      reasoning = true;
+      attachment = true;
+      limit = {
+        context = 1048576;
+        output = 393216;
+      };
+    };
+    "deepseek-v4-pro" = {
+      name = "deepseek-v4-pro (Captain Commandant / Major)";
+      reasoning = true;
+      limit = {
+        context = 1048576;
+        output = 393216;
+      };
+    };
+  };
+
+  # Hetzner free cloud (the two cloud deployments the ladder fronts,
+  # under their own upstream ids; explicit selection).
+  # Same two serving deployments as warrant-officer / second-lieutenant:
+  # the endpoint answers the org-prefixed and the bare id of each model,
+  # so all four ids are listed. Asking for one of these names means
+  # asking for Hetzner — no local Studio failover (warrant-officer keeps
+  # that), no cross-rank fallback, free tier so no cost.
+  hetznerModels = {
+    "Qwen/Qwen3.6-35B-A3B" = {
+      name = "Qwen3.6-35B-A3B @ Hetzner (Warrant Officer, free cloud)";
+      limit = {
+        context = 262144;
+        output = 32768;
+      };
+    };
+    "Qwen/Qwen3.6-35B-A3B-FP8" = {
+      name = "Qwen3.6-35B-A3B-FP8 @ Hetzner (Warrant Officer, free cloud)";
+      limit = {
+        context = 262144;
+        output = 32768;
+      };
+    };
+    "Qwen/Qwen3.8-27B" = {
+      name = "Qwen3.8-27B @ Hetzner (Second Lieutenant, free cloud)";
+      limit = {
+        context = 262144;
+        output = 32768;
+      };
+    };
+    "Qwen3.8-27B" = {
+      name = "Qwen3.8-27B @ Hetzner (Second Lieutenant, free cloud)";
+      limit = {
+        context = 262144;
+        output = 32768;
+      };
+    };
+  };
+
+  # Unranked pay-as-you-go pool (CheaperInference only; explicit selection).
+  # No model of the four ranked providers is unranked; this pool is the
+  # reseller's OpenAI/Anthropic catalogue plus glm-5.3-payg, the cash twin
+  # of the Coding Plan's glm-5.3.
+  cheaperModels = {
+    "deepseek-v4.1-flash" = {
+      name = "deepseek-v4.1-flash (paid, CI: Captain's model at 56% off)";
+      reasoning = true;
+      attachment = true;
+      limit = {
+        context = 1048576;
+        output = 393216;
+      };
+    };
+    "gpt-5.6-luna" = {
+      name = "gpt-5.6-luna (paid escalation, CI)";
+      reasoning = true;
+      attachment = true;
+      limit = {
+        context = 1050000;
+        output = 128000;
+      };
+    };
+    "claude-sonnet-5.5" = {
+      name = "claude-sonnet-5.5 (paid escalation, CI)";
+      reasoning = true;
+      attachment = true;
+      limit = {
+        context = 1000000;
+        output = 128000;
+      };
+    };
+    "claude-opus-5.5" = {
+      name = "claude-opus-5.5 (paid escalation, CI)";
+      reasoning = true;
+      attachment = true;
+      limit = {
+        context = 1000000;
+        output = 128000;
+      };
+    };
+    "glm-5.3-payg" = {
+      name = "glm-5.3-payg (paid, per-token, CI)";
+      reasoning = true;
+      limit = {
+        context = 1000000;
+        output = 131072;
+      };
+    };
+  };
+
+  # The single resident Strata model, loaded on both engines (one model per
+  # engine — a swap costs a full load; see docs/litellm-proxy-design.md
+  # "Local model policy"). `strata launch` writes --max-context 262144 and
+  # the live GET /v1/models reports n_ctx 262144 on both hosts. Output 65536
+  # sits inside the shared window, same as the lieutenant rank card.
+  strataModels = {
+    "swift-1.5-iq3_xxs" = {
+      name = "swift-1.5-iq3_xxs @ Strata (local engine)";
+      limit = {
+        context = 262144;
+        output = 65536;
+      };
+    };
+  };
+
+  # Unsloth Studio on server-nike — the sergeant rank's order-2 tier, kept as
+  # a last-resort direct path (a Studio call costs a model load). Studio
+  # serves the GGUF under the id the proxy fronts; the proxy records its
+  # per-model context budget as 128256.
+  unslothModels = {
+    "unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF" = {
+      name = "NVIDIA-Nemotron-3.5-Bolt-E4B @ Unsloth Studio (sergeant order-2)";
+      limit = {
+        context = 128256;
+        output = 65536;
+      };
+    };
+  };
+
   # Provider/model definitions shared by opencode and pi.
   #
-  # Single provider: the LiteLLM rank gateway (services/litellm-proxy.nix, on
-  # server-nike). The proxy fronts every backend; its config carries the
+  # Primary provider: the LiteLLM rank gateway (services/litellm-proxy.nix,
+  # on server-nike). The proxy fronts every backend; its config carries the
   # deployment order, fallbacks, timeouts and cost tracking (see
   # docs/litellm-proxy-design.md). This table only carries display names, the
   # researched context/output limits (opencode compacts at limit.context) and
   # the modality flags (consumed by pi).
   #
-  # Three name classes, in the order they appear below:
+  # Alongside it, one DIRECT provider per backend exposes the same models
+  # without the gateway (see DIRECT PROVIDERS inside `providers` below), so
+  # an outage of server-nike, the litellm unit or the Tailscale path never
+  # leaves the harnesses without a model.
+  #
+  # Name classes on the proxy provider, in the order they appear below:
   #   1. rank names (the ladder in docs/ai-ranks.md). A rank is a pure
   #      abstraction over the model holding the slot: multiple models may share
   #      a rank, so a model swap never touches this file;
   #   2. explicit model names — one per ranked model, spelled exactly like the
-  #      upstream id, for callers that want that model and not a rank;
-  #   3. the unranked pay-as-you-go pool (CheaperInference + glm-5.3-payg).
+  #      upstream id, merged in from the shared card bindings above;
+  #   3. the unranked pay-as-you-go pool (CheaperInference + glm-5.3-payg),
+  #      also from a shared binding.
   # Only -v ranks and the model ids whose model really sees images carry
   # `attachment = true`; plain ranks stay text-only by contract.
   providers = {
@@ -242,180 +480,124 @@ let
           };
         };
 
-        # --- explicit model names: one name per ranked model, spelled like the
-        #     upstream id, for callers that want the model and not the rank ------
-        # Kimi Code (legacy Allegretto plan: all six ids are entitled, and the
-        # 1M context on k3.1-pro / k3 is Allegretto's 1M tier).
-        "k3.1-pro" = {
-          name = "k3.1-pro @ Kimi (Brigadier General)";
-          reasoning = true;
-          attachment = true;  # Kimi model table: image+video; live pixel test
-          # 2026-11-17 on the K3.1 Pro line answered correctly
-          limit = {
-            context = 1048576;
-            output = 131072;
-          };
-        };
-        "k3" = {
-          name = "k3 @ Kimi (Lieutenant Colonel)";
-          reasoning = true;
-          attachment = true;  # Kimi model table: image+video; live pixel tests
-          # 2026-09 answered correctly
-          limit = {
-            context = 1048576;
-            output = 131072;
-          };
-        };
-        "k3-256k" = {
-          name = "k3-256k @ Kimi (Lieutenant Colonel, 262K)";
-          reasoning = true;
-          attachment = true;  # Kimi model table: image only (no video)
-          limit = {
-            context = 262144;
-            output = 131072;
-          };
-        };
-        "kimi-for-coding" = {
-          name = "kimi-for-coding @ Kimi (Major, K2.8)";
-          reasoning = true;
-          attachment = true;  # Kimi model table: image+video; live /v1/models
-          # reports supports_image_in true and a live pixel test on this id
-          # answered correctly (supersedes the old endpoint finding)
-          limit = {
-            context = 1048576;
-            output = 131072;
-          };
-        };
-        # Z.ai Coding Plan (subscription quota, coding endpoint only).
-        "glm-5.3" = {
-          name = "glm-5.3 @ Z.ai Coding Plan (Lieutenant Colonel)";
-          reasoning = true;
-          # GLM-5.3 is text-only by provider spec.
-          limit = {
-            context = 1000000;
-            output = 131072;
-          };
-        };
-        "glm-5.3-flash" = {
-          name = "glm-5.3-flash @ Z.ai Coding Plan (Major)";
-          reasoning = true;
-          attachment = true;  # the GLM-5.3 series' multimodal line
-          limit = {
-            context = 1000000;
-            output = 131072;
-          };
-        };
-        "glm-5-turbo" = {
-          name = "glm-5-turbo @ Z.ai Coding Plan (Captain Commandant)";
-          reasoning = true;
-          limit = {
-            context = 200000;
-            output = 131072;
-          };
-        };
-        # DeepSeek API (pay-per-token).
-        "deepseek-flash" = {
-          name = "deepseek-flash (Captain)";
-          reasoning = true;
-          attachment = true;
-          limit = {
-            context = 1048576;
-            output = 393216;
-          };
-        };
-        "deepseek-v4-pro" = {
-          name = "deepseek-v4-pro (Captain Commandant / Major)";
-          reasoning = true;
-          limit = {
-            context = 1048576;
-            output = 393216;
-          };
-        };
-        # Hetzner free cloud (the two cloud deployments the ladder fronts,
-        # under their own upstream ids; explicit selection).
-        # Same two serving deployments as warrant-officer / second-lieutenant:
-        # the endpoint answers the org-prefixed and the bare id of each model,
-        # so all four ids are listed. Asking for one of these names means
-        # asking for Hetzner — no local Studio failover (warrant-officer keeps
-        # that), no cross-rank fallback, free tier so no cost.
-        "Qwen/Qwen3.6-35B-A3B" = {
-          name = "Qwen3.6-35B-A3B @ Hetzner (Warrant Officer, free cloud)";
-          limit = {
-            context = 262144;
-            output = 32768;
-          };
-        };
-        "Qwen/Qwen3.6-35B-A3B-FP8" = {
-          name = "Qwen3.6-35B-A3B-FP8 @ Hetzner (Warrant Officer, free cloud)";
-          limit = {
-            context = 262144;
-            output = 32768;
-          };
-        };
-        "Qwen/Qwen3.8-27B" = {
-          name = "Qwen3.8-27B @ Hetzner (Second Lieutenant, free cloud)";
-          limit = {
-            context = 262144;
-            output = 32768;
-          };
-        };
-        "Qwen3.8-27B" = {
-          name = "Qwen3.8-27B @ Hetzner (Second Lieutenant, free cloud)";
-          limit = {
-            context = 262144;
-            output = 32768;
-          };
-        };
+        # --- explicit model names + the unranked pay-as-you-go pool: the
+        #     cards are merged in from the shared per-backend bindings above
+        #     (kimiModels, zaiModels, deepseekModels, hetznerModels,
+        #     cheaperModels). One card per model serves BOTH paths — these
+        #     names on the gateway, and the same ids under the direct
+        #     providers (see DIRECT PROVIDERS below) — so the two paths
+        #     cannot drift.
+      } // kimiModels // zaiModels // deepseekModels // hetznerModels
+        // cheaperModels;
+    };
 
-        # --- unranked (CheaperInference pay-as-you-go pool; explicit selection) ---
-        # No model of the four ranked providers is unranked; this pool is the
-        # reseller's OpenAI/Anthropic catalogue plus glm-5.3-payg, the cash twin
-        # of the Coding Plan's glm-5.3.
-        "deepseek-v4.1-flash" = {
-          name = "deepseek-v4.1-flash (paid, CI: Captain's model at 56% off)";
-          reasoning = true;
-          attachment = true;
-          limit = {
-            context = 1048576;
-            output = 393216;
-          };
-        };
-        "gpt-5.6-luna" = {
-          name = "gpt-5.6-luna (paid escalation, CI)";
-          reasoning = true;
-          attachment = true;
-          limit = {
-            context = 1050000;
-            output = 128000;
-          };
-        };
-        "claude-sonnet-5.5" = {
-          name = "claude-sonnet-5.5 (paid escalation, CI)";
-          reasoning = true;
-          attachment = true;
-          limit = {
-            context = 1000000;
-            output = 128000;
-          };
-        };
-        "claude-opus-5.5" = {
-          name = "claude-opus-5.5 (paid escalation, CI)";
-          reasoning = true;
-          attachment = true;
-          limit = {
-            context = 1000000;
-            output = 128000;
-          };
-        };
-        "glm-5.3-payg" = {
-          name = "glm-5.3-payg (paid, per-token, CI)";
-          reasoning = true;
-          limit = {
-            context = 1000000;
-            output = 131072;
-          };
-        };
+    # -----------------------------------------------------------------------
+    # DIRECT PROVIDERS — the same backends the proxy fronts, reachable
+    # WITHOUT the LiteLLM gateway. The gateway is one service on one host:
+    # if server-nike is down, its litellm unit fails, or the Tailscale path
+    # is gone, every rank above is unreachable too. Each provider here talks
+    # to the backend itself, with the key files setupOpenCodeKeys already
+    # materializes for direct tools (and a literal key for Strata, which
+    # accepts anything). Model cards are the shared *Models bindings above:
+    # one card per model serves both paths.
+    #
+    # Selection is explicit: neither opencode nor pi fails over across
+    # providers, so when the gateway is down, switch in the model picker
+    # (for example zai/glm-5.3, kimi/k3.1-pro, strata-p16/swift-1.5-iq3_xxs).
+    # The provider name is the cost class: zai and kimi draw subscription
+    # quota (the same plans the proxy's subscription deployments draw),
+    # deepseek and cheaperinference are pay-per-token, hetzner is free
+    # cloud, and the strata/unsloth engines are local hardware.
+    #
+    # Reasoning depth is not pinned here. The proxy pins reasoning_effort on
+    # its Z.ai and Kimi deployments (max / high); the providers' own
+    # defaults already match on the direct path (Z.ai: GLM-5.3 / GLM-5.3-Flash
+    # always think, default max; Kimi k3.1-pro: thinking cannot be disabled,
+    # default high).
+    # -----------------------------------------------------------------------
+
+    # Z.ai Coding Plan — subscription quota; the coding endpoint only (a plan
+    # key is rejected on the pay-per-token endpoint api.z.ai/api/paas/v4).
+    zai = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "https://api.z.ai/api/coding/paas/v4";
+        apiKey = keyfile "zai";
       };
+      models = zaiModels;
+    };
+
+    # Kimi Code (legacy Allegretto plan) — same endpoint and ids the proxy
+    # fronts, minus the gateway hop.
+    kimi = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "https://api.kimi.com/coding/v1";
+        apiKey = keyfile "kimi";
+      };
+      models = kimiModels;
+    };
+
+    # DeepSeek API — pay-per-token.
+    deepseek = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "https://api.deepseek.com";
+        apiKey = keyfile "deepseek";
+      };
+      models = deepseekModels;
+    };
+
+    # Hetzner Inference — free cloud.
+    hetzner = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "https://inference.hetzner.com/v1";
+        apiKey = keyfile "hetzner";
+      };
+      models = hetznerModels;
+    };
+
+    # CheaperInference — wallet-backed pay-as-you-go pool.
+    cheaperinference = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "https://api.cheaperinference.com/v1";
+        apiKey = keyfile "cheaperinference";
+      };
+      models = cheaperModels;
+    };
+
+    # The two Strata engines, addressed directly. The proxy load-balances the
+    # same pair behind swift-1.5; without it, pick an engine. Strata 0.2.18
+    # requires Bearer STRATA_API_KEY; the literal "strata" below is the
+    # packages/strata apiKey default — the same value the proxy sends.
+    strata-nike = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "http://server-nike.bee-blues.ts.net:8080/v1";
+        apiKey = "strata";
+      };
+      models = strataModels;
+    };
+    strata-p16 = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "http://laptop-p16.bee-blues.ts.net:8080/v1";
+        apiKey = "strata";
+      };
+      models = strataModels;
+    };
+
+    # Unsloth Studio on server-nike — the sergeant rank's order-2 tier; a
+    # last-resort direct path (a Studio call costs a model load).
+    unsloth = {
+      package = "aisdk:@ai-sdk/openai-compatible";
+      settings = {
+        baseURL = "http://server-nike.bee-blues.ts.net:8888/v1";
+        apiKey = keyfile "unsloth";
+      };
+      models = unslothModels;
     };
   };
 
@@ -425,9 +607,10 @@ let
   # limit.{context,output}. Its config is generated from `providers` above so
   # the two agents cannot drift apart.
   #
-  # There is only one provider now (the LiteLLM rank gateway), and pi does not
-  # ship a native catalog for it, so every provider is emitted as a full
-  # openai-completions definition. `piNativeIds` stays empty.
+  # pi ships no native catalog for any of these providers (the rank gateway
+  # and the direct backends all speak OpenAI-compatible HTTP), so every
+  # provider is emitted as a full openai-completions definition.
+  # `piNativeIds` stays empty.
   piNativeIds = { };
 
   # opencode stores keys as {file:...} interpolations; pi resolves a leading
@@ -451,7 +634,7 @@ let
   };
 
   # Emit every provider as a full openai-completions definition (pi has no
-  # native catalog for the LiteLLM rank gateway).
+  # native catalog for any provider defined here).
   piProviders = listToAttrs (
     concatMap
       (name:
@@ -531,8 +714,9 @@ in
             # packages/laya MCP server (a separate streamable-HTTP endpoint on
             # port 8765) is gone with the package: Studio's Decision API serves
             # the same shape locally, so there is nothing else to register.
-            # Z.AI's built-in pay-per-token catalog is irrelevant now: the only
-            # Z.AI access is through the LiteLLM proxy's rank deployments.
+            # opencode's built-in Z.AI provider stays unconfigured: Z.AI access
+            # is the proxy's rank deployments (providers.proxy) or the direct
+            # zai provider (the Coding Plan endpoint), both defined above.
             mcp = optionalAttrs hasLocalInference {
               servers = {
                 # System One decision tools straight from local Unsloth Studio, so
@@ -684,9 +868,13 @@ in
     # ~/.node_modules to module resolution paths AND looks at ~/@opencode/ for
     # scoped packages. Install @opencode/ai in both locations.
     home.activation.setupOpenCodeAIDeps = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      # Activation scripts run in a restricted environment; make sure PATH has
+      # the tools this script needs.
+      export PATH="${pkgs.coreutils}/bin:${pkgs.bun}/bin:$PATH"
       for dir in "${config.home.homeDirectory}/.node_modules" "${config.home.homeDirectory}/@opencode"; do
-        mkdir -p "$dir"
-        ${pkgs.bun}/bin/bun --cwd "$dir" install @opencode/ai 2>&1 || true
+        ${pkgs.coreutils}/bin/mkdir -p "$dir"
+        # bun --cwd misparses args (treats them as scripts), so cd instead:
+        ${pkgs.bun}/bin/bun install --cwd "$dir" @opencode/ai 2>&1 || true
       done
     '';
 

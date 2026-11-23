@@ -19,10 +19,17 @@ Tailscale; there is no proxy on laptop-p16, laptop-hera, laptop-xps or
 desktop-leto. The host firewall exposes `tcp/4000` to the LAN and tailnet via
 `lib.privateNetRules`.
 
+The gateway is the primary path, not the only one. `users/opencode.nix` also
+defines one direct provider per backend (Z.ai Coding Plan, Kimi, DeepSeek,
+Hetzner, CheaperInference, the two Strata engines, Unsloth Studio), so
+opencode and pi keep working when server-nike, the `litellm-proxy` unit or
+the Tailscale path to it is down. Direct selection is explicit — neither
+client fails over across providers automatically (see "Client wiring").
+
 ## Topology
 
 ```
-opencode / pi on every host
+opencode / pi / hermes on every host
     │  http://server-nike.bee-blues.ts.net:4000/v1
     ▼
 LiteLLM proxy (server-nike, loopback for local backends)
@@ -271,7 +278,7 @@ Rotating a key:
 
 ## Client wiring (`users/opencode.nix`)
 
-opencode and pi have one provider:
+opencode and pi have the rank gateway as their primary provider:
 
 ```json
 {
@@ -296,9 +303,40 @@ researched context/output limits (opencode compacts at `limit.context`) and the
 modality flags consumed by pi. Routing and deployment metadata live in the
 proxy config; keep the two in step when adding a model.
 
+**Direct providers (the no-gateway path).** One extra provider per backend
+lets the harnesses use the subscription and other models without LiteLLM, so
+an outage of server-nike, the `litellm-proxy` unit or the Tailscale path does
+not leave them without a model:
+
+| provider | base URL | credential |
+|---|---|---|
+| `zai` | `https://api.z.ai/api/coding/paas/v4` | `zai.key` |
+| `kimi` | `https://api.kimi.com/coding/v1` | `kimi.key` |
+| `deepseek` | `https://api.deepseek.com` | `deepseek.key` |
+| `hetzner` | `https://inference.hetzner.com/v1` | `hetzner.key` |
+| `cheaperinference` | `https://api.cheaperinference.com/v1` | `cheaperinference.key` |
+| `strata-nike` / `strata-p16` | the two Strata engines, port 8080 | literal `strata` (the STRATA_API_KEY default) |
+| `unsloth` | `http://server-nike.bee-blues.ts.net:8888/v1` | `unsloth.key` |
+
+Every direct provider reuses the model cards of the proxy table (one card per
+model in `users/opencode.nix`, grouped per backend), so display names, limits
+and modality flags cannot drift between the two paths. Selection is explicit:
+neither opencode nor pi fails over across providers, so when the gateway is
+down, pick a direct model (for example `zai/glm-5.3`, `kimi/k3.1-pro` or
+`strata-p16/swift-1.5-iq3_xxs`). A direct call draws the same quota or
+billing that the proxy's deployment of the same backend draws.
+
 `model` defaults to `proxy/lieutenant` on every host. pi reads the same
-provider from `~/.pi/agent/models.json`, generated from the same Nix table, with
-`apiKey: "!cat ~/.config/opencode/keys/litellm-proxy.key"`.
+provider set from `~/.pi/agent/models.json`, generated from the same Nix
+table, with `apiKey: "!cat ~/.config/opencode/keys/<name>.key"`.
+
+hermes (Nicky only, `users/nicky/nicky-hm.nix`) is wired through the same
+secret: a `proxy` custom provider carries the gateway master key via
+`key_env: LITELLM_MASTER_KEY`, and `zai-coding` / `kimi-code` custom providers
+point straight at the two subscription endpoints via `ZAI_CODING_API_KEY` /
+`KIMI_CODE_API_KEY` — all upserted into `~/.hermes/.env` from the
+`opencode-keys` agenix secret by the `writeHermesEnv` activation. So hermes,
+too, can switch off the gateway and call the plan endpoints directly.
 
 ## Deployment
 
@@ -374,7 +412,8 @@ journalctl -u litellm-proxy-env -n 20
 ```
 
 Adding a model: add the deployment to `services/litellm-proxy.nix`, add the
-same name (display name / limits / modalities) to `users/opencode.nix`, commit,
+model card to the backend's shared card group in `users/opencode.nix` (it
+then appears on the gateway and on that backend's direct provider), commit,
 switch on server-nike, then run the health + completion checks. For a local
 model, confirm its id and served context first: `GET
 http://127.0.0.1:8080/v1/models` for Strata, `GET

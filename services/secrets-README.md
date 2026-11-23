@@ -28,6 +28,12 @@ with the user key by home-manager (see `users/{nicky,aeiuno}/*-hm.nix`).
   reads the same file and writes `/run/litellm-proxy.env` with the backend
   keys. The proxy unit's `EnvironmentFile=` exports them, and the store config
   references them through LiteLLM's `os.environ/VAR` resolver.
+- hermes (Nicky only, `users/nicky/nicky-hm.nix`) reads the gateway master key
+  and the z.ai / Kimi keys through `writeHermesEnv`, which upserts them as
+  `LITELLM_MASTER_KEY`, `ZAI_CODING_API_KEY` and `KIMI_CODE_API_KEY` into
+  `~/.hermes/.env` (referenced by hermes `custom_providers` via `key_env`).
+  The running `hermes-gateway` service picks up rotated values on its next
+  restart; every hermes CLI run loads the file fresh.
 
 ## litellm-db-password.age
 

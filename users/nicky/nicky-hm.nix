@@ -113,19 +113,113 @@ in
   # fallback and cost tracking. The unsloth studio custom provider stays so
   # local inference models are still reachable for experimentation.
   #
+  # The gateway and the two subscription backends are registered as hermes
+  # custom_providers, so hermes also has a path that does NOT depend on the
+  # gateway: when the proxy is down, switch provider to zai-coding or
+  # kimi-code and the request goes to the plan endpoint itself (the built-in
+  # deepseek provider is a third direct path; hermes auth manages its
+  # DEEPSEEK_API_KEY in ~/.hermes/.env). Credentials ride via key_env -> the
+  # vars writeHermesEnv upserts into ~/.hermes/.env (hermes' own API-key
+  # file, loaded into the process env at startup), sourced from the same
+  # opencode-keys agenix secret as every other key file. The proxy entry also
+  # fixes gateway auth itself: until now hermes had no stored credential for
+  # model.provider=proxy (no custom_providers entry named proxy, no key_env,
+  # no auth pool), so its provider resolver came back empty — hermes could
+  # not authenticate a gateway request at all (the proxy requires the master
+  # key).
+  #
   # Written as an activation running after herdrIntegrations: the herdr
   # integration install command rewrites the model/provider/base_url section,
   # so a plain home.file would be clobbered. This activation patches those
   # three fields (and adds the orca-status plugin) after herdr finishes.
-  home.activation.writeHermesConfig = lib.hm.dag.entryAfter [ "writeBoundary" "herdrIntegrations" ] ''
+  # custom_providers is upserted the same way: entries with our names are
+  # replaced, every other entry (hermes' own, e.g. unsloth studio) survives.
+  home.activation.writeHermesConfig = lib.hm.dag.entryAfter [ "writeBoundary" "herdrIntegrations" "writeHermesEnv" ] ''
     if $DRY_RUN_CMD ${pkgs.yq}/bin/yq -e '.model.default' "$HOME/.hermes/config.yaml" >/dev/null 2>&1; then
       $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
         .model = {"default": "lieutenant", "provider": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1"}
       ' "$HOME/.hermes/config.yaml"
       $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '.plugins.enabled += ["orca-status"]' "$HOME/.hermes/config.yaml"
+      # Gateway + direct subscription providers (idempotent: same-named
+      # entries are replaced, unknown ones kept). key_env names point at the
+      # vars written by writeHermesEnv; hermes' named-custom branch supplies
+      # them as the bearer credential.
+      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
+        .custom_providers = ((.custom_providers // []) | map(select(.name != "proxy" and .name != "zai-coding" and .name != "kimi-code"))) + [
+          {"name": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1", "key_env": "LITELLM_MASTER_KEY", "model": "lieutenant", "models": {"lieutenant": {}}},
+          {"name": "zai-coding", "base_url": "https://api.z.ai/api/coding/paas/v4", "key_env": "ZAI_CODING_API_KEY", "model": "glm-5.3", "models": {"glm-5.3": {}, "glm-5.3-flash": {}, "glm-5-turbo": {}}},
+          {"name": "kimi-code", "base_url": "https://api.kimi.com/coding/v1", "key_env": "KIMI_CODE_API_KEY", "model": "k3.1-pro", "models": {"k3.1-pro": {}, "k3": {}, "k3-256k": {}, "kimi-for-coding": {}}}
+        ]
+      ' "$HOME/.hermes/config.yaml"
     else
       echo "hermes: config.yaml not yet present; skipping model override" >&2
     fi
+  '';
+
+  # hermes credential source: upsert the gateway master key and the two
+  # subscription backend keys into ~/.hermes/.env (hermes loads that file
+  # into the process env at startup; the custom_providers entries above
+  # reference the vars through key_env). Same source as every other key file
+  # on this machine: the OPENAI_API_KEYS agenix secret (config.opencode.envFile,
+  # falling back to the system path), so a rotation reaches hermes on the
+  # next switch too. Only the three managed vars are touched; other lines
+  # (hermes auth's own entries, e.g. DEEPSEEK_API_KEY) stay verbatim.
+  # Freshness: every hermes CLI run loads the file at startup, but the
+  # hermes-gateway service is hermes' own unit (not HM-managed), so it sees
+  # new or rotated values only after its next restart.
+  home.activation.writeHermesEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" '${config.opencode.envFile}' <<'PYEOF'
+    import json, os, sys
+
+    home = sys.argv[1]
+    # expandvars so an agenix $XDG_RUNTIME_DIR/... path resolves from the
+    # activation environment (same convention as setupOpenCodeKeys).
+    candidates = [os.path.expandvars(p) for p in (sys.argv[2], "/etc/secrets/opencode-keys.env") if p]
+    envfile = next((p for p in candidates if p and os.path.exists(p)), None)
+    env_path = os.path.join(home, ".hermes", ".env")
+    # secret URL -> env var name (both Z.AI spellings hold the same plan key;
+    # see the mapping in users/opencode.nix).
+    mapping = {
+        "http://server-nike.bee-blues.ts.net:4000/v1": "LITELLM_MASTER_KEY",
+        "https://api.z.ai/api/paas/v4/": "ZAI_CODING_API_KEY",
+        "https://api.z.ai/api/coding/paas/v4": "ZAI_CODING_API_KEY",
+        "https://api.kimi.com/coding/v1": "KIMI_CODE_API_KEY",
+    }
+    managed = set(mapping.values())
+    if envfile is None:
+        print("hermes: no key source found (%s); skipping .env update" % ", ".join(candidates))
+        sys.exit(0)
+    try:
+        with open(envfile) as fh:
+            _, _, payload = fh.read().partition("=")
+        keys = json.loads(payload.strip())
+    except Exception as exc:
+        print(f"hermes: failed to parse {envfile}: {exc}; leaving .env untouched", file=sys.stderr)
+        sys.exit(0)
+    values = {}
+    for url, var in mapping.items():
+        key = keys.get(url)
+        if key:
+            values[var] = key
+    missing = sorted(managed - set(values))
+    if missing:
+        print(f"hermes: no secret key for {', '.join(missing)}; those vars not written")
+    # Keep unmanaged lines verbatim; managed ones move to the end, upserted.
+    kept = []
+    try:
+        with open(env_path, encoding="utf-8") as fh:
+            kept = [l.rstrip("\n") for l in fh if l.strip() and l.split("=", 1)[0] not in managed]
+    except FileNotFoundError:
+        os.makedirs(os.path.dirname(env_path), mode=0o700, exist_ok=True)
+    for var in sorted(values):
+        kept.append(f"{var}={values[var]}")
+    fd = os.open(env_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w") as out:
+        if kept:
+            out.write("\n".join(kept) + "\n")
+    print(f"hermes: wrote {len(values)} key var(s) to {env_path}")
+    PYEOF
   '';
 
   # LibreOffice MCP extension (packages/libreoffice-mcp): an MCP server runs
