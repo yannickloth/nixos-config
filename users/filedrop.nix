@@ -26,7 +26,7 @@ with lib;
       config = mkIf (builtins.elem config.home.username [ "nicky" "aeiuno" "sven" "aaron" ]) {
         home.activation.linkFiledropDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           if [ -d /filedrop ]; then
-            $DRY_RUN_CMD ln -sfn /filedrop "$HOME/filedrop"
+            $DRY_RUN_CMD ${pkgs.coreutils}/bin/ln -sfn /filedrop "$HOME/filedrop"
           else
             echo "warning: /filedrop does not exist; not creating ~/filedrop symlink"
           fi

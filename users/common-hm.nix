@@ -216,21 +216,24 @@
     home.activation.installFamilySshKey = lib.mkIf
       (config.commonHm.isCachyOS && builtins.elem config.home.username [ "nicky" "aeiuno" "sven" "aaron" ])
       (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        # Activation scripts run in a restricted environment: PATH only includes
+        # coreutils, findutils, grep, sed, and systemd bins (no /usr/bin).
+        export PATH="${pkgs.coreutils}/bin:${pkgs.systemd}/bin:${pkgs.gnugrep}/bin:${pkgs.diffutils}/bin:/usr/bin:/usr/sbin:$PATH"
         key="$HOME/.ssh/agenix_${config.home.username}"
         secret=${../secrets/ssh-user-${config.home.username}.key.age}
         if [ ! -f "$key" ]; then
           if [ -z "''${DRY_RUN_CMD:-}" ]; then
-            mkdir -p -m 700 "$HOME/.ssh"
+            ${pkgs.coreutils}/bin/mkdir -p -m 700 "$HOME/.ssh"
             # Plain sudo: prompts once for a password when wheel is passworded,
             # then caches the auth for 15 minutes. No tty -> sudo fails fast and
             # the warning below prints the manual command.
             if ( umask 077; sudo ${pkgs.age}/bin/age --decrypt \
                    -i /etc/ssh/ssh_host_ed25519_key "$secret" > "$key" ) \
                && [ -s "$key" ]; then
-              chmod 600 "$key"
+              ${pkgs.coreutils}/bin/chmod 600 "$key"
               echo "installFamilySshKey: installed $key using the host key" >&2
             else
-              rm -f "$key"
+              ${pkgs.coreutils}/bin/rm -f "$key"
               echo "installFamilySshKey: could not decrypt $secret with the host key" >&2
             fi
           else
@@ -246,14 +249,14 @@
     home.activation.linkSyncDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       syncRoot=${lib.escapeShellArg config.commonHm.syncDir}
       if [ -L "$HOME/sync" ]; then
-        $DRY_RUN_CMD ln -sfn "$syncRoot" "$HOME/sync"
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/ln -sfn "$syncRoot" "$HOME/sync"
       elif [ -e "$HOME/sync" ]; then
         # A real directory here is a working tree, not a mistake: on hosts
         # without a system Syncthing dataDir (CachyOS, see commonHm.syncDir)
         # ~/sync IS the sync folder. Leave it alone.
         echo "note: $HOME/sync exists and is not a symlink; using it as the sync root" >&2
       elif [ -d "$syncRoot" ]; then
-        $DRY_RUN_CMD ln -s "$syncRoot" "$HOME/sync"
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/ln -s "$syncRoot" "$HOME/sync"
       else
         echo "warning: $syncRoot does not exist; not creating ~/sync symlink" >&2
       fi
@@ -275,13 +278,13 @@
       fi
       roms="$syncRoot"/${lib.escapeShellArg config.commonHm.romsSubdir}
       if [ -L "$HOME/roms" ]; then
-        $DRY_RUN_CMD ln -sfn "$roms" "$HOME/roms"
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/ln -sfn "$roms" "$HOME/roms"
       elif [ -e "$HOME/roms" ]; then
         # A real directory/file here would be clobbered by `ln -sfn`, so leave
         # it alone.
         echo "warning: $HOME/roms exists and is not a symlink; leaving it alone" >&2
       elif [ -d "$roms" ]; then
-        $DRY_RUN_CMD ln -s "$roms" "$HOME/roms"
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/ln -s "$roms" "$HOME/roms"
       else
         echo "warning: $roms does not exist; not creating ~/roms symlink" >&2
       fi

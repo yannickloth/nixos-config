@@ -355,6 +355,7 @@ in
         # always carry it, so set the standard location when it is missing.
         XDG_RUNTIME_DIR=''${XDG_RUNTIME_DIR:-/run/user/''$(id -u)}
         export XDG_RUNTIME_DIR
+        export PATH="${pkgs.coreutils}/bin:${pkgs.systemd}/bin:$PATH"
         SYSTEMCTL=$(command -v systemctl 2>/dev/null || true)
         STOPPED=0
         # No bus, no stop: say so loudly, because moving the files under a
@@ -377,12 +378,12 @@ in
           return 0
         }
         # name of the folder under ~/.local/share : the folder on /data.
-        $DRY_RUN_CMD mkdir -p "$HOME/.local/share"
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/mkdir -p "$HOME/.local/share"
         for tree in strata:/data/strata Strata-data:/data/Strata-data; do
           name=''${tree%%:*}
           data_dir=''${tree#*:}
           link_dir="$HOME/.local/share/$name"
-          $DRY_RUN_CMD mkdir -p "$data_dir"
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/mkdir -p "$data_dir"
           if [ -L "$link_dir" ] && [ "$(readlink -f "$link_dir" 2>/dev/null)" = "$data_dir" ]; then
             continue
           fi

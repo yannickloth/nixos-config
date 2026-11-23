@@ -202,9 +202,11 @@ in
     # strataHostTuning pattern: never block a switch on an interactive sudo).
     home.activation.orcaServerLinger = mkIf cfg.server.enable (
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        # Activation scripts run in a restricted environment.
+        export PATH="${pkgs.systemd}/bin:${pkgs.gnugrep}/bin:$PATH"
         if ! ${pkgs.systemd}/bin/loginctl show-user "$USER" -p Linger 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q 'Linger=yes'; then
           if sudo -n true 2>/dev/null; then
-            $DRY_RUN_CMD sudo loginctl enable-linger "$USER" || true
+            $DRY_RUN_CMD sudo ${pkgs.systemd}/bin/loginctl enable-linger "$USER" || true
           else
             echo "orca: server needs lingering; run once: sudo loginctl enable-linger $USER" >&2
           fi

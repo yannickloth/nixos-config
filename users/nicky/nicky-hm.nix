@@ -512,18 +512,18 @@ in
           echo "Installing Tresorit..."
           installer=$(${pkgs.coreutils}/bin/mktemp)
           $DRY_RUN_CMD ${pkgs.coreutils}/bin/cp "$TRESORIT_INSTALLER" "$installer"
-          $DRY_RUN_CMD chmod +x "$installer"
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/chmod +x "$installer"
           if ! $DRY_RUN_CMD "$installer" --target "$HOME/.local/share/tresorit" --noexec; then
             echo "setupTresorit: installer failed; leaving Tresorit uninstalled" >&2
           fi
-          $DRY_RUN_CMD rm -f "$installer"
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/rm -f "$installer"
         fi
 
         # Create desktop file in applications directory
         DESKTOP_FILE="$HOME/.local/share/applications/tresorit-fhs.desktop"
-        $DRY_RUN_CMD mkdir -p "$(dirname "$DESKTOP_FILE")"
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/mkdir -p "$(dirname "$DESKTOP_FILE")"
         if [ -f "$DESKTOP_FILE" ]; then
-          $DRY_RUN_CMD rm -f "$DESKTOP_FILE"
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/rm -f "$DESKTOP_FILE"
         fi
         $DRY_RUN_CMD cat > "$DESKTOP_FILE" <<EOF
     [Desktop Entry]
@@ -545,9 +545,9 @@ in
 
         # Set up autostart for FHS version
         AUTOSTART_FILE="$HOME/.config/autostart/tresorit-fhs.desktop"
-        $DRY_RUN_CMD mkdir -p "$(dirname "$AUTOSTART_FILE")"
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/mkdir -p "$(dirname "$AUTOSTART_FILE")"
         if [ -f "$AUTOSTART_FILE" ]; then
-          $DRY_RUN_CMD rm -f "$AUTOSTART_FILE"
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/rm -f "$AUTOSTART_FILE"
         fi
         $DRY_RUN_CMD cat > "$AUTOSTART_FILE" <<EOF
     [Desktop Entry]
@@ -572,6 +572,9 @@ in
   # instead and never runs this (isCachyOS is false there).
   home.activation.strataHostTuning = lib.mkIf (isP16 && isCachyOS)
     (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      # Activation scripts run in a restricted environment; make sure sudo is
+      # available (it lives on the system PATH, not in the Nix store).
+      export PATH="/usr/bin:/usr/sbin:$PATH"
       setup=${../../hosts/laptop-p16/cachyos}
       if [ "$(cat /proc/sys/vm/nr_hugepages 2>/dev/null || echo 0)" -lt 20480 ] \
          || [ ! -e /etc/systemd/system/user@.service.d/99-strata-memlock.conf ]; then
@@ -682,12 +685,12 @@ in
       # $(cat) strips the secret's trailing newline(s) and printf adds exactly
       # one back, so each entry is a single line whether or not the .age
       # payload ends with a newline.
-      pw=$($DRY_RUN_CMD cat "$pw_file")
+      pw=$($DRY_RUN_CMD ${pkgs.coreutils}/bin/cat "$pw_file")
       {
         $DRY_RUN_CMD printf 'localhost:5432:*:nicky:%s\n' "$pw"
         $DRY_RUN_CMD printf '127.0.0.1:5432:*:nicky:%s\n' "$pw"
       } > "$out"
-      $DRY_RUN_CMD chmod 0600 "$out"
+      $DRY_RUN_CMD ${pkgs.coreutils}/bin/chmod 0600 "$out"
     fi
   '';
 
