@@ -319,7 +319,7 @@ in
   # env-file via home.activation and read it from systemd here.
   # The leading dash makes it optional: if the file is missing (first boot
   # before activation), systemd skips it instead of failing the unit.
-  config.systemd.user.services.unsloth-studio.Service.EnvironmentFile = [
+  systemd.user.services.unsloth-studio.Service.EnvironmentFile = [
     "-${config.home.homeDirectory}/.config/strata/api-key.env"
   ];
 

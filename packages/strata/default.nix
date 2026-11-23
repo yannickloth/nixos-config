@@ -425,7 +425,7 @@ let
             # key is never generated (the key comes from STRATA_API_KEY set by
             # the systemd unit / home.sessionVariables).  If the user already
             # passed --api-key/--api-key-env/--no-api-key the wrapper stays out.
-            if [ "${1}" = "launch" ]; then
+            if [ "''${1}" = "launch" ]; then
               shift; set -- launch "$@"
               add_api_key_env "$@"
             fi
