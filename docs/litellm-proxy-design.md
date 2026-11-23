@@ -316,6 +316,18 @@ is no Docker container and no separate compose file. The units are:
   `--use_prisma_db_push`, `Restart = always`, `PartOf =
   litellm-proxy-env.service`.
 
+**Restart cost.** Two things dominate a restart. First, the Python import of
+`litellm.proxy.proxy_server` (~13 s warm; measured 2026-11-23) plus the Prisma
+CLI check `--use_prisma_db_push` runs on every start. Second, uvicorn's
+graceful shutdown waits for open connections: agent clients pin idle keep-alive
+connections, so the process sat in "Waiting for connections to close" until the
+default 90 s `TimeoutStopSec` expired (SIGTERM 08:08:06, SIGKILL 08:09:37 at
+the 2026-11-23 switch). The unit now sets `TimeoutStopSec = 20s`, so in-flight
+requests get 20 s and the cgroup is killed after that — a switch no longer pays
+the 90 s stall before the new instance starts importing. The import itself is
+the floor; the store ships bytecode caches, so there is no compile step to
+recover.
+
 The Python Prisma client is generated at build time (`litellm-prisma-python`)
 and a read-only Prisma CLI cache (`litellm-prisma-cli`) is wired through
 `PRISMA_*` environment variables, so neither `prisma generate` nor engine

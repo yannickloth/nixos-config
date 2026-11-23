@@ -1378,6 +1378,14 @@ in
           # First start runs `prisma db push` over the full schema; later
           # starts are fast. Keep systemd from killing the migration.
           TimeoutStartSec = "300s";
+          # uvicorn's graceful shutdown waits for open connections to close.
+          # Agent clients keep idle keep-alive connections pinned, so the
+          # process sat in "Waiting for connections to close" until the
+          # default 90s TimeoutStopSec expired (measured at the 2026-11-23
+          # switch: SIGTERM 08:08:06, SIGKILL 08:09:37). Every switch paid
+          # that stall before the new instance could even start importing.
+          # Cap it: in-flight requests get 20s, then the cgroup is killed.
+          TimeoutStopSec = "20s";
           Restart = "always";
           RestartSec = 5;
         };
