@@ -63,8 +63,20 @@ sergeant's last-resort tier:
 
 | Local model | Role |
 | --- | --- |
-| `swift-1.5-iq3_xxs` (Swift 1.5, served by Strata) | sergeant order 1, second-lieutenant order 2, warrant-officer / warrant-officer-v order 2, lieutenant / lieutenant-v — all via the shared `swift-1.5` pool (simple-shuffle between server-nike loopback and laptop-p16 Tailscale) |
+| `swift-1.5-iq3_xxs` (Swift 1.5, served by Strata) | sergeant order 1, second-lieutenant order 2, warrant-officer / warrant-officer-v order 2, lieutenant / lieutenant-v — each rank carries two same-order deployments, one per instance (server-nike loopback + laptop-p16 Tailscale); simple-shuffle picks within the order tier |
 | `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` (Unsloth Studio) | sergeant order 2 — only when the Strata engine cannot answer |
+
+**How the two-instance shuffle works.** LiteLLM has no cross-`model_name`
+deployment reference: one model_name cannot reuse another's deployments. So
+each rank that uses Strata carries the instance pair itself — two same-`order`
+deployments (one per instance), each `max_parallel_requests: 1`. `simple-shuffle`
+picks randomly within the order tier (two in-flight slots), a failure on one
+instance promotes the other mid-retry, and only when both fail does the rank's
+fallback chain fire. The `stream_timeout` on these rows (180 s) is the
+first-token budget and must cover the engine's lazy load (~130 s after an idle
+unload). The loopback engine runs with no key set; p16's current Strata build
+requires a real key, so until that is fixed on p16 those rows 401 and their 5 s
+cooldown keeps traffic on the loopback row.
 
 The rest of the Studio library (`unsloth/Qwen3.6-35B-A3B-MTP-GGUF` and the
 older entries: translation, OCR, LFM2.5, Qwythos, Swift-Bonsai, Qwen3.5-9B,
