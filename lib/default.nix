@@ -35,6 +35,21 @@ rec {
         (builtins.split "(/nix/store/[0-9a-z]{32}-)" str)
     );
 
+  # curl retry policy for sandboxed source downloads (fetchurl).
+  #
+  # GitHub answers archive/codeload requests from GitHub Actions runners with
+  # HTTP 429 (Too Many Requests): runner IPs are shared, and a build sandbox
+  # sends unauthenticated requests, which get the lowest quota. nixpkgs fetchurl
+  # defaults to "--retry 3" with 1s/2s/4s backoff, so it gives up within 7
+  # seconds - inside the 429 window - and the evaluation fails.
+  #
+  # Set it here, in the derivation, not in CI: fetchurl reads NIX_CURL_FLAGS
+  # from the nix daemon's environment, which a workflow step cannot change.
+  # curlOpts is baked into the derivation, so it applies wherever the
+  # derivation is built. It does not change the fixed output path, so caches
+  # stay valid.
+  fetchRetryOpts = "--retry 10 --retry-delay 15 --retry-max-time 300";
+
   # Users in `candidates` that actually exist in the `users` attrset.
   filterExistingUsers = users: candidates: builtins.filter (u: builtins.hasAttr u users) candidates;
 
