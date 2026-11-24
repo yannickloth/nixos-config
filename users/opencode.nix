@@ -1,10 +1,10 @@
-# Global opencode configuration for nicky: the LiteLLM rank gateway on
-# server-nike (services/litellm-proxy.nix) as the primary provider — in front
-# of every local + paid backend — plus one DIRECT provider per backend, so
-# the subscription and other models stay usable when the gateway itself is
-# down (server-nike offline, its litellm unit failed, or the Tailscale path
-# gone). Both paths share one model card per model; see the shared *Models
-# bindings and DIRECT PROVIDERS below.
+# Global opencode configuration for nicky: the LiteLLM rank gateway
+# (services/litellm-proxy.nix) as the primary provider — in front of every
+# local + paid backend — plus one DIRECT provider per backend, so the
+# subscription and other models stay usable when the gateway itself is
+# down (the proxy host offline, its litellm unit failed, or the Tailscale
+# path gone). Both paths share one model card per model; see the shared
+# *Models bindings and DIRECT PROVIDERS below.
 #
 # The proxy owns routing, intra-rank failover (deployment order), cross-rank
 # fallbacks, retries, timeouts and cost tracking — see
@@ -12,8 +12,11 @@
 # (docs/ai-ranks.md — every model of every ranked provider holds a rank slot)
 # plus one explicit name per ranked model, spelled like its upstream id, for
 # callers that want the model itself. The unranked pool is CheaperInference only
-# (plus glm-5.3-payg, the cash twin of the Coding Plan's glm-5.3). Every host
-# (laptop-p16 included) reaches the proxy over Tailscale:
+# (plus glm-5.3-payg, the cash twin of the Coding Plan's glm-5.3). The proxy
+# runs on server-nike and on laptop-p16 (same config). A host uses the local
+# instance when it runs one (laptop-p16 on NixOS → http://127.0.0.1:4000/v1,
+# so its ranks keep resolving with no network at all), the server-nike
+# gateway over Tailscale everywhere else:
 # http://server-nike.bee-blues.ts.net:4000/v1.
 #
 # API keys are NOT stored here or in the nix store. They are read at runtime via
@@ -66,6 +69,128 @@ let
   # sense on the inference hosts; the LiteLLM proxy itself is reachable from
   # every host over Tailscale, so providers are no longer gated by this.
   hasLocalInference = hn == "laptop-p16" || hn == "server-nike";
+
+  # The proxy gateway this host's opencode/pi talk to. laptop-p16 runs its own
+  # litellm-proxy instance (services/litellm-proxy.nix, same config as
+  # server-nike) on NixOS, so its clients use the local proxy and the rank
+  # names keep resolving with no network at all (Strata answers on loopback).
+  # The CachyOS install of p16 (the live one today) has no NixOS proxy
+  # service, so it keeps the server-nike gateway over Tailscale like every
+  # other host.
+  proxyBaseURL =
+    if hn == "laptop-p16" && ! config.commonHm.isCachyOS then
+      "http://127.0.0.1:4000/v1"
+    else
+      "http://server-nike.bee-blues.ts.net:4000/v1";
+
+  # Unsloth Studio on this host (every family host runs one per user; the
+  # inference hosts run nicky's). Local loopback: Studio's keyless-localhost
+  # access admits loopback requests, and the inference hosts keep the Studio
+  # key matching the shared secret's key (the strataGpuHandoff hook reads the
+  # same unsloth.key against the local Studio).
+  studioBaseURL = "http://127.0.0.1:8888/v1";
+
+  # System One Decision MCP — same Studio as studioBaseURL. On laptop-p16
+  # (NixOS) the local Studio serves it, so the decision prompts stay on the
+  # machine; everywhere else (CachyOS p16, server-nike) the server-nike
+  # Studio endpoint is the proven path.
+  systemoneMcpURL =
+    if hn == "laptop-p16" && ! config.commonHm.isCachyOS then
+      "http://127.0.0.1:8888/mcp/decisions/"
+    else
+      "http://server-nike.bee-blues.ts.net:8888/mcp/decisions/";
+
+  # ---------------------------------------------------------------------------
+  # ArtCraft "Crafting Apps" MCP servers (packages/craft-apps).
+  #
+  # Every Craft app ships <app>-cli with an `mcp` subcommand: a Model Context
+  # Protocol server on stdio (JSON-RPC). It is headless by default — an
+  # in-process engine, no window — so the agent works with the app closed, and
+  # opencode starts the server itself when a session needs it. Guide:
+  # https://craft.wiki/apps/connect-ai/overview/ ; per-app detail in each repo's
+  # docs/mcp.md.
+  #
+  # File access is opt-in. On the apps that take automation roots, a direction
+  # with no root grants NONE of that access, so the roots below are what makes
+  # their file tools (open / save / export) usable at all. They point at the
+  # agent's own workspace, ~/craft, with a dedicated output folder ~/craft/out:
+  # the wiki's "give it a folder of its own to work in", and upstream's advice
+  # to keep the write root a dedicated output folder rather than a whole
+  # project — an agent holding a write root may replace files under it.
+  # home.activation.setupCraftWorkspace creates the folders: a missing root is
+  # a startup error for these servers, not a silent no-op. Add shared inputs
+  # (photos, documents) by appending to craftReadRoots; keep craftWriteRoots
+  # narrow.
+  craftPkgs = import ../packages/craft-apps { pkgs = pkgs; };
+  craftWorkspace = "${config.home.homeDirectory}/craft";
+  craftReadRoots = [ craftWorkspace ];
+  craftWriteRoots = [ "${craftWorkspace}/out" ];
+
+  # Confinement flags per app, measured on the versions pinned in
+  # packages/craft-apps (each CLI's `mcp --help`, plus a probe run):
+  #   "automation" -> --automation-read-root DIR (repeatable) and
+  #                    --automation-write-root DIR
+  #   "short"      -> --read-root DIR and --write-root DIR (texturecraft,
+  #                    materialcraft; the --automation-* spellings work there too)
+  #   "none"       -> the CLI takes no confinement flags, so pass none:
+  #                    filmcraft and gridcraft (no root options), cadcraft
+  #                    (bridge to a running app only), lightcraft (its folder
+  #                    argument is photos to import, not a limit), anicraft
+  #                    (0.2.1 ignores unknown `mcp` flags — passing roots there
+  #                    would read as confinement in the config and be none).
+  craftRootArgs =
+    roots:
+    if roots == "automation" then
+      (map (d: [ "--automation-read-root" d ]) craftReadRoots)
+      ++ (map (d: [ "--automation-write-root" d ]) craftWriteRoots)
+    else if roots == "short" then
+      (map (d: [ "--read-root" d ]) craftReadRoots)
+      ++ (map (d: [ "--write-root" d ]) craftWriteRoots)
+    else
+      [ ];
+
+  # One opencode MCP server entry for a Craft app. `disabled = false` keeps it
+  # in every session; set it true to hide one app's tool catalog.
+  craftServer = app: { roots ? "automation", extraArgs ? [] }: {
+    type = "local";
+    command =
+      [ "${craftPkgs.${app}}/bin/${app}-cli" "mcp" ]
+      ++ extraArgs
+      ++ flatten (craftRootArgs roots);
+    disabled = false;
+  };
+
+  # The seventeen apps of https://getartcraft.com/apps, in the site's order.
+  craftServers = mapAttrs (app: cfg: craftServer app cfg) {
+    photocraft = { };
+    vectorcraft = { };
+    filmcraft = { roots = "none"; };
+    # LightCraft works on a library, and a library opens in one program at a
+    # time: a dedicated one keeps the agent out of the user's own library.
+    lightcraft = {
+      roots = "none";
+      extraArgs = [ "--library" "${craftWorkspace}/library" ];
+    };
+    pdfcraft = { };
+    effectcraft = { };
+    anicraft = { roots = "none"; };
+    designcraft = { };
+    figcraft = { };
+    texturecraft = { roots = "short"; };
+    materialcraft = { roots = "short"; };
+    soundcraft = { };
+    wordcraft = { };
+    deckcraft = { };
+    cadcraft = { roots = "none"; };
+    gridcraft = { roots = "none"; };
+    # Craft Anything keeps its evidence, memory and journal in --project.
+    # No --allow-run (tools that run code on this machine without asking), no
+    # --deep, no --restricted: the defaults keep approvals with the person.
+    craft-anything = {
+      roots = "none";
+      extraArgs = [ "--project" "${craftWorkspace}/craft-anything" ];
+    };
+  };
 
   # ---------------------------------------------------------------------------
   # Shared model cards — one definition per model, referenced by BOTH paths:
@@ -322,8 +447,7 @@ let
     proxy = {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
-        baseURL = if hn == "laptop-p16" then "http://127.0.0.1:4000/v1"
-                  else "http://server-nike.bee-blues.ts.net:4000/v1";
+        baseURL = proxyBaseURL;
         apiKey = keyfile "litellm-proxy";
       };
       models = {
@@ -595,13 +719,12 @@ let
       models = strataModels;
     };
 
-    # Unsloth Studio on the inference host (server-nike or laptop-p16) — the
-    # sergeant rank's order-2 tier; a last-resort direct path (a Studio call
-    # costs a model load). Runs on both inference hosts via strataGpuHandoff.
+    # Unsloth Studio on this host — the sergeant rank's order-2 tier; a
+    # last-resort direct path (a Studio call costs a model load).
     unsloth = {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
-        baseURL = "http://127.0.0.1:8888/v1";
+        baseURL = studioBaseURL;
         apiKey = keyfile "unsloth";
       };
       models = unslothModels;
@@ -725,8 +848,12 @@ in
             # built-in catalog entries with the same ids: Z.AI access is the
             # proxy's rank deployments (providers.proxy) or the direct zai
             # provider (the Coding Plan endpoint).
-            mcp = optionalAttrs hasLocalInference {
-              servers = {
+            # The Craft app servers (craftServers above) register on every host:
+            # the apps are installed for all users (users/common-hm.nix) and run
+            # locally with no GPU service or daemon behind them. Only the
+            # inference-host servers stay gated.
+            mcp = {
+              servers = craftServers // optionalAttrs hasLocalInference {
                 # System One decision tools straight from local Unsloth Studio, so
                 # decisional prompts stay on this machine. Studio serves this
                 # itself: routes/systemone.py builds a FastMCP ("Unsloth
@@ -749,7 +876,7 @@ in
                 # "Bearer {env:UNSLOTH_API_KEY}" and export that variable.
                 systemone = {
                   type = "remote";
-                  url = "http://server-nike.bee-blues.ts.net:8888/mcp/decisions/";
+                  url = systemoneMcpURL;
                   oauth = false;
                   disabled = false;
                   headers = {
@@ -767,17 +894,8 @@ in
                 # (llm-harness-plugins/systemone) against the local decision API.
                 # Do not re-add a hosted Jev client here: it would send local
                 # judgment prompts to a third party.
-                #
-                # DesignCraft (packages/craft-apps): page layout/publishing
-                # (clean-room InDesign reimplementation). The CLI binary
-                # designcraft-cli serves MCP over stdio — ask it to make
-                # layouts, export, or run scripts.
-                designcraft = {
-                  type = "local";
-                  command = [ "${(import ../packages/craft-apps { pkgs = pkgs; }).designcraft}/bin/designcraft-cli" "mcp" ];
-                  disabled = false;
-                };
-              } // optionalAttrs (pkgs ? rea) {
+              }
+              // optionalAttrs (pkgs ? rea) {
                 # REA (packages/rea): reverse-engineering toolkit (native binaries,
                 # JS/Electron, .NET, websites, ...) served over stdio MCP. Only
                 # registered where the AI-unstable overlay provides pkgs.rea
@@ -875,6 +993,17 @@ in
     # import — it falls back to filesystem resolution. The binary adds
     # ~/.node_modules to module resolution paths AND looks at ~/@opencode/ for
     # scoped packages. Install @opencode/ai in both locations.
+    # The Craft apps' MCP servers confine file access to ~/craft (read) and
+    # ~/craft/out (write) — see craftWorkspace above. Those CLIs treat a missing
+    # root as a startup error, not a silent no-op, so the folders must exist
+    # before a session starts a server. Only the two roots are created here:
+    # LightCraft's library/ and Craft Anything's craft-anything/ subfolders are
+    # made by those CLIs on first use.
+    home.activation.setupCraftWorkspace = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      export PATH="${pkgs.coreutils}/bin:$PATH"
+      mkdir -p "${craftWorkspace}/out"
+    '';
+
     home.activation.setupOpenCodeAIDeps = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       # Activation scripts run in a restricted environment; make sure PATH has
       # the tools this script needs.

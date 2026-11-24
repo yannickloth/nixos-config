@@ -84,9 +84,9 @@
     # home-manager deployment (users/flake.nix, CachyOS hosts) working.
     #
     # The ArtCraft "Crafting Apps" (packages/craft-apps — PhotoCraft,
-    # VectorCraft, FilmCraft, LightCraft, PdfCraft, EffectCraft, DesignCraft,
-    # FigCraft, TextureCraft, MaterialCraft, WordCraft, SoundCraft, DeckCraft,
-    # CADCraft, GridCraft, Craft Anything) are installed for
+    # VectorCraft, FilmCraft, LightCraft, PdfCraft, EffectCraft, AniCraft,
+    # DesignCraft, FigCraft, TextureCraft, MaterialCraft, WordCraft,
+    # SoundCraft, DeckCraft, CADCraft, GridCraft, Craft Anything) are installed for
     # all users. They are imported directly (not callPackage: that would wrap
     # the returned attrset with lib.makeOverridable and leak `override` /
     # `overrideDerivation` functions into home.packages below) so they land for

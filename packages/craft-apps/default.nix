@@ -1,4 +1,4 @@
-# ArtCraft "Crafting Apps" (https://getartcraft.com/apps): sixteen pure-Rust,
+# ArtCraft "Crafting Apps" (https://getartcraft.com/apps): seventeen pure-Rust,
 # clean-room reimplementations of familiar creative tools, published by
 # storytold as per-platform tarballs (no source build we want to pay for: each
 # is a large Rust + wgpu workspace).
@@ -239,6 +239,13 @@ in
     version = "0.24.1";
     hash = "sha256-XOA5NpAUQif6kYboIwitY4pu9tn5dsmW5tA7W1G2Wns=";
     description = "Motion graphics and visual effects (clean-room After Effects reimplementation)";
+  };
+
+  anicraft = mkCraftApp {
+    pname = "anicraft";
+    version = "0.2.1";
+    hash = "sha256-o6h5W9aupLS8XKDybCJqByMw04/pP07fVSY2Dr9xVv0=";
+    description = "2D vector animation: timeline, tweens, symbols, buttons and ActionScript (clean-room Adobe Animate reimplementation)";
   };
 
   designcraft = mkCraftApp {
