@@ -267,13 +267,12 @@ in
   # spikes on MT7925 (Ubuntu #2170180, openwrt/mt76 #1108). Measured neutral on
   # this link so far, but keep it off — a desktop has no reason to save power
   # on its only uplink.
-  # Note: the boolean option networking.networkmanager.wifi.powersave = false
-  # silently falls through (NixOS NM module treats false as "unset"), so we
-  # use extraConfig instead to guarantee the value reaches NetworkManager.
-  networking.networkmanager.extraConfig = ''
-[connection]
-wifi.powersave=1
-'';
+  #
+  # The NixOS wifi.powersave boolean has a mapping bug: `false` produces NM
+  # value 2 (enable) instead of 1 (disable). Use settings to override with
+  # the correct value. See networkmanager.nix line: `if cfg.wifi.powersave then 3 else 2`.
+  networking.networkmanager.wifi.powersave = lib.mkForce false;
+  networking.networkmanager.settings.connection."wifi.powersave" = 1;
 
   # Keep the card out of PCIe ASPM as well. This board currently disables ASPM
   # on every link (LnkCtl: ASPM Disabled), so this is insurance: a BIOS reset or
