@@ -58,15 +58,14 @@ with lib;
   # logged in — same reason laptop-p16 lingers nicky (Orca runtime server).
   users.users.nicky.linger = true;
 
-  # This machine predates the fleet uid convention: aeiuno was created first
-  # here, so it is 1000 and nicky is 1001 — the opposite of hosts installed
-  # from scratch (users/aeiuno/aeiuno.nix pins 1001/1000). NixOS never changes
-  # an existing user's uid, and home-manager derives its activation UID check
-  # from these values, so without the override every home-manager-aeiuno and
-  # home-manager-nicky activation aborts with
-  #   UID is "1000", expected "1001"  (and the mirror image for nicky).
+  # laptop-hera predates the fleet UID convention: aeiuno is 1000 and nicky is
+  # 1001 (the fleet has aeiuno=1001, nicky=1000). The user modules
+  # (users/aeiuno/aeiuno.nix, users/nicky/nicky.nix) declare the fleet values;
+  # mkForce overrides them here so NixOS does not warn that existing user UIDs
+  # on disk do not match the config, and home-manager's auto-resolution of
+  # home.uid from the NixOS config then picks up the correct values.
   users.users.aeiuno.uid = mkForce 1000;
-  users.users.nicky.uid = mkForce 1001;
+  users.users.nicky.uid  = mkForce 1001;
 
   # Syncthing device name for this host (see services/syncthing/pool.nix).
   services.syncthing.self = "laptop-hera";
