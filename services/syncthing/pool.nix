@@ -30,10 +30,8 @@
       "laptop-travelmate"
     ];
     "Desktop" = [ "desktop-leto" ];
-    "Server" = [ "server-nike" "nestor" ];
+    "Server" = [ "server-nike" "nestor" "hassio" ];
     "Tablet" = [ "tab-rainbow" ];
-    # hassio gets its own group: it only appears in a few folders.
-    "Hassio" = [ "hassio" ];
   };
 
   # Every known device. `id` is the stable Syncthing device ID. The device
