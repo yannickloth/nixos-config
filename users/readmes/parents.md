@@ -147,7 +147,7 @@ kids' parental controls:
   you want to allow/block without a rebuild) comes from flatpak: their
   office/creative/media/mail apps (LibreOffice, GIMP, Krita, VLC, Audacious,
   Geary) plus the GNOME/KDE utility apps in the allowlist (okular, gwenview,
-  kalk, …). Declared in `roles/base.nix` under `apps.flatpak`, kept in sync
+  kalk, …). Declared in `environments/family-laptop.nix` under `apps.flatpak`, kept in sync
   with the allowlist in `services/malcontent.nix`; installs land on the next
   boot. Grant/revoke via the parental-controls settings app — no rebuild.
 - **nixpkgs — native, deep system access.** Everything that needs groups/ACLs,
@@ -162,7 +162,7 @@ kids' parental controls:
 Flatpak apps are also **sandboxed from the shared folders**: they can't see
 `/sync` or `/filedrop` unless an override grants them access. The
 kids' office/creative apps already get `/filedrop` so they can save into the
-drop folder (`apps.flatpak.overrides` in `roles/base.nix`); `/sync` remains
+drop folder (`apps.flatpak.overrides` in `environments/family-laptop.nix`); `/sync` remains
 group-accessed by native apps only — it is the protected shared data.
 
 Rule of thumb: **if malcontent should be able to allow or block it for a kid,
@@ -176,15 +176,22 @@ make it a flatpak; if it needs groups/GPU/policies, keep it native.**
   The legacy `/steamlib` subvolume still holds the old shared library; delete
   it once every account has reinstalled what it needs.
 - **`/sync`** — Syncthing data (`services/syncthing/`). The `syncthing`
-  group (nicky, aeiuno) has full access; sven and aaron have **no access** by
-  default, so shared data can't be wiped. Later we can whitelist a folder for
-  them with a `kids`-group ACL in `services/syncthing/`.
-- **`/filedrop`** — family drop folder (`users/filedrop.nix`). Every family
-  account (nicky, aeiuno, sven, aaron) can read, write and delete anything in
-  it (no sticky bit — anyone may delete). Each home has a `~/filedrop`
-  shortcut, and the folder is exposed over the network as the `filedrop`
-  Samba share (`services/samba.nix`, no guest access). Drop a file there to
-  pass it to anyone in the family.
+  group (nicky, aeiuno) has full access. The kids are not in that group; they get
+  named ACLs for exactly four things: list the `/sync` root, **rw** in their own
+  folders (`/sync/sven`, `/sync/aaron`), **rw** in the shared drop
+  (`/sync/FileDrop`), and **rX** in the roms library. Everything else is
+  traverse-only (`--x`), so they can see folder names but never list or read the
+  family data, and shared data can't be wiped by them.
+- **Two drops, two jobs.** `/sync/FileDrop` is the **device-to-device** drop
+  (phones, laptops and nestor are Syncthing peers, see `services/syncthing/pool.nix`):
+  it replicates, keeps versions, and needs the peers online. **`/filedrop`**
+  (`users/filedrop.nix`) is the **account-to-account drop on one machine**: the
+  `filedrop` group (nicky, aeiuno, sven, aaron) has full rwx, anyone may delete
+  anyone's file (no sticky bit), it replicates nothing and works offline. Each
+  home has a `~/filedrop` shortcut, and on the family hosts it is also the
+  `filedrop` Samba share (`services/samba.nix`, no guest access). Pass a file to
+  someone on this machine → `/filedrop`; get it onto a phone or another machine →
+  `/sync/FileDrop`.
 
 ## Kid accounts (aaron, sven)
 
@@ -195,10 +202,13 @@ make it a flatpak; if it needs groups/GPU/policies, keep it native.**
   (http://localhost:8888). Note: Studio has no child-safety filter; supervision
   and the family DNS filter apply instead.
 - Steam: each kid installs and plays games in their own library (own Wine
-  prefix); `/sync` is
-  blocked for them; shared files pass through `/filedrop`
-- Disk quotas: each kid is capped at 50 GiB on `/home`
-  (`services/home-quota.nix`)
+  prefix); the family `/sync` data is unreadable to them, and they can write in
+  three places only: `/sync/<their-name>`, `/sync/FileDrop` and `/filedrop`;
+  shared files pass through the drops
+- Disk quotas: NOT configured. No `services/home-quota.nix` exists in the flake
+  and no btrfs qgroup/`lvm` limit is set on `/home`, so a kid's disk use is
+  bounded only by the free space on `/home`. (Add a quota module and update
+  `users/readmes/sven.md` if a cap is ever wanted.)
 - Nightly read-only btrfs snapshots of `/home` into `/.snapshots/home` (14 kept)
   for rollback (`services/snapshots.nix`; snapshots only run where `/home` is
   its own subvolume)
