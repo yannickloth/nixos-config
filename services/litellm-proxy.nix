@@ -1,9 +1,12 @@
 # LiteLLM proxy — the rank gateway in front of every LLM backend.
 #
-# One OpenAI-compatible endpoint (server-nike:4000) for opencode, pi and any
-# other agent client on every host (laptop-p16 included), reached over
-# Tailscale. server-nike hosts the proxy next to the swift-1.5 pool (two Strata
-# instances: loopback on server-nike, one Tailscale hop from laptop-p16).
+# One OpenAI-compatible endpoint (port 4000) for opencode, pi and any other
+# agent client: laptop-p16 uses its own instance on loopback
+# (http://127.0.0.1:4000/v1, so its ranks resolve with no network at all),
+# every other host reaches the server-nike instance over Tailscale
+# (http://server-nike.bee-blues.ts.net:4000/v1). server-nike hosts the proxy
+# next to the swift-1.5 pool (two Strata instances: loopback on server-nike,
+# one Tailscale hop from laptop-p16).
 # Three classes of model name:
 #   - the rank ladder of docs/ai-ranks.md. Every model of every ranked provider
 #     — Z.ai Coding Plan, Kimi Code (legacy Allegretto plan), DeepSeek API,
@@ -29,9 +32,11 @@
 # ~/.config/opencode/keys/litellm-proxy.key, so client and gateway always
 # agree.
 #
-# Deploy: enabled on server-nike only (hosts/server-nike/server-nike.nix).
-# The host firewall exposes tcp 4000 to the private ranges (LAN + tailnet)
-# via lib.privateNetRules.
+# Deploy: enabled on server-nike (hosts/server-nike/server-nike.nix) and on
+# laptop-p16 (hosts/laptop-p16/laptop-p16.nix), same config on both: each
+# instance's loopback rows point at the Strata / Unsloth Studio engines
+# running on its own host. The host firewall exposes tcp 4000 to the private
+# ranges (LAN + tailnet) via lib.privateNetRules.
 
 { config, lib, pkgs, ... }:
 

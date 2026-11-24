@@ -14,9 +14,13 @@ model (spelled like the upstream id), or an **unranked pay-as-you-go id**
 (CheaperInference only). The proxy owns routing, deployment priority, retries,
 timeouts, cross-rank fallbacks and cost tracking.
 
-The proxy runs on **server-nike** only. Other hosts are clients over
-Tailscale; there is no proxy on laptop-p16, laptop-hera, laptop-xps or
-desktop-leto. The host firewall exposes `tcp/4000` to the LAN and tailnet via
+The proxy runs on **server-nike** and on **laptop-p16**, with the same config
+on both: each instance's loopback rows point at the Strata / Unsloth Studio
+engines running on its own host. laptop-p16's clients (opencode, pi, hermes)
+use the local instance on loopback (`http://127.0.0.1:4000/v1`), so its ranks
+keep resolving with no network at all. The other hosts (laptop-hera,
+laptop-xps, desktop-leto) are clients of the server-nike instance over
+Tailscale. Every proxy host exposes `tcp/4000` to the LAN and tailnet via
 `lib.privateNetRules`.
 
 The gateway is the primary path, not the only one. `users/opencode.nix` also
@@ -29,10 +33,11 @@ client fails over across providers automatically (see "Client wiring").
 ## Topology
 
 ```
-opencode / pi / hermes on every host
-    │  http://server-nike.bee-blues.ts.net:4000/v1
+opencode / pi / hermes ── laptop-p16 (NixOS): http://127.0.0.1:4000/v1
+                        └─ every other host:  http://server-nike.bee-blues.ts.net:4000/v1
+    │
     ▼
-LiteLLM proxy (server-nike, loopback for local backends)
+LiteLLM proxy (server-nike and laptop-p16, loopback for local backends)
     ├──→ PostgreSQL 18    127.0.0.1:5432              (admin UI, keys, spend)
     ├──→ Strata           127.0.0.1:8080/v1          (sergeant, second-lieutenant and warrant-officer fallback)
     ├──→ Unsloth Studio   127.0.0.1:8888/v1          (sergeant order-2 tier only)
@@ -44,18 +49,21 @@ LiteLLM proxy (server-nike, loopback for local backends)
     └──→ CheaperInference api.cheaperinference.com/v1 (paid, explicit)
 ```
 
-The proxy `After=` `user@1000.service` (server-nike) so it waits for the
-user manager, within which `strata.service` runs. `Wants=`, not `Requires=`,
-so the proxy still boots if the user manager is absent. PostgreSQL is local to
-server-nike and only the proxy talks to it. It stores the virtual-key/spend
-schema the admin UI needs; it is not exposed on the network.
+The proxy `After=` `user@1000.service` so it waits for the user manager,
+within which `strata.service` runs (same unit ordering on server-nike and
+laptop-p16). `Wants=`, not `Requires=`, so the proxy still boots if the user
+manager is absent. PostgreSQL is local to each proxy host and only that
+host's proxy talks to it. It stores the virtual-key/spend schema the admin UI
+needs; it is not exposed on the network.
 
-Unsloth Studio stays reachable from the proxy on loopback
+Unsloth Studio stays reachable from its host's proxy on loopback
 (`127.0.0.1:8888/v1`) for one deployment only: sergeant's order-2 Nemotron
-fallback, which answers when the resident Strata engine is absent. From other
-hosts Studio is still available directly at
-`http://server-nike.bee-blues.ts.net:8888/v1` for the System One MCP and for
-tools that need a Studio-native id.
+fallback, which answers when the resident Strata engine is absent. The direct
+`unsloth` provider in `users/opencode.nix` uses the same loopback URL, so a
+host with a local Studio reaches its own. From hosts without one, the
+server-nike Studio endpoint
+(`http://server-nike.bee-blues.ts.net:8888/v1`) carries the System One MCP
+and tools that need a Studio-native id.
 
 **Why the local tiers share one model.** server-nike cannot hold two different
 models in VRAM at the same time. Every swap costs a full load (~30 s) and
@@ -228,8 +236,8 @@ The other CheaperInference rows (`deepseek-v4.1-flash`, `claude-sonnet-5.5`,
 `claude-opus-5.5`, `glm-5.3-payg`) have no upstream row in LiteLLM 1.86.0, so
 they are pinned to zero with a TODO until the discounted rates are known.
 
-Spend, virtual keys, budgets and the admin UI live in PostgreSQL 18 on
-server-nike (`services/postgresql.nix`, dedicated `litellm` role/database).
+Spend, virtual keys, budgets and the admin UI live in PostgreSQL 18 on each
+proxy host (`services/postgresql.nix`, dedicated `litellm` role/database).
 The proxy applies the Prisma schema with `prisma db push` on startup, so a
 fresh cluster is usable without a manual migration step. `StateDirectory =
 "litellm"` also keeps the writable, pre-restructured admin UI under
@@ -272,20 +280,23 @@ when the proxy is enabled.
 Rotating a key:
 
 1. update `secrets/opencode-keys.env.age` and commit it;
-2. `sudo nixos-rebuild switch --flake .` on server-nike;
+2. `sudo nixos-rebuild switch --flake .` on every proxy host (server-nike,
+   laptop-p16);
 3. `litellm-proxy-env.service` rewrites `/run/litellm-proxy.env` and
    `PartOf=` restarts the proxy.
 
 ## Client wiring (`users/opencode.nix`)
 
-opencode and pi have the rank gateway as their primary provider:
+opencode and pi have the rank gateway as their primary provider (the example
+shows laptop-p16's loopback URL; every other host builds the server-nike
+Tailscale URL — see `proxyBaseURL` in `users/opencode.nix`):
 
 ```json
 {
   "proxy": {
     "package": "aisdk:@ai-sdk/openai-compatible",
     "settings": {
-      "baseURL": "http://server-nike.bee-blues.ts.net:4000/v1",
+      "baseURL": "http://127.0.0.1:4000/v1",
       "apiKey": "{file:~/.config/opencode/keys/litellm-proxy.key}"
     },
     "models": {
@@ -316,7 +327,7 @@ not leave them without a model:
 | `hetzner` | `https://inference.hetzner.com/v1` | `hetzner.key` |
 | `cheaperinference` | `https://api.cheaperinference.com/v1` | `cheaperinference.key` |
 | `strata-nike` / `strata-p16` | the two Strata engines, port 8080 | literal `strata` (the STRATA_API_KEY default) |
-| `unsloth` | `http://server-nike.bee-blues.ts.net:8888/v1` | `unsloth.key` |
+| `unsloth` | `http://127.0.0.1:8888/v1` (the local Studio; keyless-localhost, shared key) | `unsloth.key` |
 
 Every direct provider reuses the model cards of the proxy table (one card per
 model in `users/opencode.nix`, grouped per backend), so display names, limits
@@ -347,9 +358,10 @@ too, can switch off the gateway and call the plan endpoints directly.
 ## Deployment
 
 `services/litellm-proxy.nix` is enabled from
-`hosts/server-nike/server-nike.nix`; that host also imports
-`services/postgresql.nix` and opens `tcp/4000` via `lib.privateNetRules`. There
-is no Docker container and no separate compose file. The units are:
+`hosts/server-nike/server-nike.nix` and `hosts/laptop-p16/laptop-p16.nix`;
+both hosts import `services/postgresql.nix` and open `tcp/4000` via
+`lib.privateNetRules`. There is no Docker container and no separate compose
+file. The units are:
 
 - `litellm-proxy-env.service` — root oneshot, derives `/run/litellm-proxy.env`
   from agenix (backend keys + `DATABASE_URL`);
@@ -420,9 +432,9 @@ journalctl -u litellm-proxy-env -n 20
 Adding a model: add the deployment to `services/litellm-proxy.nix`, add the
 model card to the backend's shared card group in `users/opencode.nix` (it
 then appears on the gateway and on that backend's direct provider), commit,
-switch on server-nike, then run the health + completion checks. For a local
-model, confirm its id and served context first: `GET
-http://127.0.0.1:8080/v1/models` for Strata, `GET
+switch on each proxy host (server-nike, laptop-p16), then run the health +
+completion checks. For a local model, confirm its id and served context
+first: `GET http://127.0.0.1:8080/v1/models` for Strata, `GET
 http://127.0.0.1:8888/api/inference/models` for Studio.
 
 ## References

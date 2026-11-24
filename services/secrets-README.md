@@ -52,9 +52,9 @@ PostgreSQL password (`pg-nicky-password.age`).
 | Kimi for Coding | `https://api.kimi.com/coding/v1` | `kimi.key` |
 | Hetzner AI | `https://inference.hetzner.com/api/v1` | `hetzner.key` |
 | z.ai / GLM | `https://api.z.ai/api/coding/paas/v4` | `zai.key` |
-| Unsloth Studio (server-nike) | `http://server-nike.bee-blues.ts.net:8888/v1` | `unsloth.key` |
+| Unsloth Studio (key entry; every inference host's Studio keeps this same key) | `http://server-nike.bee-blues.ts.net:8888/v1` | `unsloth.key` |
 | Cheaper Inference | `https://api.cheaperinference.com/v1` | `cheaperinference.key` |
-| LiteLLM proxy (server-nike) | `http://server-nike.bee-blues.ts.net:4000/v1` | `litellm-proxy.key` |
+| LiteLLM proxy (key entry; server-nike and laptop-p16 run the same master key) | `http://server-nike.bee-blues.ts.net:4000/v1` | `litellm-proxy.key` |
 
 The z.ai entry may use either this coding-plan URL or the general
 `https://api.z.ai/api/paas/v4/` URL; both resolve to `zai.key`.

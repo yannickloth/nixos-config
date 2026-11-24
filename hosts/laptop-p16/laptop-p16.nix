@@ -25,6 +25,11 @@ with lib;
     ../../apps/obs-studio.nix
     ../../apps/wine.nix
 
+    # LiteLLM rank gateway (services/litellm-proxy.nix): the same proxy
+    # server-nike runs, so this host's opencode/pi use the local gateway on
+    # loopback and their ranks keep resolving with no network at all.
+    ../../services/litellm-proxy.nix
+
     # Proprietary NVIDIA driver, kernel and driver from one evaluation. The same
     # module is used by server-nike: both GPUs are Ampere (sm_86), and the
     # kernel/driver pairing must not drift between the two hosts.
