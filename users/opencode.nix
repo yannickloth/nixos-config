@@ -720,7 +720,8 @@ let
     # same pair behind swift-1.5; without it, pick an engine. Strata 0.2.18
     # requires Bearer STRATA_API_KEY; the literal "strata" below is the
     # packages/strata apiKey default — the same value the proxy sends.
-    strata-nike = {
+    # Only reachable when the user runs Strata locally (inference hosts).
+    strata-nike = mkIf hasLocalInference {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
         baseURL = "http://server-nike.bee-blues.ts.net:8080/v1";
@@ -728,7 +729,7 @@ let
       };
       models = strataModels;
     };
-    strata-p16 = {
+    strata-p16 = mkIf hasLocalInference {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
         baseURL = "http://laptop-p16.bee-blues.ts.net:8080/v1";
@@ -738,8 +739,9 @@ let
     };
 
     # Unsloth Studio on this host — the sergeant rank's order-2 tier; a
-    # last-resort direct path (a Studio call costs a model load).
-    unsloth = {
+    # last-resort direct path (a Studio call costs a model load). Only
+    # reachable when the user runs Unsloth Studio locally.
+    unsloth = mkIf hasLocalInference {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
         baseURL = studioBaseURL;

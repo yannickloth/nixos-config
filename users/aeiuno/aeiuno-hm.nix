@@ -64,21 +64,86 @@
   # Settings only if you accept that its agents would run as THAT user.
   orca.enable = true;
 
-  # hermes-agent: route through the LiteLLM rank gateway on server-nike. Same
-  # pattern as nicky's config (see nicky-hm.nix). No unsloth studio custom
-  # provider here — aeiuno doesn't run Unsloth Studio locally, so inference
-  # stays on the proxy.
-  #
-  # Written as an activation running after herdrIntegrations for the same
-  # reason as nicky's config.
-  home.activation.writeHermesConfig = lib.hm.dag.entryAfter [ "writeBoundary" "herdrIntegrations" ] ''
+  # hermes-agent: route through the LiteLLM rank gateway on server-nike.
+  # Same pattern as nicky's config (see nicky-hm.nix). The custom_providers
+  # entries and writeHermesEnv ensure hermes can authenticate the proxy
+  # (LITELLM_MASTER_KEY) and the two subscription backends (ZAI, Kimi).
+  # No unsloth studio custom provider here — aeiuno doesn't run Unsloth
+  # Studio locally, so inference stays on the proxy.
+  home.activation.writeHermesConfig = lib.hm.dag.entryAfter [ "writeBoundary" "herdrIntegrations" "writeHermesEnv" ] ''
     if $DRY_RUN_CMD ${pkgs.yq}/bin/yq -e '.model.default' "$HOME/.hermes/config.yaml" >/dev/null 2>&1; then
       $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
         .model = {"default": "lieutenant", "provider": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1"}
       ' "$HOME/.hermes/config.yaml"
+      # Gateway + direct subscription providers (idempotent: same-named
+      # entries are replaced, unknown ones kept). key_env names point at the
+      # vars written by writeHermesEnv; hermes' named-custom branch supplies
+      # them as the bearer credential.
+      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
+        .custom_providers = ((.custom_providers // []) | map(select(.name != "proxy" and .name != "zai-coding" and .name != "kimi-code"))) + [
+          {"name": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1", "key_env": "LITELLM_MASTER_KEY", "model": "lieutenant", "models": {"lieutenant": {}}},
+          {"name": "zai-coding", "base_url": "https://api.z.ai/api/coding/paas/v4", "key_env": "ZAI_CODING_API_KEY", "model": "glm-5.3", "models": {"glm-5.3": {}, "glm-5.3-flash": {}, "glm-5-turbo": {}}},
+          {"name": "kimi-code", "base_url": "https://api.kimi.com/coding/v1", "key_env": "KIMI_CODE_API_KEY", "model": "k3.1-pro", "models": {"k3.1-pro": {}, "k3": {}, "k3-256k": {}, "kimi-for-coding": {}}}
+        ]
+      ' "$HOME/.hermes/config.yaml"
     else
       echo "hermes: config.yaml not yet present; skipping model override" >&2
     fi
+  '';
+
+  # hermes credential source: upsert the gateway master key and the two
+  # subscription backend keys into ~/.hermes/.env. Same source as every
+  # other key file on this machine: the OPENAI_API_KEYS agenix secret
+  # (config.opencode.envFile, falling back to the system path), so a
+  # rotation reaches hermes on the next switch too.
+  home.activation.writeHermesEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    $DRY_RUN_CMD ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" '${config.opencode.envFile}' <<'PYEOF'
+    import json, os, sys
+
+    home = sys.argv[1]
+    candidates = [os.path.expandvars(p) for p in (sys.argv[2], "/etc/secrets/opencode-keys.env") if p]
+    envfile = next((p for p in candidates if p and os.path.exists(p)), None)
+    env_path = os.path.join(home, ".hermes", ".env")
+    mapping = {
+        "http://server-nike.bee-blues.ts.net:4000/v1": "LITELLM_MASTER_KEY",
+        "https://api.z.ai/api/paas/v4/": "ZAI_CODING_API_KEY",
+        "https://api.z.ai/api/coding/paas/v4": "ZAI_CODING_API_KEY",
+        "https://api.kimi.com/coding/v1": "KIMI_CODE_API_KEY",
+    }
+    managed = set(mapping.values())
+    if envfile is None:
+        print("hermes: no key source found (%s); skipping .env update" % ", ".join(candidates))
+        sys.exit(0)
+    try:
+        with open(envfile) as fh:
+            _, _, payload = fh.read().partition("=")
+        keys = json.loads(payload.strip())
+    except Exception as exc:
+        print(f"hermes: failed to parse {envfile}: {exc}; leaving .env untouched", file=sys.stderr)
+        sys.exit(0)
+    values = {}
+    for url, var in mapping.items():
+        key = keys.get(url)
+        if key:
+            values[var] = key
+    missing = sorted(managed - set(values))
+    if missing:
+        print(f"hermes: no secret key for {', '.join(missing)}; those vars not written")
+    kept = []
+    try:
+        with open(env_path, encoding="utf-8") as fh:
+            kept = [l.rstrip("\n") for l in fh if l.strip() and l.split("=", 1)[0] not in managed]
+    except FileNotFoundError:
+        os.makedirs(os.path.dirname(env_path), mode=0o700, exist_ok=True)
+    for var in sorted(values):
+        kept.append(f"{var}={values[var]}")
+    fd = os.open(env_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w") as out:
+        if kept:
+            out.write("\n".join(kept) + "\n")
+    print(f"hermes: wrote {len(values)} key var(s) to {env_path}")
+    PYEOF
   '';
 
   # Unsloth Studio (packages/unsloth-studio/home.nix) is deliberately NOT
