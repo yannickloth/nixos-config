@@ -18,8 +18,14 @@ with lib;
   ];
 
   config = {
-    # Default timezone (Europe/Luxembourg; environments/laptop.nix pins the
-    # same value for laptops). Not UTC — this is a home LAN, not a server.
+    # Default timezone (Europe/Luxembourg; same UTC offset as Brussels —
+    # Messancy sits on the Belgian-Luxembourg border). Hosts that enable
+    # services.localtimed (the portables, via environments/laptop.nix) get a
+    # plain `time.timeZone = null` from the nixpkgs module — that beats this
+    # mkDefault on purpose, so its geoclue2 daemon manages the timezone at
+    # runtime. The static default applies to hosts without localtimed
+    # (server-nike). Do NOT add a mkForce here or in an environment: it would
+    # silently defeat the daemon on the portables.
     time.timeZone = mkDefault "Europe/Luxembourg";
 
     # You are not allowed to manage users manually by default
