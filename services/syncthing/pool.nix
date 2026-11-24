@@ -87,7 +87,7 @@
     };
     "20-29 - Secrets" = {
       id = "jhrug-pluzk";
-      devices = [ "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
+      devices = [ "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "30-39 - Formation développement loisirs" = {
       id = "wrgy5-cfk7s";
