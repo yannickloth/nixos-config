@@ -79,7 +79,7 @@
   folders = {
     "00-09 - Management and Meta" = {
       id = "k7t9g-2y5as";
-      devices = [ "hassio" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
+      devices = [ "hassio" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "10-19 - Personnes et Animaux" = {
       id = "pz9yw-7sppl";
@@ -115,7 +115,7 @@
     };
     "Android Camera" = {
       id = "pixel_8a_ruqh-photos";
-      devices = [ "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
+      devices = [ "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "Calibre Library" = {
       id = "uefut-5awdq";
@@ -127,7 +127,7 @@
     };
     "Camera Pixel6a" = {
       id = "pixel_6a_71kh-photos";
-      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
+      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "Camera Uploads Christine" = {
       id = "fsfij-7rnlh";
