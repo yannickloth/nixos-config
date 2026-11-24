@@ -19,7 +19,14 @@ with lib;
     # old provisioning script, kept so existing consumers continue to work
     # unchanged).
     users.groups.secrets = {
-      members = [ "nicky" "aeiuno" ];
+      # Every account whose home-manager activation materializes provider
+      # keys from /etc/secrets/opencode-keys.env must be a member: the
+      # activations (users/opencode.nix setupOpenCodeKeys, and the per-user
+      # writeHermesEnv in users/{nicky,aeiuno,kid}-hm.nix) run AS THE USER
+      # (home-manager-<user> service, User=<user>), and the secret is
+      # root:secrets 0660. The kids use the same LLM stack as the adults
+      # (users/ai-pkgs.nix, users/kid-hm.nix), so they need the group too.
+      members = [ "nicky" "aeiuno" "sven" "aaron" ];
     };
 
     systemd.tmpfiles.rules = [

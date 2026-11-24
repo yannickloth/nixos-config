@@ -20,6 +20,16 @@
 # libreoffice-qt6 next to the flatpak; that is why it is not here.
 { config, lib, pkgs, ... }:
 
+let
+  # The AI harnesses (opencode, pi-coding-agent, hermes-agent) live in the
+  # AI-unstable overlay (overlays/ai-unstable.nix). The NixOS hosts apply it to
+  # every family account (users/ai-pkgs.nix); the standalone flake
+  # (users/flake.nix, p16 on CachyOS) deliberately keeps the kids on plain
+  # stable, where those attributes do not exist. The whole AI block below
+  # (packages, opencode provider config, hermes activations) only applies when
+  # the overlay is present, so the stable build keeps evaluating.
+  hasAIPkgs = pkgs ? opencode && pkgs ? pi-coding-agent && pkgs ? hermes-agent;
+in
 {
   imports = [
     ./common-hm.nix
@@ -31,7 +41,8 @@
 
   # Enable the shared opencode/pi provider/model config. Uses the default
   # /etc/secrets path on NixOS hosts (the system agenix secret is shared).
-  opencode.enable = true;
+  # Only applies where the AI overlay is present (see hasAIPkgs).
+  opencode.enable = lib.mkIf hasAIPkgs true;
 
   home.packages =
     with pkgs;
@@ -48,16 +59,18 @@
       lutris # game library manager / launcher
       luanti # open-world Minecraft-style building game (formerly Minetest)
       neverball # tilt the ball through levels
-      opencode # AI coding agent harness (CLI)
-      pi-coding-agent # pi: AI coding agent
-      hermes-agent # hermes: AI coding agent with LiteLLM proxy routing
       python3 # the "learning to code" language the kid READMEs advertise
       racket # programming language, includes the DrRacket IDE (for learning to code)
       supertux # Mario-style platformer with Tux
       supertuxkart # Tux kart racing
       tuxpaint # kid-friendly drawing
       tuxtype # touch typing tutor for kids
-    ];
+    ]
+    # AI harnesses, overlay-gated (see hasAIPkgs): the thunks are only forced
+    # when the overlay is present, so the stable build never looks them up.
+    ++ lib.optional hasAIPkgs opencode
+    ++ lib.optional hasAIPkgs pi-coding-agent
+    ++ lib.optional hasAIPkgs hermes-agent;
 
   home.sessionVariables = {
     MOZ_ENABLE_WAYLAND = "1";
@@ -102,32 +115,61 @@
     };
   };
 
-  # hermes-agent: route through the LiteLLM rank gateway on server-nike.
-  # Same pattern as aeiuno/nicky but without the orca-status plugin (kids
-  # don't need the runtime status plugin).
-  home.activation.writeHermesConfig = lib.hm.dag.entryAfter [ "writeBoundary" "herdrIntegrations" "writeHermesEnv" ] ''
-    if $DRY_RUN_CMD ${pkgs.yq}/bin/yq -e '.model.default' "$HOME/.hermes/config.yaml" >/dev/null 2>&1; then
-      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
-        .model = {"default": "lieutenant", "provider": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1"}
-      ' "$HOME/.hermes/config.yaml"
-      # Gateway + direct subscription providers (idempotent: same-named
-      # entries are replaced, unknown ones kept).
-      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
-        .custom_providers = ((.custom_providers // []) | map(select(.name != "proxy" and .name != "zai-coding" and .name != "kimi-code"))) + [
-          {"name": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1", "key_env": "LITELLM_MASTER_KEY", "model": "lieutenant", "models": {"lieutenant": {}}},
-          {"name": "zai-coding", "base_url": "https://api.z.ai/api/coding/paas/v4", "key_env": "ZAI_CODING_API_KEY", "model": "glm-5.3", "models": {"glm-5.3": {}, "glm-5.3-flash": {}, "glm-5-turbo": {}}},
-          {"name": "kimi-code", "base_url": "https://api.kimi.com/coding/v1", "key_env": "KIMI_CODE_API_KEY", "model": "k3.1-pro", "models": {"k3.1-pro": {}, "k3": {}, "k3-256k": {}, "kimi-for-coding": {}}}
-        ]
-      ' "$HOME/.hermes/config.yaml"
-    else
-      echo "hermes: config.yaml not yet present; skipping model override" >&2
-    fi
-  '';
+  # hermes-agent: route through the LiteLLM rank gateway (per-host gateway URL:
+  # the local proxy on NixOS laptop-p16, the server-nike gateway elsewhere —
+  # the same value opencode/pi use, config.opencode.proxyBaseURL). Same pattern
+  # as aeiuno/nicky but without the orca-status plugin (kids don't need the
+  # runtime status plugin). Overlay-gated like the rest of the AI block.
+  home.activation.writeHermesConfig =
+    lib.mkIf hasAIPkgs (lib.hm.dag.entryAfter [ "writeBoundary" "herdrIntegrations" "writeHermesEnv" ] ''
+      # Bootstrap: nothing else creates ~/.hermes/config.yaml for homes that
+      # do not run herdr (herdr's `integration install hermes` creates it for
+      # the adults), so write the base file here; otherwise the patch below
+      # would skip forever and hermes would start with no provider config.
+      # Skips a file that already has content (herdr's or hermes' own),
+      # replaces an empty one (hermes may touch one on first run; yq -i
+      # no-ops on empty input). Dry-run safe: $DRY_RUN_CMD prefix, no shell
+      # redirection.
+      $DRY_RUN_CMD ${pkgs.python3}/bin/python3 - "$HOME" <<'PYEOF'
+      import os, sys
+
+      path = os.path.join(sys.argv[1], ".hermes", "config.yaml")
+      if os.path.exists(path) and os.path.getsize(path) > 0:
+          sys.exit(0)
+      os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+      fd = os.open(path, os.O_WRONLY | os.O_CREAT, 0o600)
+      os.fchmod(fd, 0o600)
+      with os.fdopen(fd, "w") as out:
+          out.write("model:\n  default: lieutenant\n  provider: proxy\n  base_url: ${config.opencode.proxyBaseURL}\ncustom_providers: []\n")
+      print(f"hermes: created base config {path}")
+      PYEOF
+      # Patch any existing mapping (herdr-created, hermes-created, or the
+      # base above). type == "object" also covers a file that exists without
+      # a model section yet (herdr's first state), which the old
+      # .model.default guard skipped.
+      if $DRY_RUN_CMD ${pkgs.yq}/bin/yq -e 'type == "object"' "$HOME/.hermes/config.yaml" >/dev/null 2>&1; then
+        $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
+          .model = {"default": "lieutenant", "provider": "proxy", "base_url": "${config.opencode.proxyBaseURL}"}
+        ' "$HOME/.hermes/config.yaml"
+        # Gateway + direct subscription providers (idempotent: same-named
+        # entries are replaced, unknown ones kept).
+        $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
+          .custom_providers = ((.custom_providers // []) | map(select(.name != "proxy" and .name != "zai-coding" and .name != "kimi-code"))) + [
+            {"name": "proxy", "base_url": "${config.opencode.proxyBaseURL}", "key_env": "LITELLM_MASTER_KEY", "model": "lieutenant", "models": {"lieutenant": {}}},
+            {"name": "zai-coding", "base_url": "https://api.z.ai/api/coding/paas/v4", "key_env": "ZAI_CODING_API_KEY", "model": "glm-5.3", "models": {"glm-5.3": {}, "glm-5.3-flash": {}, "glm-5-turbo": {}}},
+            {"name": "kimi-code", "base_url": "https://api.kimi.com/coding/v1", "key_env": "KIMI_CODE_API_KEY", "model": "k3.1-pro", "models": {"k3.1-pro": {}, "k3": {}, "k3-256k": {}, "kimi-for-coding": {}}}
+          ]
+        ' "$HOME/.hermes/config.yaml"
+      else
+        echo "hermes: config.yaml missing or not a mapping; skipping model override" >&2
+      fi
+    '');
 
   # hermes credential source: upsert gateway + subscription keys into
   # ~/.hermes/.env. Same source as opencode keys (system agenix path on
   # NixOS), so a rotation reaches hermes on the next switch too.
-  home.activation.writeHermesEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  home.activation.writeHermesEnv =
+    lib.mkIf hasAIPkgs (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     $DRY_RUN_CMD ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" '${config.opencode.envFile}' <<'PYEOF'
     import json, os, sys
 
@@ -175,5 +217,5 @@
             out.write("\n".join(kept) + "\n")
     print(f"hermes: wrote {len(values)} key var(s) to {env_path}")
     PYEOF
-  '';
+    '');
 }

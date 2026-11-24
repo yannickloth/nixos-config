@@ -65,9 +65,10 @@ with lib;
 let
   keyfile = name: "{file:~/.config/opencode/keys/${name}.key}";
   hn = config.commonHm.hostName;
-  # The local MCP servers (System One decisions via Unsloth Studio) only make
-  # sense on the inference hosts; the LiteLLM proxy itself is reachable from
-  # every host over Tailscale, so providers are no longer gated by this.
+  # True where the user runs local inference engines: the DIRECT providers for
+  # Strata and Unsloth Studio (see the optionalAttrs block inside `providers`)
+  # and the local System One MCP server (the LiteLLM proxy itself is reachable
+  # from every host over Tailscale, so the proxy provider is not gated by this).
   hasLocalInference = hn == "laptop-p16" || hn == "server-nike";
 
   # The proxy gateway this host's opencode/pi talk to. laptop-p16 runs its own
@@ -716,12 +717,19 @@ let
       models = cheaperModels;
     };
 
+  }
+  // optionalAttrs hasLocalInference {
     # The two Strata engines, addressed directly. The proxy load-balances the
     # same pair behind swift-1.5; without it, pick an engine. Strata 0.2.18
     # requires Bearer STRATA_API_KEY; the literal "strata" below is the
     # packages/strata apiKey default — the same value the proxy sends.
     # Only reachable when the user runs Strata locally (inference hosts).
-    strata-nike = mkIf hasLocalInference {
+    #
+    # Gated with optionalAttrs at the Nix level, NOT lib.mkIf: `providers` is a
+    # plain let-binding, so the module system never sees the nested value and a
+    # false mkIf would serialize the raw {_type = "if", ...} struct into the
+    # generated opencode.json as a broken provider entry (measured 2026-11-25).
+    strata-nike = {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
         baseURL = "http://server-nike.bee-blues.ts.net:8080/v1";
@@ -729,7 +737,7 @@ let
       };
       models = strataModels;
     };
-    strata-p16 = mkIf hasLocalInference {
+    strata-p16 = {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
         baseURL = "http://laptop-p16.bee-blues.ts.net:8080/v1";
@@ -741,7 +749,7 @@ let
     # Unsloth Studio on this host — the sergeant rank's order-2 tier; a
     # last-resort direct path (a Studio call costs a model load). Only
     # reachable when the user runs Unsloth Studio locally.
-    unsloth = mkIf hasLocalInference {
+    unsloth = {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
         baseURL = studioBaseURL;
@@ -814,6 +822,18 @@ in
         home-manager hosts with no system agenix (CachyOS) point this at an
         `age.secrets` path decrypted with the user key; see
         users/nicky/nicky-hm.nix.
+      '';
+    };
+    proxyBaseURL = mkOption {
+      type = types.str;
+      default = proxyBaseURL;
+      description = ''
+        Base URL of the LiteLLM rank gateway this host's agents talk to: the
+        `proxy` provider in opencode.json / models.json, and the hermes
+        custom_providers entry the writeHermesConfig activations generate.
+        Default: the local proxy when this host runs one (laptop-p16 on NixOS,
+        http://127.0.0.1:4000/v1), the server-nike gateway over Tailscale
+        everywhere else.
       '';
     };
   };
@@ -915,12 +935,19 @@ in
                 # Do not re-add a hosted Jev client here: it would send local
                 # judgment prompts to a third party.
               }
-                // optionalAttrs (pkgs ? rea) {
+                // optionalAttrs (
+                  pkgs ? rea
+                  # The AI-unstable overlay is fleet-wide (kids included — see
+                  # users/ai-pkgs.nix), so pkgs ? rea alone no longer selects the
+                  # adults. The reverse-engineering catalog is adult tooling; the
+                  # kids' sessions stay LLM-only.
+                  && lib.elem config.home.username [ "nicky" "aeiuno" ]
+                ) {
                 # REA (packages/rea): reverse-engineering toolkit (native binaries,
                 # JS/Electron, .NET, websites, ...) served over stdio MCP. Only
-                # registered where the AI-unstable overlay provides pkgs.rea
-                # (nicky, aeiuno). Set disabled = false to hide its large tool
-                # catalog from every session.
+                # registered for the adult accounts (nicky, aeiuno). Set
+                # disabled = false to hide its large tool catalog from every
+                # session.
                 rea = {
                   type = "local";
                   command = [ "${pkgs.rea}/bin/rea" "mcp" ];

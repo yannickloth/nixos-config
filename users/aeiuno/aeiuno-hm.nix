@@ -64,16 +64,43 @@
   # Settings only if you accept that its agents would run as THAT user.
   orca.enable = true;
 
-  # hermes-agent: route through the LiteLLM rank gateway on server-nike.
-  # Same pattern as nicky's config (see nicky-hm.nix). The custom_providers
-  # entries and writeHermesEnv ensure hermes can authenticate the proxy
+  # hermes-agent: route through the LiteLLM rank gateway (per-host gateway URL:
+  # the local proxy on NixOS laptop-p16, the server-nike gateway elsewhere —
+  # the same value opencode/pi use, config.opencode.proxyBaseURL). Same pattern
+  # as nicky's config (see nicky-hm.nix). The custom_providers entries and
+  # writeHermesEnv ensure hermes can authenticate the proxy
   # (LITELLM_MASTER_KEY) and the two subscription backends (ZAI, Kimi).
   # No unsloth studio custom provider here — aeiuno doesn't run Unsloth
   # Studio locally, so inference stays on the proxy.
   home.activation.writeHermesConfig = lib.hm.dag.entryAfter [ "writeBoundary" "herdrIntegrations" "writeHermesEnv" ] ''
-    if $DRY_RUN_CMD ${pkgs.yq}/bin/yq -e '.model.default' "$HOME/.hermes/config.yaml" >/dev/null 2>&1; then
+    # Bootstrap: on a fresh home nothing may have created
+    # ~/.hermes/config.yaml yet (herdr's `integration install hermes` creates
+    # it when it runs, and this activation runs after it; without herdr the
+    # first hermes run is what makes it). Without this, the patch below skips
+    # forever and hermes starts with no provider config. Skips a
+    # file that already has content, replaces an empty one (yq -i no-ops on
+    # empty input). Dry-run safe: $DRY_RUN_CMD prefix, no shell redirection.
+    $DRY_RUN_CMD ${pkgs.python3}/bin/python3 - "$HOME" <<'PYEOF'
+    import os, sys
+
+    path = os.path.join(sys.argv[1], ".hermes", "config.yaml")
+    if os.path.exists(path) and os.path.getsize(path) > 0:
+        sys.exit(0)
+    os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w") as out:
+        out.write("model:\n  default: lieutenant\n  provider: proxy\n  base_url: ${config.opencode.proxyBaseURL}\ncustom_providers: []\n")
+    print(f"hermes: created base config {path}")
+    PYEOF
+    # Patch any existing mapping (herdr-created, hermes-created, or the base
+    # above). type == "object" also covers a file that exists without a model
+    # section yet (herdr's first state), which the old .model.default guard
+    # skipped — that guard is why aeiuno's hermes sat unconfigured on
+    # laptop-hera despite this activation existing.
+    if $DRY_RUN_CMD ${pkgs.yq}/bin/yq -e 'type == "object"' "$HOME/.hermes/config.yaml" >/dev/null 2>&1; then
       $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
-        .model = {"default": "lieutenant", "provider": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1"}
+        .model = {"default": "lieutenant", "provider": "proxy", "base_url": "${config.opencode.proxyBaseURL}"}
       ' "$HOME/.hermes/config.yaml"
       # Gateway + direct subscription providers (idempotent: same-named
       # entries are replaced, unknown ones kept). key_env names point at the
@@ -81,13 +108,13 @@
       # them as the bearer credential.
       $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
         .custom_providers = ((.custom_providers // []) | map(select(.name != "proxy" and .name != "zai-coding" and .name != "kimi-code"))) + [
-          {"name": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1", "key_env": "LITELLM_MASTER_KEY", "model": "lieutenant", "models": {"lieutenant": {}}},
+          {"name": "proxy", "base_url": "${config.opencode.proxyBaseURL}", "key_env": "LITELLM_MASTER_KEY", "model": "lieutenant", "models": {"lieutenant": {}}},
           {"name": "zai-coding", "base_url": "https://api.z.ai/api/coding/paas/v4", "key_env": "ZAI_CODING_API_KEY", "model": "glm-5.3", "models": {"glm-5.3": {}, "glm-5.3-flash": {}, "glm-5-turbo": {}}},
           {"name": "kimi-code", "base_url": "https://api.kimi.com/coding/v1", "key_env": "KIMI_CODE_API_KEY", "model": "k3.1-pro", "models": {"k3.1-pro": {}, "k3": {}, "k3-256k": {}, "kimi-for-coding": {}}}
         ]
       ' "$HOME/.hermes/config.yaml"
     else
-      echo "hermes: config.yaml not yet present; skipping model override" >&2
+      echo "hermes: config.yaml missing or not a mapping; skipping model override" >&2
     fi
   '';
 
