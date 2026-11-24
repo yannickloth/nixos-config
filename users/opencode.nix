@@ -37,8 +37,8 @@
 #                  engine's served window is 262144 — `--max-context`
 #                  written by `strata launch`, live `n_ctx` 262144 — the same
 #                  window as the free-cloud tiers)
-#   unsloth     http://server-nike.bee-blues.ts.net:8888/v1  (Unsloth Studio on
-#                  server-nike; Studio enforces its own per-model context budget)
+#   unsloth     http://127.0.0.1:8888/v1     (Unsloth Studio on the inference
+#                  host; Studio enforces its own per-model context budget)
 #   hetzner     https://inference.hetzner.com/v1             (free cloud; the
 #                  official docs' base URL is the `/api/v1` variant — 2026-11-21
 #                  probe: both routes live, 401 without a key)
@@ -322,7 +322,8 @@ let
     proxy = {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
-        baseURL = "http://server-nike.bee-blues.ts.net:4000/v1";
+        baseURL = if hn == "laptop-p16" then "http://127.0.0.1:4000/v1"
+                  else "http://server-nike.bee-blues.ts.net:4000/v1";
         apiKey = keyfile "litellm-proxy";
       };
       models = {
@@ -594,12 +595,13 @@ let
       models = strataModels;
     };
 
-    # Unsloth Studio on server-nike — the sergeant rank's order-2 tier; a
-    # last-resort direct path (a Studio call costs a model load).
+    # Unsloth Studio on the inference host (server-nike or laptop-p16) — the
+    # sergeant rank's order-2 tier; a last-resort direct path (a Studio call
+    # costs a model load). Runs on both inference hosts via strataGpuHandoff.
     unsloth = {
       package = "aisdk:@ai-sdk/openai-compatible";
       settings = {
-        baseURL = "http://server-nike.bee-blues.ts.net:8888/v1";
+        baseURL = "http://127.0.0.1:8888/v1";
         apiKey = keyfile "unsloth";
       };
       models = unslothModels;

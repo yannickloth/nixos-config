@@ -168,6 +168,11 @@ with lib;
     tcp dport 6768 ip saddr 100.64.0.0/10 accept
   ''
     + (import ../../lib).privateNetRules {
-      tcp = [ "8080" "8888" ];  # strata + unsloth studio
+      tcp = [ "8080" "8888" "4000" ];  # strata + unsloth studio + litellm proxy
     };
+
+  # LiteLLM proxy: the rank gateway all hosts' opencode/pi point at (see
+  # services/litellm-proxy.nix for the config and docs/litellm-proxy-design.md
+  # for the design).
+  services.litellm-proxy.enable = true;
 }

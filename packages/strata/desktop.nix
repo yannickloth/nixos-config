@@ -24,19 +24,19 @@
 
 let
   # Version-locked with packages/strata/default.nix: both use the same tag.
-  tag = "v0.2.18";
-  version = "0.2.18";
+  tag = "v0.2.20";
+  version = "0.2.20";
 
   src = fetchurl {
     name = "Strata-${version}-linux-x86_64.AppImage";
     url = "https://github.com/Niko1221/Strata/releases/download/${tag}/Strata-${version}-linux-x86_64.AppImage";
-    hash = "sha256:5c43c53025bfc0727aa31aac9880727cd6e2ad2b268d02527e70b1085a0c6553";
+    hash = "sha256:0781kx1spnhp1bi0hvv6plcfim75ibllg08hwx34svzxql54mk0h";
   };
 
   icon = fetchurl {
     name = "strata-desktop.png";
     url = "https://raw.githubusercontent.com/Niko1221/Strata/${tag}/app/desktop/src-tauri/icons/128x128@2x.png";
-    hash = "sha256:c9caaddfd1a4555bd7e9159a9b6bdc8064536d8717294255041e115eadabd827";
+    hash = "sha256:09yqmfnmw48y0ial4a8phxnm6r40vimrp6hmx7bmnmd4s7gsvjn9";
   };
 
   # fetchurl's file is mode 444 and a home.file symlink adds no mode of its

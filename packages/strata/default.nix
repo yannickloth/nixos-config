@@ -1,4 +1,4 @@
-# Strata 0.2.18 — NixOS packaging.
+# Strata 0.2.20 — NixOS packaging.
 #
 # Upstream 0.2.16 restructured the repo (Terminal → terminal/, Engine → engine/),
 # and 0.2.16+ ships the engine as a versioned "component" with a per-file
@@ -16,8 +16,8 @@
 # lives in the runtime directory, untouched by Nix.
 #
 # Since Strata 0.2.0 the tree holds three separately versioned products: the
-# engine (0.1.64), the Terminal (0.2.18, `strata.py` + `strata_cli`), and the
-# desktop app (0.2.18). The engine is versioned apart from the app. The desktop
+# engine (0.1.64), the Terminal (0.2.20, `strata.py` + `strata_cli`), and the
+# desktop app (0.2.20). The engine is versioned apart from the app. The desktop
 # AppImage is packaged separately (desktop.nix) and version-locked to the
 # Terminal in the flake declaration (home.nix).
 #
@@ -89,13 +89,13 @@
   strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "v0.2.18";  # App and Terminal 0.2.18, Control 0.1.64; engine 0.1.64
-    hash = "sha256:091d6805504193770e4ea622c0846130d65e53e6ac215bd11e85a76f0f198913";
+    rev = "v0.2.20";  # App and Terminal 0.2.20; engine 0.1.64
+    hash = "sha256:1a2sk4fc20zj4rn8d6j86zr2m4i3sb8583mzi7g4bbajgx2ymmbj";
   },
 }:
 
 let
-  version = "0.2.18";
+  version = "0.2.20";
   engineVersion = "0.1.64";
   # The component folder name upstream's package_engine.py builds:
   #   f"{version}-{platform}-{backend}"  (0.1.64-linux-x86_64-cuda)

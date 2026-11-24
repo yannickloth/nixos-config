@@ -399,6 +399,13 @@ in
     allowedHosts = [ "host.containers.internal" "169.254.1.2" ".bee-blues.ts.net" ];
     beforeLoad = "${config.home.homeDirectory}/.local/bin/unsloth-studio-unload.sh";
     apiKey = "strata";
+    # Force the service to serve this declarative config so the UI cannot
+    # overwrite the API key (the UI writes into the run config, which then
+    # overrides the env var).
+    defaultConfig = "$HOME/.config/strata/run.json";
+    # The declarative run config is installed by the file below. It must
+    # match what `strata launch` writes, except `api_key` is always "strata"
+    # so the UI cannot generate a random key and break the proxy.
     # Store everything Strata reads and writes on the /data volume: the
     # runtime tree (~/.local/share/strata -> /data/strata) and the model files
     # (~/.local/share/Strata-data -> /data/Strata-data). The activation moves
@@ -736,6 +743,116 @@ in
     printf 'STRATA_API_KEY=%s\n' '${config.strata.apiKey}' > "$HOME/.config/strata/api-key.env"
     chmod 0600 "$HOME/.config/strata/api-key.env"
   '';
+
+  # Declarative Strata run config. The UI saves a random API key on every
+  # change, breaking the proxy. This config forces api_key back to "strata"
+  # on every activation so the service always serves a valid key.
+  # Paths are host-conditional: p16 uses /data/, server-nike uses ~/.local/share/.
+  home.file.".config/strata/run.json" = {
+    text = builtins.toJSON {
+      exe = "component:strata-engine";
+      args = [
+        "--pack"
+        (if isP16 then "/data/Strata-data/packs/swift-iq3_xxs"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/packs/swift-iq3_xxs")
+        "--native"
+        (if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf")
+        "--ple-gguf"
+        (if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf")
+        "--expert-profile"
+        (if isP16 then "/data/strata/data/expert-profile.bin"
+          else "${config.home.homeDirectory}/.local/share/strata/data/expert-profile.bin")
+        "--expert-cache" "auto"
+        "--prefill" "auto"
+        "--spec" "4"
+        "--spec-min-p" "0.5"
+        "--mtp"
+        (if isP16 then "/data/Strata-data/mtp/rt"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/mtp/rt")
+        "--max-context" "262144"
+        "--kv" "int8"
+        "--kv-resident" "32768"
+        "--vision"
+      ];
+      cwd = if isP16 then "/data/strata"
+        else "${config.home.homeDirectory}/.local/share/strata";
+      tokenizer = if isP16 then "/data/Strata-data/packs/swift-iq3_xxs/tokenizer"
+        else "${config.home.homeDirectory}/.local/share/Strata-data/packs/swift-iq3_xxs/tokenizer";
+      model_name = "swift-1.5-iq3_xxs";
+      log = "${config.home.homeDirectory}/.local/state/strata/launch/iq3_xxs-256k.engine.log";
+      lib_dirs = [];
+      port = 8080;
+      gpu = 0;
+      gpus_asked = true;
+      vision = {
+        exe = "${config.home.homeDirectory}/.local/share/strata/components/engine/0.1.64-linux-x86_64-cuda/strata-vision";
+        mmproj = if isP16 then "/data/Strata-data/models/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf";
+        model = if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf";
+        gpu = false;
+        max_tokens = 300;
+        threads = 12;  # p16: 12 threads, server-nike: 6 threads
+      };
+      api_monitor = true;
+      idle_unload_s = 0;
+      env = { STRATA_ADAPT_OVERLAP = "0"; };
+      args_written = [
+        "--pack"
+        (if isP16 then "/data/Strata-data/packs/swift-iq3_xxs"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/packs/swift-iq3_xxs")
+        "--native"
+        (if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf")
+        "--ple-gguf"
+        (if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf")
+        "--expert-profile"
+        (if isP16 then "/data/strata/data/expert-profile.bin"
+          else "${config.home.homeDirectory}/.local/share/strata/data/expert-profile.bin")
+        "--expert-cache" "auto"
+        "--prefill" "auto"
+        "--spec" "4"
+        "--spec-min-p" "0.5"
+        "--mtp"
+        (if isP16 then "/data/Strata-data/mtp/rt"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/mtp/rt")
+        "--max-context" "262144"
+        "--kv" "int8"
+        "--kv-resident" "32768"
+        "--vision"
+      ];
+      api_key = config.strata.apiKey;  # always "strata"
+      open_browser = false;
+      args_derived = [
+        "--pack"
+        (if isP16 then "/data/Strata-data/packs/swift-iq3_xxs"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/packs/swift-iq3_xxs")
+        "--native"
+        (if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf")
+        "--ple-gguf"
+        (if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf")
+        "--expert-profile"
+        (if isP16 then "/data/strata/data/expert-profile.bin"
+          else "${config.home.homeDirectory}/.local/share/strata/data/expert-profile.bin")
+        "--expert-cache" "auto"
+        "--prefill" "auto"
+        "--spec" "4"
+        "--spec-min-p" "0.5"
+        "--mtp"
+        (if isP16 then "/data/Strata-data/mtp/rt"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/mtp/rt")
+        "--max-context" "262144"
+        "--kv" "int8"
+        "--kv-resident" "32768"
+        "--vision"
+      ];
+    };
+  };
 
   # agenix (home-manager module): decrypt nicky's personal API keys at activation
   # to $XDG_RUNTIME_DIR/agenix/nicky.nix, then sourced by the shell. The key is
