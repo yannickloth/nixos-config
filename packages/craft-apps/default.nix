@@ -229,15 +229,15 @@ in
 
   pdfcraft = mkCraftApp {
     pname = "pdfcraft";
-    version = "0.21.1";
-    hash = "sha256-wpGekETv/eMY5mgHrSohu7dKlVWzwLmfmtDEDPYc4l4=";
+    version = "0.22.0";
+    hash = "sha256-qJk/nuluh6zOz5CvQib/YKhLnheHrp/Y+kj/4Tlrw14=";
     description = "PDF workbench: read, organize, combine, split and secure";
   };
 
   effectcraft = mkCraftApp {
     pname = "effectcraft";
-    version = "0.24.1";
-    hash = "sha256-XOA5NpAUQif6kYboIwitY4pu9tn5dsmW5tA7W1G2Wns=";
+    version = "0.25.1";
+    hash = "sha256-byn/fgNZkJ/h2/b9PP2EMKA2I0m2EsXrLPyP7nueJ2A=";
     description = "Motion graphics and visual effects (clean-room After Effects reimplementation)";
   };
 
@@ -250,8 +250,8 @@ in
 
   designcraft = mkCraftApp {
     pname = "designcraft";
-    version = "0.20.1";
-    hash = "sha256-6RYw1M31eMyx4vOfiOJOhSDxSC1RrkcUZX7kceIjf0Q=";
+    version = "0.21.1";
+    hash = "sha256-IR50ufXO5b/DzbRpg9C9sf29CRZL/YB/T/cHBpNdQK4=";
     description = "Page layout and publishing (clean-room InDesign reimplementation)";
   };
 
