@@ -1321,17 +1321,19 @@ in
 
       litellm-proxy = {
         description = "LiteLLM proxy — rank gateway for the local + paid LLM backends";
-        # user@1000.service starts the user manager (logind linger=true);
-        # strata.service runs inside it (autoStart=true). After= ensures the
-        # proxy does not hit a refused port at boot; Wants= makes it a soft
-        # dependency so the proxy still boots if the user manager is absent.
+        # user@<uid>.service starts nicky's user manager (logind linger=true);
+        # strata.service runs inside it (autoStart=true). The uid is taken from
+        # the account so this does not silently point at another user on hosts
+        # where the uids differ. After= ensures the proxy does not hit a
+        # refused port at boot; Wants= makes it a soft dependency so the proxy
+        # still boots if the user manager is absent.
         after = [
           "network-online.target"
           "tailscale.service"
           "litellm-proxy-env.service"
           "litellm-proxy-ui.service"
           "postgresql.service"
-          "user@1000.service"
+          "user@${toString config.users.users.nicky.uid}.service"
         ];
         requires = [
           "litellm-proxy-env.service"
@@ -1341,7 +1343,7 @@ in
         wants = [
           "network-online.target"
           "tailscale.service"
-          "user@1000.service"
+          "user@${toString config.users.users.nicky.uid}.service"
         ];
         # Prisma needs Node to run the cached CLI, OpenSSL to detect the
         # platform, and the prisma package for the generated Python client.

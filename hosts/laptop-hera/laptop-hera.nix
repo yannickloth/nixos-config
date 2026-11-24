@@ -58,6 +58,16 @@ with lib;
   # logged in — same reason laptop-p16 lingers nicky (Orca runtime server).
   users.users.nicky.linger = true;
 
+  # This machine predates the fleet uid convention: aeiuno was created first
+  # here, so it is 1000 and nicky is 1001 — the opposite of hosts installed
+  # from scratch (users/aeiuno/aeiuno.nix pins 1001/1000). NixOS never changes
+  # an existing user's uid, and home-manager derives its activation UID check
+  # from these values, so without the override every home-manager-aeiuno and
+  # home-manager-nicky activation aborts with
+  #   UID is "1000", expected "1001"  (and the mirror image for nicky).
+  users.users.aeiuno.uid = mkForce 1000;
+  users.users.nicky.uid = mkForce 1001;
+
   # Syncthing device name for this host (see services/syncthing/pool.nix).
   services.syncthing.self = "laptop-hera";
   # Syncthing web-UI login username (the password comes from the agenix secret).
@@ -89,6 +99,17 @@ with lib;
     requires = [ "data.mount" ];
     after = [ "data.mount" ];
     before = [ "sync.mount" ];
+    # This unit sits in the local-fs chain (before sync.mount), but a service
+    # with default dependencies is ordered After=basic.target and
+    # Requires=sysinit.target. nix-daemon.socket is itself ordered after
+    # sysinit.target, so the two together form an ordering cycle:
+    #   nix-daemon.socket -> sysinit.target -> local-fs.target -> sync.mount
+    #   -> this unit -> basic.target -> sockets.target -> nix-daemon.socket
+    # systemd breaks it by deleting the nix-daemon.socket start job, so the
+    # nix daemon never listens and every home-manager-<user>.service fails at
+    # boot with "cannot connect to socket at /nix/var/nix/daemon-socket/socket".
+    # Dropping the default dependencies keeps the unit purely in the mount chain.
+    unitConfig.DefaultDependencies = false;
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -121,10 +142,12 @@ with lib;
   boot.tmp.tmpfsSize = "50%";
   boot.tmp.cleanOnBoot = false;
 
-  # Bootloader — keep 5 generations max to prevent EFI partition fill-up.
+  # Bootloader — keep 2 generations max to prevent EFI partition fill-up:
+  # the ESP is 511M and one kernel+initrd set is ~156M (the initrd alone is
+  # ~143M), so 5 generations of distinct kernels could not fit.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.loader.systemd-boot.configurationLimit = 5;
+  boot.loader.systemd-boot.configurationLimit = 2;
 
   # 64 GiB RAM -> parallel builds with all cores.
   roles.nix.maxJobs = 12;

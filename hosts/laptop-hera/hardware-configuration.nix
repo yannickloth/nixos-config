@@ -70,7 +70,11 @@
       {
         # Stable partition identity: /dev/nvme0n1p1 changes if the drive is
         # enumerated differently or moved to another slot.
-        device = "/dev/disk/by-partuuid/D52884F4-8461-3B48-B533-8592E0E188BA";
+        # NOTE: udev creates the by-partuuid symlink in *lowercase* (blkid prints
+        # GPT PARTUUIDs in uppercase, which is the trap). An uppercase path never
+        # appears, the device unit times out, and boot fails with "Dependency
+        # failed for /boot" / "File System Check on .../by-partuuid/...".
+        device = "/dev/disk/by-partuuid/d52884f4-8461-3b48-b533-8592e0e188ba";
         fsType = "vfat";
       };
     "/data" =
