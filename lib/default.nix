@@ -18,6 +18,23 @@ rec {
     else
       throw "apps.flatpak: malformed app ref '${ref}' (expected app/<id>/<arch>/<branch>)";
 
+  # Replace the 32-character store hash in every /nix/store path with a fixed
+  # token, keeping the package name and version that follows it.
+  #
+  # The hash is a content fingerprint: it changes whenever the file content
+  # changes (a README edit) or the package is rebuilt (a flake update). The
+  # snapshots of generated unit scripts compare *script logic*, so those hashes
+  # are noise there, and leaving them in made the snapshots check fail on every
+  # README edit. The name and version stay visible, so a snapshot still records
+  # which package the script calls.
+  scrubStorePaths =
+    str:
+    builtins.concatStringsSep "" (
+      builtins.map
+        (part: if builtins.isList part then "/nix/store/<hash>-" else part)
+        (builtins.split "(/nix/store/[0-9a-z]{32}-)" str)
+    );
+
   # Users in `candidates` that actually exist in the `users` attrset.
   filterExistingUsers = users: candidates: builtins.filter (u: builtins.hasAttr u users) candidates;
 
