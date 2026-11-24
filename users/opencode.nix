@@ -165,12 +165,18 @@ let
     photocraft = { };
     vectorcraft = { };
     filmcraft = { roots = "none"; };
-    # LightCraft works on a library, and a library opens in one program at a
-    # time: a dedicated one keeps the agent out of the user's own library.
-    lightcraft = {
-      roots = "none";
-      extraArgs = [ "--library" "${craftWorkspace}/library" ];
-    };
+    # LightCraft takes no confinement flags (its folder argument is photos to
+    # import, not a limit), and deliberately no --library either: a library
+    # opens in one program at a time (upstream's own lock), and these servers
+    # are per opencode session — with several agent sessions on one machine,
+    # the first to hold the fixed library path wins and every later server
+    # refuses to start (measured 2026-11-24: "This library is already open in
+    # lightcraft-cli ... process NNNN on this computer", which left every
+    # other session's lightcraft tools missing). Headless sessions therefore
+    # run in memory: import photos per task, export results. Persistent
+    # library work goes through the app instead: start
+    # `lightcraft --control 7980`, connect `mcp --connect 127.0.0.1:7980`.
+    lightcraft = { roots = "none"; };
     pdfcraft = { };
     effectcraft = { };
     anicraft = { roots = "none"; };
@@ -740,8 +746,6 @@ let
   # pi ships no native catalog for any of these providers (the rank gateway
   # and the direct backends all speak OpenAI-compatible HTTP), so every
   # provider is emitted as a full openai-completions definition.
-  # `piNativeIds` stays empty.
-  piNativeIds = { };
 
   # opencode stores keys as {file:...} interpolations; pi resolves a leading
   # "!" as a command at request time. Reuse the very same key files (materialized
@@ -831,7 +835,7 @@ in
           stripV1 = provider:
             if provider ? package then
               provider // {
-                models = lib.mapAttrs (id: model:
+                models = lib.mapAttrs (_id: model:
                   removeAttrs model [ "reasoning" "attachment" ]
                 ) provider.models;
               }

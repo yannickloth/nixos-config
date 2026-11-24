@@ -12,7 +12,7 @@
 # real application is observed to need it (grep its binary for /usr/share,
 # /usr/bin, /etc paths), not as a wholesale FHS re-creation.
 
-{ config, lib, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   systemd.tmpfiles.rules = [

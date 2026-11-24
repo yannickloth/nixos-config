@@ -9,6 +9,8 @@
 {
   lib,
   writeShellApplication,
+  bash,
+  coreutils,
   cups,
   ensurePrinters,
   # The nixpkgs submodule type declares `location`/`description` as
@@ -16,8 +18,12 @@
   # pass "" for "unset". shellcheck also reads them, hence the clean strings.
   ensureDefaultPrinter ? null,
   # Budget for one TCP probe of the printer's IPP port. A switched-off printer
-  # drops the SYN, so this is what turns a 30 s lpadmin timeout into 1 s.
-  probeTimeout ? 1,
+  # drops the SYN, so this is what turns a 30 s lpadmin timeout into a short
+  # probe; 3 s because a deep-sleeping Brother laser needs a moment to wake
+  # before the connect completes (with the old 1 s it was declared off at
+  # every switch time on server-nike, 2026-11-24, despite being up seconds
+  # later under a 3 s probe).
+  probeTimeout ? 3,
   # The wrapper gives up (and stops the retry timer) after this many failed
   # probes, i.e. ~5 h at the timer's 15 min cadence.
   maxAttempts ? 20,
@@ -32,7 +38,13 @@ let
   # error that should fail the unit.
   ensurePrinter = writeShellApplication {
     name = "ensure-printer";
-    runtimeInputs = [ cups ];
+    # bash for the /dev/tcp probe, coreutils for timeout and sleep — neither
+    # may come from the inherited PATH: the systemd unit's default PATH has
+    # coreutils but no bash, so `bash -c` inside the probe failed with
+    # "command not found" (stderr eaten by the probe's 2>/dev/null) and every
+    # printer was declared off or unreachable — on real systems only; the
+    # flake check never saw it because the build sandbox has bash on PATH.
+    runtimeInputs = [ bash coreutils cups ];
     text = ''
       set -uo pipefail
       NAME=$1; DEVICE=$2; MODEL=$3; DESC=$4; LOC=$5
@@ -59,7 +71,7 @@ let
         attempts=$((attempts + 1))
         echo "$attempts" > "$state"
         if [ "$attempts" -ge ${toString maxAttempts} ]; then
-          printf 'ERROR: giving up on %s after %s attempts - switch it on and rerun: sudo systemctl start ensure-printers\n' \
+          printf 'ERROR: giving up on %s after %s attempts - switch it on and rerun: sudo systemctl restart ensure-printers\n' \
             "$NAME" "$attempts" >&2
           systemctl stop ensure-printers-retry.timer 2>/dev/null || true
         else
@@ -71,10 +83,22 @@ let
 
       # Only network printers are probed. Local/spooler URIs (cups-pdf:/pdf,
       # usb://..., hp:/...) have no IPP endpoint and must never be skipped.
+      # Three tries with a pause: a Wi-Fi printer in power save (the Brother
+      # answers pings at ~8 ms, then vanishes for seconds at a time) fails one
+      # connect and answers the next; a genuinely off printer fails all of
+      # them and the whole loop still costs ~13 s.
       case "$scheme" in
         ipp|ipps|http|https)
-          timeout "${toString probeTimeout}" bash -c \
-            "exec 3<>/dev/tcp/$host/$port" 2>/dev/null || skip
+          probe_ok=""
+          for _ in 1 2 3; do
+            if timeout "${toString probeTimeout}" bash -c \
+              "exec 3<>/dev/tcp/$host/$port" 2>/dev/null; then
+              probe_ok=1
+              break
+            fi
+            sleep 2
+          done
+          [ -n "$probe_ok" ] || skip
           ;;
       esac
 

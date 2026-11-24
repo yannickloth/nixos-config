@@ -34,7 +34,7 @@
 #   module is missing, the build fails loudly (boot.kernelModules asserts
 #   every module exists) rather than the dongles going dark at runtime.
 #   See also the kernel notes in flake.nix (mkHost) and hardware/nvidia_ampere.nix.
-{ config, lib, pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   # The out-of-tree driver, built against the host's actual kernel so it

@@ -46,6 +46,9 @@ let
     src = fetchurl {
       url = "https://github.com/NousResearch/hermes-agent/archive/2861fe3744f8134b782659438961a4f69ab5d495.tar.gz";
       hash = "sha256-tQWOd0jmtgg/Na4Zt6xvhyKhbh64wMqKPxlNhYVa3MQ=";
+      # GitHub rate-limits the unauthenticated sandbox download (HTTP 429) on
+      # CI runners. See lib.fetchRetryOpts.
+      curlOpts = (import ../../lib).fetchRetryOpts;
     };
     dontBuild = true;
     installPhase = ''

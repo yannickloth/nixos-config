@@ -67,6 +67,18 @@ in
       cups-filters
     ];
     enable = true;
+
+    # Do not announce our queues over DNS-SD: every family host has the same
+    # declarative queues, and every CUPS advertises them, so each peer's
+    # cups-browsed sees N announcers of e.g. "Brother MFC-L2700DW series" and
+    # stitches a dangling implicitclass:// queue out of them — the phantom
+    # driverless printer in system-config-printer that loses its destination
+    # whenever one announcer sleeps. Hosts print through their own declarative
+    # brlaser queues; the printer's own _ipp._tcp announcement still surfaces
+    # as a single (working) driverless entry for guests and phones.
+    extraConf = ''
+      BrowseLocalProtocols none
+    '';
   };
 
   # Two units on purpose: one at activation/boot, one periodic retry. They share

@@ -51,7 +51,7 @@ appimageTools.wrapType2 {
   # The AppImage keeps the Electron libraries it links against; add only what
   # it does NOT bundle. Xvfb lets `orca-ide serve` come up on a headless host
   # (Orca starts its own :99 display when DISPLAY is unset).
-  extraPkgs = pkgs: [ xvfb ];
+  extraPkgs = _pkgs: [ xvfb ];
 
   # appimageTools.wrapType2 only exposes bin/orca-ide, dropping the entry and
   # icons inside the bundle. Install them here. Upstream's file is already

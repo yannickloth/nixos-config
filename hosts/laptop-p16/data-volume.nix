@@ -17,7 +17,7 @@
 # That script is host-agnostic in this mode: it only generates the key and adds
 # it to a LUKS keyslot, which is exactly what NixOS cannot do declaratively.
 # The passphrase slot stays valid as the recovery path, and must stay.
-{ config, lib, ... }:
+{ ... }:
 {
   # systemd-cryptsetup-generator reads /etc/crypttab at boot; the identifier is
   # the mapper name CachyOS already uses, so both installs see the same device

@@ -1,5 +1,5 @@
 # Cf. https://nixos.wiki/wiki/PipeWire
-{ config, lib, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   # Enable sound with pipewire.

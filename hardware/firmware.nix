@@ -1,6 +1,6 @@
 # firware role includes firmware related stuff
 
-{ config, lib, ... }:
+{ lib, ... }:
 
 with lib;
 

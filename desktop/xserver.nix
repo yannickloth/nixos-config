@@ -1,6 +1,6 @@
 # x11 role defines configuration for x11
 
-{ config, lib, pkgs, ... }:
+{ lib, pkgs, ... }:
 
 with lib;
 

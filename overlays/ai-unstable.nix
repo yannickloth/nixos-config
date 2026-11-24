@@ -14,7 +14,7 @@
   browseros,
 }:
 
-final: prev: {
+_final: _prev: {
   # opencode v2 (2.0.29+, https://opencode.ai/v2): upstream moved past the 1.x
   # line that nixpkgs packages (1.18.34 in the pinned nixpkgs-unstable, 1.19.0
   # in current nixpkgs) and now publishes the CLI only as prebuilt per-platform

@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, ... }:
 
 with lib;
 {
@@ -135,10 +135,17 @@ with lib;
   # before mounts at boot, so the bind source is created by a unit ordered
   # between /data and /sync (the activation script below only handles the
   # legacy /sync symlink migration at switch time).
+  # This service runs before sync.mount to create /data/sync and set its
+  # ownership/permissions. We reverse the dependency: the service wants the
+  # mount (not the other way around). If sync.mount wanted this service, the
+  # mount unit would be part of local-fs.target, and the service would chain
+  # through basic → sockets → cups.socket → sysinit → local-fs.target,
+  # creating a cycle that systemd resolves by deleting the mount unit.
   systemd.services.syncthing-nike-data-dir = {
     description = "Create the /data/sync bind source before /sync mounts";
-    wantedBy = [ "sync.mount" ];
+    wants = [ "sync.mount" ];
     requires = [ "data.mount" ];
+    wantedBy = [ "multi-user.target" ];
     after = [ "data.mount" ];
     before = [ "sync.mount" ];
     serviceConfig = {

@@ -14,15 +14,12 @@
 # Keep apps.flatpak.apps in sync with the malcontent allowlist
 # (services/malcontent.nix). Browsers stay in Nix so the Firefox kid policies
 # (users/kid-firefox-policies.nix) keep applying.
-{ config, lib, pkgs, ... }:
+{ config, lib, ... }:
 
 with lib;
 
 let
   cfg = config.apps.flatpak;
-
-  # Ref parsing lives in lib/ so it is unit-tested (tests/unit.nix).
-  appIdOf = (import ../lib).parseAppRef;
 in
 {
   options.apps.flatpak = {

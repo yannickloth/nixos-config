@@ -1,6 +1,6 @@
 # role to be used on all systems
 
-{ config, lib, pkgs, ... }:
+{ lib, pkgs, ... }:
 
 with lib;
 

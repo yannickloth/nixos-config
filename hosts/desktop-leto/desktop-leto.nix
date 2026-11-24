@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ lib, pkgs, ... }:
 
 with lib;
 
@@ -247,6 +247,25 @@ in
   # impact on a desktop (the card stays at idle power ~15 W instead of ~10 W).
   boot.kernelParams = [ "amdgpu.runpm=0" ];
 
+  # mt7925e ships 802.11 power save enabled and it is a documented trigger for
+  # link drops and latency spikes on MT7925 (Ubuntu #2170180, openwrt/mt76 #1108).
+  # The NixOS wifi.powersave boolean has a mapping bug: `false` produces NM value
+  # 2 (enable) instead of 1 (disable) — see networkmanager.nix line:
+  #   "wifi.powersave" = if cfg.wifi.powersave then 3 else 2;
+  # Use settings to write the correct value directly.
+  networking.networkmanager.wifi.powersave = lib.mkForce false;
+  networking.networkmanager.settings.connection."wifi.powersave" = 1;
+
+  # The mt7925e driver does not expose a module parameter for power save
+  # and the NM setting above only affects the [connection] section, not the
+  # driver. Use a udev rule matching by PCI vendor/device ID (14c3:7925)
+  # so it survives moving the card to any PCI slot.
+  # Bluetooth part is combined below with the USB autosuspend rule.
+  services.udev.extraRules = ''
+    ACTION=="add", SUBSYSTEM=="net", KERNEL=="wlan*", ATTR{device/vendor}=="0x14c3", ATTR{device/device}=="0x7925", RUN+="${pkgs.iw}/bin/iw dev %k set power_save off"
+    ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="13d3", ATTR{idProduct}=="3631", ATTR{power/control}="on"
+  '';
+
   # --- Suspend ---
   # The MT7925 (mt7925e) loses its firmware state over suspend-to-RAM on this
   # board: every resume logs `pci_pm_resume returns -110`, mac80211 reports
@@ -270,18 +289,6 @@ in
     "1.0.0.3"
   ];
 
-  # mt7925e ships 802.11 power save enabled (`iw dev wlp2s0 get power_save`
-  # reports "on") and it is a documented trigger for link drops and latency
-  # spikes on MT7925 (Ubuntu #2170180, openwrt/mt76 #1108). Measured neutral on
-  # this link so far, but keep it off — a desktop has no reason to save power
-  # on its only uplink.
-  #
-  # The NixOS wifi.powersave boolean has a mapping bug: `false` produces NM
-  # value 2 (enable) instead of 1 (disable). Use settings to override with
-  # the correct value. See networkmanager.nix line: `if cfg.wifi.powersave then 3 else 2`.
-  networking.networkmanager.wifi.powersave = lib.mkForce false;
-  networking.networkmanager.settings.connection."wifi.powersave" = 1;
-
   # Keep the card out of PCIe ASPM as well. This board currently disables ASPM
   # on every link (LnkCtl: ASPM Disabled), so this is insurance: a BIOS reset or
   # a kernel default change would otherwise re-expose the L1.2 bug where pings
@@ -296,9 +303,7 @@ in
   # which is exactly the kind of sleep state worth refusing on a desktop that
   # keeps its keyboard/mouse/gamepad bonded all day. hardware/bluetooth.nix only
   # pins Intel 8087 controllers, so the MediaTek part is covered here.
-  services.udev.extraRules = ''
-    ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="13d3", ATTR{idProduct}=="3631", ATTR{power/control}="on"
-  '';
+  # (Combined with the Wi-Fi power save rule above in a single udev.extraRules.)
 
   # Kernel stance for this card. The rule, not a snapshot - re-check it after
   # every `nix flake update`, because linux_zen follows nixpkgs on its own:
