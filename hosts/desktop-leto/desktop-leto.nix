@@ -256,6 +256,16 @@ in
   networking.networkmanager.wifi.powersave = lib.mkForce false;
   networking.networkmanager.settings.connection."wifi.powersave" = 1;
 
+  # The mt7925e driver does not expose a module parameter for power save
+  # and the NM setting above only affects the [connection] section, not the
+  # driver. Use a udev rule matching by PCI vendor/device ID (14c3:7925)
+  # so it survives moving the card to any PCI slot.
+  # Bluetooth part is combined below with the USB autosuspend rule.
+  services.udev.extraRules = ''
+    ACTION=="add", SUBSYSTEM=="net", KERNEL=="wlan*", ATTR{device/vendor}=="0x14c3", ATTR{device/device}=="0x7925", RUN+="${pkgs.iw}/bin/iw dev %k set power_save off"
+    ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="13d3", ATTR{idProduct}=="3631", ATTR{power/control}="on"
+  '';
+
   # --- Suspend ---
   # The MT7925 (mt7925e) loses its firmware state over suspend-to-RAM on this
   # board: every resume logs `pci_pm_resume returns -110`, mac80211 reports
@@ -293,9 +303,7 @@ in
   # which is exactly the kind of sleep state worth refusing on a desktop that
   # keeps its keyboard/mouse/gamepad bonded all day. hardware/bluetooth.nix only
   # pins Intel 8087 controllers, so the MediaTek part is covered here.
-  services.udev.extraRules = ''
-    ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="13d3", ATTR{idProduct}=="3631", ATTR{power/control}="on"
-  '';
+  # (Combined with the Wi-Fi power save rule above in a single udev.extraRules.)
 
   # Kernel stance for this card. The rule, not a snapshot - re-check it after
   # every `nix flake update`, because linux_zen follows nixpkgs on its own:
