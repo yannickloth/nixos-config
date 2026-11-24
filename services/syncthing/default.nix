@@ -4,9 +4,10 @@
 # access to the data via the `syncthing` group and to the web UI via a shared
 # GUI password. Kids have no access to the family data: sven/aaron only get
 # read on the /sync root (they see the folder names), named-user ACLs on
-# /sync/sven and /sync/aaron respectively (rw), and rX on the public roms
-# library (~/roms for every user). The other folders stay unreadable: the kids
-# inherit traverse-only (--x) on them, so they can cd but never list or read.
+# /sync/sven and /sync/aaron respectively (rw), rw in the shared drop folder
+# (/sync/FileDrop), and rX on the public roms library (~/roms for every user).
+# The other folders stay unreadable: the kids inherit traverse-only (--x) on
+# them, so they can cd but never list or read.
 #
 # The folder/device set is the single source of truth in `./pool.nix`: each
 # host syncs the folders whose device list includes it (replication /
@@ -68,6 +69,20 @@ let
   # inherit the default entries, where the kids stay traverse-only (--x) —
   # a folder synced in from another host must not be readable for them.
   syncRootAcl = "u::rwx,u:sven:r-x,u:aaron:r-x,g::rwx,o::---,d:u::rwx,d:u:sven:--x,d:u:aaron:--x,d:g::rwx,d:o::---";
+
+  # Full ACL (access + default) for the shared drop folder /sync/FileDrop, shared
+  # between the tmpfiles rules (boot) and the activation script (every switch +
+  # the re-grant after the full-tree strip), so they cannot drift apart. The kids
+  # are NOT in the `syncthing` group, so they need named entries here; the `d:`
+  # entries are what make content synced in from another host (phone, laptop)
+  # readable and writable for them. Parents reach it through the group. This is
+  # the device-to-device drop (see pool.nix: phones are peers); the local
+  # account-to-account drop is users/filedrop.nix (/filedrop).
+  fileDropDir = "/sync/FileDrop";
+  fileDropAcl = "u::rwx,u:sven:rwx,u:aaron:rwx,g::rwx,o::---,d:u::rwx,d:u:sven:rwx,d:u:aaron:rwx,d:g::rwx,d:o::---";
+  # Recursive grants for the drop's existing content. `X` (not `x`) so only
+  # directories get the execute bit: documents dropped in stay non-executable.
+  fileDropKidsAcl = "u:sven:rwX,u:aaron:rwX";
 
   # Per-host identity dir. agenix decrypts the cert/key here from the
   # git-committed .age files (see age.secrets below); it lives outside the
@@ -169,6 +184,13 @@ in
       "A /sync/sven 2770 syncthing syncthing - u::rwx,u:sven:rwx,g::rwx,o::---,d:u::rwx,d:u:sven:rwx,d:g::rwx,d:o::---"
       "d /sync/aaron 2770 syncthing syncthing -"
       "A /sync/aaron 2770 syncthing syncthing - u::rwx,u:aaron:rwx,g::rwx,o::---,d:u::rwx,d:u:aaron:rwx,d:g::rwx,d:o::---"
+      # Shared drop folder: the device-to-device drop (phones, laptops, nestor),
+      # and the kids' only writable spot in the synced tree besides their own
+      # folder. Syncthing creates the folder root at first start; the `d` line
+      # makes it exist from the first boot (idempotent) and `A` heals the whole
+      # subtree (A is recursive).
+      "d ${fileDropDir} 2770 syncthing syncthing -"
+      "A ${fileDropDir} 2770 syncthing syncthing - ${fileDropAcl}"
       # RetroArch ROM library (games/games.nix points RetroArch's
       # system_directory at roms/BIOS): every user must be able to read it, so
       # the kids get read+traverse here (files r, dirs rx). Quoted path: the
@@ -235,6 +257,20 @@ in
         ${pkgs.acl}/bin/setfacl -R -m u:sven:rX,u:aaron:rX "$romsDir"
         ${pkgs.acl}/bin/setfacl -R -d -m u:sven:rX,u:aaron:rX "$romsDir"
 
+        # Shared drop folder: rw for the kids (they are not in the `syncthing`
+        # group, so named entries) plus the default entries, so content arriving
+        # from a phone or another laptop is readable and writable for them. Runs
+        # on every switch, outside the .acl-stamp block like the roms: the folder
+        # is small, so the recursive pass is cheap and files synced in between
+        # switches are fixed on the next activation. `X` keeps documents
+        # non-executable (only directories get the execute bit).
+        mkdir -p "${fileDropDir}"
+        chmod 2770 "${fileDropDir}"
+        chown syncthing:syncthing "${fileDropDir}"
+        ${pkgs.acl}/bin/setfacl -m ${fileDropAcl} "${fileDropDir}"
+        ${pkgs.acl}/bin/setfacl -R -m ${fileDropKidsAcl} "${fileDropDir}"
+        ${pkgs.acl}/bin/setfacl -R -d -m ${fileDropKidsAcl} "${fileDropDir}"
+
         # Expensive part: full-tree ACL repair (can take minutes on large
         # photo/music trees). Runs when the .acl-strip-v1 marker is missing
         # (ONE-TIME repair: the tree inherited from the original laptop-p16
@@ -246,7 +282,8 @@ in
         # The repair strips the kids' named entries from the whole tree and
         # re-grants exactly the intended set, so the end state is identical
         # no matter what the tree contained: parents' group rwx everywhere,
-        # the kids rw on their own folder, rX under the roms, nothing else.
+        # the kids rw on their own folder and in the shared drop, rX under the
+        # roms, nothing else.
         if [ ! -f /var/lib/syncthing/.acl-strip-v1 ] \
           || [ "$(cat /var/lib/syncthing/.acl-stamp 2>/dev/null)" != "$ACL_STAMP" ]; then
           # Strip the kids' named entries wherever they leaked in. Files
@@ -281,6 +318,12 @@ in
           # per-switch pass set earlier in this script.
           ${pkgs.acl}/bin/setfacl -R -m u:sven:rX,u:aaron:rX "$romsDir" 2>/dev/null || true
           ${pkgs.acl}/bin/setfacl -R -d -m u:sven:rX,u:aaron:rX "$romsDir" 2>/dev/null || true
+
+          # Drop folder: rw for the kids (access + default), same reason — the
+          # strip above cleared the per-switch grant.
+          ${pkgs.acl}/bin/setfacl -m ${fileDropAcl} "${fileDropDir}" 2>/dev/null || true
+          ${pkgs.acl}/bin/setfacl -R -m ${fileDropKidsAcl} "${fileDropDir}" 2>/dev/null || true
+          ${pkgs.acl}/bin/setfacl -R -d -m ${fileDropKidsAcl} "${fileDropDir}" 2>/dev/null || true
 
           ${pkgs.coreutils}/bin/mkdir -p /var/lib/syncthing
           ${pkgs.coreutils}/bin/touch /var/lib/syncthing/.acl-strip-v1
