@@ -333,3 +333,31 @@ right analogue: declarative, no always-on dependency, rotation via rebuild.
   renders `meta skuid { 1002, 1003 }`. (Full host eval was interrupted on
   request; re-run `nixos-rebuild test` on a host to confirm.)
 - **Still open:** Phase 4 (restic backup).
+
+### 2026-11-24 — CI download fix, snapshot scrub, lint cleanup, lint gate
+
+- **CI 429:** `packages/hermes-agent/default.nix` now passes
+  `curlOpts = lib.fetchRetryOpts` (`--retry 10 --retry-delay 15
+  --retry-max-time 300`) to `fetchurl`. The `NIX_CURL_FLAGS` route does not
+  work: the daemon reads `impureEnvVars` from its own environment, not from the
+  client shell, so a CI step cannot set it.
+- **Snapshot fragility:** `lib.scrubStorePaths` removes the store-hash prefix
+  from the two unit-script snapshots (`home-readme-unit-script`,
+  `ssh-keys-unit-script`). A version bump no longer breaks them.
+- **deadnix:** `deadnix --edit` removed 77 unused bindings.
+- **statix:** fixed 35 findings in code (W03 `manual_inherit`, W06
+  `collapsible_let_in`, W10 `empty_pattern`, W23 `empty_list_concat`). Disabled
+  rule W20 `repeated_keys` in `statix.toml`. NixOS modules assign a top-level
+  key once per concern, and Nix merges the disjoint assignments. Merging them by
+  key-name prefix would regroup code by naming convention, not by change
+  driver. The rule guards `{ a = 1; a = 2; }`, which Nix reports at evaluation.
+- **Gate:** `nix-lint` is now blocking. Removed `continue-on-error` from the
+  statix and deadnix steps.
+- **Verification:** all five hosts evaluate to the same toplevel drvPath before
+  and after the lint commit `d8cad5f` (xps `gx6i470ircnyvjrj5nyxkx7cg6vq7hi9`,
+  hera `qgg830sjmfzw0iw5412y42hszga07za5`, p16
+  `0l21wj9y1pd0w5wn32yk7fpbmq1a1brk`, leto
+  `kl73a6k1rzg26zsijkmp7dnlxz380gv3`, nike
+  `5c1b4vjmidgb82j0i4nwjv12yivwivc1`). All nine checks build; every namaka
+  snapshot passes. `statix check .` and `deadnix --fail .` exit 0.
+- **Still open:** Phase 4 (restic backup).

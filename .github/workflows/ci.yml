@@ -36,9 +36,8 @@ jobs:
             nix-instantiate --parse "$f" >/dev/null
           done
 
-  # Report-only until the dead-code and anti-pattern cleanups land (see
-  # ops/plans/2026-10-02-nixos-config-review.md). Flip continue-on-error off
-  # once these are green.
+  # Blocking lint gate. statix rule W20 (repeated_keys) is disabled in
+  # statix.toml; the reason is recorded there.
   nix-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -48,13 +47,10 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v23
 
-      # Report-only (per step, so a statix failure still lets deadnix report).
       - name: statix
-        continue-on-error: true
         run: nix run nixpkgs#statix -- check .
 
       - name: deadnix
-        continue-on-error: true
         run: nix run nixpkgs#deadnix -- --fail .
 
   # Evaluation gate. Every NixOS host is evaluated to a toplevel drvPath, one

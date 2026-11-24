@@ -1,0 +1,22 @@
+# statix configuration.
+#
+# Disabled: rule W20 "repeated_keys". It flags a top-level attrset key assigned
+# more than once, e.g. `boot.tmp.x = …; boot.kernel.y = …;` in one attrset, and
+# suggests merging them into a single `boot = { … }` block.
+#
+# In NixOS and home-manager modules a top-level key is assigned once per
+# concern, and each assignment sits with the code that changes it (its change
+# driver): `boot.tmp.cleanOnBoot` with the tmp policy, `boot.kernel.sysctl` with
+# the kernel-hardening block, `hardware.cpu.*` with the CPU block. Merging them
+# regroups by the key-name prefix, which is a naming convention, not a change
+# driver, and scatters each concern away from its narrative.
+#
+# The rule guards a real footgun — `{ a = 1; a = 2; }` is a Nix error — but that
+# only bites when the repeated sub-paths collide. Every repeat in this repo is
+# disjoint, so Nix merges them correctly: all five hosts evaluate to the same
+# toplevel drvPath with the rule on and off. The collision case is caught at
+# evaluation, not by this lint.
+#
+# All other statix rules stay on.
+disabled = ["repeated_keys"]
+ignore = [".direnv"]
