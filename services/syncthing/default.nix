@@ -35,7 +35,7 @@ let
   # nixpkgs module resolves folder peers through settings.devices by name (self
   # included), and Syncthing itself ignores its own ID as a remote device.
   devices =
-    mapAttrs (name: dev: { inherit name; id = dev.id; }) pool.devices;
+    mapAttrs (name: dev: { inherit name; inherit (dev) id; }) pool.devices;
 
   # Folders this host should sync: those whose share matrix includes self.
   # Each is shared with exactly the peers listed in the matrix.
@@ -43,7 +43,7 @@ let
     mapAttrs
       (label: f: {
         inherit (f) id;
-        label = label;
+        inherit label;
         type = "sendreceive";
         rescanIntervalS = 3600;
         versioning = {
@@ -51,9 +51,20 @@ let
           params.maxAge = "31536000"; # 1 year
         };
         path = "${cfg.dataDir}/${label}";
-        devices = f.devices;
+        inherit (f) devices;
       })
       (helpers.selectFoldersForHost pool.folders selfName);
+
+  # Device groups for Syncthing's Web UI folder sharing interface. Folders
+  # declare which groups they share with; Syncthing resolves each group to its
+  # member devices at runtime.
+  groups =
+    mapAttrs
+      (name: members: {
+        inherit name;
+        devices = map (d: pool.devices.${d}.id) members;
+      })
+      pool.groups;
 
   # Person folders synced on this host (used for the XDG subdirs and the
   # recursive ACL repair below).
@@ -140,6 +151,7 @@ in
       };
       settings.devices = devices;
       settings.folders = folders;
+      settings.groups = groups;
       settings.options = {
         localAnnounceEnabled = true;
         relaysEnabled = true;
