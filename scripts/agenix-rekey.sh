@@ -4,13 +4,17 @@
 # for it in secrets.nix.
 #
 # Use when the host key set changes (e.g. adding a host):
-#   1. Drop the new host's public key into ssh-keys/hosts/<name>.pub
-#      (generate it with: ssh-keygen -t ed25519 -N "" -C "host <name>" -f ssh-keys/hosts/<name>).
-#   2. Run on an EXISTING host that holds a current host key (needs one to
-#      decrypt the host-scoped secrets, hence sudo):
-#        sudo ./scripts/agenix-rekey.sh
+#   1. Generate the new host's keypair in the key store:
+#        ssh-keygen -t ed25519 -N "" -C "host <name>" -f ssh-keys/hosts/<name>
+#   2. Run on any machine that can decrypt the host-scoped secrets: either an
+#      existing NixOS host (identity /etc/ssh/ssh_host_ed25519_key — use
+#      sudo there) or the key-store machine (the script falls back to the
+#      private keys in ssh-keys/hosts/, no sudo needed):
+#        ./scripts/agenix-rekey.sh
 #      Do NOT run it on the new host: it cannot decrypt the existing secrets,
 #      and its incomplete key set would be refused (see the removal guard).
+#      If no identity can decrypt anything, the script fails before changing
+#      anything (a no-op rekey is how hosts silently lose recipients).
 #   3. Commit secrets.nix + the re-encrypted .age files.
 #
 # secrets.nix has no global "all" union: each secret lists its own recipients.
@@ -55,7 +59,50 @@ nix-instantiate --eval -E '(import ./secrets.nix)' >/dev/null 2>&1 || {
   exit 1
 }
 
-# --- 1. Rebuild the `hosts` group in secrets.nix -----------------------------
+# --- 1. Pick an identity that can actually decrypt ----------------------------
+# The default identity is this machine's own SSH host key. On the key-store
+# machine (which may run a non-NixOS distro, e.g. CachyOS) that is the wrong
+# key, so fall back to the private keys in the local key store. Fail closed
+# before touching anything: a no-op rekey (wrong identity, every secret
+# "skipped") is how hosts silently lose recipients.
+mapfile -t files < <(nix-instantiate --eval --json -E 'builtins.attrNames (import ./secrets.nix)' | jq -r '.[]')
+existing_files=()
+for f in "${files[@]}"; do
+  if [[ -f "$SECRETS_DIR/$f" ]]; then existing_files+=("$f"); fi
+done
+if [[ ${#existing_files[@]} -eq 0 ]]; then
+  echo "error: no secret files found under $SECRETS_DIR" >&2
+  exit 1
+fi
+
+pick_identity() {
+  local k f
+  local candidates=("$IDENTITY")
+  for k in "$HOSTS_DIR"/*; do
+    case "$k" in *.pub) continue ;; esac
+    [[ -f "$k" ]] && candidates+=("$k")
+  done
+  for k in "${candidates[@]}"; do
+    for f in "${existing_files[@]}"; do
+      if age -d -i "$k" "$SECRETS_DIR/$f" >/dev/null 2>&1; then
+        if [[ "$k" != "$IDENTITY" ]]; then
+          echo "note: default identity cannot decrypt any secret; using key-store identity $k" >&2
+        fi
+        IDENTITY="$k"
+        return 0
+      fi
+    done
+  done
+  return 1
+}
+if ! pick_identity; then
+  echo "error: no identity can decrypt any secret (tried \$AGENIX_IDENTITY or /etc/ssh/ssh_host_ed25519_key, then every ssh-keys/hosts/* private key)." >&2
+  echo "       This machine holds no usable host key. Run on a host with a key-store key, or set AGENIX_IDENTITY to one." >&2
+  exit 1
+fi
+echo "Identity: $IDENTITY"
+
+# --- 2. Rebuild the `hosts` group in secrets.nix -----------------------------
 hosts_recipients=()
 for f in "$HOSTS_DIR"/*.pub; do
   [[ -e "$f" ]] || continue
@@ -126,13 +173,9 @@ if ! nix-instantiate --eval -E '(import ./secrets.nix)' >/dev/null 2>&1; then
 fi
 echo "Rewrote the \`hosts\` group in secrets.nix."
 
-# --- 2. Re-encrypt every secret to its declared recipients -------------------
-mapfile -t files < <(nix-instantiate --eval --json -E 'builtins.attrNames (import ./secrets.nix)' | jq -r '.[]')
-if [[ ${#files[@]} -eq 0 ]]; then
-  echo "error: no secrets parsed from secrets.nix (bad edit?)" >&2
-  exit 1
-fi
-
+# --- 3. Re-encrypt every secret to its declared recipients -------------------
+# `files` was collected in step 1 (before secrets.nix was rewritten). The
+# rewrite only touches the `hosts` group, so the attribute names are unchanged.
 for f in "${files[@]}"; do
   src="$SECRETS_DIR/$f"
   [[ -f "$src" ]] || { echo "skip $f (no $src)"; continue; }

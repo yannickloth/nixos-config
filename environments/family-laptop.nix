@@ -1,103 +1,39 @@
-# Shared module set for every family laptop (laptop-hera, laptop-p16,
-# laptop-xps).
+# Shared module set for the portable family machines: laptop-hera,
+# laptop-p16 and laptop-xps — plus desktop-leto, which imports it too (the
+# file keeps its historical name; the desktop is a member of this layer).
 #
-# IVP: these 52 modules have the same change-driver set
-# {D-SERVICE, D-APP, D-DESKTOP, D-HARDWARE, D-SECURITY, D-SYSTEM} — they change
-# when a service/app/desktop-stack/peripheral/security/base policy changes, not
-# when a *host* changes. They used to be copy-pasted into each host file (and
-# had already drifted), so they live here now.
+# family-laptop = family-host + the chassis specifics that must NOT reach
+# hosts without them:
+#   - environments/laptop.nix: power management (suspend, thermald,
+#     power-profiles-daemon, zram, upower) and the nftables firewall
+#     (laptop-firewall.nix, nix-serve on Tailscale only). server-nike, an
+#     inference server that must never sleep, skips this layer on purpose.
+#   - hardware/intel_graphics.nix: VA-API/Vulkan stack for hosts with an
+#     Intel iGPU. It mkForces hardware.graphics.extraPackages to the Intel
+#     media drivers, so a host without an iGPU (server-nike: RTX 3060 only)
+#     must not import it.
+#
+# Timezone: roles/base.nix defaults to Europe/Luxembourg — no environment
+# pins its own, so there is a single source and no mkForce conflict.
 #
 # Host-specific modules (kernel choice, per-host apps, RAM-dependent settings,
 # the home-manager user wiring) stay in hosts/<host>/<host>.nix. Current deltas:
-#   laptop-hera: apps/benchmark.nix
-#   laptop-p16:  apps/benchmark.nix, apps/obs-studio.nix, apps/wine.nix
-#   laptop-xps:  apps/noson.nix, apps/wine.nix, desktop/plasma.nix
-{ ... }:
+#   laptop-hera:  apps/benchmark.nix
+#   laptop-p16:   apps/benchmark.nix, apps/obs-studio.nix, apps/wine.nix
+#   laptop-xps:   apps/noson.nix, apps/wine.nix, desktop/plasma.nix
+#   desktop-leto: desktop/plasma.nix, apps/wine.nix, plus its own GPU/Wi-Fi
+#                 hardening
+{ lib, ... }:
 
 {
   imports = [
+    ./family-host.nix
+
     # Laptop environment (power management, zram, thermald, timezone) and its
     # firewall (nftables + nix-serve Tailscale rule).
     ./laptop.nix
 
-    # Apps / language toolchains.
-    ../apps/android.nix
-    ../apps/appimage.nix
-    ../apps/flatpak.nix
-    ../apps/gstreamer.nix
-    ../apps/java.nix
-    ../apps/kdeconnect.nix
-    ../apps/purescript.nix
-    ../apps/typst.nix
-    ../apps/waydroid.nix
-
-    # Desktop / display / audio.
-    ../desktop/console.nix
-    ../desktop/pipewire.nix
-    ../desktop/xserver.nix
-    ../desktop/xwayland.nix
-
-    # Games.
-    ../games/games.nix
-    ../games/steam.nix
-
-    # Hardware.
-    ../hardware/bluetooth.nix
-    ../hardware/firmware.nix
-    ../hardware/intel_cpu.nix
+    # Intel iGPU graphics stack (see the header: iGPU hosts only).
     ../hardware/intel_graphics.nix
-    ../hardware/pcscd.nix
-    ../hardware/printers/brother-mfcl2700dw.nix
-    ../hardware/printers/epson-xp15000.nix
-    ../hardware/thunderbolt.nix
-
-    # Roles / base policy.
-    ../roles/base.nix
-    ../roles/bees.nix
-    ../roles/fonts.nix
-    ../roles/i18n/fr_BE.nix
-    ../roles/nix-gc.nix
-    ../roles/psd.nix
-    ../roles/shell.nix
-
-    # Security.
-    ../security/apparmor.nix
-    ../security/sudo.nix
-    ../security/tpm.nix
-    ../security/yubikey.nix
-
-    # Services.
-    ../services/avahi.nix
-    ../services/clamav.nix
-    ../services/libvirt.nix
-    ../services/malcontent.nix
-    ../services/network-manager.nix
-    ../services/nix-serve.nix
-    ../services/openssh.nix
-    ../services/plantuml.nix
-    ../services/podman.nix
-    ../services/postgresql.nix
-    ../services/printing.nix
-    ../services/samba.nix
-    ../services/scanning.nix
-    ../services/sonos.nix
-    ../services/ssh-user-keys.nix
-    ../services/syncthing
-    ../services/tor.nix
-  ];
-
-  # Distribute the family SSH identities + authorized_keys on every laptop
-  # (see services/ssh-user-keys.nix).
-  services.sshUserKeys.enable = true;
-
-  # /data is a separate LUKS+btrfs volume on laptop-p16 and laptop-hera;
-  # laptop-xps has no second drive, so on that host these rules also create
-  # /data itself as a plain root-disk directory (tmpfiles creates the leading
-  # dir as root, the subdirs below as the appropriate user).
-  systemd.tmpfiles.rules = [
-    "d /data 0755 root root -"                       # root FS dir on xps; mount point on hera/p16
-    "d /data/postgres 0750 postgres postgres -"       # PostgreSQL 18 cluster on all hosts
-    "d /data/unsloth 0700 nicky nicky -"              # Unsloth Studio model data
-    "d /data/containers 0755 nicky nicky -"           # Podman graphroot
   ];
 }

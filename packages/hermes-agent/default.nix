@@ -24,7 +24,7 @@
   makeWrapper,
   callPackage,
   python314,
-  fetchFromGitHub,
+  fetchurl,
   git,
   ripgrep,
   ffmpeg,
@@ -35,12 +35,25 @@
 }:
 
 let
-  # Pin: v0.23.0 (2026-11-05).
-  src = fetchFromGitHub {
-    owner = "NousResearch";
-    repo = "hermes-agent";
-    rev = "2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19";
-    hash = "sha256-PzkocTi9jbkuht4cvpmXu/hTIAUNtE/xyivPoncNq8Y=";
+  # Pin: v0.23.3 (2026-11-22).
+  # Uses fetchurl + mkDerivation to unpack (not fetchFromGitHub) because the
+  # pinned hash matches the raw GitHub tarball; fetchFromGitHub normalizes the
+  # archive (strips .git, resets timestamps) which changes the content and
+  # breaks the fixed-output. We extract the tarball in a lightweight derivation
+  # so uv2nix gets a directory at workspaceRoot.
+  src = stdenv.mkDerivation {
+    name = "hermes-agent-source";
+    src = fetchurl {
+      url = "https://github.com/NousResearch/hermes-agent/archive/2861fe3744f8134b782659438961a4f69ab5d495.tar.gz";
+      hash = "sha256-tQWOd0jmtgg/Na4Zt6xvhyKhbh64wMqKPxlNhYVa3MQ=";
+    };
+    dontBuild = true;
+    installPhase = ''
+      runHook preInstall
+      mkdir -p $out
+      tar xzf $src -C $out --strip-components=1
+      runHook postInstall
+    '';
   };
 
   workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = src; };
@@ -103,7 +116,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "hermes-agent";
-  version = "0.23.0";
+  version = "0.23.3";
 
   dontUnpack = true;
   dontBuild = true;

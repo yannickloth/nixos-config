@@ -1,9 +1,42 @@
 # The declarative engine policy for packages/strata/default.nix: rewrite every
-# engine config under STRATA_HOME (strata-<model>.json) so the served model
-# matches the module options, whatever `strata --setup` answered. Run from the
-# `strata` wrapper, from `strata-server` and from the wrapped engine binary;
-# it must stay idempotent (a rerun produces a byte-identical file, so the
+# engine config under STRATA_HOME (strata-<model>.json) on every engine start.
+# It must stay idempotent (a rerun produces a byte-identical file, so the
 # mtime ordering strata-server uses to pick the served model is not disturbed).
+#
+# The module owns exactly one option: --expert-cache. It is mandatory for
+# native packs (the engine refuses to start/serve without it) and the web
+# UI's settings form drops flags it does not know, so this script re-asserts
+# it on every rewrite. "auto" is the value setup.py writes: a bare flag would
+# make the engine take the next option as its value.
+#
+# Plus one per-host correctness rule: a --pool-workers count above what THIS
+# machine can use well is removed. The count is measured per host (15 suits a
+# 16-thread PC; on a 12-thread one the extra workers spin and cost about half
+# the decode speed). A run config copied from another host keeps that host's
+# number, and the engine would run it as given. The ceiling is the engine's own
+# plan: the fewer of "threads - 1" and "physical cores - 1" (one CPU kept free),
+# so 5 on a 6-core / 12-thread CPU. Removing it lets the engine pick its own.
+#
+# Plus one package-correctness rule: a "vision" block points at
+# engine/strata-vision, which THIS package ships only when it was built with
+# the encoder (argv[2]). A config written by an older install (or by setup
+# with --vision yes) keeps the block either way; from a build without the
+# encoder the server would try to start the missing binary and fail every
+# model load ("vision encoder failed to start ... engine/strata-vision"), so
+# such a block is dropped. With the encoder shipped, the block is the
+# person's setup answer and stays.
+#
+# Configs of a model-shape engine are not touched at all (strata-hy4 for
+# Tencent Hy4-Flash, strata-q4-lite, ...): serve picks that engine by the
+# config's "exe"/"arch", it has its own options (--engram, --vram-experts-gb,
+# --ram-experts-gb), and upstream's setup writes no --expert-cache for it.
+# Adding one there would be an option this package cannot vouch for.
+#
+# Everything else - --max-context, the rope flags, --kv/--kv-resident,
+# --vram-reserve-mib, --pcie-frac, --spec-min-p, --pool-workers,
+# --pool-affinity, --adapt-every, --prompt-cache-tail - is left to
+# `strata --setup` and the app's settings form at runtime: the script neither
+# writes nor removes any of them, in "args" or in "user_args".
 #
 # Since Strata 0.2.0 a config carries the engine options twice:
 #   "args"          what setup.py or the app generated;
@@ -11,11 +44,12 @@
 #                   merges OVER "args" at every start (strata_control/user_args.py);
 #   "args_written"  the "args" setup last wrote, so a later setup run can tell
 #                   the hand edits apart and carry them over.
-# A policy that only wrote "args" would therefore be silently overridden by a
-# leftover "user_args" entry (the app's settings form writes them). So this
-# script writes the policy into "args", drops the policy-flagged options from
-# "user_args" (the layer that wins) and stamps "args_written" as its own write,
-# while keeping every option the person set that this module does not own.
+# A rewrite that touches "args" must therefore record itself: "args_written"
+# is stamped with the new "args" (so setup.py does not read the rewrite as a
+# hand edit), and "user_args" is re-stamped with the person's options minus
+# the policy flags (a copy of a policy flag in "user_args" would win over
+# "args" at engine start). Every option the person set that this module does
+# not own survives the rewrite.
 #
 # One exception: a config an older Strata wrote has no "args_written" at all, and
 # setup.py then has its own rule for telling hand edits apart ("an option my new
@@ -23,79 +57,203 @@
 # "args_written" rather than inventing it, because inventing it would mark those
 # hand edits as generated - and the next `strata --setup` would drop them.
 #
-# The window is optional. argv[1] = "none" (module option `strata.context = null`)
-# means the module does not own --max-context or the rope flags: `strata --setup`
-# and the app's settings form keep what they wrote, and this script does not touch
-# either flag or drop them from "user_args".
+# Component migration (0.2.16+): configurations written by older packages name
+# the engine by path. Up to 0.2.15 this package kept it at
+# $STRATA_HOME/engine/strata (a symlink into the store), so a run config holds
+# an absolute path there; an older Nix build could also point into /nix/store
+# directly. 0.2.17 keeps the engine in the component folder instead, and both
+# `strata launch` and the desktop app write `exe: "component:strata-engine"`.
+# This script rewrites every such path once; a component reference is left as
+# it is, so a rerun changes nothing.
+#
+# `vision.exe` is NOT rewritten to a component reference: a reference always
+# resolves to the engine entrypoint (serve/server.py -> _component_exe ->
+# engine_component.expand), which would start the engine as the picture
+# reader. It is written as the absolute path of the reader inside the
+# component folder, which is where setup.py puts it and where
+# serve/server.py's with_current_reader() looks for it.
 import glob, json, os, sys
 
-# "none" means the module does NOT own the window: `strata --setup` (or the
-# app's settings form) wrote --max-context/--rope-*, and this script leaves
-# them alone (packages/strata/home.nix, `strata.context = null`).
-ctx = None if sys.argv[1] == "none" else int(sys.argv[1])
-kv, kv_res, rope, vram, pcie, spec, workers, affinity, adapt, tail, env_json, vision_encoder = (
-    sys.argv[2], int(sys.argv[3]), sys.argv[4], int(sys.argv[5]),
-    sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10],
-    sys.argv[11] == "true", sys.argv[12], sys.argv[13] == "true")
-# The reserve a config that serves images needs (encoder activations). Optional
-# so a caller written before the vision split keeps working; the module passes
-# it (packages/strata/default.nix, vramVisionReserveMiB).
-vram_vision = int(sys.argv[15]) if len(sys.argv) > 15 else 2800
-share = sys.argv[14]
-env_patch = json.loads(env_json or "{}")
+# argv[1]: the runtime share path - upstream's own strata_control/user_args.py
+# lives there: the same code setup.py and the server use, so the layers cannot
+# drift apart (it is stdlib-only).
+# argv[2]: "true"/"false" - whether THIS package ships the vision encoder
+# (packages/strata/default.nix, visionEncoder): see the "vision" rule above.
+# argv[3]: the component folder name ("0.1.63-linux-x86_64-cuda"); optional, so
+# a call without it simply skips the vision.exe rewrite.
+share = sys.argv[1]
+vision_encoder = sys.argv[2] == "true"
+component_folder = sys.argv[3] if len(sys.argv) > 3 else ""
 home = os.environ.get("STRATA_HOME") or os.path.expanduser("~/.local/share/strata")
 
-# Upstream's own capture()/stamp()/groups(): the same code setup.py and the
-# server use, so the two layers cannot drift apart (it is stdlib-only).
+# Where upstream keeps the engine packages: components_dir() in
+# strata_control/engine_component.py uses XDG_DATA_HOME, not STRATA_HOME.
+components = os.path.join(
+    os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "strata", "components")
+vision_exe = os.path.join(components, "engine", component_folder, "strata-vision") if component_folder else ""
+
 sys.path.insert(0, share)
 from strata_control import user_args as UA
 
-# The options this module owns. Each is (re)written into "args" below (or
-# removed from it: --kv-resident for k8v4, the rope flags inside the trained
-# context), so a copy in "user_args" would be a stale value that wins over the
-# module options at engine start. Options the module leaves at null ("not set":
-# the engine's own default) are NOT listed: a hand-set value is kept for those.
+# The options this module owns, (re)written into "args" below: a copy of any
+# of them in "user_args" is dropped (that layer would otherwise win over the
+# value this module just set). Everything the person set that is not listed
+# here survives.
 POLICY = {
-    "--kv", "--kv-resident", "--vram-reserve-mib", "--spec-min-p",
+    "--expert-cache",
 }
-# The window and its rope rescaling are the module's only when it sets a
-# context; with `strata.context = null` the runtime keeps them (a hand-set
-# value in "user_args" must survive, so the flags stay out of POLICY too).
-if ctx is not None:
-    POLICY.update({"--max-context", "--rope-scaling", "--rope-scale"})
-if pcie != "none":
-    POLICY.add("--pcie-frac")
-if workers != "none":
-    POLICY.add("--pool-workers")
-if affinity != "none":
-    POLICY.add("--pool-affinity")
-if adapt != "none":
-    POLICY.add("--adapt-every")
+
+# --- Component migration (0.2.16+) ---
+# Rewrites a path-based `exe` to the component reference. Idempotent: once
+# written, a rerun changes nothing (so the mtime order strata-server uses to
+# pick the served model survives). Done before the policy rewrite because that
+# rewrite already touches the file; doing it first means one write, not two.
+component_ref = "component:strata-engine"
 
 
-def set_opt(args, flag, value):
-    # Replace the flag's value in place when it is already correct (so a rerun
-    # is byte-identical and the file is not rewritten), drop stale occurrences,
-    # and append it when it is missing.
-    out, i, found = [], 0, False
-    while i < len(args):
-        if args[i] == flag:
-            cur = None
-            i += 1
-            if i < len(args) and not args[i].startswith("--"):
-                cur = args[i]
-                i += 1
-            if value is not None and cur == str(value):
-                found = True
-                out += [flag, cur]
+def stale_path(value):
+    """True for a binary path an older Strata wrote: a store path, the old
+    engine/ tree, or a path that is simply not there any more. A current path
+    (or a component reference) is not stale."""
+    if not isinstance(value, str) or not value:
+        return False
+    if value.startswith("component:"):
+        return False
+    if value.startswith("/nix/store/") or value.startswith("./engine/") or value.startswith("engine/"):
+        return True
+    old_engine = os.path.join(home, "engine")
+    if value == old_engine or value.startswith(old_engine + os.sep):
+        return True
+    return not os.path.exists(value) and not os.path.exists(os.path.join(home, value))
+
+
+for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
+    if p.endswith(".shared-settings.json"):
+        continue
+    try:
+        with open(p, encoding="utf-8") as f:
+            text = f.read()
+        c = json.loads(text)
+        if not isinstance(c, dict):
             continue
-        out.append(args[i]); i += 1
-    if value is not None and not found:
-        out += [flag, str(value)]
-    return out
-
+        migrated = False
+        if stale_path(c.get("exe")):
+            c["exe"] = component_ref
+            migrated = True
+        # The picture reader: a concrete path inside the component folder, never
+        # a component reference (a reference resolves to the ENGINE, not to
+        # strata-vision). A build without the encoder drops the block below.
+        vision = c.get("vision")
+        if isinstance(vision, dict) and vision_encoder and vision_exe and "exe" in vision:
+            if vision["exe"] != vision_exe:
+                vision["exe"] = vision_exe
+                migrated = True
+        if migrated:
+            tmp = p + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(json.dumps(c, indent=1))
+            os.replace(tmp, p)
+    except Exception:
+        pass  # migration failures are non-fatal, skip to policy check
 
 failed = []
+
+
+def host_threads() -> int:
+    """The CPU threads this process may run on (the host's, or the cgroup's)."""
+    try:
+        return len(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        return os.cpu_count() or 0
+
+
+def host_cores() -> int:
+    """The physical cores of the largest socket, from the kernel's topology
+    files; 0 when they cannot be read."""
+    base = "/sys/devices/system/cpu"
+    cores: dict[str, set[str]] = {}
+    try:
+        names = [n for n in os.listdir(base) if n.startswith("cpu") and n[3:].isdigit()]
+    except OSError:
+        return 0
+    for name in names:
+        topo = os.path.join(base, name, "topology")
+        try:
+            with open(os.path.join(topo, "physical_package_id"), encoding="utf-8") as f:
+                package = f.read().strip()
+            with open(os.path.join(topo, "core_id"), encoding="utf-8") as f:
+                core = f.read().strip()
+        except OSError:
+            return 0
+        cores.setdefault(package, set()).add(core)
+    return max((len(c) for c in cores.values()), default=0)
+
+
+def pool_workers_ceiling() -> int:
+    """The most --pool-workers this host can use well: the engine's own plan.
+
+    strata's plan_pool_workers takes the fewer of "threads - 1" and "physical
+    cores - 1" (one CPU kept free for the host thread), so 5 on this 6-core /
+    12-thread CPU. A count above it is a number from another host: it either
+    cannot run or shares cores ("the extra workers spin and take time from the
+    others").
+    """
+    limits = [n for n in (host_threads() - 1, host_cores() - 1) if n > 0]
+    return min(limits) if limits else 0
+
+
+def drop_foreign_pool_workers(c) -> str | None:
+    """Remove a --pool-workers count this host cannot use well, in place;
+    returns the value and this host's ceiling ("8 (this host runs 5)"), or None.
+
+    The count is per host: 15 workers suit a 16-thread machine and cost about
+    half the decode speed on a 12-thread one. A run config copied from another
+    host carries the other host's number, and the engine runs it as given.
+    Dropping it is not a choice of value: the engine then picks its own.
+    """
+    ceiling = pool_workers_ceiling()
+    if ceiling <= 0:
+        return None
+    removed = None
+    for key in ("args", "args_written"):
+        args = c.get(key)
+        if not isinstance(args, list):
+            continue
+        out, i, changed = [], 0, False
+        while i < len(args):
+            if args[i] == "--pool-workers" and i + 1 < len(args):
+                try:
+                    value = int(str(args[i + 1]).strip())
+                except ValueError:
+                    value = 0
+                if value > ceiling:
+                    removed = f"{value} (this host runs {ceiling})"
+                    changed = True
+                    i += 2
+                    continue
+            out.append(args[i])
+            i += 1
+        if changed:
+            c[key] = out
+    return removed
+
+
+def shape_engine_config(c) -> bool:
+    """True when the config starts an engine of its own shape (strata-hy4,
+    strata-q4-lite, ...): serve selects it by the config's "exe" and "arch".
+    Those engines have their own options (--engram, --vram-experts-gb,
+    --ram-experts-gb) and upstream's setup writes no --expert-cache for them,
+    so this module leaves the file alone."""
+    if str(c.get("arch") or "").lower() == "hy4flash":     # not a run config of the Strata engine
+        return True
+    exe = c.get("exe")
+    if isinstance(exe, str) and exe.startswith("component:"):
+        return exe[len("component:"):] != "strata-engine"
+    if isinstance(exe, str) and exe:
+        return os.path.basename(exe).lower() not in ("strata", "strata.exe")
+    return False                                           # no exe: a config of this package's engine
+
+
 for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
     if p.endswith(".shared-settings.json"):     # the web app's Chat settings, not a model
         continue
@@ -105,88 +263,30 @@ for p in sorted(glob.glob(os.path.join(home, "strata-*.json"))):
         c = json.loads(text)
         if not isinstance(c, dict) or not isinstance(c.get("args"), list):
             continue
+        if shape_engine_config(c):
+            continue                       # another engine's run config: not this module's policy
+        dropped = drop_foreign_pool_workers(c)
+        if dropped:
+            print(f"strata: {os.path.basename(p)}: removed --pool-workers {dropped} "
+                  f"- the engine picks its own", file=sys.stderr)
         a = c["args"]
-        # The person's options, before this rewrite: "user_args" plus anything in
-        # "args" that differs from "args_written" (a hand edit since the last
-        # write). The policy flags are skipped: they are ours to set, and a
-        # differing value is a stale one, not a choice to keep.
-        mine = UA.capture(c, POLICY)
-        mine = UA.flat([g for g in UA.groups(mine) if UA.flag_of(g) not in POLICY])
-        # Mandatory for native packs (the engine refuses to start/serve
-        # them without these); the settings form drops unknown flags, so
-        # enforce them on every rewrite. "auto" is the value setup.py writes:
-        # a bare flag would make the engine take the next option as its value.
-        if "--expert-cache" not in a:
+        # --expert-cache is Flash-Next's (Qwen3.8) requirement. The Qwen3.6
+        # engine path (arch qwen35moe) places its experts with --expert-vram /
+        # --expert-slots and says "not an option of this engine" to anything
+        # else, so it gets no flag of ours.
+        qwen36 = str(c.get("arch") or "").lower() == "qwen35moe"
+        if not qwen36 and "--expert-cache" not in a:
             a += ["--expert-cache", "auto"]
-        # The module's draft-confidence floor. `--spec-min-p` is written ONCE with
-        # its final value: writing it twice (a placeholder first, the real value
-        # after) moved it to the end of the args even when it was already correct,
-        # which rewrote every config once after an upgrade and bumped the mtimes
-        # strata-server orders by. A module value of null ("none") keeps the flag
-        # at 2, unreachable for a probability, i.e. the verify window is not
-        # extended on a draft-confidence basis.
-        a = set_opt(a, "--spec-min-p", 2 if spec == "none" else spec)
-        if ctx is not None:
-            a = set_opt(a, "--max-context", ctx)
-        if kv:
-            a = set_opt(a, "--kv", kv)
-        # k8v4 never streams its KV (the engine refuses the combination)
-        if kv == "k8v4" or kv_res <= 0:
-            a = set_opt(a, "--kv-resident", None)
-        else:
-            a = set_opt(a, "--kv-resident", kv_res)
-        # Past the trained 262144 the angles must be rescaled; inside it, keep
-        # the model completely stock (no rope flags at all). With ctx = None the
-        # runtime owns both, so neither is touched.
-        if ctx is not None:
-            if ctx > 262144:
-                a = set_opt(a, "--rope-scaling", rope)
-                a = set_opt(a, "--rope-scale", f"{ctx / 262144:g}")
-            else:
-                a = set_opt(a, "--rope-scaling", None)
-                a = set_opt(a, "--rope-scale", None)
-        # Images can be on for THIS config even when the module default is off:
-        # with the encoder shipped, `strata --setup --vision yes` (or the app's
-        # images switch) writes a "vision" block. Such a config needs the larger
-        # request-time reserve, or the encoder's activations OOM on a 12 GB card
-        # - the module's text-only reserve is a budget for text alone. Keyed on
-        # the config, not the module default, for exactly that reason.
-        vision_on = bool(c.get("vision")) and vision_encoder
-        a = set_opt(a, "--vram-reserve-mib", vram_vision if vision_on and vram < vram_vision else vram)
-        # Calibrated hardware knobs (tools/calibrate.py): set only when the
-        # module provided them, otherwise the engine's default/probe stands.
-        # (--spec-min-p is done above, with the other always-written options.)
-        if pcie != "none":
-            a = set_opt(a, "--pcie-frac", pcie)
-        if workers != "none":
-            a = set_opt(a, "--pool-workers", workers)
-        if affinity != "none":
-            a = set_opt(a, "--pool-affinity", affinity)
-        if adapt != "none":
-            a = set_opt(a, "--adapt-every", adapt)
-        # Valueless flag: append when enabled (dedup), never touch args
-        # when disabled - the engine's own default is off.
-        if tail and "--prompt-cache-tail" not in a:
-            a.append("--prompt-cache-tail")
-        # Merge the module's engine environment (flags with no command-line
-        # form), keeping anything setup.py or the user already set.
-        if env_patch:
-            c["env"] = {**(c.get("env") or {}), **{k: str(v) for k, v in env_patch.items()}}
-        # Images follow the package's vision BUILD (vision_encoder: does the
-        # install ship engine/strata-vision?), not the module's default and not
-        # a stale config block: a config written by an older install (or by
-        # setup with --vision yes) keeps a "vision" block pointing at
-        # engine/strata-vision, which a package without the encoder does not
-        # ship. The server would then try to start it and fail model loads
-        # ("vision encoder failed to start ... engine/strata-vision"). With the
-        # encoder shipped, the block is the person's setup answer and stays.
         if not vision_encoder:
             c.pop("vision", None)
         c["args"] = a
-        # Record this rewrite as the writer of record: "args_written" = what is
-        # in "args" now (so setup.py does not read the policy flags as hand
-        # edits), "user_args" = the person's options still standing.
+        # The person's options, before this rewrite: "user_args" plus anything
+        # in "args" that differs from "args_written" (a hand edit since the
+        # last write). The policy flags are skipped: they are ours to set, and
+        # a differing value is a stale one, not a choice to keep.
         had_written = UA.WRITTEN_KEY in c
+        mine = UA.capture(c, POLICY)
+        mine = UA.flat([g for g in UA.groups(mine) if UA.flag_of(g) not in POLICY])
         UA.stamp(c, mine)
         if not had_written:
             # But do NOT invent "args_written" for a config an older Strata

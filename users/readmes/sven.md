@@ -53,20 +53,25 @@ The family has a shared drop folder at **`~/filedrop`** (the same as
 family — all family accounts can read, write and delete files in it. It's
 also reachable over the network as the `filedrop` SMB share.
 
-The Syncthing folder `/sync` is parents-only for now — ask mum or dad if you
-need access to a synced folder.
+The Syncthing folders at `/sync` are yours too: your Desktop, Documents,
+Photos and the rest live in **`~/sync/sven`**, so everything you save there is
+copied to the other family computers and backed up. The shared drop
+**`~/sync/FileDrop`** is writable for you as well — a file you drop there
+reaches the whole family, phones included. The other `/sync` folders are mum's
+and dad's: you can see their names, not their files. Ask mum or dad if you need
+something from them.
 
 ## Your stuff
 
-Your files have a size limit of **50 GB**, so keep an eye on big downloads.
-Every night the computer takes a backup of your home folder — if you delete
+The disk is shared with the whole family, so ask before downloading something
+big. Every night the computer takes a backup of your home folder — if you delete
 something by accident, mum or dad can get it back for you.
 
 ## USB sticks
 
-When you plug in a USB stick, the computer checks it for viruses first. It
-opens it in a safe, read-only way — you can look at files, but you can't save
-files onto the stick. If you need to put files on a stick, ask mum or dad.
+When you plug in a USB stick, the computer checks it for viruses first and
+shows you the result. It opens the stick so you can look at files and copy
+files onto it.
 
 ## Help
 

@@ -1,30 +1,33 @@
 # home-manager wrapper for the Strata package (see ./default.nix).
 #
 #   imports = [ ../../packages/strata/home.nix ];
-#   strata.enable = true;   # gated on the host with the CUDA GPU (laptop-p16)
+#   strata.enable = true;   # gated per host on a CUDA card (laptop-p16, server-nike)
 #
-# Installs `strata` (first-run setup + foreground start), `strata-chat` and
-# `strata-server`. The first `strata` run asks the model/size/context questions
-# and downloads the model (~70-84 GB per quantization) into Strata's data
-# folder, ~/.local/share/Strata-data (models/, packs/, mtp/, dflash2/); the
-# runtime tree it runs from is ~/.local/share/strata (override with
-# STRATA_HOME). `dataOnDataVolume = true` puts both on the /data volume.
-# The engine policy below (context, KV format, rope scaling, VRAM reserve)
-# overrides whatever setup answered, whenever a config is written or served.
+# Installs `strata` (Terminal CLI entry point + launcher), `strata-chat`,
+# `strata-server`, and the desktop AppImage.
 #
-# `strata-server` is the always-on, engine-optional server behind the Unsloth
-# Studio integration (Studio's Custom provider points at
-# http://127.0.0.1:8080/v1). It passes `--lazy` (upstream's replacement for the
-# fork's removed `--no-preload`): it holds no model until a request arrives, then
-# frees the ~55 GB of RAM and most of the 12 GB card again after
-# STRATA_IDLE_UNLOAD seconds (default 300) without a request, reloading on the
-# next one. With `vision` on the engine is preloaded instead:
-# `--lazy` is dropped so the image encoder is ready. Vision is off by default
-# (using the encoder costs ~35 -> ~22 tok/s), so the server runs `--lazy`; the
-# ENCODER is still shipped by default on this host (`visionEncoder`), so
-# `strata --setup` can turn images on per run without a rebuild. Runs as a user
-# service so Studio can reach it whenever; Studio's own models keep the GPU the
-# rest of the time.
+# The engine is installed as an upstream engine component (~/.local/share/strata/
+# components/engine/0.1.67-linux-x86_64-cuda/) with a per-file SHA-256 manifest,
+# built in the Nix store by engine.nix. The component folder holds a small
+# `strata` wrapper, the picture reader and BUILD.json; the engine binary itself
+# stays in the store. The Terminal tree (setup.py, strata.py, serve/,
+# strata_cli/, strata_control/, tools/, data/, requirements*.txt, ...) is
+# refreshed from the store on every `strata` invocation. Both `strata launch`
+# (Terminal) and the desktop app write `exe: "component:strata-engine"`.
+#
+# Upstream 0.2.18 changes (Terminal/app 0.2.18, Control and engine 0.1.64):
+# - Tencent Hy4-Flash and its own "shape" engine (strata-hy4 0.1.64). That
+#   engine is a separate component (components/shapes/...), fetched from the
+#   signed feed when a Hy4-Flash pack is chosen; this package builds only the
+#   Strata engine for the Qwen 125B, and the shapes folder is left alone.
+# - Run-config keys, the --expert-cache rule and the component manifest schema
+#   are unchanged, so existing configs keep working.
+# - Still 0.2.17 behaviour: route-tail-skip OFF by default, setup keeps 17 GB
+#   of RAM free (not 24; the 125B is fully resident on 125 GB RAM regardless).
+#
+# `dataOnDataVolume = true` moves both the runtime tree and the data folder
+# (~70-120 GB) to the /data volume, leaving symlinks in place so existing
+# paths resolve unchanged.
 { config, lib, pkgs, ... }:
 with lib;
 let
@@ -45,38 +48,40 @@ in
     package = mkOption {
       type = types.package;
       default = pkgs.callPackage ./default.nix {
-        inherit (cfg) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery promptCacheTail vision visionEncoder engineEnv;
+        # Build-time choices and the service's start behaviour. Every engine
+        # knob (context window, KV format, rope, pcie fraction, ...) is a
+        # `strata launch` answer in the run config, decided at runtime.
+        inherit (cfg) preloadEngine visionEncoder;
         # CachyOS needs the /usr/lib/libcuda shim; NixOS uses the driver runpath
         # (set by the standalone CachyOS flake / left false on NixOS).
         inherit (config.commonHm) isCachyOS;
       };
-      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) context kv kvResident ropeScaling pcieFrac specMinP poolWorkers poolAffinity adaptEvery promptCacheTail vision visionEncoder engineEnv; inherit (config.commonHm) isCachyOS; }";
+      defaultText = literalExpression "pkgs.callPackage ./default.nix { inherit (config.strata) preloadEngine visionEncoder; inherit (config.commonHm) isCachyOS; }";
       description = "The Strata package providing the engine and the setup/start wrappers.";
     };
 
-    vision = mkOption {
+    preloadEngine = mkOption {
       type = types.bool;
       default = false;
       description = ''
-        Serve images by default: the wrapper passes `--vision yes` to setup
-        (`--vision no` overrides it for one run) and strata-server preloads the
-        engine instead of loading it lazily. Off by default: it drops throughput
-        from ~35 to ~22 tok/s. Costs ~1.2 GB of VRAM for the encoder and a
-        ~0.9 GB mmproj download on first setup. Implies `visionEncoder`.
+        Start `strata-server` with the engine already loaded (no `--lazy`)
+        instead of loading it on the first request. This is a service setting,
+        not a model setting: pictures, context and the rest stay `strata launch`
+        answers in the run config. Off by default, because a preloaded engine
+        holds the weights in RAM and most of the card while no request is open.
       '';
     };
 
     visionEncoder = mkOption {
       type = types.bool;
-      default = cfg.vision;
-      defaultText = literalExpression "config.strata.vision";
+      default = false;
       description = ''
-        Build and ship the strata-vision image encoder, without deciding what
-        setup does with it. With the binary installed, `strata --setup` asks the
-        images question and both answers work (yes: CPU encoder on a 12 GB card,
-        ~35 -> ~22 tok/s; no: text only). Costs only disk until images are used.
-        Leave it false and the setup run is forced text-only, because the
-        package has no encoder to enable.
+        Build and ship the strata-vision image encoder. This is the only
+        build-time piece of the picture support: without the binary the engine
+        can never read images, whatever the run config says. With it installed,
+        `strata launch` asks the images question and both answers work (yes: the
+        reader runs on the CPU of a 12 GB card, ~35 -> ~22 tok/s; no: text
+        only). Costs only disk until images are used.
       '';
     };
 
@@ -107,126 +112,6 @@ in
       };
     };
 
-    context = mkOption {
-      type = types.nullOr types.ints.positive;
-      default = 524288;
-      description = ''
-        Engine KV/state capacity (`--max-context`). Past the model's trained
-        262144 this also enables yarn rope scaling with factor
-        `context / 262144` (524288 -> factor 2). Enforced on every Strata config
-        the package writes or serves, so `strata --setup` cannot leave it at a
-        different value.
-
-        null leaves the window to the runtime: the wrapper stops passing
-        `--context` to setup, and the config patcher leaves `--max-context` and
-        the rope flags exactly as `strata --setup` or the app's settings form
-        wrote them. Use it when the person, not this module, owns the window.
-      '';
-    };
-
-    kv = mkOption {
-      type = types.enum [ "int8" "q4_0" "k8v4" "fp16" ];
-      default = "int8";
-      description = ''
-        KV cache format (`--kv`). `k8v4` is the lowest-memory hybrid but cannot
-        stream its KV, so `kvResident` is dropped for it.
-      '';
-    };
-
-    kvResident = mkOption {
-      type = types.ints.unsigned;
-      default = 32768;
-      description = ''
-        Cells of each attention layer kept in VRAM; the rest of the KV cache
-        lives in pinned RAM (`--kv-resident`, engine minimum 20480). 0 keeps the
-        whole KV in VRAM. Costs ~13.7 KB of RAM per context token at 8-bit.
-      '';
-    };
-
-    ropeScaling = mkOption {
-      type = types.enum [ "yarn" "linear" "none" ];
-      default = "yarn";
-      description = "RoPE extension method used only when context > 262144 (`--rope-scaling`).";
-    };
-
-    pcieFrac = mkOption {
-      type = types.nullOr types.float;
-      default = null;
-      description = ''
-        Share of the experts missing from VRAM copied over PCIe and computed on
-        the GPU instead of the CPU (`--pcie-frac`, 0..1). null keeps the engine's
-        one-shot probe, which can read a busy or not-yet-ramped link several
-        times low; run `tools/calibrate.py` and pin the measured value here.
-      '';
-    };
-
-    specMinP = mkOption {
-      type = types.nullOr types.float;
-      default = null;
-      description = ''
-        Draft confidence below which the verify window is not extended by another
-        guess (`--spec-min-p`, 0..1). null keeps the engine's 0.5; a slower CPU
-        wants a higher floor.
-      '';
-    };
-
-    poolWorkers = mkOption {
-      type = types.nullOr types.ints.unsigned;
-      default = null;
-      description = ''
-        CPU expert-pool worker threads (`--pool-workers`). null keeps the engine's
-        default (every physical core minus the host's); on a hybrid CPU the
-        E-cores can make every window wait for them, so calibration often picks
-        fewer.
-      '';
-    };
-
-    poolAffinity = mkOption {
-      type = types.nullOr (types.enum [ "all" "auto" "p-cores" ]);
-      default = null;
-      description = "CPU affinity mode for the expert pool (`--pool-affinity`). null keeps the engine's `all`.";
-    };
-
-    adaptEvery = mkOption {
-      type = types.nullOr types.ints.positive;
-      default = null;
-      description = ''
-        Adaptive expert-cache exchange interval (`--adapt-every`, engine default
-        4). A lower value lets the cache learn a conversation's hot experts
-        sooner, which helps the first request of a cold session (P8 measured the
-        fresh hit rate 0.468 -> 0.539 at 1); it trades a small warm-turn hit
-        rate. null keeps the engine's default 4.
-      '';
-    };
-
-    promptCacheTail = mkOption {
-      type = types.bool;
-      default = false;
-      description = ''
-        Checkpoint near the end of each prompt too (`--prompt-cache-tail`,
-        --serve; needs --prompt-cache and --prompt-cache-every > 0, both at
-        their engine defaults). Without it, conversation-checkpoint reuse only
-        covers the resident KV window (--kv-resident, 20480 here), so every
-        serve request re-reads `context - 20480` tokens: ~27K tokens (~31 s) at
-        47K context, ~2 min at a 130K agent conversation. With it the reused
-        prefix grows with the conversation and the per-request re-read is
-        bounded (~12-13K tokens, ~13 s flat at 20-48K context on this host;
-        bench 2026-10-14, /tmp/opencode/strata-ab-results.txt protocol). Costs
-        one extra ~118 MB RAM checkpoint.
-      '';
-    };
-
-    engineEnv = mkOption {
-      type = types.attrsOf types.str;
-      default = { };
-      example = { STRATA_ADAPT_OVERLAP = "1"; };
-      description = ''
-        Environment variables merged into every engine config's `env` block (the
-        engine reads them; they are not command-line flags). For upstream
-        workarounds that have no flag. Empty by default.
-      '';
-    };
-
     autoStart = mkOption {
       type = types.bool;
       default = true;
@@ -254,7 +139,24 @@ in
     port = mkOption {
       type = types.port;
       default = 8080;
-      description = "Loopback port of the Strata API (the port Studio's Custom provider points at).";
+      description = "Port of the Strata API (bound per `strata.host`; the port Studio's Custom provider points at).";
+    };
+
+    host = mkOption {
+      type = types.str;
+      default = "127.0.0.1";
+      description = ''
+        Address the Strata API listens on (`STRATA_HOST`). Loopback by
+        default: the server is for this machine's clients (Studio, opencode,
+        the desktop app). Set it to 0.0.0.0 where the host firewall scopes
+        the exposure, e.g. to reach the 125B from another inference host, a
+        phone on the LAN or a tailnet peer. Note the server's Host-header
+        check (DNS-rebinding protection): beyond loopback it answers to its
+        own name and LAN addresses automatically, and IP-address Host headers
+        always pass, but a MagicDNS name (`.bee-blues.ts.net`) needs an
+        `allowedHosts` entry.
+      '';
+      example = "0.0.0.0";
     };
 
     minFreeVramMib = mkOption {
@@ -293,6 +195,21 @@ in
       '';
     };
 
+    apiKey = mkOption {
+      type = types.str;
+      default = "strata";
+      description = ''
+        API key for the Strata server (`STRATA_API_KEY`). When set, all `/v1/*`
+        endpoints require `Authorization: Bearer <key>` (or the `x-api-key`
+        header). Also read by `strata launch` during setup so it does not
+        generate a random key — this value is used instead.
+        The key must match what all clients send: the LiteLLM proxy uses the
+        literal string `"strata"` for every Strata deployment, and the
+        unsloth-studio handoff script checks `STRATA_API_KEY` for the same
+        header on `/health` and `/v1/unload` calls.
+      '';
+    };
+
     dataOnDataVolume = mkOption {
       type = types.bool;
       default = false;
@@ -319,10 +236,15 @@ in
     defaultConfig = mkOption {
       type = types.str;
       default = "";
-      example = "strata-iq2_xs.json";
+      example = "/home/nicky/.local/share/strata/strata-swift-iq2_xs.json";
       description = ''
-        Config file (name under the Strata home, or an absolute path) that
-        `strata-server` serves. "" lets the most recently written config win.
+        Config file that `strata-server` serves, when the unit must not follow
+        `strata launch`. Use the absolute path: a bare name is read under the
+        Strata home. "" (the default) serves the run config of the newest
+        `strata launch` (state folder `launch/<name>.json`), and falls back to
+        the newest `strata-*.json` in the Strata home on a host that has never
+        run `strata launch`. A value that names no file is reported in the
+        journal and ignored.
       '';
     };
   };
@@ -331,20 +253,14 @@ in
     (mkIf cfg.enable {
       assertions = [
         {
-          assertion = cfg.ropeScaling != "none" || cfg.context == null || cfg.context <= 262144;
-          message = "strata.ropeScaling = \"none\" needs strata.context <= 262144 (or null, when the runtime owns the window): the engine refuses --rope-scale with no scaling past the trained context.";
-        }
-        {
-          assertion = cfg.kvResident == 0 || cfg.kvResident >= 20480;
-          message = "strata.kvResident must be 0 (whole KV in VRAM) or at least 20480 (the engine's --kv-resident minimum).";
-        }
-        {
-          # `vision` means "serve images by default", which needs the encoder
-          # binary in the package. Only the option DEFAULT ties the two, so an
-          # explicit `visionEncoder = false` would otherwise produce a package
-          # that is told to serve images it cannot encode.
-          assertion = !cfg.vision || cfg.visionEncoder;
-          message = "strata.vision = true needs strata.visionEncoder = true: the package must ship the strata-vision encoder it is told to serve with.";
+          # Desktop app and Terminal must be the same version: the AppImage
+          # cannot update itself from the Nix store (write-protected), so
+          # any version mismatch means the app has no engine (ships none
+          # since 0.2.5) or a divergent one. Enforced by checking that
+          # the desktop package's version (from desktop.nix) equals the
+          # Terminal package's version (from default.nix).
+          assertion = !cfg.desktop.enable || cfg.package.meta.version == desktop.passthru.version;
+          message = "strata.desktop.enable = true requires the desktop AppImage to be at the same version as the Terminal package: Terminal is ${cfg.package.meta.version} but desktop.nix has ${desktop.passthru.version}. Bump both in the same change.";
         }
       ];
 
@@ -377,7 +293,7 @@ in
 
       systemd.user.services.strata = {
         Unit = {
-          Description = "Strata server (${if cfg.vision then "image encoder preloaded" else "engine loads on demand"}; Unsloth Studio's 125B endpoint)";
+          Description = "Strata server (${if cfg.preloadEngine then "engine preloaded at start" else "engine loads on demand"}; Unsloth Studio's 125B endpoint)";
           After = [ "network-online.target" ];
           # Unlimited restarts: a unit that gives up would leave Studio's 125B
           # endpoint dead. StartLimit* belongs in [Unit] - in [Service] systemd
@@ -401,7 +317,9 @@ in
           Environment = [
             "BROWSER=true" # never open a browser from the service
             "STRATA_PORT=${toString cfg.port}"
+            "STRATA_HOST=${cfg.host}"
             "STRATA_IDLE_UNLOAD=${toString cfg.idleUnloadSeconds}"
+            "STRATA_API_KEY=${cfg.apiKey}"
           ]
           ++ optional (cfg.minFreeVramMib > 0) "STRATA_MIN_FREE_VRAM=${toString cfg.minFreeVramMib}"
           ++ optional (cfg.allowedHosts != [ ]) "STRATA_ALLOWED_HOSTS=${concatStringsSep "," cfg.allowedHosts}"
@@ -437,6 +355,7 @@ in
         # always carry it, so set the standard location when it is missing.
         XDG_RUNTIME_DIR=''${XDG_RUNTIME_DIR:-/run/user/''$(id -u)}
         export XDG_RUNTIME_DIR
+        export PATH="${pkgs.coreutils}/bin:${pkgs.systemd}/bin:$PATH"
         SYSTEMCTL=$(command -v systemctl 2>/dev/null || true)
         STOPPED=0
         # No bus, no stop: say so loudly, because moving the files under a
@@ -459,12 +378,12 @@ in
           return 0
         }
         # name of the folder under ~/.local/share : the folder on /data.
-        $DRY_RUN_CMD mkdir -p "$HOME/.local/share"
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/mkdir -p "$HOME/.local/share"
         for tree in strata:/data/strata Strata-data:/data/Strata-data; do
           name=''${tree%%:*}
           data_dir=''${tree#*:}
           link_dir="$HOME/.local/share/$name"
-          $DRY_RUN_CMD mkdir -p "$data_dir"
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/mkdir -p "$data_dir"
           if [ -L "$link_dir" ] && [ "$(readlink -f "$link_dir" 2>/dev/null)" = "$data_dir" ]; then
             continue
           fi

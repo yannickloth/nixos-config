@@ -9,6 +9,17 @@ with lib;
     # Shared family-laptop module set (IVP; see the file header for the deltas).
     ../../environments/family-laptop.nix
 
+    # Pinned age host identity (services/host-age.nix): the keypair in
+    # ssh-keys/hosts/laptop-xps is pinned as the /etc/ssh host key (private key installed per
+    # secrets-structure/README.md) and audited against secrets.nix at build time.
+    ../../services/host-age.nix
+    {
+      services.hostAge = {
+        enable = true;
+        pubKey = ../../ssh-keys/hosts/laptop-xps.pub;
+      };
+    }
+
     # laptop-xps-only modules (SONOS controller + extra Plasma packages; the
     # 16 GiB host also runs the lighter Plasma session). apps/wine.nix puts
     # wine in PATH so Lutris's system check finds a default runner.
@@ -76,9 +87,10 @@ with lib;
   # 16 GiB RAM -> keep browser profiles on disk (psd disabled).
   roles.psd.enable = false;
 
-  # Bootloader.
+  # Bootloader — keep 5 generations max to prevent EFI partition fill-up.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.systemd-boot.configurationLimit = 5;
 
   # Btrfs swapfile on the root filesystem (in addition to zram) as disk-swap overflow.
   swapDevices = [{ device = "/swapfile"; size = 16384; }]; # 16 GiB; adjust to match RAM/disk

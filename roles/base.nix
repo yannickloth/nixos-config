@@ -6,17 +6,26 @@ with lib;
 
 {
   imports = [
+    ./btrfs.nix
     ./nix.nix
     ./home-readme.nix
+    ./fhs-compat.nix
     ../security/kids.nix
     ../services/snapshots.nix
+    ../services/usb-mount.nix
     ../services/usb-scan.nix
     ../services/secrets.nix
   ];
 
   config = {
-    # Default timezone (Europe/Luxembourg; environments/laptop.nix pins the
-    # same value for laptops). Not UTC — this is a home LAN, not a server.
+    # Default timezone (Europe/Luxembourg; same UTC offset as Brussels —
+    # Messancy sits on the Belgian-Luxembourg border). Hosts that enable
+    # services.localtimed (the portables, via environments/laptop.nix) get a
+    # plain `time.timeZone = null` from the nixpkgs module — that beats this
+    # mkDefault on purpose, so its geoclue2 daemon manages the timezone at
+    # runtime. The static default applies to hosts without localtimed
+    # (server-nike). Do NOT add a mkForce here or in an environment: it would
+    # silently defeat the daemon on the portables.
     time.timeZone = mkDefault "Europe/Luxembourg";
 
     # You are not allowed to manage users manually by default
@@ -25,9 +34,12 @@ with lib;
     # clean tmp on boot and remove all residuals there
     boot.tmp.cleanOnBoot = mkDefault true;
 
-    # enable NTFS support (bcachefs removed: no bcachefs filesystems in use,
-    # and it pulled the heavy bcachefs-tools Rust build into every system)
-    boot.supportedFilesystems = [ "ntfs" ];
+    # NTFS support for the filesystem layer lives in services/usb-mount.nix
+    # (imported above), together with the udisks2 user-mount stack. bcachefs
+    # removed: no bcachefs filesystems in use, and it pulled the heavy
+    # bcachefs-tools Rust build into every system.
+    # The NTFS userspace tools (ntfsinfo, mkfs.ntfs, ntfsfix) come from
+    # ntfs3g, which boot.supportedFilesystems = [ "ntfs" ] installs.
 
     # i think apple will sue me before oss does
     nixpkgs.config.allowUnfree = true;
@@ -42,9 +54,17 @@ with lib;
 
     system.nixos = {
       versionSuffix = mkDefault ".latest";
-      revision = mkDefault "latest";
+      revision = mkDefault "latest-2";
     };
 
+    # General-purpose sysadmin tools, plus the interpreters every user gets.
+    environment.systemPackages = with pkgs; [
+      btop # top/htop replacement, CPU/memory/network/disk view
+      # Python interpreter available to every user (kids' programming). The repo's
+      # own scripts are Java 25 compact source files (users/NaturalScroll.java,
+      # services/MalcontentMerge.java).
+      python3
+    ];
     # enable systemd-oomd on all systems (replaces earlyoom: first-class,
     # kills the heaviest process on memory pressure instead of locking up)
     systemd.oomd = {
@@ -83,92 +103,8 @@ with lib;
       "kernel.kexec_load_disabled" = 1;
     };
 
-    # Python interpreter available to every user (kids' programming). The repo's
-    # own scripts are Java 25 compact source files (users/NaturalScroll.java,
-    # services/MalcontentMerge.java).
-    environment.systemPackages = [ pkgs.python3 ];
-
-    # Flatpak apps installed per-user that malcontent's allowlist gates for the
-    # kids (malcontent only filters flatpak apps; it filters per-user apps by
-    # app id just like system ones). Kept in sync with the allowlist in
-    # services/malcontent.nix. Browsers stay in Nix: Firefox needs its
-    # declarative kid policies (users/kid-firefox-policies.nix). The kids'
-    # office/creative/media/mail/games apps (libreoffice, gimp, krita, VLC,
-    # Geary, the KDE mini-games) come from flatpak so malcontent can gate them
-    # without a Nix rebuild, while adults get those apps natively via
-    # home-manager — one source per user, never native + flatpak both.
-    # Overrides grant access to the shared family drop folder (/filedrop).
-    # The kids' file manager (Dolphin) is native, not flatpak: it needs
-    # group/ACL access to /filedrop (filedrop group), which a sandboxed
-    # flatpak can't use — see the rule of thumb in users/readmes/parents.md.
-    # adultApps is the same list minus the apps nicky/aeiuno already have from
-    # Nixpkgs (gimp, krita, libreoffice, vlc, obsidian, dolphin, gwenview,
-    # kalk, okular, calibre, filelight), so the adults never end up with two
-    # copies of an app.
-    # Note: KDE's Minesweeper is org.kde.kmines on Flathub (org.kde.Mines is a
-    # nonexistent id), and replaces GNOME Mines (removed: duplicates kmines).
-    apps.flatpak = {
-      enable = mkDefault true;
-      apps = [
-        "app/org.gnome.Cheese/x86_64/stable"
-        "app/org.gnome.Clocks/x86_64/stable"
-        "app/org.gnome.Geary/x86_64/stable"
-        "app/org.gnome.Logs/x86_64/stable"
-        "app/org.gnome.Maps/x86_64/stable"
-        "app/org.gnome.Nibbles/x86_64/stable"
-        "app/org.gnome.SystemMonitor/x86_64/stable"
-        "app/org.gnome.Chess/x86_64/stable"
-        "app/org.atheme.audacious/x86_64/stable"
-        "app/org.kde.granatier/x86_64/stable"
-        "app/org.kde.gwenview/x86_64/stable"
-        "app/org.kde.kalk/x86_64/stable"
-        "app/org.kde.katomic/x86_64/stable"
-        "app/org.kde.kblocks/x86_64/stable"
-        "app/org.kde.kbreakout/x86_64/stable"
-        "app/org.kde.kdiamond/x86_64/stable"
-        "app/org.kde.kmahjongg/x86_64/stable"
-        "app/org.kde.kmines/x86_64/stable"
-        "app/org.kde.kpat/x86_64/stable"
-        "app/org.kde.kshisen/x86_64/stable"
-        "app/org.kde.ksudoku/x86_64/stable"
-        "app/org.kde.krita/x86_64/stable"
-        "app/org.kde.kwordquiz/x86_64/stable"
-        "app/org.kde.khangman/x86_64/stable"
-        "app/org.kde.kanagram/x86_64/stable"
-        "app/org.kde.kturtle/x86_64/stable"
-        "app/org.kde.kgeography/x86_64/stable"
-        "app/org.kde.kalgebra/x86_64/stable"
-        "app/org.kde.kig/x86_64/stable"
-        "app/org.kde.kstars/x86_64/stable"
-        "app/org.kde.okular/x86_64/stable"
-        "app/org.kde.filelight/x86_64/stable"
-        "app/org.gimp.GIMP/x86_64/stable"
-        "app/com.calibre_ebook.calibre/x86_64/stable"
-        "app/org.libreoffice.LibreOffice/x86_64/stable"
-        "app/org.videolan.VLC/x86_64/stable"
-        "app/md.obsidian.Obsidian/x86_64/stable"
-        "app/org.stellarium.Stellarium/x86_64/stable"
-        "app/edu.mit.Scratch/x86_64/stable"
-        "app/io.gdevelop.ide/x86_64/stable"
-        "app/org.geogebra.GeoGebra/x86_64/stable"
-      ];
-      adultApps = [
-        "app/org.gnome.Cheese/x86_64/stable"
-        "app/org.gnome.Clocks/x86_64/stable"
-        "app/org.gnome.Geary/x86_64/stable"
-        "app/org.gnome.Logs/x86_64/stable"
-        "app/org.gnome.Maps/x86_64/stable"
-        "app/org.gnome.SystemMonitor/x86_64/stable"
-        "app/org.stellarium.Stellarium/x86_64/stable"
-      ];
-      overrides = {
-        "org.kde.krita" = [ "--filesystem=/filedrop" ];
-        "org.gimp.GIMP" = [ "--filesystem=/filedrop" ];
-        "org.libreoffice.LibreOffice" = [ "--filesystem=/filedrop" ];
-        "org.videolan.VLC" = [ "--filesystem=/filedrop" ];
-        "md.obsidian.Obsidian" = [ "--filesystem=/filedrop" ];
-      };
-    };
+    # python3 is installed in the systemPackages block above. One module may
+    # define an option once, so package additions belong in that single block.
 
     # Root-owned, immutable README.md in each family member's home, on every host
     # (see roles/home-readme.nix). Parents share one file; sven and aaron get

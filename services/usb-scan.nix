@@ -1,18 +1,16 @@
 # Virus-scan USB drives with ClamAV when they are inserted.
 #
-# - A udev rule forces removable (USB) filesystems to mount read-only via
-#   udisks2/KDE (UDISKS_MOUNT_OPTIONS), so nothing can be written before a scan.
-# - A second udev rule starts usb-scan@<device>.service on insertion, which
-#   scans the mounted filesystem and reports the result to the active user.
+# - A udev rule starts usb-scan@<device>.service on insertion, which scans the
+#   mounted filesystem and reports the result to the active user.
+# - The scan is read-only. The drive itself mounts read-write for the user; the
+#   mount options live in services/usb-mount.nix.
 #
-# Parents who need write access can `sudo mount -o remount,rw` the drive (or
-# mount it with an authenticated `udisksctl`) — kids cannot.
+# Parents who need an exclusive read-only view can `sudo mount -o remount,ro`
+# the drive; kids cannot.
 { config, lib, pkgs, ... }:
 
 {
   services.udev.extraRules = ''
-    # Mount USB storage read-only via udisks2/KDE.
-    SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{ID_FS_TYPE}!="", ENV{UDISKS_MOUNT_OPTIONS}="ro,nosuid,noexec"
     # Trigger the scan service when a USB filesystem appears.
     ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{ID_FS_TYPE}!="", TAG+="systemd", ENV{SYSTEMD_WANTS}+="usb-scan@%k.service"
   '';

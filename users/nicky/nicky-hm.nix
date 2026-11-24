@@ -51,6 +51,12 @@ let
   # config.networking.hostName is NOT reachable inside home-manager modules
   # (they expose their own config namespace), so it cannot be used here.
   isP16 = config.commonHm.hostName == "laptop-p16";
+  # True when this config targets server-nike (Dell 5810). It runs the same
+  # software stack as laptop-p16 — its intended use is inference (daily),
+  # with desktop use in between — and the hardware qualifies: RTX 3060 12GB
+  # (Ampere GA106, sm_86, above the image's sm_75 floor) + 96 GiB RAM for
+  # Strata's expert arena.
+  isNike = config.commonHm.hostName == "server-nike";
   # True when this config is built by the standalone CachyOS flake
   # (users/flake.nix). On CachyOS the engine's host tuning lives in /etc
   # (hosts/laptop-p16/cachyos/), because no NixOS system module runs there; on
@@ -66,6 +72,7 @@ in
     ../emacs-adult.nix
     ../../packages/strata/home.nix
     ../../packages/unsloth-studio/home.nix
+    ../../packages/kintsugi-27b/home.nix
     ../natural-scroll.nix
     ../nix-serve.nix
     ../opencode.nix
@@ -91,14 +98,134 @@ in
     lib.mkIf config.commonHm.isCachyOS config.age.secrets."opencode-keys.env".path;
 
   # Orca (agent development environment): the desktop client on every host, and
-  # on laptop-p16 the single always-on runtime server (`orca-ide serve`) that
-  # other clients pair to over Tailscale. Per-user: it runs as nicky, so the
-  # agent CLIs it drives use nicky's PATH and credentials.
+  # on the inference hosts (laptop-p16, server-nike) the always-on runtime
+  # server (`orca-ide serve`) that other clients pair to over Tailscale.
+  # Per-user: it runs as nicky, so the agent CLIs it drives use nicky's PATH
+  # and credentials.
   orca.enable = true;
 
   # BrowserOS neo: agent-driven browser for AI assistants (MCP), runs with the
   # user's real logins in its own profile.
   browseros.enable = true;
+
+  # hermes-agent: route through the LiteLLM rank gateway on server-nike. The
+  # `model.default` uses a rank name (lieutenant) so the proxy handles routing,
+  # fallback and cost tracking. The unsloth studio custom provider stays so
+  # local inference models are still reachable for experimentation.
+  #
+  # The gateway and the two subscription backends are registered as hermes
+  # custom_providers, so hermes also has a path that does NOT depend on the
+  # gateway: when the proxy is down, switch provider to zai-coding or
+  # kimi-code and the request goes to the plan endpoint itself (the built-in
+  # deepseek provider is a third direct path; hermes auth manages its
+  # DEEPSEEK_API_KEY in ~/.hermes/.env). Credentials ride via key_env -> the
+  # vars writeHermesEnv upserts into ~/.hermes/.env (hermes' own API-key
+  # file, loaded into the process env at startup), sourced from the same
+  # opencode-keys agenix secret as every other key file. The proxy entry also
+  # fixes gateway auth itself: until now hermes had no stored credential for
+  # model.provider=proxy (no custom_providers entry named proxy, no key_env,
+  # no auth pool), so its provider resolver came back empty — hermes could
+  # not authenticate a gateway request at all (the proxy requires the master
+  # key).
+  #
+  # Written as an activation running after herdrIntegrations: the herdr
+  # integration install command rewrites the model/provider/base_url section,
+  # so a plain home.file would be clobbered. This activation patches those
+  # three fields (and adds the orca-status plugin) after herdr finishes.
+  # custom_providers is upserted the same way: entries with our names are
+  # replaced, every other entry (hermes' own, e.g. unsloth studio) survives.
+  home.activation.writeHermesConfig = lib.hm.dag.entryAfter [ "writeBoundary" "herdrIntegrations" "writeHermesEnv" ] ''
+    if $DRY_RUN_CMD ${pkgs.yq}/bin/yq -e '.model.default' "$HOME/.hermes/config.yaml" >/dev/null 2>&1; then
+      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
+        .model = {"default": "lieutenant", "provider": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1"}
+      ' "$HOME/.hermes/config.yaml"
+      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '.plugins.enabled += ["orca-status"]' "$HOME/.hermes/config.yaml"
+      # Gateway + direct subscription providers (idempotent: same-named
+      # entries are replaced, unknown ones kept). key_env names point at the
+      # vars written by writeHermesEnv; hermes' named-custom branch supplies
+      # them as the bearer credential.
+      $DRY_RUN_CMD ${pkgs.yq}/bin/yq -iy '
+        .custom_providers = ((.custom_providers // []) | map(select(.name != "proxy" and .name != "zai-coding" and .name != "kimi-code"))) + [
+          {"name": "proxy", "base_url": "http://server-nike.bee-blues.ts.net:4000/v1", "key_env": "LITELLM_MASTER_KEY", "model": "lieutenant", "models": {"lieutenant": {}}},
+          {"name": "zai-coding", "base_url": "https://api.z.ai/api/coding/paas/v4", "key_env": "ZAI_CODING_API_KEY", "model": "glm-5.3", "models": {"glm-5.3": {}, "glm-5.3-flash": {}, "glm-5-turbo": {}}},
+          {"name": "kimi-code", "base_url": "https://api.kimi.com/coding/v1", "key_env": "KIMI_CODE_API_KEY", "model": "k3.1-pro", "models": {"k3.1-pro": {}, "k3": {}, "k3-256k": {}, "kimi-for-coding": {}}}
+        ]
+      ' "$HOME/.hermes/config.yaml"
+    else
+      echo "hermes: config.yaml not yet present; skipping model override" >&2
+    fi
+  '';
+
+  # hermes credential source: upsert the gateway master key and the two
+  # subscription backend keys into ~/.hermes/.env (hermes loads that file
+  # into the process env at startup; the custom_providers entries above
+  # reference the vars through key_env). Same source as every other key file
+  # on this machine: the OPENAI_API_KEYS agenix secret (config.opencode.envFile,
+  # falling back to the system path), so a rotation reaches hermes on the
+  # next switch too. Only the three managed vars are touched; other lines
+  # (hermes auth's own entries, e.g. DEEPSEEK_API_KEY) stay verbatim.
+  # Freshness: every hermes CLI run loads the file at startup, but the
+  # hermes-gateway service is hermes' own unit (not HM-managed), so it sees
+  # new or rotated values only after its next restart.
+  home.activation.writeHermesEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    # Wrapped in $DRY_RUN_CMD like writeHermesConfig, so a dry activation
+    # touches nothing under ~/.hermes. (The key-file materialization in
+    # users/opencode.nix deliberately stays unwrapped; this file follows the
+    # wrapped convention.)
+    $DRY_RUN_CMD ${pkgs.python3}/bin/python3 - "${config.home.homeDirectory}" '${config.opencode.envFile}' <<'PYEOF'
+    import json, os, sys
+
+    home = sys.argv[1]
+    # expandvars so an agenix $XDG_RUNTIME_DIR/... path resolves from the
+    # activation environment (same convention as setupOpenCodeKeys).
+    candidates = [os.path.expandvars(p) for p in (sys.argv[2], "/etc/secrets/opencode-keys.env") if p]
+    envfile = next((p for p in candidates if p and os.path.exists(p)), None)
+    env_path = os.path.join(home, ".hermes", ".env")
+    # secret URL -> env var name (both Z.AI spellings hold the same plan key;
+    # see the mapping in users/opencode.nix).
+    mapping = {
+        "http://server-nike.bee-blues.ts.net:4000/v1": "LITELLM_MASTER_KEY",
+        "https://api.z.ai/api/paas/v4/": "ZAI_CODING_API_KEY",
+        "https://api.z.ai/api/coding/paas/v4": "ZAI_CODING_API_KEY",
+        "https://api.kimi.com/coding/v1": "KIMI_CODE_API_KEY",
+    }
+    managed = set(mapping.values())
+    if envfile is None:
+        print("hermes: no key source found (%s); skipping .env update" % ", ".join(candidates))
+        sys.exit(0)
+    try:
+        with open(envfile) as fh:
+            _, _, payload = fh.read().partition("=")
+        keys = json.loads(payload.strip())
+    except Exception as exc:
+        print(f"hermes: failed to parse {envfile}: {exc}; leaving .env untouched", file=sys.stderr)
+        sys.exit(0)
+    values = {}
+    for url, var in mapping.items():
+        key = keys.get(url)
+        if key:
+            values[var] = key
+    missing = sorted(managed - set(values))
+    if missing:
+        print(f"hermes: no secret key for {', '.join(missing)}; those vars not written")
+    # Keep unmanaged lines in order (blank lines are dropped); managed ones
+    # move to the end, upserted.
+    kept = []
+    try:
+        with open(env_path, encoding="utf-8") as fh:
+            kept = [l.rstrip("\n") for l in fh if l.strip() and l.split("=", 1)[0] not in managed]
+    except FileNotFoundError:
+        os.makedirs(os.path.dirname(env_path), mode=0o700, exist_ok=True)
+    for var in sorted(values):
+        kept.append(f"{var}={values[var]}")
+    fd = os.open(env_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w") as out:
+        if kept:
+            out.write("\n".join(kept) + "\n")
+    print(f"hermes: wrote {len(values)} key var(s) to {env_path}")
+    PYEOF
+  '';
 
   # LibreOffice MCP extension (packages/libreoffice-mcp): an MCP server runs
   # inside the open LibreOffice window on https://localhost:8765/mcp (the
@@ -125,7 +252,7 @@ in
   # here (opencode, pi, hermes) — those `herdr integration install` runs happen
   # at activation, see the module.
   herdr.enable = true;
-  orca.server = lib.mkIf isP16 {
+  orca.server = lib.mkIf (isP16 || isNike) {
     enable = true;
     # No Tailscale address pinned: the launcher derives it at start.
   };
@@ -174,11 +301,28 @@ in
   unsloth-studio.podmanStorageRoot = "/data/containers/nicky";
   unsloth-studio.dataDir = "/data/unsloth";
   # GPU passthrough only where the card is at or above the image's sm_75
-  # (Turing) floor: laptop-p16's A3000 (sm_86), with the CDI spec from
-  # hardware.nvidia-container-toolkit. laptop-hera's GTX 1050 Ti is Pascal
-  # (sm_61) — the image's entrypoint exits 1 when it sees such a card — and
-  # laptop-xps has no NVIDIA card at all; both run the image in CPU mode.
-  unsloth-studio.gpu = isP16;
+  # (Turing) floor: laptop-p16's A3000 (sm_86) and server-nike's RTX 3060
+  # (sm_86), with the CDI spec from hardware.nvidia-container-toolkit.
+  # laptop-hera's GTX 1050 Ti is Pascal (sm_61) — the image's entrypoint
+  # exits 1 when it sees such a card — and laptop-xps has no NVIDIA card at
+  # all; both run the image in CPU mode.
+  unsloth-studio.gpu = isP16 || isNike;
+  # Inference hosts only: publish the port beyond loopback so the other
+  # inference host / the LAN / the tailnet can reach the UI and API (the host
+  # firewall scopes the exposure, see hosts/<host>/<host>.nix). The other hosts
+  # keep the loopback-only publish.
+  unsloth-studio.host = lib.mkIf (isP16 || isNike) "0.0.0.0";
+
+  # Unsloth Studio needs $STRATA_API_KEY for the handoff script (see
+  # handoff.nix).  The unsloth-studio module doesn't import the strata module
+  # so it can't reference config.strata.apiKey directly: we write a shared
+  # env-file via home.activation and read it from systemd here.
+  # The leading dash makes it optional: if the file is missing (first boot
+  # before activation), systemd skips it instead of failing the unit.
+  systemd.user.services.unsloth-studio.Service.EnvironmentFile = [
+    "-${config.home.homeDirectory}/.config/strata/api-key.env"
+  ];
+
   # Only the CachyOS install has the distro podman: there it shares conmon,
   # netavark and the CDI spec with the `podman` in the shell. On NixOS the
   # module's default (pkgs.podman) is used.
@@ -187,119 +331,104 @@ in
   # unsloth-studio/handoff.nix). The helper is a host script, so it serves both
   # backends; the in-load half of the handoff (LLAMA_SERVER_PATH) is native-only,
   # because inside the container llama.cpp is baked into the image.
-  unsloth-studio.strataGpuHandoff = isP16;
+  unsloth-studio.strataGpuHandoff = isP16 || isNike;
 
   # Strata (Qwen3.8-Flash-Next 125B MoE inference, OpenAI/Anthropic API on
-  # localhost). GPU-gated to laptop-p16: the engine is built for the
-  # A3000's sm_86 and the runtime wants its 12 GB of VRAM plus 34-50 GB of
-  # RAM for the expert arena. The first `strata` run downloads the model
-  # (~70-84 GB per quantization) into Strata's data folder,
-  # ~/.local/share/Strata-data - the sibling of STRATA_HOME (~/.local/share/
-  # strata, the runtime tree it runs from). `dataOnDataVolume` keeps both on
-  # /data; see the option comment below.
-  # Strata (Qwen3.8-Flash-Next 125B MoE) — re-enabled 2026-09-28: measured
-  # against Unsloth Studio on the same model (IQ2_XS, expert offload),
-  # Studio produces ~2 tok/s vs Strata's ~6 tok/s — Strata's MTP speculative
-  # decoding + expert cache + PLE are worth 3x here. Studio keeps the fast 9B
-  # and 27B models; Strata is the 125B endpoint. The two stacks keep separate
-  # copies: Strata's models are its own files in its data folder (measured
-  # 2026-11-09: 116 GiB, plain files, not links into Studio's cache), while
-  # Studio's HF cache on /data holds its own 80 GB. See
-  # packages/strata/engine.nix for the full measurement matrix.
-  # Hardware tuning measured on this laptop by tools/calibrate.py (see the
-  # bench/results/2026-10-02-rtx-a3000-i7-12850hx entry in forks-Strata):
-  #   --pcie-frac 0.35  beats the 0.55 default and the probe's 0.12-0.15
-  #                     (32.7 vs 27.0 tok/s for the 0.12 the probe picks)
-  #   --spec-min-p 0.70 beats 0.5 (34.0 vs 31.5 tok/s; slower CPU, no AVX-512)
-  #   --pool-workers 15 (the engine default) beats 8 on the fresh path: the
-  #                     E-cores add pool capacity here, they are not a tail
-  #                     (P2 re-measure, ops/p2-pool-affinity-results.md)
-  #   --kv-resident 20480 (was 32768): frees ~90 expert-cache slots; P8 measured
-  #                     the warm hit rate 0.618 -> 0.632 and fewer refusals,
-  #                     costing extra pinned-RAM KV reads only past ~20k context
-  #   --adapt-every 1   (was 4): learns a cold conversation's hot experts faster
-  #                     (fresh hit 0.468 -> 0.539 at a small warm-turn trade)
-  #                     (P8, ops/issues/p8-reduce-misses.md)
-  # Enforced on every config the package writes, so setup cannot undo them.
-  # enable stays gated on laptop-p16 (isP16).
-  strata = lib.mkIf isP16 {
+  # localhost). Both inference hosts qualify on the card: laptop-p16's RTX A3000
+  # 12GB and server-nike's RTX 3060 12GB are sm_86, and both have the RAM for the
+  # expert arena (128 GiB and 94 GiB). server-nike ran the same model line before
+  # 2026-11-19 — its own settings.json calibration records 39.4 tok/s on
+  # swift-1.5-iq3_xxs at 131072 context. Each host serves its own :8080; the
+  # LiteLLM proxy (services/litellm-proxy.nix) is the single place that decides
+  # which host the shared ranks point at. `dataOnDataVolume` keeps the model files
+  # on /data (laptop-p16 only, see below).
+  #
+  # Upstream 0.2.18: engine/Control 0.1.64. The new Hy4-Flash shape engine is a
+  # separate component fetched on demand; the Qwen 125B keeps the engine this
+  # package builds. Still 0.2.17 defaults: route-tail-skip OFF, 17 GB RAM free.
+  # The engine is an upstream engine component (versioned, per-file manifest)
+  # built in the Nix store — the app and the Terminal are version-locked together.
+  # All engine tuning (context, KV format, rope scaling, PCIe fraction, pool
+  # workers, adapt-every, spec-min-p) is left to `strata --setup` at runtime.
+  # Nix manages only service lifecycle: start/stop, GPU handoff, deployment layout.
+  strata = lib.mkIf (isP16 || isNike) {
     enable = true;
-    # The engine window is owned at runtime, not here: null tells the package
-    # to stop passing --context to setup and to leave --max-context / the rope
-    # flags alone, so `strata --setup` (or the app's settings form) decides and
-    # the answer survives every restart. The shipped default stays 524288; this
-    # host currently serves 393216 (384K, yarn factor 1.5) as written by setup.
-    # The client limits in users/opencode.nix (strata-local) must name whatever
-    # the served config holds, since they are advisory (compaction thresholds).
-    context = null;
+    # Reachable beyond loopback (the other inference host, the LAN, the
+    # tailnet); the host firewall scopes it to private ranges (see
+    # hosts/<host>/<host>.nix). The server's Host-header check still guards
+    # non-localhost names - see allowedHosts below.
+    host = "0.0.0.0";
     # Keep the engine resident far longer than the 5-minute default: a reload
-    # puts the weights back in VRAM in ~27-30 s before decode can start, and at
-    # the old 300 s every >5-minute gap cost that stall. 900 s holds ~55 GB of
-    # RAM and most of the GPU idle between turns instead — the trade-off is
-    # explicitness over latency, so lower it if another GPU job needs the card.
-    idleUnloadSeconds = 900;
-    # Vision is not the default: using the strata-vision image encoder drops
-    # throughput from ~35 to ~22 tok/s. The ENCODER is still built and shipped
-    # (visionEncoder), so `strata --setup` asks the images question and both
-    # answers work instead of failing on a package without the binary. Answer
-    # that prompt explicitly - upstream's default is "y" - and the cost of
-    # shipping the encoder is disk only.
-    vision = false;
+    # puts the weights back before decode can start, and an idle window shorter
+    # than the reload costs that stall on every gap longer than the window.
+    # - server-nike: reload ~116 s (39.97 GiB of experts at 0.51 GiB/s,
+    #   measured 2026-11-22), so 900 s pays off up to 15-minute gaps.
+    # - laptop-p16: the same reload takes ~869 s (2026-11-22): the 70 GiB of
+    #   model files read from the /data NVMe at ~50-120 MB/s, and the 24 GiB of
+    #   mlocked model pages must be resident in a machine that has ~4 GiB free.
+    #   At 900 s almost every gap over 15 minutes costs a 14-minute load that
+    #   no client timeout can wait for, so hold the ~55 GB for the hour: 3600 s.
+    idleUnloadSeconds = if isP16 then 3600 else 900;
+    # The picture reader is built and shipped (visionEncoder), so `strata launch`
+    # asks the images question and either answer works instead of failing on a
+    # package without the binary. Answer it in the run config, not here: on this
+    # 12 GB card images cost ~35 -> ~22 tok/s. Shipping the encoder costs disk
+    # only until a model uses it.
     visionEncoder = true;
     # The desktop app (upstream AppImage): shares the models below and can
     # either load one with its own engine or use the API of a running server -
     # e.g. add http://127.0.0.1:8080/v1 as a custom connection. Nothing is
     # stopped on launch (stopServerOnLaunch) for that reason.
     desktop.enable = true;
-    pcieFrac = 0.35;
-    specMinP = 0.70;
-    poolWorkers = 15;
-    kvResident = 20480;
-    adaptEvery = 1;
-    # Prompt-cache tail checkpoint (bench 2026-10-14, arms of
-    # /tmp/opencode/strata-ab.sh.py): without it, serve-side checkpoint reuse
-    # caps at the kv-resident window (20480), so every request re-reads
-    # `context - 20480` tokens (~118 s at a 130K agent conversation). With it
-    # the re-read is bounded ~12-13K tokens (~13 s flat at 20-48K context;
-    # 47K turn: 31.4 s -> 12.5 s). The parked-conversation cache
-    # (--conversation-cache-mib) measured ~15% slower with no reuse gain in
-    # single-conversation flow, so it stays off.
-    promptCacheTail = true;
     # The other half of the Studio handoff (packages/unsloth-studio/home.nix
     # frees the card FROM Strata FOR Studio; these free it FROM Studio FOR
     # Strata). Naming a Strata model while Studio holds the card must not end
     # in a failed cudaMalloc: beforeLoad asks Studio to unload its own model
     # first, and minFreeVramMib is the backstop that refuses the load (503 +
     # Retry-After) if VRAM is still short after the hook. idleUnloadSeconds
-    # above is 900, so Strata holds the card deliberately long - a Studio turn
+    # above is 3600 on laptop-p16 and 900 on server-nike, so Strata holds the
+     # card deliberately long - a Studio turn
     # inside that window is exactly the case this covers.
     minFreeVramMib = 8000;
     # The Studio container reaches Strata through pasta's host loopback
     # (packages/unsloth-studio/container.nix, option hostLoopback), so requests
     # arrive with this Host header. Strata 403s anything but localhost otherwise
-    # (DNS-rebinding protection).
-    allowedHosts = [ "host.containers.internal" "169.254.1.2" ];
+    # (DNS-rebinding protection). The tailnet's MagicDNS domain covers access by
+    # name over Tailscale (<node>.bee-blues.ts.net); IP addresses and the host's
+    # own name pass the check without an entry.
+    allowedHosts = [ "host.containers.internal" "169.254.1.2" ".bee-blues.ts.net" ];
     beforeLoad = "${config.home.homeDirectory}/.local/bin/unsloth-studio-unload.sh";
+    apiKey = "strata";
+    # Force the service to serve this declarative config so the UI cannot
+    # overwrite the API key (the UI writes into the run config, which then
+    # overrides the env var).
+    defaultConfig = "$HOME/.config/strata/run.json";
+    # The declarative run config is installed by the file below. It must
+    # match what `strata launch` writes, except `api_key` is always "strata"
+    # so the UI cannot generate a random key and break the proxy.
     # Store everything Strata reads and writes on the /data volume: the
     # runtime tree (~/.local/share/strata -> /data/strata) and the model files
-    # (~/.local/share/Strata-data -> /data/Strata-data). Measured 2026-11-09:
-    # 116 GiB of models/packs/mtp sit on the 1.9 TB home partition, which has
-    # 6 GiB free, while /data has 160 GiB free. The activation moves each tree
-    # and symlinks it back, so the data_dir in ~/.config/strata/settings.json
-    # and the absolute --native/--pack/--mtp paths in every strata-*.json keep
-    # resolving unchanged, and a fresh setup downloads to /data. The first run
-    # stops strata.service for the copy: 116 GiB takes ~10 min at 200 MB/s
-    # (~5 min at 400 MB/s, ~21 min at 100 MB/s), so run the rebuild from a
-    # terminal, not from a chat session that is using the model.
-    dataOnDataVolume = true;
-    # STRATA_ADAPT_OVERLAP stays at the upstream default (off): 0.1.43 defaulted
-    # it on for Linux CUDA, which cost ~2.7x decode on this rig (small expert
-    # cache, --adapt-every 1), and 0.1.43.1 made it opt-in again. The interleaved
-    # A/B on 0.1.44.1 (2026-10-16, see packages/strata/default.nix) measured the
-    # flag a wash here, so no engineEnv override is set; re-add one to re-test
-    # after an engine change.
+    # (~/.local/share/Strata-data -> /data/Strata-data). The activation moves
+    # each tree and symlinks it back, so the data_dir in ~/.config/strata/
+    # settings.json and the absolute --native/--pack/--mtp paths in every
+    # strata-*.json keep resolving unchanged, and a fresh setup downloads to
+    # /data. The first run stops strata.service for the copy: 116 GiB takes
+    # ~10 min at 200 MB/s (~5 min at 400 MB/s, ~21 min at 100 MB/s), so run
+    # the rebuild from a terminal, not from a chat session that is using the
+    # model.
+    # laptop-p16 only: server-nike keeps both trees on its home partition (its
+    # ~167 GB of models already live there, and /home has 1.5 TB free). Set this
+    # to true on nike to move them to /data/strata and /data/Strata-data.
+    dataOnDataVolume = isP16;
   };
 
+  # Kintsugi-27B (Qwen3.8-27B at 2.47 bits, EXL3 trellis format): disabled
+  # everywhere on both inference hosts. Strata (125B MoE at ~30+ tok/s) is
+  # faster and stronger; Unsloth Studio provides its own 125B and 32B models.
+  # The EXL3 trellis quantization requires the Kintsugi bundle's engine binary,
+  # which is not served by Unsloth Studio or Strata. Kintsugi is disabled
+  # because the only model it serves (27B) is outclassed by Strata's 125B MoE.
+  # Recoverable from git if a stronger EXL3 model ever appears.
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
   commonHm.enableDeveloperTools = true;
 
@@ -483,24 +612,24 @@ in
         # failure only warns instead of aborting the whole switch.
         TRESORIT_INSTALLER=${pkgs.fetchurl {
           url = "https://installer.tresorit.com/tresorit_installer.run";
-          sha256 = "0xpw9a07hq5fxw6zb30csafz7kchpb257wag61sc271prax303zk";
+          sha256 = "106h54na02x27qx0m8qspk9iivp00x25dywki6gibxx7y9qrv8vi";
         }}
         if [ ! -f "$HOME/.local/share/tresorit/tresorit" ]; then
           echo "Installing Tresorit..."
           installer=$(${pkgs.coreutils}/bin/mktemp)
           $DRY_RUN_CMD ${pkgs.coreutils}/bin/cp "$TRESORIT_INSTALLER" "$installer"
-          $DRY_RUN_CMD chmod +x "$installer"
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/chmod +x "$installer"
           if ! $DRY_RUN_CMD "$installer" --target "$HOME/.local/share/tresorit" --noexec; then
             echo "setupTresorit: installer failed; leaving Tresorit uninstalled" >&2
           fi
-          $DRY_RUN_CMD rm -f "$installer"
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/rm -f "$installer"
         fi
 
         # Create desktop file in applications directory
         DESKTOP_FILE="$HOME/.local/share/applications/tresorit-fhs.desktop"
-        $DRY_RUN_CMD mkdir -p "$(dirname "$DESKTOP_FILE")"
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/mkdir -p "$(dirname "$DESKTOP_FILE")"
         if [ -f "$DESKTOP_FILE" ]; then
-          $DRY_RUN_CMD rm -f "$DESKTOP_FILE"
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/rm -f "$DESKTOP_FILE"
         fi
         $DRY_RUN_CMD cat > "$DESKTOP_FILE" <<EOF
     [Desktop Entry]
@@ -522,9 +651,9 @@ in
 
         # Set up autostart for FHS version
         AUTOSTART_FILE="$HOME/.config/autostart/tresorit-fhs.desktop"
-        $DRY_RUN_CMD mkdir -p "$(dirname "$AUTOSTART_FILE")"
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/mkdir -p "$(dirname "$AUTOSTART_FILE")"
         if [ -f "$AUTOSTART_FILE" ]; then
-          $DRY_RUN_CMD rm -f "$AUTOSTART_FILE"
+          $DRY_RUN_CMD ${pkgs.coreutils}/bin/rm -f "$AUTOSTART_FILE"
         fi
         $DRY_RUN_CMD cat > "$AUTOSTART_FILE" <<EOF
     [Desktop Entry]
@@ -549,6 +678,9 @@ in
   # instead and never runs this (isCachyOS is false there).
   home.activation.strataHostTuning = lib.mkIf (isP16 && isCachyOS)
     (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      # Activation scripts run in a restricted environment; make sure sudo is
+      # available (it lives on the system PATH, not in the Nix store).
+      export PATH="/usr/bin:/usr/sbin:$PATH"
       setup=${../../hosts/laptop-p16/cachyos}
       if [ "$(cat /proc/sys/vm/nr_hugepages 2>/dev/null || echo 0)" -lt 20480 ] \
          || [ ! -e /etc/systemd/system/user@.service.d/99-strata-memlock.conf ]; then
@@ -596,8 +728,131 @@ in
     # Pretty man pages via bat: strips the raw formatting and syntax-highlights
     # the man source. `-l man` tells bat the language, `-p` plain (no header).
     MANPAGER = "sh -c 'col -bx | bat -l man -p'";
+    # Strata API key: exported so `strata launch` uses it instead of generating
+    # a random one (accessed via $STRATA_API_KEY) and so the user can echo it.
+    STRATA_API_KEY = "${config.strata.apiKey}";
   };
   home.shellAliases = { };
+
+  # Shared env-file for Unsloth Studio services: they can't reference
+  # config.strata.apiKey directly (the unsloth-studio module doesn't import
+  # the strata module), so we write a file here and the services read it via
+  # EnvironmentFile=.  The handoff scripts use $STRATA_API_KEY.
+  home.activation.strataApiKeyFile = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    mkdir -p "$HOME/.config/strata"
+    printf 'STRATA_API_KEY=%s\n' '${config.strata.apiKey}' > "$HOME/.config/strata/api-key.env"
+    chmod 0600 "$HOME/.config/strata/api-key.env"
+  '';
+
+  # Declarative Strata run config. The UI saves a random API key on every
+  # change, breaking the proxy. This config forces api_key back to "strata"
+  # on every activation so the service always serves a valid key.
+  # Paths are host-conditional: p16 uses /data/, server-nike uses ~/.local/share/.
+  home.file.".config/strata/run.json" = {
+    text = builtins.toJSON {
+      exe = "component:strata-engine";
+      args = [
+        "--pack"
+        (if isP16 then "/data/Strata-data/packs/swift-iq3_xxs"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/packs/swift-iq3_xxs")
+        "--native"
+        (if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf")
+        "--ple-gguf"
+        (if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf")
+        "--expert-profile"
+        (if isP16 then "/data/strata/data/expert-profile.bin"
+          else "${config.home.homeDirectory}/.local/share/strata/data/expert-profile.bin")
+        "--expert-cache" "auto"
+        "--prefill" "auto"
+        "--spec" "4"
+        "--spec-min-p" "0.5"
+        "--mtp"
+        (if isP16 then "/data/Strata-data/mtp/rt"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/mtp/rt")
+        "--max-context" "262144"
+        "--kv" "int8"
+        "--kv-resident" "32768"
+        "--vision"
+      ];
+      cwd = if isP16 then "/data/strata"
+        else "${config.home.homeDirectory}/.local/share/strata";
+      tokenizer = if isP16 then "/data/Strata-data/packs/swift-iq3_xxs/tokenizer"
+        else "${config.home.homeDirectory}/.local/share/Strata-data/packs/swift-iq3_xxs/tokenizer";
+      model_name = "swift-1.5-iq3_xxs";
+      log = "${config.home.homeDirectory}/.local/state/strata/launch/iq3_xxs-256k.engine.log";
+      lib_dirs = [];
+      port = 8080;
+      gpu = 0;
+      gpus_asked = true;
+      vision = {
+        exe = "${config.home.homeDirectory}/.local/share/strata/components/engine/0.1.64-linux-x86_64-cuda/strata-vision";
+        mmproj = if isP16 then "/data/Strata-data/models/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf";
+        model = if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf";
+        gpu = false;
+        max_tokens = 300;
+        threads = 12;  # p16: 12 threads, server-nike: 6 threads
+      };
+      api_monitor = true;
+      idle_unload_s = 0;
+      env = { STRATA_ADAPT_OVERLAP = "0"; };
+      args_written = [
+        "--pack"
+        (if isP16 then "/data/Strata-data/packs/swift-iq3_xxs"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/packs/swift-iq3_xxs")
+        "--native"
+        (if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf")
+        "--ple-gguf"
+        (if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf")
+        "--expert-profile"
+        (if isP16 then "/data/strata/data/expert-profile.bin"
+          else "${config.home.homeDirectory}/.local/share/strata/data/expert-profile.bin")
+        "--expert-cache" "auto"
+        "--prefill" "auto"
+        "--spec" "4"
+        "--spec-min-p" "0.5"
+        "--mtp"
+        (if isP16 then "/data/Strata-data/mtp/rt"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/mtp/rt")
+        "--max-context" "262144"
+        "--kv" "int8"
+        "--kv-resident" "32768"
+        "--vision"
+      ];
+      api_key = config.strata.apiKey;  # always "strata"
+      open_browser = false;
+      args_derived = [
+        "--pack"
+        (if isP16 then "/data/Strata-data/packs/swift-iq3_xxs"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/packs/swift-iq3_xxs")
+        "--native"
+        (if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf")
+        "--ple-gguf"
+        (if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf")
+        "--expert-profile"
+        (if isP16 then "/data/strata/data/expert-profile.bin"
+          else "${config.home.homeDirectory}/.local/share/strata/data/expert-profile.bin")
+        "--expert-cache" "auto"
+        "--prefill" "auto"
+        "--spec" "4"
+        "--spec-min-p" "0.5"
+        "--mtp"
+        (if isP16 then "/data/Strata-data/mtp/rt"
+          else "${config.home.homeDirectory}/.local/share/Strata-data/mtp/rt")
+        "--max-context" "262144"
+        "--kv" "int8"
+        "--kv-resident" "32768"
+        "--vision"
+      ];
+    };
+  };
 
   # agenix (home-manager module): decrypt nicky's personal API keys at activation
   # to $XDG_RUNTIME_DIR/agenix/nicky.nix, then sourced by the shell. The key is
@@ -629,17 +884,29 @@ in
   };
 
   # Wire ~/.pgpass so Datagrip and other IDE clients authenticate over TCP
-  # without prompting for a password.  The raw secret is mounted at
+  # without prompting for a password. The raw secret is mounted at
   # $XDG_RUNTIME_DIR/agenix/pg-nicky-password by the home-manager age block
-  # above.  Written inside the home.activation directory so $DRY_RUN_CMD is
+  # above. Written inside the home.activation directory so $DRY_RUN_CMD is
   # honoured during dry-run.
+  #
+  # Both spellings of the loopback host are listed: libpq (and pgpass) match
+  # the connection string *textually*, not the resolved address, so a client
+  # told to connect to "127.0.0.1" will not match a "localhost" entry. IDEs
+  # and psql get one or the other depending on how they were configured.
+  # Unix-socket connections use peer auth and need no entry at all.
   home.activation.pgpass = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     pw_file="$XDG_RUNTIME_DIR/agenix/pg-nicky-password"
     out="$HOME/.pgpass"
     if [ -f "$pw_file" ]; then
-      pw=$($DRY_RUN_CMD cat "$pw_file")
-      $DRY_RUN_CMD printf 'localhost:5432:*:nicky:%s\n' "$pw" > "$out"
-      $DRY_RUN_CMD chmod 0600 "$out"
+      # $(cat) strips the secret's trailing newline(s) and printf adds exactly
+      # one back, so each entry is a single line whether or not the .age
+      # payload ends with a newline.
+      pw=$($DRY_RUN_CMD ${pkgs.coreutils}/bin/cat "$pw_file")
+      {
+        $DRY_RUN_CMD printf 'localhost:5432:*:nicky:%s\n' "$pw"
+        $DRY_RUN_CMD printf '127.0.0.1:5432:*:nicky:%s\n' "$pw"
+      } > "$out"
+      $DRY_RUN_CMD ${pkgs.coreutils}/bin/chmod 0600 "$out"
     fi
   '';
 

@@ -56,7 +56,8 @@
 # collide; a second instance needs its own $HOME prefix as well as its own
 # port. Other users on the host simply point their clients at
 # http://127.0.0.1:<port>. For the API to be up no matter who is logged in,
-# the host must set `users.users.nicky.linger = true` (all three hosts do).
+# the host must set `users.users.nicky.linger = true` (every host that enables
+# this does: laptop-hera, laptop-p16, laptop-xps, desktop-leto).
 # Today it is enabled for nicky only; aeiuno's opencode reaches the same
 # endpoint (users/aeiuno/aeiuno-hm.nix records why, and how to give her her
 # own on a host she owns alone: the import plus `unsloth-studio.enable`).
@@ -190,7 +191,7 @@ in
           export LD_LIBRARY_PATH=${unslothRuntimeLibs}:$LD_LIBRARY_PATH
           env UNSLOTH_SKIP_AUTOSTART=1 NO_COLOR=1 ${pkgs.bash}/bin/sh ${pkgs.fetchurl {
             url = "https://unsloth.ai/install.sh";
-            sha256 = "sha256-bnV8OcVEcBLTBVuxWhFNUb1h6EhX787VBEdfcao0JFQ=";
+            sha256 = "0rl07kr37b36ndpjdmnfc1vw16h8zv337alkfyxr3i17d2l269nh";
           }}
         ' </dev/null || echo "unsloth-studio: installer failed (see output above); continuing" >&2
         # The line above swallows the installer's own failure, so verify the
@@ -223,8 +224,8 @@ in
         # Pinned release (fetchurl verifies the hash): "releases/latest"
         # downloaded and installed whatever GitHub served at switch time.
         UNSLOTH_DESKTOP_APPIMAGE=${pkgs.fetchurl {
-          url = "https://github.com/unslothai/unsloth/releases/download/v0.1.916-beta/Unsloth-Desktop-Linux.AppImage";
-          sha256 = "sha256-OiGZGPiYYecvewSlc3uV6ZSulaivZ54FJCO2PouDf54=";
+          url = "https://github.com/unslothai/unsloth/releases/download/v0.1.922-beta/Unsloth-Desktop-Linux.AppImage";
+          sha256 = "1fzc0xafnlcmpp33nvjmglz3027mksg80w28xih94ms0zbw8rf8l";
         }}
         $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -Dm0755 "$UNSLOTH_DESKTOP_APPIMAGE" "$app"
       fi

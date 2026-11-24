@@ -1,14 +1,16 @@
 # Syncthing folder/device pool — the single source of truth for what every host
 # syncs. Imported by services/syncthing/default.nix.
 #
-# The 37 folders + 11 devices below are the exact set exported from the live
-# host (laptop-p16, CachyOS) at `~/.local/state/syncthing/config.xml`, plus the
-# new laptop-xps and laptop-travelmate devices (whose certs were pre-generated).
-# Every NixOS host built from this flake syncs all of these folders, replicating
-# each to nestor and the other laptops as the closest-to-backup copy.
+# The folder set started as an export from the live host (laptop-p16, CachyOS)
+# `~/.local/state/syncthing/config.xml`; membership has been adjusted since
+# (deliberate exclusions are noted inline). Each host syncs the folders whose
+# `devices` list includes it, replicating each to nestor and the other hosts as
+# the closest-to-backup copy.
 #
 # A host only needs to set `services.syncthing.self` to its device name; the
-# module derives its folders/devices from this pool.
+# module derives its folders/devices from this pool. NixOS hosts carry a
+# pre-generated identity (cert/key in secrets/syncthing/<host>/*.age, device ID
+# here) so the ID is stable and known ahead of install.
 
 {
   # Every known device. `id` is the stable Syncthing device ID. The device
@@ -31,6 +33,18 @@
       # Pre-generated so the device ID is stable and known ahead of install.
       # The matching cert/key live in secrets/syncthing/laptop-travelmate/*.age.
       id = "76JTNVQ-YTC4Q7I-OKPUBFE-Q3GN6H6-YTXEI5E-SFL62L5-FB6YCCN-RRPWVQU";
+    };
+    "desktop-leto" = {
+      # Pre-generated so the device ID is stable and known ahead of install.
+      # The matching cert/key live in secrets/syncthing/desktop-leto/*.age.
+      id = "WZXCFCW-YSI72OI-VK4K7QM-WGZ3B35-5CXFX5M-GKDBLHG-NWX32C2-H5UDWQM";
+    };
+    "server-nike" = {
+      # Pre-generated so the device ID is stable and known ahead of install.
+      # The matching cert/key live in secrets/syncthing/server-nike/*.age and
+      # are already the live identity on the host — other devices paired with
+      # it under this ID, so it must not change.
+      id = "LGDNKBB-R5NVUYP-26M4J4Q-IDFFGH5-KPGIMXA-ERR4BXW-XZJWRBO-XSPRRQ4";
     };
     "nestor" = {
       id = "X2BF7X6-AR33BUE-32MXKRW-VTRRVJM-53DNXSQ-AN26QLX-DOMXCFS-DYJU4Q3";
@@ -65,159 +79,161 @@
   folders = {
     "00-09 - Management and Meta" = {
       id = "k7t9g-2y5as";
-      devices = [ "hassio" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "hassio" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
     };
     "10-19 - Personnes et Animaux" = {
       id = "pz9yw-7sppl";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "20-29 - Secrets" = {
       id = "jhrug-pluzk";
-      devices = [ "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
     };
     "30-39 - Formation développement loisirs" = {
       id = "wrgy5-cfk7s";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "40-49 - Backups" = {
       id = "darda-brujx";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "50-59 - Finance et Assurance" = {
       id = "t6swq-u9tu6";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "70-79 - Administration et Etat" = {
       id = "szjwp-hkq4t";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "80-89 - Actifs" = {
       id = "tkqxb-9fp6t";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "90-99 - Public stuff" = {
       id = "dxjen-ryhzq";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "Android Camera" = {
       id = "pixel_8a_ruqh-photos";
-      devices = [ "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
     };
     "Calibre Library" = {
       id = "uefut-5awdq";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "Camera Pixel3a" = {
       id = "apn3p-rscuc";
-      devices = [ "phone-pixel3a" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "phone-pixel3a" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "Camera Pixel6a" = {
       id = "pixel_6a_71kh-photos";
-      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" ];
     };
     "Camera Uploads Christine" = {
       id = "fsfij-7rnlh";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "Camera Uploads Christine oneplusnord" = {
       id = "ac2003_b8vg-photos";
-      devices = [ "phone-OnePlusNord" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "phone-OnePlusNord" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "Camera phone-pixel3a" = {
       id = "pixel_3a_4s5y-photos";
-      devices = [ "phone-pixel3a" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "phone-pixel3a" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "Dictaphone" = {
       id = "602jh-lb39h";
-      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "FileDrop" = {
       id = "hgetx-7cc6x";
-      devices = [ "phone-pixel3a" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "phone-pixel3a" "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "FileDropRandstadDigital" = {
       id = "nffhs-npqjb";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "Photos" = {
       id = "nu5c3-ryptx";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "Pixel6a Videos" = {
       id = "tn1rb-v20lm";
-      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "Scans" = {
       id = "vxuuw-zcf7m";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "Zotero" = {
       id = "ddg7b-dtlhb";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "christine" = {
       id = "4wsaa-aspyf";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "christine-dot-mozilla" = {
       id = "k26ga-rhpeq";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "code" = {
       id = "b7vv2-aomur";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "code_rd" = {
       id = "lou4f-crany";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "encrypted_password" = {
       id = "vx54o-nc963";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "hassioconfig" = {
       id = "aabts-zpssr";
-      devices = [ "hassio" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "hassio" "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "music" = {
       id = "xkfuh-ep2th";
       # laptop-hera is deliberately excluded: its disks are too small for the
       # music library (both 1 TB). Re-add only if the storage situation changes.
-      devices = [ "laptop-p16" "nestor" "laptop-xps" "laptop-travelmate" ];
+      # desktop-leto (2 TB) is included here — large enough for the library.
+      # server-nike (5810 with large storage) is also included.
+      devices = [ "laptop-p16" "nestor" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "nixos" = {
       id = "yojhk-vh7km";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "tab-rainbow" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "tab-rainbow" "desktop-leto" "server-nike" ];
     };
     "notes" = {
       id = "kjauq-uhiyv";
-      devices = [ "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "phone-OnePlusNord" "phone-pixel8a" "laptop-p16" "nestor" "phone-pixel6a" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "software" = {
       id = "haoqu-jdh4f";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "sven" = {
       # Per-person LaptopSync-equivalent folder for sven (XDG dirs live directly
       # inside, e.g. /sync/sven/Desktop). ACLs in services/syncthing/default.nix
       # give sven rw access; parents reach it via the syncthing group.
       id = "505dc-fc5ae";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "aaron" = {
       # Per-person folder for aaron, same layout as sven (/sync/aaron/<XDG dir>).
       id = "b086b-540d2";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "yannick" = {
       id = "pjpya-zmdwj";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
     "YannickLOTH_FinDeContratBEI" = {
       # Present on laptop-hera (id 4gvmu-movtl); merged into the pool so every
       # host replicates it.
       id = "4gvmu-movtl";
-      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" ];
+      devices = [ "laptop-p16" "nestor" "laptop-hera" "laptop-xps" "laptop-travelmate" "desktop-leto" "server-nike" ];
     };
   };
 }

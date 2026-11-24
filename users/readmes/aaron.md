@@ -29,7 +29,15 @@ from their computer. It's like the family noticeboard: everyone can see what's
 in there, and anyone can take or delete a file, so only drop things you're
 happy for everyone to see.
 
-The synced family files at `/sync` are only for mum and dad.
+Your own files are backed up for you: your Desktop, Documents, Photos and the
+rest live in **`~/sync/aaron`**, so what you save there is copied to the other
+family computers and backed up every night. There's a second drop folder,
+**`~/sync/FileDrop`**: a file you put there reaches the whole family on every
+computer and phone. The other `/sync` folders are mum's and dad's — you can see
+their names, not their files. Ask mum or dad if you need something from them.
+
+Your games library (`~/roms`) is shared too: the ROMs there belong to the whole
+family, so leave them where they are.
 
 ## Screen-time reminder
 
@@ -43,6 +51,12 @@ At **22:00** the computer logs you out for the night — so remember to save!
 Every night the computer quietly backs up your files. If you ever delete
 something by accident, don't worry — mum or dad can bring it back.
 
+## Learning to code
+
+You have **Racket** (with the DrRacket IDE) and **Python** installed for you,
+the same as sven, plus **JetBrains Toolbox** when you want a real editor. Have
+fun trying out little programs, and ask mum or dad if you get stuck.
+
 ## New apps and games
 
 Want something new? **Ask mum or dad** — they can add it for you.
@@ -50,7 +64,7 @@ Want something new? **Ask mum or dad** — they can add it for you.
 ## USB sticks
 
 If you plug in a USB stick, the computer checks it for viruses first and opens
-it safely. If you want to put files on it, ask mum or dad.
+it so you can look at files and copy files onto it.
 
 ## Help
 

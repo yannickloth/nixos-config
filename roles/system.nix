@@ -146,6 +146,7 @@ in {
 
       ### Networking tools
       dig
+      kdePackages.krdc # KDE Remote Desktop Client (RDP, VNC, etc.) — lets every host remote into any other
       firewalld
       firewalld-gui
       inetutils # for ping6

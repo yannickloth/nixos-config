@@ -21,7 +21,7 @@
 
 let
   # root is included as the local break-glass administrator (console / recovery);
-  # wheel users reach root via passwordless sudo. See secrets.nix.
+  # wheel users reach root via passworded sudo (15-minute cache after first auth). See secrets.nix.
   passwordUsers = [ "nicky" "aeiuno" "sven" "aaron" "root" ];
 in
 {

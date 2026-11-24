@@ -101,7 +101,7 @@
         fileSystems = [ "/" ];
       };
     };
-    xserver.videoDrivers = [ "nvidia" ]; # Load nvidia driver for Xorg and Wayland
+    # xserver.videoDrivers comes from hardware/nvidia_ampere.nix.
   };
 
   hardware= {
@@ -110,9 +110,7 @@
       enable = true; # Enable graphics
       enable32Bit = true;
     };
-    nvidia = let
-  nvidiaPackage = config.hardware.nvidia.package;
-in{
+    nvidia = {
     # NVIDIA RTX A3000 12GB Laptop GPU (Ampere, compute capability 8.6)
 
     # Left off: the A3000 is Ampere and could use it, but it changes GPU power behavior.
@@ -134,17 +132,8 @@ in{
     # Enable the Nvidia settings menu, accessible via `nvidia-settings`.
     nvidiaSettings = true;
 
-    # Use the NVidia open source kernel module (not to be confused with the
-    # independent third-party "nouveau" open source driver).
-    # Support is limited to the Turing and later architectures. Full list of 
-    # supported GPUs is at: 
-    # https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus 
-    # Only available from driver 515.43.04+
-    # Currently alpha-quality/buggy, so false is currently the recommended setting.
-    open = lib.mkOverride 990 (nvidiaPackage ? open && nvidiaPackage ? firmware);
-
-    # Optionally, you may need to select the appropriate driver version for your specific GPU.
-    package = config.boot.kernelPackages.nvidiaPackages.stable;
+    # `open` and `package` come from hardware/nvidia_ampere.nix: proprietary
+    # modules, kernel and driver from one evaluation (see the file header).
 
     powerManagement = {
       enable = false; # Nvidia power management. Experimental, and can cause sleep/suspend to fail.

@@ -26,7 +26,15 @@ secrets/syncthing-gui-password
 # Private SSH keys used as agenix recipients. These must be backed up in
 # KeePassXC and distributed to each host/user. NEVER commit these (see
 # secrets-structure/README.md).
-ssh-keys/**
+#
+# The hosts/*.pub counterparts are public information (their content is also
+# stored in secrets.nix) and are tracked: Nix's git-filtered flake source
+# cannot see ignored files, so the build-time audits (services/host-age.nix,
+# scripts/age-audit.sh) need the .pub files inside the flake source.
+ssh-keys/*
+!ssh-keys/hosts/
+ssh-keys/hosts/*
+!ssh-keys/hosts/*.pub
 # Backup archive of the private keys (same secret content), now passphrase-encrypted.
 ssh-keys-backup-*.tar.gz*
 # Imported syncthing config dumps from physical hosts (plaintext cert/key).
@@ -34,3 +42,6 @@ laptop-*-dotconfig-syncthing/
 laptop-*-dotconfig-syncthing.zip
 # Home network inventory (MAC addresses, IPs, SSIDs). Keep local only.
 network-devices.md
+
+# direnv cache (local per-shell state, not source)
+.direnv/

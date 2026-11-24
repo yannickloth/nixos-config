@@ -44,7 +44,7 @@ with lib;
       gnome-initial-setup.enable = true;
       gnome-online-accounts.enable = true;
       gnome-online-miners.enable = true;
-      gnome-remote-desktop.enable = true;
+      gnome-remote-desktop.enable = false;
       gnome-settings-daemon.enable = true;
       rygel.enable = true;
       sushi.enable = true;

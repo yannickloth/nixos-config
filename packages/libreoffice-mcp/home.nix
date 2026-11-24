@@ -100,7 +100,7 @@ in
           current=$(cat "$stamp")
         fi
         if [ "$current" != "$oxt" ]; then
-          mkdir -p "$(dirname "$stamp")"
+          ${pkgs.coreutils}/bin/mkdir -p "$(dirname "$stamp")"
           # The .oxt ships a simple-license blob ('accept-by=admin'), so unopkg
           # prompts on stdin even when headless — feed it the acceptance. Output
           # is captured rather than discarded: when unopkg refuses (a locked
@@ -145,7 +145,7 @@ in
           if ${cfg.libreoffice}/bin/unopkg list 2>/dev/null | grep -q 'Identifier: org.mcp.libreoffice.extension'; then
             warnEcho "libreoffice-mcp: could not remove the extension; close LibreOffice and re-run home-manager switch"
           else
-            rm -f "$stamp"
+            ${pkgs.coreutils}/bin/rm -f "$stamp"
             echo "libreoffice-mcp: extension removed (libreofficeMcp.enable = false) — restart LibreOffice"
           fi
         fi

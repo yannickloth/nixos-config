@@ -66,7 +66,7 @@ chain input {
 chain input-allow {
 
    tcp dport { 22, 139, 445, 5357, 8384, 22000, 1714-1764 } accept
- udp dport { 137, 138, 3702, 8612, 22000, 1714-1764 } accept
+ udp dport { 137, 138, 3702, 8612, 21027, 22000, 1714-1764 } accept
 
 
 
@@ -89,6 +89,17 @@ ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10 } udp dport 
 ip6 saddr { fe80::/10, fc00::/7 } udp dport { 1900, 1901, 6969 } accept
 
 ip protocol udp ip daddr . udp dport @upnp accept
+
+# xRDP (remote desktop) — private LAN + Tailscale only
+# (one address per line: nftables rejects bare comma-separated
+# saddr lists — use `saddr { a, b }` if you want a set)
+tcp dport 3389 ip saddr 192.168.0.0/16 accept
+tcp dport 3389 ip saddr 10.0.0.0/8 accept
+tcp dport 3389 ip saddr 172.16.0.0/12 accept
+tcp dport 3389 ip saddr 100.64.0.0/10 accept
+tcp dport 3389 ip6 saddr fe80::/10 accept
+tcp dport 3389 ip6 saddr fc00::/7 accept
+tcp dport 3389 ip6 saddr fd7a:115c:a1e0::/48 accept
 
 ip saddr { 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10, 169.254.0.0/16 } udp dport { 5353 } accept
 ip6 saddr { fe80::/10, fc00::/7 } udp dport { 5353 } accept

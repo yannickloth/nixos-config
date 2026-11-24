@@ -48,8 +48,9 @@ with lib;
     #   HandleLidSwitch=ignore
     # '';
 
-    # keep timezone updated to local time using geoclue
-    time.timeZone = lib.mkForce "Europe/Luxembourg"; # force because somewhere else this is set to null, and Nix does not know how to resolve the conflict
+    # Timezone comes from roles/base.nix (mkDefault Europe/Luxembourg): one
+    # source, no environment pins its own, no mkForce arms race.
+    # localtimed keeps the displayed clock in sync with the detected location.
     services.localtimed.enable = true;
   };
 }

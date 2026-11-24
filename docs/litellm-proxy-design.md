@@ -1,0 +1,449 @@
+# LiteLLM Proxy Design
+
+## Purpose
+
+One OpenAI-compatible endpoint for every agent on every host:
+
+```
+http://server-nike.bee-blues.ts.net:4000/v1
+```
+
+opencode, pi and any other client speak the same protocol and select a **rank
+name** (the ladder in `docs/ai-ranks.md`), an **explicit model id** of a ranked
+model (spelled like the upstream id), or an **unranked pay-as-you-go id**
+(CheaperInference only). The proxy owns routing, deployment priority, retries,
+timeouts, cross-rank fallbacks and cost tracking.
+
+The proxy runs on **server-nike** and on **laptop-p16**, with the same config
+on both: each instance's loopback rows point at the Strata / Unsloth Studio
+engines running on its own host. laptop-p16's clients (opencode, pi, hermes)
+use the local instance on loopback (`http://127.0.0.1:4000/v1`), so its ranks
+keep resolving with no network at all. The other hosts (laptop-hera,
+laptop-xps, desktop-leto) are clients of the server-nike instance over
+Tailscale. Every proxy host exposes `tcp/4000` to the LAN and tailnet via
+`lib.privateNetRules`.
+
+The gateway is the primary path, not the only one. `users/opencode.nix` also
+defines one direct provider per backend (Z.ai Coding Plan, Kimi, DeepSeek,
+Hetzner, CheaperInference, the two Strata engines, Unsloth Studio), so
+opencode and pi keep working when server-nike, the `litellm-proxy` unit or
+the Tailscale path to it is down. Direct selection is explicit — neither
+client fails over across providers automatically (see "Client wiring").
+
+## Topology
+
+```
+opencode / pi / hermes ── laptop-p16 (NixOS): http://127.0.0.1:4000/v1
+                        └─ every other host:  http://server-nike.bee-blues.ts.net:4000/v1
+    │
+    ▼
+LiteLLM proxy (server-nike and laptop-p16, loopback for local backends)
+    ├──→ PostgreSQL 18    127.0.0.1:5432              (admin UI, keys, spend)
+    ├──→ Strata           127.0.0.1:8080/v1          (sergeant, second-lieutenant and warrant-officer fallback)
+    ├──→ Unsloth Studio   127.0.0.1:8888/v1          (sergeant order-2 tier only)
+    ├──→ Strata           laptop-p16:8080/v1         (lieutenant)
+    ├──→ Hetzner          inference.hetzner.com/v1   (ranks + every Hetzner id)
+    ├──→ DeepSeek         api.deepseek.com           (paid, explicit)
+    ├──→ Z.AI             api.z.ai/api/coding/paas/v4 (paid subscription, explicit)
+    ├──→ Kimi             api.kimi.com/coding/v1     (paid subscription, explicit)
+    └──→ CheaperInference api.cheaperinference.com/v1 (paid, explicit)
+```
+
+The proxy `After=` `user@1000.service` so it waits for the user manager,
+within which `strata.service` runs (same unit ordering on server-nike and
+laptop-p16). `Wants=`, not `Requires=`, so the proxy still boots if the user
+manager is absent. PostgreSQL is local to each proxy host and only that
+host's proxy talks to it. It stores the virtual-key/spend schema the admin UI
+needs; it is not exposed on the network.
+
+Unsloth Studio stays reachable from its host's proxy on loopback
+(`127.0.0.1:8888/v1`) for one deployment only: sergeant's order-2 Nemotron
+fallback, which answers when the resident Strata engine is absent. The direct
+`unsloth` provider in `users/opencode.nix` uses the same loopback URL, so a
+host with a local Studio reaches its own. From hosts without one, the
+server-nike Studio endpoint
+(`http://server-nike.bee-blues.ts.net:8888/v1`) carries the System One MCP
+and tools that need a Studio-native id.
+
+**Why the local tiers share one model.** server-nike cannot hold two different
+models in VRAM at the same time. Every swap costs a full load (~30 s) and
+competes with decode while the weights stream in, so the local ranks all point
+at the single resident Strata model. A second local model is a last-resort
+tier, never a routine target.
+
+### Local model policy
+
+One resident Strata model serves the whole local stack; the Studio Nemotron is
+sergeant's last-resort tier:
+
+| Local model | Role |
+| --- | --- |
+| `swift-1.5-iq3_xxs` (Swift 1.5, served by Strata) | sergeant order 1, second-lieutenant order 2, warrant-officer / warrant-officer-v order 2, lieutenant / lieutenant-v — each rank carries two same-order deployments, one per instance (server-nike loopback + laptop-p16 Tailscale); simple-shuffle picks within the order tier |
+| `unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF` (Unsloth Studio) | sergeant order 2 — only when the Strata engine cannot answer |
+
+**How the two-instance shuffle works.** LiteLLM has no cross-`model_name`
+deployment reference: one model_name cannot reuse another's deployments. So
+each rank that uses Strata carries the instance pair itself — two same-`order`
+deployments (one per instance), each `max_parallel_requests: 1`. `simple-shuffle`
+picks randomly within the order tier (two in-flight slots), a failure on one
+instance promotes the other mid-retry, and only when both fail does the rank's
+fallback chain fire. The `stream_timeout` on these rows (180 s) is the
+first-token budget and must cover the engine's lazy load (~130 s after an idle
+unload). The loopback engine runs with no key set; p16's current Strata build
+requires a real key, so until that is fixed on p16 those rows 401 and their 5 s
+cooldown keeps traffic on the loopback row.
+
+The rest of the Studio library (`unsloth/Qwen3.6-35B-A3B-MTP-GGUF` and the
+older entries: translation, OCR, LFM2.5, Qwythos, Swift-Bonsai, Qwen3.5-9B,
+Qwen3.8-9B-Distill, LFM3-Omni) stays outside the proxy. Add a Studio model back
+only when a real task needs it, together with its served context window.
+
+## Rank ladder
+
+`config.yaml` is generated by `services/litellm-proxy.nix`; the table mirrors
+its `model_list`.
+
+| Rank | Proxy name | Deployments (order) | Context | Notes |
+| --- | --- | --- | --- | --- |
+| Sergeant (OR-4) | `sergeant` | 1: `swift-1.5` @ Strata (shuffle server-nike + laptop-p16) · 2: Nemotron @ Studio | 262144 / 128256 | `temperature: 0.1`, 300s timeout / 120s stream, explicit-only; order 2 is last resort |
+| Warrant Officer (OR-8) | `warrant-officer` | 1: Qwen3.6 @ Hetzner · 2: `swift-1.5` @ Strata (shuffle) | 262144 / 262144 | free-cloud primary, local Strata fallback; different models per order, same window |
+| Warrant Officer (vision) | `warrant-officer-v` | same deployments as `warrant-officer` | 262144 / 262144 | the `-v` slot carries vision (both deployments are vision-capable, verified) |
+| Second Lieutenant (OF-1a) | `second-lieutenant` | 1: Qwen3.8-27B @ Hetzner · 2: `swift-1.5` @ Strata (shuffle) | 262144 / 262144 | free cloud primary, resident local fallback |
+| Lieutenant (OF-1b) | `lieutenant` | `swift-1.5` @ Strata (shuffle) | 262144 | default; two in-flight slots (one per Strata instance) via shuffle; 262144 is the window the engines serve (`--max-context`, live `n_ctx`), not the model's native 384K |
+| Lieutenant (vision) | `lieutenant-v` | same deployment as `lieutenant` | 262144 | same model; the `-v` slot carries vision |
+| Captain (OF-2) | `captain` | `deepseek-flash` @ DeepSeek | 1048576 | pay-per-token, explicit; cost-mapped |
+| Captain (vision) | `captain-v` | `deepseek-flash` @ DeepSeek | 1048576 | image input per `GET /v1/models` |
+| Captain Commandant (OF-3) | `captain-commandant` | 1: `glm-5-turbo` @ Z.AI · 2: `deepseek-v4-pro` @ DeepSeek | 200000 / 1048576 | subscription first; both text-only, no `-v` |
+| Major (OF-4) | `major` | 1: `kimi-for-coding` @ Kimi · 2: `glm-5.3-flash` @ Z.AI · 3: `deepseek-v4-pro` @ DeepSeek | 1048576 / 1000000 / 1048576 | text-only by contract (all three deployments image-capable; images go to `major-v`) |
+| Major (vision) | `major-v` | 1: `kimi-for-coding` @ Kimi · 2: `glm-5.3-flash` @ Z.AI | 1048576 / 1000000 | K2.8 per docs + live endpoint metadata (see Vision verification); the Z.ai row is the 3×-quota fallback |
+| Lieutenant Colonel (OF-5) | `lieutenant-colonel` | 1: `glm-5.3` @ Z.AI · 2: `k3` @ Kimi · 3: `k3-256k` @ Kimi | 1000000 / 1048576 / 262144 | frontier tier, all subscription |
+| Lieutenant Colonel, vision (OF-5) | `lieutenant-colonel-v` | 1: `k3` · 2: `k3-256k` @ Kimi | 1048576 / 262144 | `glm-5.3` absent (text-only model); K3 line per model table + live metadata, third-party pixel tests OK; through-proxy test is the remaining TODO |
+| Brigadier General (OF-6) | `brigadier-general` | `k3.1-pro` @ Kimi | 1048576 | thinking-only; proxy pins `reasoning_effort: high` |
+| Brigadier General (vision) | `brigadier-general-v` | `k3.1-pro` @ Kimi | 1048576 | model table image+video; live pixel test 2026-11-17 OK; through-proxy test is the remaining TODO |
+
+Every ranked model also has an **explicit model name**, spelled exactly like the
+upstream id — one name, one deployment, no failover in or out:
+
+| Proxy name (= the upstream id) | Backend |
+| --- | --- |
+| `k3.1-pro` · `k3` · `k3-256k` · `kimi-for-coding` | Kimi |
+| `glm-5.3` · `glm-5.3-flash` · `glm-5-turbo` | Z.AI Coding Plan |
+| `deepseek-flash` · `deepseek-v4-pro` | DeepSeek direct |
+| `Qwen/Qwen3.6-35B-A3B` · `Qwen/Qwen3.6-35B-A3B-FP8` | 35B-A3B MoE @ Hetzner (FP8 weights) — the `warrant-officer` cloud deployment, without its local Strata fallback |
+| `Qwen/Qwen3.8-27B` · `Qwen3.8-27B` | dense 27B @ Hetzner — the `second-lieutenant` deployment |
+
+Unranked pay-as-you-go (explicit selection only, never auto-fallback) is
+**CheaperInference only** — the reseller's OpenAI/Anthropic catalogue plus the
+cash twin of the Coding Plan's GLM-5.3:
+
+| Proxy name | Backend |
+| --- | --- |
+| `deepseek-v4.1-flash` | CheaperInference |
+| `gpt-5.6-luna` | CheaperInference |
+| `claude-sonnet-5.5` | CheaperInference |
+| `claude-opus-5.5` | CheaperInference |
+| `glm-5.3-payg` | CheaperInference pay-per-token (named `-payg` so the plan id `glm-5.3` stays the subscription) |
+
+Asking for an explicit name lands on that single deployment: no local Strata
+failover (that is `warrant-officer`'s job), no cross-rank fallback in or out.
+Both Hetzner models are natively multimodal (verified by pixel-color tests), so
+their ids can carry images too; the rank names stay the recommended path.
+
+## Routing behavior
+
+- **Priority is `litellm_params.order`**, not weights. Lower order is tried
+  first; `simple-shuffle` picks randomly only within the current order tier.
+  No `rpm`, `tpm` or `weight` knobs are used.
+- **Intra-rank failover** is a same-`model_name` deployment list. The router
+  retries within the tier, then moves to the next order tier. Multi-model ranks
+  order their deployments subscription → pay-per-token → free cloud → local, so
+  a quota-exhausted subscription is the first tier to be promoted through.
+- **Cross-rank fallbacks stop at warrant-officer**:
+  `lieutenant → second-lieutenant → warrant-officer`. Sergeant is explicit-only:
+  its swift-1.5 pool is the same Strata deployment that second-lieutenant and
+  warrant-officer use as their local fallback, so a rank entry adds no new
+  capacity; its Studio tier would only add a model load. Paid ranks (`captain`,
+  `captain-v`, `captain-commandant`, `major`, `major-v`, `lieutenant-colonel`,
+  `lieutenant-colonel-v`, `brigadier-general`, `brigadier-general-v`) and every
+  explicit model id have no fallback in or out: silent cost escalation is
+  worse than a visible error.
+- **The pre-call context check enforces each deployment's window.** The Strata
+  rows now advertise `max_input_tokens: 262144` (the window `strata launch`
+  writes and the engine reports as `n_ctx`), the same window the Hetzner rows
+  serve. The check therefore no longer moves a long prompt from a local rank to
+  the free cloud; it only separates the smaller paid rows (200K `glm-5-turbo`,
+  262K `k3-256k`) from the 1M rows. Above 262144 tokens nothing in the free
+  stack can hold the prompt.
+- **Vision lives on `-v` ranks**: the ladder ranks whose deployments see images
+  get a `-v` sibling serving the same deployment list (`warrant-officer-v`,
+  `lieutenant-v` — both verified by pixel-color tests; `second-lieutenant`'s
+  Qwen3.8-27B accepts images too but stays text-only by contract). Paid
+  vision slots: `captain-v` (deepseek-flash, provider-spec modality),
+  `major-v` (1: kimi-for-coding → 2: glm-5.3-flash — K2.8 is image-capable per
+  Kimi's model table + live endpoint metadata + third-party pixel tests,
+  glm-5.3-flash is Z.ai's documented multimodal line),
+  `lieutenant-colonel-v` (k3 / k3-256k, model table + live
+  `GET /coding/v1/models` metadata), `brigadier-general-v` (k3.1-pro, model
+  table + live pixel test 2026-11-17). `captain-commandant` has no `-v` sibling: both of
+  its models are text-only. A plain rank is text-only by contract, so its
+  model can be swapped freely and no caller expects vision from it. LiteLLM
+  does **no** vision filtering (verified in 1.86.0: no pre-call check inspects
+  message content), so an image reaches whatever deployment the router picks —
+  which is why every deployment behind a `-v` name is vision-capable (see
+  docs/ai-ranks.md "Vision verification" for what is verified vs provider-spec),
+  and why opencode/pi only send images to attachment-capable names in the
+  first place. The vision cascade is `lieutenant-v → warrant-officer-v` and
+  never leaves the `-v` ladder; paid `-v` ranks do not cascade at all.
+- **Pre-call checks** drop deployments whose `max_input_tokens` is below the
+  prompt length before a provider call, so a 300K prompt skips the 200K
+  (`glm-5-turbo`) / 262K (`k3-256k`) deployments without burning quota.
+- **Session affinity** pins a conversation to the deployment that served its
+  first request when the client sends a session id. No-op for clients that do
+  not; a cooled-down pin falls through to healthy deployments.
+- **Fast cooldown**: `allowed_fails: 1` and `cooldown_time: 5` mean one failure
+  parks a deployment for five seconds, so a quota-exhausted subscription costs
+  at most one probe per cycle.
+
+## Retries and timeouts
+
+Per deployment:
+
+- `timeout` — full request budget.
+- `stream_timeout` — first-token / inactivity budget for streaming.
+- `num_retries` — deployment-level retries before the router moves on.
+
+Proxy-wide: `litellm_settings.request_timeout: 600`, router `num_retries: 2`,
+`max_fallbacks: 2`. `drop_params: true` keeps local GGUF backends from
+rejecting provider-specific fields they do not understand.
+
+## Cost tracking
+
+LiteLLM prices a deployment from its cost map by provider/model. The standing
+stack and every subscription deployment are explicitly zero-cost:
+
+- local Strata / Studio deployments: hardware, no per-token charge;
+- subscription deployments (`captain-commandant`'s Z.ai row, `major`,
+  `major-v`, `lieutenant-colonel`, `lieutenant-colonel-v`,
+  `brigadier-general`, `brigadier-general-v`, and the Kimi / Z.ai explicit
+  ids): quota, not tokens;
+- Hetzner deployments (the `warrant-officer` / `second-lieutenant` cloud
+  deployments and the four free-cloud ids): free tier, no per-token charge.
+
+The DeepSeek rows (`captain` / `captain-v`, `captain-commandant`'s cash row,
+`major`'s order-3 row, and the `deepseek-flash` / `deepseek-v4-pro` explicit
+ids) have cost-map rows, so they are priced normally. `gpt-5.6-luna` likewise.
+The other CheaperInference rows (`deepseek-v4.1-flash`, `claude-sonnet-5.5`,
+`claude-opus-5.5`, `glm-5.3-payg`) have no upstream row in LiteLLM 1.86.0, so
+they are pinned to zero with a TODO until the discounted rates are known.
+
+Spend, virtual keys, budgets and the admin UI live in PostgreSQL 18 on each
+proxy host (`services/postgresql.nix`, dedicated `litellm` role/database).
+The proxy applies the Prisma schema with `prisma db push` on startup, so a
+fresh cluster is usable without a manual migration step. `StateDirectory =
+"litellm"` also keeps the writable, pre-restructured admin UI under
+`/var/lib/litellm/ui`.
+
+DeepSeek off-peak pricing is not enabled yet. The config carries the commented
+shape (`model_info.off_peak_pricing` with `hours_utc` and half-rate costs); fill
+it from the DeepSeek price sheet before relying on spend reports for the paid
+DeepSeek rows.
+
+## Secrets
+
+Backend keys and the proxy master key live in the existing
+`secrets/opencode-keys.env.age` agenix secret. Its `OPENAI_API_KEYS` JSON maps
+each base URL to a key; see `services/secrets-README.md`.
+
+The store never contains a key. `litellm-proxy-env.service` (root oneshot):
+
+1. reads `/etc/secrets/opencode-keys.env`;
+2. writes `/run/litellm-proxy.env` (0600 root) with one `LITELLM_*` variable
+   per backend key.
+
+The proxy unit sets `EnvironmentFile=/run/litellm-proxy.env`, so every
+`LITELLM_*` variable is exported to the LiteLLM process, and the store config
+references them through LiteLLM's `os.environ/VAR` resolver. No secret is ever
+written into the Nix store or into a second config file.
+
+The same secret entry under `http://server-nike.bee-blues.ts.net:4000/v1` is
+the master key. `setupOpenCodeKeys` materializes it as
+`~/.config/opencode/keys/litellm-proxy.key`; clients and gateway therefore
+always agree.
+
+The database role password is a separate agenix secret,
+`secrets/litellm-db-password.age`, mounted at
+`/run/agenix/litellm-db-password`; `litellm-proxy-env.service` reads it and
+writes `DATABASE_URL=postgresql://litellm:...@127.0.0.1:5432/litellm` into the
+env file. `services/postgresql.nix` creates the `litellm` role/database only
+when the proxy is enabled.
+
+Rotating a key:
+
+1. update `secrets/opencode-keys.env.age` and commit it;
+2. `sudo nixos-rebuild switch --flake .` on every proxy host (server-nike,
+   laptop-p16);
+3. `litellm-proxy-env.service` rewrites `/run/litellm-proxy.env` and
+   `PartOf=` restarts the proxy.
+
+## Client wiring (`users/opencode.nix`)
+
+opencode and pi have the rank gateway as their primary provider (the example
+shows laptop-p16's loopback URL; every other host builds the server-nike
+Tailscale URL — see `proxyBaseURL` in `users/opencode.nix`):
+
+```json
+{
+  "proxy": {
+    "package": "aisdk:@ai-sdk/openai-compatible",
+    "settings": {
+      "baseURL": "http://127.0.0.1:4000/v1",
+      "apiKey": "{file:~/.config/opencode/keys/litellm-proxy.key}"
+    },
+    "models": {
+      "lieutenant": { "name": "Lieutenant — deep reasoning (default)", "limit": { "context": 262144, "output": 65536 } },
+      "sergeant": { "name": "Sergeant — fast executor", "limit": { "context": 262144, "output": 65536 } }
+    }
+  }
+}
+```
+
+The full table also carries the other ranks (including every `-v` slot), the
+explicit model ids of the ranked models, the four Hetzner ids and the
+unranked CheaperInference ids. The client table only holds display names, the
+researched context/output limits (opencode compacts at `limit.context`) and the
+modality flags consumed by pi. Routing and deployment metadata live in the
+proxy config; keep the two in step when adding a model.
+
+**Direct providers (the no-gateway path).** One extra provider per backend
+lets the harnesses use the subscription and other models without LiteLLM, so
+an outage of server-nike, the `litellm-proxy` unit or the Tailscale path does
+not leave them without a model:
+
+| provider | base URL | credential |
+|---|---|---|
+| `zai` | `https://api.z.ai/api/coding/paas/v4` | `zai.key` |
+| `kimi` | `https://api.kimi.com/coding/v1` | `kimi.key` |
+| `deepseek` | `https://api.deepseek.com` | `deepseek.key` |
+| `hetzner` | `https://inference.hetzner.com/v1` | `hetzner.key` |
+| `cheaperinference` | `https://api.cheaperinference.com/v1` | `cheaperinference.key` |
+| `strata-nike` / `strata-p16` | the two Strata engines, port 8080 | literal `strata` (the STRATA_API_KEY default) |
+| `unsloth` | `http://127.0.0.1:8888/v1` (the local Studio; keyless-localhost, shared key) | `unsloth.key` |
+
+Every direct provider reuses the model cards of the proxy table (one card per
+model in `users/opencode.nix`, grouped per backend), so display names, limits
+and modality flags cannot drift between the two paths. One known mismatch is
+inherited from the earlier client table: the four CheaperInference cards
+carry `attachment = true`, while the proxy's rows for those ids leave
+`supports_vision` unset. Harmless at runtime (LiteLLM does no vision
+pre-call filtering); tighten both sides together once the CI pool's image
+support is verified. Selection is explicit:
+neither opencode nor pi fails over across providers, so when the gateway is
+down, pick a direct model (for example `zai/glm-5.3`, `kimi/k3.1-pro` or
+`strata-p16/swift-1.5-iq3_xxs`). A direct call draws the same quota or
+billing that the proxy's deployment of the same backend draws.
+
+`model` defaults to `proxy/lieutenant` on every host. pi reads the same
+provider set from `~/.pi/agent/models.json`, generated from the same Nix
+table, with `apiKey: "!cat ~/.config/opencode/keys/<name>.key"` (literal
+keys, such as Strata's `strata`, pass through unchanged).
+
+hermes (Nicky only, `users/nicky/nicky-hm.nix`) is wired through the same
+secret: a `proxy` custom provider carries the gateway master key via
+`key_env: LITELLM_MASTER_KEY`, and `zai-coding` / `kimi-code` custom providers
+point straight at the two subscription endpoints via `ZAI_CODING_API_KEY` /
+`KIMI_CODE_API_KEY` — all upserted into `~/.hermes/.env` from the
+`opencode-keys` agenix secret by the `writeHermesEnv` activation. So hermes,
+too, can switch off the gateway and call the plan endpoints directly.
+
+## Deployment
+
+`services/litellm-proxy.nix` is enabled from
+`hosts/server-nike/server-nike.nix` and `hosts/laptop-p16/laptop-p16.nix`;
+both hosts import `services/postgresql.nix` and open `tcp/4000` via
+`lib.privateNetRules`. There is no Docker container and no separate compose
+file. The units are:
+
+- `litellm-proxy-env.service` — root oneshot, derives `/run/litellm-proxy.env`
+  from agenix (backend keys + `DATABASE_URL`);
+- `litellm-proxy-ui.service` — root oneshot, copies the packaged admin UI to
+  `/var/lib/litellm/ui` and pre-restructures extensionless routes
+  (`login.html` -> `login/index.html`);
+- `litellm-proxy.service` — runs `${pkgs.litellm}/bin/litellm` with
+  `--use_prisma_db_push`, `Restart = always`, `PartOf =
+  litellm-proxy-env.service`.
+
+**Restart cost.** Two things dominate a restart. First, the Python import of
+`litellm.proxy.proxy_server` (~13 s warm; measured 2026-11-23) plus the Prisma
+CLI check `--use_prisma_db_push` runs on every start. Second, uvicorn's
+graceful shutdown waits for open connections: agent clients pin idle keep-alive
+connections, so the process sat in "Waiting for connections to close" until the
+default 90 s `TimeoutStopSec` expired (SIGTERM 08:08:06, SIGKILL 08:09:37 at
+the 2026-11-23 switch). The unit now sets `TimeoutStopSec = 20s`, so in-flight
+requests get 20 s and the cgroup is killed after that — a switch no longer pays
+the 90 s stall before the new instance starts importing. The import itself is
+the floor; the store ships bytecode caches, so there is no compile step to
+recover.
+
+The Python Prisma client is generated at build time (`litellm-prisma-python`)
+and a read-only Prisma CLI cache (`litellm-prisma-cli`) is wired through
+`PRISMA_*` environment variables, so neither `prisma generate` nor engine
+downloads happen at runtime. The first proxy start applies the schema with
+`prisma db push`; later starts only verify it.
+
+## Admin UI
+
+```
+http://server-nike.bee-blues.ts.net:4000/ui/
+```
+
+Login with username `admin` and the proxy master key (the same value as
+`~/.config/opencode/keys/litellm-proxy.key`). The UI is backed by the local
+PostgreSQL database, so virtual keys, budgets, spend logs and request history
+are live. `/ui/login` works because `litellm-proxy-ui.service` pre-restructures
+the exported HTML routes; `/ui/login.html` is not needed.
+
+## Operations
+
+Health and model list:
+
+```sh
+KEY=$(sudo cat /etc/secrets/opencode-keys.env | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().split("=",1)[1])["http://server-nike.bee-blues.ts.net:4000/v1"])')
+curl -s http://127.0.0.1:4000/health/liveliness
+curl -s -H "Authorization: Bearer $KEY" http://127.0.0.1:4000/v1/models
+```
+
+Completion smoke test (local rank):
+
+```sh
+curl -s -X POST \
+  -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"sergeant","messages":[{"role":"user","content":"Say hi"}],"max_tokens":5}' \
+  http://127.0.0.1:4000/v1/chat/completions
+```
+
+Logs and spend:
+
+```sh
+journalctl -u litellm-proxy -f
+journalctl -u litellm-proxy-env -n 20
+```
+
+Adding a model: add the deployment to `services/litellm-proxy.nix`, add the
+model card to the backend's shared card group in `users/opencode.nix` (it
+then appears on the gateway and on that backend's direct provider), commit,
+switch on each proxy host (server-nike, laptop-p16), then run the health +
+completion checks. For a local model, confirm its id and served context
+first: `GET http://127.0.0.1:8080/v1/models` for Strata, `GET
+http://127.0.0.1:8888/api/inference/models` for Studio.
+
+## References
+
+- Routing / load balancing: <https://docs.litellm.ai/docs/routing>
+- Reliability / fallbacks / retries: <https://docs.litellm.ai/docs/proxy/reliability>
+- Timeouts: <https://docs.litellm.ai/docs/proxy/timeout>
+- Custom pricing: <https://docs.litellm.ai/docs/proxy/custom_pricing>
+- Off-peak pricing: <https://docs.litellm.ai/docs/proxy/off_peak_pricing>
+- Virtual keys: <https://docs.litellm.ai/docs/proxy/virtual_keys>
+- Cost tracking: <https://docs.litellm.ai/docs/proxy/cost_tracking>
+- Admin UI: <https://docs.litellm.ai/docs/proxy/ui>

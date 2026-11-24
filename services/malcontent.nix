@@ -28,7 +28,7 @@ let
   allowlistApps = [
     "org.gnome.Maps"
     "org.gnome.Cheese"
-    "org.gnome.Clocks"
+    "org.gnome.clocks"
     "org.gnome.Logs"
     "org.gnome.Geary"
     "org.videolan.VLC"
@@ -60,7 +60,6 @@ let
     "com.calibre_ebook.calibre"
     "org.libreoffice.LibreOffice"
     "org.mozilla.firefox"
-    "org.gnome.SystemMonitor"
     "org.gnome.Chess"
     "org.gnome.Nibbles"
     "md.obsidian.Obsidian"

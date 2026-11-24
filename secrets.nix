@@ -12,11 +12,22 @@
 # STRATEGY: per-secret recipient sets — there is no global "all" union. Each
 # secret is encrypted only to the keys that must decrypt it:
 #   - host-wide system secrets (syncthing GUI password, opencode provider keys,
-#     login password hashes) -> `hosts` (every host key)
+#     login password hashes, the family SSH identities, the PostgreSQL role
+#     password) -> `hosts` (every host key)
 #   - a host's Syncthing device identity -> that host's key only
 #   - nicky's personal API keys -> `user-nicky` + `hosts` (for recovery)
+#   - the PostgreSQL role password -> `hosts` + `user-nicky` + `user-aeiuno`.
+#     It is consumed twice: by the system unit (host key) and by nicky's
+#     home-manager ~/.pgpass wiring (user key). user-aeiuno is not required by
+#     any consumer today and could be dropped, but is kept so the file matches
+#     the scope the opencode keys use.
 # So a kid's (or another user's) key cannot read a secret it has no business
 # reading. See secrets-structure/README.md.
+#
+# `hosts` currently lists host-laptop-travelmate, which has no
+# nixosConfigurations entry (a spare identity kept for a future install).
+# That is harmless — an unused recipient only means the file can also be
+# decrypted with a key nobody deploys — but it is not a configured host.
 
 let
   # --- Recipients: SSH public keys -----------------------------------------
@@ -26,6 +37,8 @@ let
   host-laptop-hera = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHpBH6eidO8g+n4rqo9pVEsYX425CsDBloRbQoci0gD";
   host-laptop-xps = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAQkJFvXdkXG8Q9Chq7DFDIe71T2M2EaEvbdEi7Dg4an";
   host-laptop-travelmate = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGDwgXXr+XgOfH/vtOCcyXZwZTg7r5iVAvIf3IHs7Ii1";
+  host-desktop-leto = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHGcaJSty1Sies8J42+xvPDHEDDVy1wTgBDLnV5JdvSg";
+  host-server-nike = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHJ3Mhw7RpHapDKS7iRT8/qBrahEquDMVBAYh1eAW2B";
 
   user-nicky = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL7qyn3G5ztyNoQ6u4RZ1nJZaDNHcQRGhKaVj0i8pC8m";
   user-aeiuno = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIASyK+Od8c/gEwvvdtz1Lovd/qnomAeCRr+cPmhn6qvQ";
@@ -33,10 +46,12 @@ let
   # All host keys. Host-wide system secrets and the login password hashes are
   # encrypted to this set.
   hosts = [
-    host-laptop-p16
-    host-laptop-hera
-    host-laptop-xps
-    host-laptop-travelmate
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHGcaJSty1Sies8J42+xvPDHEDDVy1wTgBDLnV5JdvSg"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHpBH6eidO8g+n4rqo9pVEsYX425CsDBloRbQoci0gD"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK4TZqDcPPeDcBpqpHKdD22h60uxF0PoV1gelJ7qbC01"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGDwgXXr+XgOfH/vtOCcyXZwZTg7r5iVAvIf3IHs7Ii1"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAQkJFvXdkXG8Q9Chq7DFDIe71T2M2EaEvbdEi7Dg4an"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHJ3Mhw7RpHapDKS7iRT8/qBrahEquDMVBAYh1eAW2B"
   ];
 in
 {
@@ -67,6 +82,7 @@ in
   "nix-cache-laptop-p16.key.age".publicKeys = [ host-laptop-p16 user-nicky ];
   "nix-cache-laptop-hera.key.age".publicKeys = [ host-laptop-hera ];
   "nix-cache-laptop-xps.key.age".publicKeys = [ host-laptop-xps ];
+  "nix-cache-desktop-leto.key.age".publicKeys = [ host-desktop-leto ];
 
   # Shared LLM provider keys for opencode (OPENAI_API_KEYS JSON). Also readable
   # by user-nicky and user-aeiuno so standalone home-manager on CachyOS (no
@@ -88,6 +104,17 @@ in
   # Prepared identity for the (not-yet-configured) laptop-travelmate host.
   "syncthing/laptop-travelmate/cert.pem.age".publicKeys = [ host-laptop-travelmate ];
   "syncthing/laptop-travelmate/key.pem.age".publicKeys = [ host-laptop-travelmate ];
+  "syncthing/desktop-leto/cert.pem.age".publicKeys = [ host-desktop-leto ];
+  "syncthing/desktop-leto/key.pem.age".publicKeys = [ host-desktop-leto ];
+  # server-nike identity: pre-generated offline and committed before first
+  # boot, so the device ID is known ahead of install. To generate a host
+  # identity offline (see parents.md "Setting up Syncthing"):
+  #   syncthing generate --home <tmp>        # writes cert.pem + key.pem
+  #   syncthing device-id --home <tmp>       # the ID that goes in pool.nix
+  #   age -r "ssh-ed25519 <host pub key>" -o secrets/syncthing/<host>/cert.pem.age <tmp>/cert.pem
+  #   age -r "ssh-ed25519 <host pub key>" -o secrets/syncthing/<host>/key.pem.age  <tmp>/key.pem
+  "syncthing/server-nike/cert.pem.age".publicKeys = [ host-server-nike ];
+  "syncthing/server-nike/key.pem.age".publicKeys = [ host-server-nike ];
 
   # --- User secrets --------------------------------------------------------
   # Decrypted via the home-manager agenix module with the user's key.
@@ -95,6 +122,16 @@ in
   # nicky's personal API keys (env-file format, KEY=VALUE lines). Scoped to
   # nicky's own key + the host keys (recovery); NOT to the other users' keys.
   "nicky.nix.age".publicKeys = [ user-nicky ] ++ hosts;
+
+  # nicky's PostgreSQL role password. Consumed twice: by the system unit
+  # (services/postgresql.nix, host key) and by nicky's home-manager .pgpass
+  # wiring (user key), so the scope mirrors nicky.nix.age.
+  "pg-nicky-password.age".publicKeys = [ user-nicky ] ++ hosts;
+
+  # Dedicated PostgreSQL role password for the LiteLLM proxy's own database
+  # (services/litellm-proxy.nix). Only server-nike consumes it, but keeping the
+  # user key as a recovery recipient matches pg-nicky-password.
+  "litellm-db-password.age".publicKeys = [ user-nicky ] ++ hosts;
 
   # Per-user password hashes (SHA-512 crypt), consumed by users/passwords.nix
   # as users.users.<n>.hashedPasswordFile. Encrypted to host keys only.

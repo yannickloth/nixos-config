@@ -19,11 +19,14 @@
     namaka.inputs.nixpkgs.follows = "nixpkgs";
     namaka.inputs.haumea.inputs.nixpkgs.follows = "nixpkgs";
     # Strata (github.com/Niko1221/Strata) is not a flake input: packages/strata
-    # fetches it directly with fetchFromGitHub, pinned to v0.2.13 (engine 0.1.59;
-    # the app and the engine are versioned separately since 0.2.0) in
-    # engine.nix/default.nix. (It used to be the private yannickloth/forks-Strata
-    # fork's sm_86 branch; upstream 0.1.40.3 now carries every engine change the
-    # fork had, so the fork only added a bench harness - see git history.)
+    # fetches it directly with fetchFromGitHub, pinned to v0.2.20 (engine 0.1.64,
+    # feed 130). The engine is a separately-versioned CUDA build (engine.nix) and
+    # the desktop AppImage is a separate package (desktop.nix), version-locked to
+    # the Terminal in the flake declaration. (Since 0.2.16 the engine is an
+    # "engine component" with a per-file SHA-256 manifest — both the Terminal and
+    # the desktop app install models through setup.py in CONTROL mode, writing
+    # exe: "component:strata-engine". The store engine is installed into the
+    # component folder by the wrapper and by strata-server.)
     # hermes-agent packaging (packages/hermes-agent): builds the upstream
     # uv.lock into a Python virtualenv. Pin all three to this repo's
     # nixpkgs-unstable so there is a single evaluation of nixpkgs.
@@ -47,7 +50,9 @@
       };
       # Stable pkgs (nixpkgs) are the base for every user; only the AI tooling
       # list in overlays/ai-unstable.nix is swapped to unstable builds, and only
-      # for the adults (nicky, aeiuno). sven/aaron stay on plain stable.
+      # for the family accounts (nicky, aeiuno, sven, aaron — see
+      # users/ai-pkgs.nix). The kids are on it too: they learn to code with the
+      # same tooling as the adults.
       unstablePkgs = import nixpkgs-unstable {
         inherit system;
         config.allowUnfree = true;
@@ -110,6 +115,8 @@
             hera-syncthing-data = pkgs.writeText "hera-syncthing-data.sh"
               self.nixosConfigurations.laptop-hera.config.systemd.services.syncthing-hera-data-dir.script;
             usb-scan = pkgs.writeText "usb-scan.sh" (builtins.readFile ./services/usb-scan.sh);
+            age-audit = pkgs.writeText "age-audit.sh" (builtins.readFile ./scripts/age-audit.sh);
+            preboot-key-check = pkgs.writeText "preboot-key-check.sh" (builtins.readFile ./scripts/preboot-key-check.sh);
             natural-scroll = pkgs.writeText "natural-scroll.sh"
               self.nixosConfigurations.laptop-xps.config.home-manager.users.nicky.home.activation.setNaturalScroll.data;
             unsloth-free-gpu = pkgs.writeText "unsloth-free-gpu.sh"
@@ -168,8 +175,33 @@
             ${builtins.unsafeDiscardStringContext self.nixosConfigurations.laptop-xps.config.system.build.toplevel.drvPath}
             ${builtins.unsafeDiscardStringContext self.nixosConfigurations.laptop-hera.config.system.build.toplevel.drvPath}
             ${builtins.unsafeDiscardStringContext self.nixosConfigurations.laptop-p16.config.system.build.toplevel.drvPath}
+            ${builtins.unsafeDiscardStringContext self.nixosConfigurations.desktop-leto.config.system.build.toplevel.drvPath}
+            ${builtins.unsafeDiscardStringContext self.nixosConfigurations.server-nike.config.system.build.toplevel.drvPath}
             EOF
           '';
+
+          # Secret/recipient audit (zeplan.md §2.3): secrets.nix evaluates,
+          # every declared key is well-formed, and every .age file's recipient
+          # set equals the set declared for it. Runs with the same scope on
+          # every machine (CI included): the key-store integrity checks
+          # (keypair pairing + decryptability) need the gitignored private
+          # keys, which the flake source cannot carry — those run manually on
+          # the key-store machine (scripts/age-audit.sh repo ssh-keys), which
+          # scripts/agenix-rekey.sh does on every rekey.
+          age-secrets =
+            pkgs.runCommandLocal "age-secrets" {
+              nativeBuildInputs = [ pkgs.nix pkgs.jq pkgs.openssl ];
+            } ''
+              set -euo pipefail
+              export HOME=$TMPDIR
+              export NIX_STATE_DIR=$TMPDIR/nix
+              export NIX_LOG_DIR=$TMPDIR/nix/log
+              export NIX_CONF_DIR=$TMPDIR/etc
+              mkdir -p "$NIX_STATE_DIR" "$NIX_LOG_DIR" "$NIX_CONF_DIR"
+              cd ${self}
+              bash scripts/age-audit.sh repo
+              touch $out
+            '';
 
           unit = pkgs.runCommandLocal "nix-unit" { nativeBuildInputs = [ pkgs.nix-unit ]; } ''
             export HOME=$TMPDIR
@@ -205,6 +237,37 @@
             touch $out
           '';
 
+          # services/printing.nix replaces nixpkgs' set -e ensure-printers script
+          # with one that warns (and exits 0) when a printer is switched off.
+          # The offline branch is the whole point, so run it here: a probe against
+          # TEST-NET-1 must take ~1 s, print the WARNING, and succeed.
+          printing-script = pkgs.runCommandLocal "printing-script" {
+            nativeBuildInputs = [ pkgs.cups ];
+          } ''
+            set -euo pipefail
+            export XDG_RUNTIME_DIR=$TMPDIR/rt
+            mkdir -p "$XDG_RUNTIME_DIR"
+
+            guard=${(pkgs.callPackage ./packages/printing/ensure-printers.nix {
+              ensurePrinters = [ ];
+            }).passthru.ensurePrinter}
+
+            # 192.0.2.0/24 is TEST-NET-1: never routable, so this is the
+            # "printer switched off" path without needing a real dead address.
+            start=$SECONDS
+            "$guard" Offline ipps://192.0.2.99/ipp/print everywhere Offline B31 \
+              >log 2>&1
+            elapsed=$((SECONDS - start))
+
+            grep -q 'WARNING: printer Offline (ipps://192.0.2.99/ipp/print) is off or unreachable' log
+            grep -q 'skipped: queue not created/refreshed' log
+            # The probe replaces a 30 s lpadmin timeout; allow slack for CI.
+            [ "$elapsed" -lt 10 ] || { echo "probe took ''${elapsed}s, expected <10s" >&2; exit 1; }
+            # A skipped queue is remembered for the retry timer.
+            [ "$(cat "$XDG_RUNTIME_DIR/ensure-printers/Offline.attempts")" = 1 ]
+            touch $out
+          '';
+
           python-compile = pkgs.runCommandLocal "python-compile" { nativeBuildInputs = [ pkgs.python3 ]; } ''
             python3 -c 'compile(open("${./packages/strata/config_patch.py}").read(), "config_patch.py", "exec")'
             touch $out
@@ -214,89 +277,81 @@
             nativeBuildInputs = [ pkgs.python3 pkgs.coreutils ];
           } ''
             export STRATA_HOME=$TMPDIR/strata
+            export XDG_DATA_HOME=$TMPDIR/xdg
             mkdir -p "$STRATA_HOME"
+            # How the package calls it: share, "vision encoder shipped",
+            # component folder name (argv[3]).
+            comp=0.1.64-linux-x86_64-cuda
+            patch() { python3 ${./packages/strata/config_patch.py} ${strataShare} "$1" "$comp"; }
 
-            # 1. a config with no "user_args" layer yet: the module policy lands
-            #    in "args".
+            # 1. a config with no expert-cache: the module enforces it.
             printf '{"args":["--max-context","4096"]}' > "$STRATA_HOME/strata-good.json"
-            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare}
+            patch true
             grep -q -- '--expert-cache' "$STRATA_HOME/strata-good.json"
-            grep -q -- '"--spec-min-p"' "$STRATA_HOME/strata-good.json"
-            grep -q -- '"2"' "$STRATA_HOME/strata-good.json"
-            grep -q -- '"8192"' "$STRATA_HOME/strata-good.json"
-            if grep -q -- '--prompt-cache-tail' "$STRATA_HOME/strata-good.json"; then
-              echo "tail flag added despite false" >&2; exit 1
-            fi
 
             # 2. an unchanged rerun must leave the file alone: strata-server picks
             #    the served model by mtime, so rewriting reorders what is served.
-            #    This is what catches set_opt moving flags to the end.
             m1=$(stat -c %Y "$STRATA_HOME/strata-good.json")
             sleep 1
-            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare}
+            patch true
             m2=$(stat -c %Y "$STRATA_HOME/strata-good.json")
             [ "$m1" = "$m2" ] || { echo "config rewritten on an unchanged rerun" >&2; exit 1; }
 
-            # 3. since 0.2.0 a config also carries "user_args", which
-            #    serve/server.py merges OVER "args" at every start: a stale value
-            #    there would beat the module options, so the policy flags are
-            #    taken out of it while the person's own options stay.
-            printf '{"args":["--max-context","8192","--expert-cache","auto","--spec","4"],"args_written":["--max-context","8192","--expert-cache","auto","--spec","4"],"user_args":["--max-context","4096","--vram-reserve-mib","0","--control-vector","/cv.gguf"]}' > "$STRATA_HOME/strata-ua.json"
-            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare}
+            # 3. a config with expert-cache + user_args: user_args must be preserved,
+            #    and the module doesn't touch any of them (all tuning left to setup).
+            printf '{"args":["--expert-cache","auto","--spec","4"],"args_written":["--expert-cache","auto","--spec","4"],"user_args":["--max-context","4096","--vram-reserve-mib","0","--control-vector","/cv.gguf"]}' > "$STRATA_HOME/strata-ua.json"
+            patch true
             python3 -c '
             import json, sys
             cfg = json.load(open(sys.argv[1]))
             ua = cfg.get("user_args") or []
-            assert "--max-context" not in ua, ua
-            assert "--vram-reserve-mib" not in ua, ua
+            assert "--max-context" in ua, ua
+            assert "--vram-reserve-mib" in ua, ua
             assert "--control-vector" in ua, ua
             a = cfg["args"]
-            assert a[a.index("--max-context") + 1] == "8192", a
+            assert "--expert-cache" in a, a
             ' "$STRATA_HOME/strata-ua.json"
 
             # 4. the upgrade case: a config written before 0.2.0 has no
             #    "args_written" and may hold engine options setup.py does not know
             #    (the calibrated ones are the module's, but -adapt-swaps /
-            #    -adapt-decay are the person's). The policy must be applied and
-            #    those hand edits must survive, and no "args_written" may be
+            #    -adapt-decay are the person's). The expert-cache must be present
+            #    but those hand edits must survive, and no "args_written" may be
             #    invented for them or the next `strata --setup` drops them.
-            printf '{"args":["--expert-cache","auto","--spec","4","--max-context","65536","--adapt-swaps","160","--adapt-decay","0.97"]}' > "$STRATA_HOME/strata-old.json"
-            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare}
+            printf '{"args":["--expert-cache","auto","--spec","4","--adapt-swaps","160","--adapt-decay","0.97"]}' > "$STRATA_HOME/strata-old.json"
+            patch true
             grep -q -- '--adapt-swaps' "$STRATA_HOME/strata-old.json"
             grep -q -- '--adapt-decay' "$STRATA_HOME/strata-old.json"
-            grep -q -- '"8192"' "$STRATA_HOME/strata-old.json"
             if grep -q -- 'args_written' "$STRATA_HOME/strata-old.json"; then
               echo "args_written invented for a pre-0.2.0 config" >&2; exit 1
             fi
 
-            # 5. the encoder is shipped (vision_encoder = true): the images answer
+            # 5. the encoder is shipped (argv[2] = true): the images answer
             #    from setup is the person's choice, so its "vision" block must
             #    stay - otherwise `strata --setup --vision yes` would be undone
             #    at every start, by this script or by strata-server's run of it.
-            printf '{"args":["--max-context","8192"],"vision":{"encoder":"/x/strata-vision"}}' > "$STRATA_HOME/strata-vis.json"
-            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' true ${strataShare} 2800
+            printf '{"args":["--expert-cache","auto"],"vision":{"encoder":"/x/strata-vision"}}' > "$STRATA_HOME/strata-vis.json"
+            patch true
             # the block itself, not just the key: a script that wrote nothing
             # would also satisfy a bare '"vision"' match
             grep -q -- '"encoder": "/x/strata-vision"' "$STRATA_HOME/strata-vis.json"
-            # and a config that serves images gets the larger request reserve,
-            # not the module's text-only one (1800): encoder activations OOM otherwise
-            grep -q -- '"2800"' "$STRATA_HOME/strata-vis.json"
+            # the vision block survives with vision_encoder = true (encoder shipped)
 
-            # 5b. the same config, from a package that ships no encoder: the
-            #     stale block points at a binary this install does not have, and
-            #     the server would fail every model load trying to start it.
-            python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare} 2800
+            # 5b. the same config, from a package that ships no encoder
+            #     (argv[2] = false): the stale block points at a binary this
+            #     install does not have, and the server would fail every model
+            #     load trying to start it.
+            patch false
             if grep -q -- '"vision"' "$STRATA_HOME/strata-vis.json"; then
               echo "vision block kept although the package ships no encoder" >&2; exit 1
             fi
-            grep -q -- '"1800"' "$STRATA_HOME/strata-vis.json"
 
-            # 6. a null module context (argv[1] = "none"): the runtime owns the
-            #    window, so --max-context and the rope flags must survive in
-            #    "args" AND a hand-set --max-context in "user_args" must not be
-            #    dropped (the flags leave the POLICY set in that mode).
+            # 6. null module tuning: the runtime owns the window, so --max-context
+            #    and the rope flags must survive in "args" AND a hand-set
+            #    --max-context in "user_args" must not be dropped (the script
+            #    doesn't touch them at all).
             printf '{"args":["--max-context","4096","--rope-scaling","linear","--rope-scale","3"],"user_args":["--max-context","2048"]}' > "$STRATA_HOME/strata-null.json"
-            python3 ${./packages/strata/config_patch.py} none kv8 0 none 1800 none none none none none false '{}' false ${strataShare}
+            patch true
             python3 -c '
             import json, sys
             cfg = json.load(open(sys.argv[1]))
@@ -308,12 +363,120 @@
             assert ua[ua.index("--max-context") + 1] == "2048", ua
             ' "$STRATA_HOME/strata-null.json"
 
+            # 6b. null kv tuning: the engine default stands - setup's flags stay
+            #     in "args" AND a hand-set --kv-resident in "user_args" must not
+            #     be dropped (the script doesn't touch them at all).
+            printf '{"args":["--kv","int8","--kv-resident","32768"],"user_args":["--kv-resident","40960"]}' > "$STRATA_HOME/strata-kvnone.json"
+            patch true
+            python3 -c '
+            import json, sys
+            cfg = json.load(open(sys.argv[1]))
+            a = cfg["args"]
+            assert a[a.index("--kv") + 1] == "int8", a
+            assert a[a.index("--kv-resident") + 1] == "32768", a
+            ua = cfg.get("user_args") or []
+            assert ua[ua.index("--kv-resident") + 1] == "40960", ua
+            assert "args_written" not in cfg, cfg
+            ' "$STRATA_HOME/strata-kvnone.json"
+
+            # 6c. component migration: a config with a legacy store-path `exe`
+            #     (from a Nix build before 0.2.16) must be migrated to
+            #     `component:strata-engine` in one pass. Idempotent: no change
+            #     on rerun.
+            printf '{"exe":"/nix/store/abc123-strata-0.2.15/bin/strata","args":["--expert-cache","auto"]}' > "$STRATA_HOME/strata-migrate.json"
+            patch true
+            grep -q '"component:strata-engine"' "$STRATA_HOME/strata-migrate.json"
+            grep -q '"exe":"/nix/store' "$STRATA_HOME/strata-migrate.json" && { echo "migration did not replace exe" >&2; exit 1; }
+
+            # 6d. component migration idempotent: a second run must not change
+            #     the file (mtime stays).
+            m1=$(stat -c %Y "$STRATA_HOME/strata-migrate.json")
+            sleep 1
+            patch true
+            m2=$(stat -c %Y "$STRATA_HOME/strata-migrate.json")
+            [ "$m1" = "$m2" ] || { echo "migrated config rewritten on rerun" >&2; exit 1; }
+
+            # 6e. the layout the package actually shipped up to 0.2.15: `exe`
+            #     is an absolute path into $STRATA_HOME/engine, NOT a store path.
+            #     Missing this case leaves a run config that names a binary the
+            #     package removes, and every start fails with "server_exited".
+            printf '{"exe":"%s/engine/strata","args":["--expert-cache","auto"]}' "$STRATA_HOME" > "$STRATA_HOME/strata-old-engine.json"
+            patch true
+            grep -q '"component:strata-engine"' "$STRATA_HOME/strata-old-engine.json" || {
+              echo "engine/ path not migrated" >&2; exit 1; }
+
+            # 6f. the picture reader is never a component reference: a reference
+            #     resolves to the ENGINE entrypoint, so the server would start
+            #     the engine as the reader. It becomes the absolute path inside
+            #     the installed component folder instead.
+            printf '{"exe":"component:strata-engine","vision":{"exe":"%s/engine/strata-vision","mmproj":"/m.gguf"},"args":["--expert-cache","auto"]}' "$STRATA_HOME" > "$STRATA_HOME/strata-vis-migrate.json"
+            patch true
+            python3 - "$STRATA_HOME/strata-vis-migrate.json" "$XDG_DATA_HOME/strata/components/engine/0.1.64-linux-x86_64-cuda/strata-vision" <<'PYV'
+            import json, sys
+            cfg = json.load(open(sys.argv[1]))
+            assert cfg["exe"] == "component:strata-engine", cfg["exe"]
+            assert cfg["vision"]["exe"] == sys.argv[2], cfg["vision"]["exe"]
+            PYV
+            m1=$(stat -c %Y "$STRATA_HOME/strata-vis-migrate.json")
+            sleep 1
+            patch true
+            m2=$(stat -c %Y "$STRATA_HOME/strata-vis-migrate.json")
+            [ "$m1" = "$m2" ] || { echo "vision.exe rewrite not idempotent" >&2; exit 1; }
+
+            # 6g. a run config of a MODEL-SHAPE engine (0.2.18: strata-hy4 for
+            #     Tencent Hy4-Flash) is not this package's to rewrite: its engine
+            #     has its own options, upstream's setup writes no --expert-cache
+            #     for it, and the vision file is an argument, not a "vision"
+            #     block. The file must come out byte-identical.
+            printf '{"exe":"component:strata-hy4","args":["--native","/m/Hy4-Flash-SQ-64.strata","--engram","/m/Hy4-Flash-Engram-Q8.strata","--max-context","131072","--vision","/m/Hy4-Flash-Vision.strata","--vram-experts-gb","8.00","--ram-experts-gb","30.00"],"cwd":"/w","tokenizer":"/t","model_name":"hy4-flash-sq-64","arch":"hy4flash","drafting":"dfly2"}' > "$STRATA_HOME/strata-hy4-flash-sq-64.json"
+            cp "$STRATA_HOME/strata-hy4-flash-sq-64.json" "$TMPDIR/hy4.before"
+            patch true
+            cmp -s "$TMPDIR/hy4.before" "$STRATA_HOME/strata-hy4-flash-sq-64.json" || {
+              echo "shape-engine config was rewritten" >&2; diff -u "$TMPDIR/hy4.before" "$STRATA_HOME/strata-hy4-flash-sq-64.json" >&2; exit 1; }
+
+
+            # 6h. Qwen3.6-35B-A3B runs on the same engine binary but its own path
+            #     (arch qwen35moe), which places experts with --expert-vram and
+            #     calls anything else "not an option of this engine": no
+            #     --expert-cache of ours. Its "vision" block is still ours (the
+            #     same strata-vision reader), so it must survive with the encoder.
+            printf '{"exe":"component:strata-engine","arch":"qwen35moe","args":["--native","/m/q.gguf","--max-context","32768","--mtp","2","--vision"],"vision":{"exe":"%s/engine/strata-vision","mmproj":"/m/mmproj-F16.gguf"}}' "$STRATA_HOME" > "$STRATA_HOME/strata-qwen36-ud-q4-k-xl.json"
+            patch true
+            python3 - "$STRATA_HOME/strata-qwen36-ud-q4-k-xl.json" "$XDG_DATA_HOME/strata/components/engine/0.1.64-linux-x86_64-cuda/strata-vision" <<'PYQ'
+            import json, sys
+            cfg = json.load(open(sys.argv[1]))
+            assert "--expert-cache" not in cfg["args"], cfg["args"]
+            assert cfg["args"][-1] == "--vision", cfg["args"]
+            assert cfg["vision"]["exe"] == sys.argv[2], cfg["vision"]["exe"]
+            PYQ
+            python3 ${./packages/strata/config_patch.py} ${strataShare} false "$comp"
+            if grep -q '"vision"' "$STRATA_HOME/strata-qwen36-ud-q4-k-xl.json"; then
+              echo "qwen36 vision block kept although the package ships no encoder" >&2; exit 1
+            fi
+
+            # 6i. --pool-workers is a per-host number. A count above what this
+            #     machine can use well (the engine's plan: the fewer of threads-1
+            #     and physical cores-1) comes from a bigger host, and is removed
+            #     from "args" and "args_written" so the engine picks its own; a
+            #     count that fits is kept untouched.
+            printf '{"exe":"component:strata-engine","args":["--native","/m/a.gguf","--pool-workers","4000","--spec","4"],"args_written":["--native","/m/a.gguf","--pool-workers","4000","--spec","4"]}' > "$STRATA_HOME/strata-pw-big.json"
+            printf '{"exe":"component:strata-engine","args":["--native","/m/b.gguf","--pool-workers","1","--spec","4"]}' > "$STRATA_HOME/strata-pw-ok.json"
+            patch true
+            python3 - "$STRATA_HOME/strata-pw-big.json" "$STRATA_HOME/strata-pw-ok.json" <<'PYP'
+            import json, sys
+            big, ok = (json.load(open(p)) for p in sys.argv[1:3])
+            assert "--pool-workers" not in big["args"], big["args"]
+            assert "--pool-workers" not in big["args_written"], big["args_written"]
+            assert "--expert-cache" in big["args"], big["args"]          # the policy still applies
+            assert ok["args"][ok["args"].index("--pool-workers") + 1] == "1", ok["args"]
+            PYP
+
             # 7. last, because this file makes EVERY later run fail: an
             #    unreadable config is a hard failure, since this script is the
             #    enforcement point of the policy and must not fail open with
             #    stale settings.
             printf 'not json' > "$STRATA_HOME/strata-bad.json"
-            if python3 ${./packages/strata/config_patch.py} 8192 kv8 0 none 1800 none none none none none false '{}' false ${strataShare}; then
+            if patch true; then
               echo "invalid config did not fail" >&2; exit 1
             fi
             touch $out
@@ -331,22 +494,18 @@
         # function attrs into the package set (and, in users/common-hm.nix,
         # leak into home.packages via builtins.attrValues).
         #
-        # Left at the default cachyos = false: these generic attributes are the
-        # plain wrapper for `nix build` / `nix-update`. The CachyOS laptop-p16
-        # deployment opts into the bundled GPU/audio stack via the host-aware
-        # install in users/common-hm.nix.
-        (import ./packages/craft-apps {
-          inherit (pkgs) lib appimageTools fetchurl;
-        })
+        # Generic derivation set for `nix build` / `nix-update`. Uses tarballs
+        # with stdenvNoCC (no FHS sandbox, no CachyOS extras).
+        (import ./packages/craft-apps { pkgs = pkgs; })
         // {
-          # Strata (packages/strata): CUDA inference engine for the A3000
-          # (sm_86) + runtime wrappers; consumed via home-manager
+          # Strata (packages/strata): CUDA inference engine for the sm_86 cards
+          # (A3000, RTX 3060) + runtime wrappers; consumed via home-manager
           # (packages/strata/home.nix, `strata.enable`). This generic attribute
           # ships WITHOUT the strata-vision image encoder; the home-manager
-          # deployment decides that separately with `strata.visionEncoder`
-          # (binary present, setup asks) and `strata.vision` (images by
-          # default). Serving images drops throughput from ~35 to ~22 tok/s.
-          strata = pkgs.callPackage ./packages/strata { vision = false; };
+          # deployment decides that with `strata.visionEncoder` (binary present,
+          # launch asks). Whether a model serves images is a run-config answer;
+          # serving them drops throughput from ~35 to ~22 tok/s.
+          strata = pkgs.callPackage ./packages/strata {};
           # Orca (packages/orca): the released Electron AppImage wrapped as a
           # normal derivation (appimageTools.wrapType2). Consumed via home-manager
           # (packages/orca/home.nix) and also exposed here for `nix build .#orca`
@@ -365,6 +524,19 @@
           # built from the registry tarball on unstable's Node (matches the
           # overlay, so the installed users share this store path).
           rea = unstablePkgs.callPackage ./packages/rea { };
+          # Microsoft Aptos font family; consumed via roles/fonts.nix and also
+          # exposed here so `nix build .#aptos` works.
+          aptos = pkgs.callPackage ./packages/aptos { };
+          # r8712u (packages/r8712u): out-of-tree kernel module for the
+          # RTL8191SU/RTL8188SU USB Wi-Fi dongles on server-nike (consumed by
+          # hardware/usb-wifi.nix). Mainline removed the staging driver in
+          # 6.12, so the pinned linux_6_12 kernel cannot provide it. Pinned to
+          # linux_6_12 here only for `nix build .#r8712u`; the system builds
+          # it against config.boot.kernelPackages instead.
+          r8712u = pkgs.callPackage ./packages/r8712u {
+            kernel = pkgs.linuxKernel.kernels.linux_6_12;
+            kernelModuleMakeFlags = pkgs.linuxKernel.packages.linux_6_12.kernelModuleMakeFlags;
+          };
         };
 
       nixosConfigurations =
@@ -374,20 +546,21 @@
           # kernels were dropped: their cache lagged each pin and could trigger
           # a multi-hour local LTO build. See git history to reintroduce.
           #
-          # NVIDIA caveat: linux_zen is on 7.2, whose DRM atomic-state rename
-          # (`drm_atomic_state` -> `drm_atomic_commit`) and strncpy removal are
-          # only handled by NVIDIA >= 595.99.02 (nixpkgs-unstable). Stable's
-          # 595.71.05 does not compile against 7.2, so the NVIDIA hosts (hera,
-          # p16) pin the desktop-tuned XanMod 6.18 LTS instead (see mkHost).
+          # NVIDIA: the Ampere hosts (p16, server-nike) take BOTH kernel and
+          # driver from nixpkgs-unstable's linux_zen set, so the newest zen
+          # (7.3.x) pairs with a matching newer NVIDIA driver (595.112.07, open
+          # kernel modules). Stable's 595.71.05 is too old to build against the
+          # current zen. laptop-hera is Pascal, which the open modules do not
+          # support, so it stays on XanMod + the proprietary legacy_580 branch.
           #
           # Home-manager + shared-module wiring common to every host.
           commonModules = [
             home-manager.nixosModules.home-manager
             agenix.nixosModules.default
-            # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode,
+            # Give every family account the AI-unstable pkgs overlay (opencode,
             # opencode-desktop, pi, herdr, jetbrains-toolbox, vscode,
-            # hermes-agent, magpie, deepseek-harness); sven/aaron keep plain
-            # stable pkgs.
+            # hermes-agent, magpie, deepseek-harness): the adults and the kids
+            # (users/ai-pkgs.nix keeps the account list).
             ./users/ai-pkgs.nix
             # Inject the agenix home-manager module so home-manager users can
             # use `age.secrets` (nicky and aeiuno do, for the opencode provider
@@ -422,9 +595,16 @@
           ];
 
           # One host: its configuration module + any host-only modules, on top
-          # of commonModules. `kernelPackages` defaults to the nixpkgs zen
-          # kernel; the NVIDIA hosts override it to XanMod 6.18 LTS because the
-          # stable NVIDIA driver cannot build against zen's 7.2 (see above).
+          # of commonModules. `kernelPackages` defaults to the stable nixpkgs
+          # zen kernel; p16 overrides it to the unstable zen set, hera to XanMod
+          # for its Pascal + legacy driver, and server-nike overrides it inside
+          # the host file (mkForce), because its NVIDIA driver must come from the
+          # same evaluation as the kernel. When bumping any host's kernel, also
+          # re-check the out-of-tree / in-tree module constraints pinned to it
+          # (NVIDIA on the Ampere hosts - hardware/nvidia_ampere.nix; and
+          # server-nike's r8712u USB Wi-Fi driver, out-of-tree because mainline
+          # removed the staging driver in 6.12 - packages/r8712u +
+          # hardware/usb-wifi.nix).
           mkHost =
             {
               configModule,
@@ -452,12 +632,27 @@
           laptop-p16 = mkHost {
             configModule = ./hosts/laptop-p16/laptop-p16-configuration.nix;
             extraModules = [ nixos-hardware.nixosModules.lenovo-thinkpad ];
-            kernelPackages = pkgs.linuxKernel.packages.linux_xanmod;
+            kernelPackages = unstablePkgs.linuxKernel.packages.linux_zen;
           };
 
           laptop-xps = mkHost {
             configModule = ./hosts/laptop-xps/laptop-xps-configuration.nix;
             extraModules = [ nixos-hardware.nixosModules.dell-xps-13-9360 ];
+          };
+
+          # Gigabyte GA-B85-HD3 (Socket 1150) + Intel Core i7-4771
+          # + NVIDIA GeForce GT 730 2GB (nouveau) + 16 GB RAM
+          desktop-leto = mkHost {
+            configModule = ./hosts/desktop-leto/desktop-leto-configuration.nix;
+          };
+
+          # Dell Precision Tower 5810 (Xeon E5-1650 v3) + RTX 3060 12GB.
+          # Kernel and driver are chosen in the host file (linux_6_12 with its
+          # own nvidia_x11): the newest zen kernel in the unstable set has no
+          # driver built against it in the pinned stable nixpkgs, which is what
+          # produced the module/userspace version mismatch.
+          server-nike = mkHost {
+            configModule = ./hosts/server-nike/server-nike-configuration.nix;
           };
         };
     };
