@@ -47,20 +47,19 @@ with lib;
         connect-timeout = 3;
 
         #         # set explicit binary cache and add additional binary caches
-        substituters = [
-          # CachyOS kernel binary cache; re-enable together with a
-          # kernels.cachyos-bore-lto module (see the `kernels` set in flake.nix):
-          # "https://attic.xuyh0120.win/lantian"
-          #"https://xtruder-public.cachix.org"
-        ]
+        # CachyOS kernel binary cache; re-enable together with a
+        # kernels.cachyos-bore-lto module (see the `kernels` set in flake.nix):
+        # "https://attic.xuyh0120.win/lantian"
+        # "https://xtruder-public.cachix.org"
         # Distributed builds over Tailscale: the three laptops are nix-serve
         # caches for each other (access to port 5000 is Tailscale-only, see
         # laptop-firewall.nix). desktop-leto now also participates: it serves
         # and substitutes from peers (has a per-host signing key in secrets/).
-        ++ [ "http://192.168.178.156:5000/" ] # desktop-leto nix-serve (192.168.178.156)
-        ++ (if (config.networking.hostName != "laptop-xps") then [ "http://laptop-xps.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-xps as a nix store cache
-        ++ (if (config.networking.hostName != "laptop-hera") then [ "http://laptop-hera.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-hera as a nix store cache
-        ++ (if (config.networking.hostName != "laptop-p16") then [ "http://laptop-p16.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-p16 as a nix store cache
+        substituters =
+          [ "http://192.168.178.156:5000/" ] # desktop-leto nix-serve (192.168.178.156)
+          ++ (if (config.networking.hostName != "laptop-xps") then [ "http://laptop-xps.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-xps as a nix store cache
+          ++ (if (config.networking.hostName != "laptop-hera") then [ "http://laptop-hera.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-hera as a nix store cache
+          ++ (if (config.networking.hostName != "laptop-p16") then [ "http://laptop-p16.bee-blues.ts.net:5000/" ] else [ ]) # any other hosts should use laptop-p16 as a nix store cache
         ;
         #         trusted-substituters = [
         #           "https://cache.nixos.org/"

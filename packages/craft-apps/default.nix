@@ -45,16 +45,12 @@
 # uses the system Vulkan drivers from /run/opengl-driver on NixOS
 # (provided by hardware.graphics.enable), or falls back to OpenGL/mesa
 # software rendering.
-{
-  pkgs,
+{ pkgs
+,
 }:
 
 let
-  lib = pkgs.lib;
-  fetchurl = pkgs.fetchurl;
-  stdenvNoCC = pkgs.stdenvNoCC;
-  glibc = pkgs.glibc;
-  patchelf = pkgs.patchelf;
+  inherit (pkgs) lib fetchurl stdenvNoCC glibc patchelf;
 
   # Runtime library search path for the wrappers (see file header): glibc
   # covers the NEEDED set (nixpkgs builds libgcc_s inside glibc); alsa-lib
@@ -107,11 +103,11 @@ let
   libraryPath = builtins.concatStringsSep ":" (map (d: "${d}/lib") runtimeLibs);
 
   mkCraftApp =
-    {
-      pname,
-      version,
-      hash,
-      description,
+    { pname
+    , version
+    , hash
+    , description
+    ,
     }:
     let
       src = fetchurl {
@@ -130,54 +126,54 @@ let
       # share/metainfo/, share/mime/packages/.
 
       installPhase = ''
-        mkdir -p $out/bin $out/share/applications $out/share/icons/hicolor \
-                 $out/share/metainfo $out/share/mime/packages
-        # Copy both GUI and CLI binaries verbatim
-        cp bin/* $out/bin/
+                mkdir -p $out/bin $out/share/applications $out/share/icons/hicolor \
+                         $out/share/metainfo $out/share/mime/packages
+                # Copy both GUI and CLI binaries verbatim
+                cp bin/* $out/bin/
 
-        # Patch each ELF to use NixOS's glibc dynamic linker and wrap it with
-        # an LD_LIBRARY_PATH script (see file header for why). The heredoc body
-        # is column-0 (shebangs must start at byte 0). Note this is an indented
-        # Nix string, where a lone backslash is literal, and the build-time
-        # heredoc must see \$@ to keep "$@" out of expansion (inside a phase
-        # $@ is the phase name itself, so never leave it bare here).
-        for f in $out/bin/*; do
-          # Only wrap real ELF executables; leave anything else upstream
-          # might ever ship in bin/ untouched.
-          [ "$(head -c 4 "$f" | od -An -tx1 | tr -d ' \n')" = "7f454c46" ] || continue
-          mv "$f" "$f.bin"
-          patchelf --set-interpreter ${glibc}/lib/ld-linux-x86-64.so.2 "$f.bin"
-          cat > "$f" <<EOF
-#!${stdenvNoCC.shell}
-export LD_LIBRARY_PATH="${libraryPath}${"\${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"}"
-exec "$f.bin" "\$@"
-EOF
-          chmod +x "$f"
-        done
+                # Patch each ELF to use NixOS's glibc dynamic linker and wrap it with
+                # an LD_LIBRARY_PATH script (see file header for why). The heredoc body
+                # is column-0 (shebangs must start at byte 0). Note this is an indented
+                # Nix string, where a lone backslash is literal, and the build-time
+                # heredoc must see \$@ to keep "$@" out of expansion (inside a phase
+                # $@ is the phase name itself, so never leave it bare here).
+                for f in $out/bin/*; do
+                  # Only wrap real ELF executables; leave anything else upstream
+                  # might ever ship in bin/ untouched.
+                  [ "$(head -c 4 "$f" | od -An -tx1 | tr -d ' \n')" = "7f454c46" ] || continue
+                  mv "$f" "$f.bin"
+                  patchelf --set-interpreter ${glibc}/lib/ld-linux-x86-64.so.2 "$f.bin"
+                  cat > "$f" <<EOF
+        #!${stdenvNoCC.shell}
+        export LD_LIBRARY_PATH="${libraryPath}${"\${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"}"
+        exec "$f.bin" "\$@"
+        EOF
+                  chmod +x "$f"
+                done
 
-        # Desktop entry: Exec=<pname> already resolves via ~/.nix-profile/bin/
-        # which the desktop environment has in PATH. No substitution needed.
-        cp share/applications/*.desktop $out/share/applications/
+                # Desktop entry: Exec=<pname> already resolves via ~/.nix-profile/bin/
+                # which the desktop environment has in PATH. No substitution needed.
+                cp share/applications/*.desktop $out/share/applications/
 
-        # Icons, metainfo (AppStream), MIME types — metainfo and MIME types
-        # are optional; craft-anything ships neither, so the copy loops
-        # guard on file existence to avoid "missing destination file operand"
-        # when the glob expands to nothing (failing under set -e).
-        cp -r share/icons/hicolor/* $out/share/icons/hicolor/
-        for f in share/metainfo/*.xml; do
-          [ -e "$f" ] && cp "$f" $out/share/metainfo/
-        done
-        for f in share/mime/packages/*.xml; do
-          [ -e "$f" ] && cp "$f" $out/share/mime/packages/
-        done
-        if [ -d share/thumbnailers ]; then
-          mkdir -p $out/share/thumbnailers
-          cp share/thumbnailers/* $out/share/thumbnailers/
-        fi
-        if [ -d share/doc/${pname} ]; then
-          mkdir -p $out/share/doc/${pname}
-          cp -r share/doc/${pname}/* $out/share/doc/${pname}/
-        fi
+                # Icons, metainfo (AppStream), MIME types — metainfo and MIME types
+                # are optional; craft-anything ships neither, so the copy loops
+                # guard on file existence to avoid "missing destination file operand"
+                # when the glob expands to nothing (failing under set -e).
+                cp -r share/icons/hicolor/* $out/share/icons/hicolor/
+                for f in share/metainfo/*.xml; do
+                  [ -e "$f" ] && cp "$f" $out/share/metainfo/
+                done
+                for f in share/mime/packages/*.xml; do
+                  [ -e "$f" ] && cp "$f" $out/share/mime/packages/
+                done
+                if [ -d share/thumbnailers ]; then
+                  mkdir -p $out/share/thumbnailers
+                  cp share/thumbnailers/* $out/share/thumbnailers/
+                fi
+                if [ -d share/doc/${pname} ]; then
+                  mkdir -p $out/share/doc/${pname}
+                  cp -r share/doc/${pname}/* $out/share/doc/${pname}/
+                fi
       '';
 
       # Preserve debug symbols for crash reports / coredumps

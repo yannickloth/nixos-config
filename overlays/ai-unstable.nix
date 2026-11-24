@@ -8,10 +8,10 @@
 # of built-in AI features, so they are pulled from nixos-unstable. hermes-agent,
 # magpie and deepseek-harness are not in nixpkgs at all and are packaged in-tree
 # (packages/hermes-agent, packages/magpie, packages/deepseek-harness).
-{
-  unstablePkgs,
-  hermesAgent,
-  browseros,
+{ unstablePkgs
+, hermesAgent
+, browseros
+,
 }:
 
 _final: _prev: {
@@ -38,14 +38,14 @@ _final: _prev: {
   # Self-contained: it bundles its own agent server, so it does not follow the
   # CLI pin above.
   opencode-desktop = unstablePkgs.callPackage ../packages/opencode-desktop { };
-  pi-coding-agent = unstablePkgs.pi-coding-agent;
+  inherit (unstablePkgs) pi-coding-agent;
   # herdr (herdr.dev, herdrdev/herdr): Rust terminal multiplexer / runtime that
   # keeps several coding agents (opencode, claude, codex, ...) in the tabs and
   # panes of one persistent session. Not in the stable channel at all (nixos-26.05
   # has no herdr), and the 0.9.x line moves fast, so it comes from unstable like
   # the rest of this list. The per-agent integrations (`herdr integration install
   # opencode`, ...) and the agent skill are handled by packages/herdr/home.nix.
-  herdr = unstablePkgs.herdr;
+  inherit (unstablePkgs) herdr;
   # Hermes Agent is packaged in-tree (packages/hermes-agent) from upstream's
   # uv.lock via uv2nix — it is not in nixpkgs at all.
   hermes-agent = hermesAgent;
@@ -76,14 +76,14 @@ _final: _prev: {
   # the 1.x line moves fast, so it follows the rest of the AI tooling from
   # unstable. Installed by users/opencode.nix next to the ocr CLI; the
   # per-project skills and commands come from `openspec init --tools opencode`.
-  openspec = unstablePkgs.openspec;
+  inherit (unstablePkgs) openspec;
   # Orca (ADE): not in nixpkgs and only shipped as a prebuilt Electron AppImage,
   # wrapped as a normal derivation in packages/orca. Exposed here so the adults
   # (nicky, aeiuno) get `pkgs.orca` on every host.
   orca = unstablePkgs.callPackage ../packages/orca { };
   # BrowserOS neo: agent-driven browser that AI assistants drive over MCP with
   # the user's real logins. Packaged in-tree from the upstream AppImage.
-  browseros = browseros;
+  inherit browseros;
   # JetBrains Toolbox version bump ahead of nixpkgs-unstable. History: in
   # 2026-10 JetBrains moved the Toolbox tarball from download-cdn.jetbrains.com
   # to download.jetbrains.com and nixpkgs-unstable lagged, so the fixed-output
@@ -102,16 +102,16 @@ _final: _prev: {
       base = unstablePkgs.jetbrains-toolbox;
     in
     # NOTE: buildFHSEnv embeds `runScript`/`extraInstallCommands` into the
-    # wrapper script when it is *called*; `base.overrideAttrs` on the result
-    # cannot change them (it only rewrites attrs of the already-generated
-    # runCommand derivation), so the version bump has to rebuild the FHS env.
+      # wrapper script when it is *called*; `base.overrideAttrs` on the result
+      # cannot change them (it only rewrites attrs of the already-generated
+      # runCommand derivation), so the version bump has to rebuild the FHS env.
     unstablePkgs.buildFHSEnv {
       pname = "jetbrains-toolbox";
       version = newVersion;
       multiPkgs =
         pkgs:
-        with pkgs;
-        [ icu libappindicator-gtk3 ] ++ unstablePkgs.appimageTools.defaultFhsEnvArgs.multiPkgs pkgs;
+          with pkgs;
+          [ icu libappindicator-gtk3 ] ++ unstablePkgs.appimageTools.defaultFhsEnvArgs.multiPkgs pkgs;
       runScript = "${fixedSrc}/bin/jetbrains-toolbox --update-failed";
       extraInstallCommands = ''
         install -Dm0644 ${fixedSrc}/bin/jetbrains-toolbox.desktop -t $out/share/applications
@@ -120,7 +120,7 @@ _final: _prev: {
       passthru = (base.passthru or { }) // {
         src = fixedSrc;
       };
-      meta = base.meta;
+      inherit (base) meta;
     };
-  vscode = unstablePkgs.vscode;
+  inherit (unstablePkgs) vscode;
 }

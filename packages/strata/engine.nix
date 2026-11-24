@@ -16,23 +16,24 @@
 # autoAddDriverRunpath puts /run/opengl-driver/lib on the RUNPATH; CachyOS
 # uses the /usr/lib shim (isCachyOS flag, same as the old design).
 
-{
-  lib,
-  stdenv,
-  pkgs,
-  cudaPackages,
-  cmake,
-  fetchFromGitHub,
-  cudaArch ? "86", # both inference hosts are compute capability 8.6: RTX A3000 Laptop (laptop-p16), RTX 3060 (server-nike)
-  withVision ? false,
-  isCachyOS ? false,
-  strataSrc ? fetchFromGitHub {
+{ lib
+, stdenv
+, pkgs
+, cudaPackages
+, cmake
+, fetchFromGitHub
+, cudaArch ? "86"
+, # both inference hosts are compute capability 8.6: RTX A3000 Laptop (laptop-p16), RTX 3060 (server-nike)
+  withVision ? false
+, isCachyOS ? false
+, strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "v0.2.21";  # Engine 0.1.67, feed 130
+    rev = "v0.2.21"; # Engine 0.1.67, feed 130
     hash = "sha256-AhmGZPvxkBqFGsA2CDxiaiW1CwncjOuZESJX1G2Xv0A=";
-  },
-  engineVersion ? "0.1.67",
+  }
+, engineVersion ? "0.1.67"
+,
 }:
 
 let
@@ -42,9 +43,7 @@ let
     license = licenses.mit;
     platforms = platforms.linux;
   };
-in
 
-let
   # --- Engine (strata binary) ---
   engine = stdenv.mkDerivation {
     pname = "strata-engine";
@@ -52,7 +51,7 @@ let
     src = strataSrc;
     sourceRoot = "source/engine";
 
-    stdenv = cudaPackages.stdenv;
+    inherit (cudaPackages) stdenv;
     nativeBuildInputs = [
       cmake
       cudaPackages.cuda_nvcc
@@ -103,7 +102,7 @@ let
     src = strataSrc;
     sourceRoot = "source/terminal/tools/vision";
 
-    stdenv = cudaPackages.stdenv;
+    inherit (cudaPackages) stdenv;
     nativeBuildInputs = [
       cmake
       cudaPackages.cuda_nvcc

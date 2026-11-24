@@ -59,9 +59,7 @@
       };
       # Hermes Agent (Nous Research) built from upstream uv.lock via uv2nix.
       hermesAgent = unstablePkgs.callPackage ./packages/hermes-agent {
-        uv2nix = uv2nix;
-        pyproject-nix = pyproject-nix;
-        pyproject-build-systems = pyproject-build-systems;
+        inherit uv2nix pyproject-nix pyproject-build-systems;
       };
       browseros = pkgs.callPackage ./packages/browseros { };
       aiOverlay = import ./overlays/ai-unstable.nix {
@@ -189,9 +187,10 @@
           # the key-store machine (scripts/age-audit.sh repo ssh-keys), which
           # scripts/agenix-rekey.sh does on every rekey.
           age-secrets =
-            pkgs.runCommandLocal "age-secrets" {
-              nativeBuildInputs = [ pkgs.nix pkgs.jq pkgs.openssl ];
-            } ''
+            pkgs.runCommandLocal "age-secrets"
+              {
+                nativeBuildInputs = [ pkgs.nix pkgs.jq pkgs.openssl ];
+              } ''
               set -euo pipefail
               export HOME=$TMPDIR
               export NIX_STATE_DIR=$TMPDIR/nix
@@ -218,9 +217,10 @@
             touch $out
           '';
 
-          scripts-syntax = pkgs.runCommandLocal "scripts-syntax" {
-            nativeBuildInputs = [ pkgs.bash pkgs.shellcheck ];
-          } ''
+          scripts-syntax = pkgs.runCommandLocal "scripts-syntax"
+            {
+              nativeBuildInputs = [ pkgs.bash pkgs.shellcheck ];
+            } ''
             set -euo pipefail
             ${lib'.concatMapStringsSep "\n" (f: ''
               bash -n ${f}
@@ -229,9 +229,10 @@
             touch $out
           '';
 
-          apparmor-parse = pkgs.runCommandLocal "apparmor-parse" {
-            nativeBuildInputs = [ pkgs.apparmor-parser ];
-          } ''
+          apparmor-parse = pkgs.runCommandLocal "apparmor-parse"
+            {
+              nativeBuildInputs = [ pkgs.apparmor-parser ];
+            } ''
             set -euo pipefail
             ${lib'.concatMapStringsSep "\n" (f: "apparmor_parser -Q ${f}") (lib'.attrValues apparmorProfiles)}
             touch $out
@@ -241,9 +242,10 @@
           # with one that warns (and exits 0) when a printer is switched off.
           # The offline branch is the whole point, so run it here: a probe against
           # TEST-NET-1 must take ~1 s, print the WARNING, and succeed.
-          printing-script = pkgs.runCommandLocal "printing-script" {
-            nativeBuildInputs = [ pkgs.cups ];
-          } ''
+          printing-script = pkgs.runCommandLocal "printing-script"
+            {
+              nativeBuildInputs = [ pkgs.cups ];
+            } ''
             set -euo pipefail
             export XDG_RUNTIME_DIR=$TMPDIR/rt
             mkdir -p "$XDG_RUNTIME_DIR"
@@ -273,9 +275,10 @@
             touch $out
           '';
 
-          strata-fail-closed = pkgs.runCommandLocal "strata-fail-closed" {
-            nativeBuildInputs = [ pkgs.python3 pkgs.coreutils ];
-          } ''
+          strata-fail-closed = pkgs.runCommandLocal "strata-fail-closed"
+            {
+              nativeBuildInputs = [ pkgs.python3 pkgs.coreutils ];
+            } ''
             export STRATA_HOME=$TMPDIR/strata
             export XDG_DATA_HOME=$TMPDIR/xdg
             mkdir -p "$STRATA_HOME"
@@ -496,7 +499,7 @@
         #
         # Generic derivation set for `nix build` / `nix-update`. Uses tarballs
         # with stdenvNoCC (no FHS sandbox, no CachyOS extras).
-        (import ./packages/craft-apps { pkgs = pkgs; })
+        (import ./packages/craft-apps { inherit pkgs; })
         // {
           # Strata (packages/strata): CUDA inference engine for the sm_86 cards
           # (A3000, RTX 3060) + runtime wrappers; consumed via home-manager
@@ -505,7 +508,7 @@
           # deployment decides that with `strata.visionEncoder` (binary present,
           # launch asks). Whether a model serves images is a run-config answer;
           # serving them drops throughput from ~35 to ~22 tok/s.
-          strata = pkgs.callPackage ./packages/strata {};
+          strata = pkgs.callPackage ./packages/strata { };
           # Orca (packages/orca): the released Electron AppImage wrapped as a
           # normal derivation (appimageTools.wrapType2). Consumed via home-manager
           # (packages/orca/home.nix) and also exposed here for `nix build .#orca`
@@ -584,13 +587,15 @@
             # gate multi-user.target). mkForce: home-manager defines the unit
             # with plain (priority 1000) definitions.
             {
-              systemd.services = pkgs.lib.mapAttrs (_: _: {
-                serviceConfig = {
-                  TimeoutStartSec = pkgs.lib.mkForce "15m";
-                };
-              }) (pkgs.lib.genAttrs
-                (map (u: "home-manager-${u}") [ "nicky" "aeiuno" "sven" "aaron" ])
-                (_: { }));
+              systemd.services = pkgs.lib.mapAttrs
+                (_: _: {
+                  serviceConfig = {
+                    TimeoutStartSec = pkgs.lib.mkForce "15m";
+                  };
+                })
+                (pkgs.lib.genAttrs
+                  (map (u: "home-manager-${u}") [ "nicky" "aeiuno" "sven" "aaron" ])
+                  (_: { }));
             }
           ];
 
@@ -606,10 +611,10 @@
           # removed the staging driver in 6.12 - packages/r8712u +
           # hardware/usb-wifi.nix).
           mkHost =
-            {
-              configModule,
-              extraModules ? [ ],
-              kernelPackages ? pkgs.linuxKernel.packages.linux_zen,
+            { configModule
+            , extraModules ? [ ]
+            , kernelPackages ? pkgs.linuxKernel.packages.linux_zen
+            ,
             }:
             nixpkgs.lib.nixosSystem {
               system = "x86_64-linux";

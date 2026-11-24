@@ -74,8 +74,7 @@
           { commonHm.hostName = hostName; commonHm.isCachyOS = true; }
         ];
       };
-    in
-    let
+
       homeConfigurations = {
         # Default targets. nicky is deployed on laptop-p16 (CachyOS).
         nicky = mkHome "nicky" "laptop-p16" adultPkgs;
@@ -87,7 +86,7 @@
       checks = {
         x86_64-linux =
           let
-            lib = nixpkgs.lib;
+            inherit (nixpkgs) lib;
             # Standalone home-manager picks up the CachyOS-only key bootstrap,
             # so this is where its generated script is testable.
             scripts = {
@@ -107,9 +106,10 @@
               EOF
             '';
 
-            scripts-syntax = stablePkgs.runCommandLocal "users-scripts-syntax" {
-              nativeBuildInputs = [ stablePkgs.bash stablePkgs.shellcheck ];
-            } ''
+            scripts-syntax = stablePkgs.runCommandLocal "users-scripts-syntax"
+              {
+                nativeBuildInputs = [ stablePkgs.bash stablePkgs.shellcheck ];
+              } ''
               set -euo pipefail
               ${lib.concatMapStringsSep "\n" (f: ''
                 bash -n ${f}

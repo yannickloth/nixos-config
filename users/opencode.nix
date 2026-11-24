@@ -121,7 +121,7 @@ let
   # a startup error for these servers, not a silent no-op. Add shared inputs
   # (photos, documents) by appending to craftReadRoots; keep craftWriteRoots
   # narrow.
-  craftPkgs = import ../packages/craft-apps { pkgs = pkgs; };
+  craftPkgs = import ../packages/craft-apps { inherit pkgs; };
   craftWorkspace = "${config.home.homeDirectory}/craft";
   craftReadRoots = [ craftWorkspace ];
   craftWriteRoots = [ "${craftWorkspace}/out" ];
@@ -151,7 +151,7 @@ let
 
   # One opencode MCP server entry for a Craft app. `disabled = false` keeps it
   # in every session; set it true to hide one app's tool catalog.
-  craftServer = app: { roots ? "automation", extraArgs ? [] }: {
+  craftServer = app: { roots ? "automation", extraArgs ? [ ] }: {
     type = "local";
     command =
       [ "${craftPkgs.${app}}/bin/${app}-cli" "mcp" ]
@@ -213,7 +213,7 @@ let
     "k3.1-pro" = {
       name = "k3.1-pro @ Kimi (Brigadier General)";
       reasoning = true;
-      attachment = true;  # Kimi model table: image+video; live pixel test
+      attachment = true; # Kimi model table: image+video; live pixel test
       # 2026-11-17 on the K3.1 Pro line answered correctly
       limit = {
         context = 1048576;
@@ -223,7 +223,7 @@ let
     "k3" = {
       name = "k3 @ Kimi (Lieutenant Colonel)";
       reasoning = true;
-      attachment = true;  # Kimi model table: image+video; live pixel tests
+      attachment = true; # Kimi model table: image+video; live pixel tests
       # 2026-09 answered correctly
       limit = {
         context = 1048576;
@@ -233,7 +233,7 @@ let
     "k3-256k" = {
       name = "k3-256k @ Kimi (Lieutenant Colonel, 262K)";
       reasoning = true;
-      attachment = true;  # Kimi model table: image only (no video)
+      attachment = true; # Kimi model table: image only (no video)
       limit = {
         context = 262144;
         output = 131072;
@@ -242,7 +242,7 @@ let
     "kimi-for-coding" = {
       name = "kimi-for-coding @ Kimi (Major, K2.8)";
       reasoning = true;
-      attachment = true;  # Kimi model table: image+video; live /v1/models
+      attachment = true; # Kimi model table: image+video; live /v1/models
       # reports supports_image_in true and a live pixel test on this id
       # answered correctly (supersedes the old endpoint finding)
       limit = {
@@ -266,7 +266,7 @@ let
     "glm-5.3-flash" = {
       name = "glm-5.3-flash @ Z.ai Coding Plan (Major)";
       reasoning = true;
-      attachment = true;  # the GLM-5.3 series' multimodal line
+      attachment = true; # the GLM-5.3 series' multimodal line
       limit = {
         context = 1000000;
         output = 131072;
@@ -400,7 +400,7 @@ let
   strataModels = {
     "swift-1.5-iq3_xxs" = {
       name = "swift-1.5-iq3_xxs @ Strata (local engine)";
-      attachment = true;  # the same weights serve the proxy's lieutenant-v
+      attachment = true; # the same weights serve the proxy's lieutenant-v
       # vision slot (pixel tests passed; live /v1/models reports
       # input_modalities text+image), so the direct path keeps a vision slot
       # while the gateway is down
@@ -482,8 +482,8 @@ let
         };
         "warrant-officer-v" = {
           name = "Warrant Officer (vision) — multimodal workhorse";
-          attachment = true;  # both deployments see images; the -v slot carries
-                              # the vision contract
+          attachment = true; # both deployments see images; the -v slot carries
+          # the vision contract
           limit = {
             context = 262144;
             output = 32768;
@@ -519,7 +519,7 @@ let
         "lieutenant-v" = {
           name = "Lieutenant (vision) — deep reasoning, multimodal";
           reasoning = true;
-          attachment = true;  # same model as lieutenant; the -v slot carries vision
+          attachment = true; # same model as lieutenant; the -v slot carries vision
           # Same deployment, same served window as `lieutenant` (see above).
           limit = {
             context = 262144;
@@ -538,7 +538,7 @@ let
         "captain-v" = {
           name = "Captain (vision) — cheap fast coding, multimodal (paid)";
           reasoning = true;
-          attachment = true;  # deepseek-flash: input_modalities [text, image]
+          attachment = true; # deepseek-flash: input_modalities [text, image]
           limit = {
             context = 1048576;
             output = 393216;
@@ -569,7 +569,7 @@ let
         "major-v" = {
           name = "Major (vision) — strong coding, multimodal (paid)";
           reasoning = true;
-          attachment = true;  # kimi-for-coding (K2.8, image+video) then
+          attachment = true; # kimi-for-coding (K2.8, image+video) then
           # glm-5.3-flash (Z.ai multimodal line, 3x quota)
           limit = {
             context = 1048576;
@@ -608,7 +608,7 @@ let
         "brigadier-general-v" = {
           name = "Brigadier General (vision) — k3.1-pro multimodal (paid)";
           reasoning = true;
-          attachment = true;  # Kimi model table: image+video; live test OK
+          attachment = true; # Kimi model table: image+video; live test OK
           limit = {
             context = 1048576;
             output = 131072;
@@ -623,7 +623,7 @@ let
         #     providers (see DIRECT PROVIDERS below) — so the two paths
         #     cannot drift.
       } // kimiModels // zaiModels // deepseekModels // hetznerModels
-        // cheaperModels;
+      // cheaperModels;
     };
 
     # -----------------------------------------------------------------------
@@ -835,9 +835,11 @@ in
           stripV1 = provider:
             if provider ? package then
               provider // {
-                models = lib.mapAttrs (_id: model:
-                  removeAttrs model [ "reasoning" "attachment" ]
-                ) provider.models;
+                models = lib.mapAttrs
+                  (_id: model:
+                    removeAttrs model [ "reasoning" "attachment" ]
+                  )
+                  provider.models;
               }
             else
               provider;
@@ -899,7 +901,7 @@ in
                 # Do not re-add a hosted Jev client here: it would send local
                 # judgment prompts to a third party.
               }
-              // optionalAttrs (pkgs ? rea) {
+                // optionalAttrs (pkgs ? rea) {
                 # REA (packages/rea): reverse-engineering toolkit (native binaries,
                 # JS/Electron, .NET, websites, ...) served over stdio MCP. Only
                 # registered where the AI-unstable overlay provides pkgs.rea

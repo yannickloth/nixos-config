@@ -70,28 +70,28 @@
 #   BUILD.json; the manifest (engine-component.json) is generated in the build
 #   in the schema Control validates.
 
-{
-  lib,
-  stdenv,
-  symlinkJoin,
-  writeShellApplication,
-  callPackage,
-  fetchFromGitHub,
-  pkgs,
-  python3,
-  uv,
-  util-linux,
-  coreutils,
-  cudaArch ? "86",
-  visionEncoder ? false,
-  isCachyOS ? false,
-  preloadEngine ? false,
-  strataSrc ? fetchFromGitHub {
+{ lib
+, stdenv
+, symlinkJoin
+, writeShellApplication
+, callPackage
+, fetchFromGitHub
+, pkgs
+, python3
+, uv
+, util-linux
+, coreutils
+, cudaArch ? "86"
+, visionEncoder ? false
+, isCachyOS ? false
+, preloadEngine ? false
+, strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "v0.2.21";  # App and Terminal 0.2.21; engine 0.1.67
+    rev = "v0.2.21"; # App and Terminal 0.2.21; engine 0.1.67
     hash = "sha256-AhmGZPvxkBqFGsA2CDxiaiW1CwncjOuZESJX1G2Xv0A=";
-  },
+  }
+,
 }:
 
 let
@@ -120,8 +120,7 @@ let
   };
 
   engine = callPackage ./engine.nix {
-    strataSrc = strataSrc;
-    inherit engineVersion isCachyOS;
+    inherit strataSrc engineVersion isCachyOS;
     withVision = visionEncoder;
   };
 
@@ -185,10 +184,11 @@ let
   # read_manifest is strict: a missing schema_version/id/backend/entrypoint,
   # `files` as an object, `min_driver` as a string or `signature` as "" all
   # raise ComponentProblem and the engine is then invisible to Control.
-  component = pkgs.runCommand "strata-component-${engineVersion}" {
-    nativeBuildInputs = [ pkgs.python3 ];
-    buildInputs = [ engine ];
-  } ''
+  component = pkgs.runCommand "strata-component-${engineVersion}"
+    {
+      nativeBuildInputs = [ pkgs.python3 ];
+      buildInputs = [ engine ];
+    } ''
     dest=$out/${componentDirName}
     mkdir -p $dest
 
@@ -309,151 +309,151 @@ let
     runtimeInputs = [ uv util-linux coreutils ];
     text = env
       + ''
-        mkdir -p "$STRATA_HOME"
+      mkdir -p "$STRATA_HOME"
 
-        # One writer at a time for the runtime tree + component.
-        exec 9>"$STRATA_HOME/.runtime.lock"
-        flock 9
+      # One writer at a time for the runtime tree + component.
+      exec 9>"$STRATA_HOME/.runtime.lock"
+      flock 9
 
-        # Refresh the program files from the store. This is upstream's own
-        # TERMINAL_ENTRIES list (setup.py) - every folder a Terminal install
-        # has at its root. Only those are replaced; model files, packs, logs
-        # and run configs are left alone.
-        for d in tools data serve strata_cli strata_control ref crates integrations bin; do
-          chmod -R u+rwX "$STRATA_HOME/$d" 2>/dev/null || true
-          rm -rf "''${STRATA_HOME:?}/$d"
-          cp -r "${share}/$d" "$STRATA_HOME/"
-          chmod -R u+rwX "$STRATA_HOME/$d"
-        done
-        for f in setup.py strata.py requirements.txt requirements-monitor.txt requirements-nvfp4-local.txt; do
-          install -m644 ${share}/$f "$STRATA_HOME/" 2>/dev/null || true
-        done
+      # Refresh the program files from the store. This is upstream's own
+      # TERMINAL_ENTRIES list (setup.py) - every folder a Terminal install
+      # has at its root. Only those are replaced; model files, packs, logs
+      # and run configs are left alone.
+      for d in tools data serve strata_cli strata_control ref crates integrations bin; do
+        chmod -R u+rwX "$STRATA_HOME/$d" 2>/dev/null || true
+        rm -rf "''${STRATA_HOME:?}/$d"
+        cp -r "${share}/$d" "$STRATA_HOME/"
+        chmod -R u+rwX "$STRATA_HOME/$d"
+      done
+      for f in setup.py strata.py requirements.txt requirements-monitor.txt requirements-nvfp4-local.txt; do
+        install -m644 ${share}/$f "$STRATA_HOME/" 2>/dev/null || true
+      done
 
-        # Install/refresh the engine component from the store.
-        ${componentInstall}/bin/strata-install-component
+      # Install/refresh the engine component from the store.
+      ${componentInstall}/bin/strata-install-component
 
-        # Legacy engine directory cleanup: if the old `engine/` dir exists and
-        # holds no model data, remove it. 0.2.16 looks the engine up in the
-        # component folder; a leftover engine/ tree makes setup.py read the
-        # runtime root as a source checkout. (Capture the find result instead
-        # of piping into grep -q: under `set -o pipefail` grep's early exit
-        # makes find report SIGPIPE and the test would say "no model data".)
-        if [ -d "$STRATA_HOME/engine" ] && [ -z "$(find "$STRATA_HOME/engine" \( -name '*.gguf' -o -name '*.bin' \) -print -quit 2>/dev/null)" ]; then
-          rm -rf "$STRATA_HOME/engine"
-        fi
+      # Legacy engine directory cleanup: if the old `engine/` dir exists and
+      # holds no model data, remove it. 0.2.16 looks the engine up in the
+      # component folder; a leftover engine/ tree makes setup.py read the
+      # runtime root as a source checkout. (Capture the find result instead
+      # of piping into grep -q: under `set -o pipefail` grep's early exit
+      # makes find report SIGPIPE and the test would say "no model data".)
+      if [ -d "$STRATA_HOME/engine" ] && [ -z "$(find "$STRATA_HOME/engine" \( -name '*.gguf' -o -name '*.bin' \) -print -quit 2>/dev/null)" ]; then
+        rm -rf "$STRATA_HOME/engine"
+      fi
 
-        # Remove stale CMakeLists.txt from the runtime root if present
-        # (left over from 0.2.15-era runtime trees).
-        rm -f "$STRATA_HOME/CMakeLists.txt"
+      # Remove stale CMakeLists.txt from the runtime root if present
+      # (left over from 0.2.15-era runtime trees).
+      rm -f "$STRATA_HOME/CMakeLists.txt"
 
-        # Python environment for serve/server.py and the packing tools.
-        if [ ! -x "$STRATA_HOME/.venv/bin/python" ]; then
-          echo "Strata: creating the Python environment..." >&2
-          rm -rf "$STRATA_HOME/.venv"
-          uv venv --seed --python "${python3}/bin/python3" "$STRATA_HOME/.venv" >&2
-        fi
+      # Python environment for serve/server.py and the packing tools.
+      if [ ! -x "$STRATA_HOME/.venv/bin/python" ]; then
+        echo "Strata: creating the Python environment..." >&2
+        rm -rf "$STRATA_HOME/.venv"
+        uv venv --seed --python "${python3}/bin/python3" "$STRATA_HOME/.venv" >&2
+      fi
 
-        # Monitor requirements (TUI packages: textual/rich).
-        monitor_req="$STRATA_HOME/requirements-monitor.txt"
-        monitor_stamp="$STRATA_HOME/.venv/.monitor-requirements"
-        if [ -f "$monitor_req" ]; then
-          want_sum=$(sha256sum "$monitor_req" | cut -d' ' -f1)
-          have_sum=$(cat "$monitor_stamp" 2>/dev/null || true)
-          if [ "$want_sum" != "$have_sum" ]; then
-            echo "Strata: installing the terminal UI packages..." >&2
-            if uv pip install --python "$STRATA_HOME/.venv/bin/python" -r "$monitor_req" >&2; then
-              printf '%s\n' "$want_sum" > "$monitor_stamp"
-            else
-              echo "Strata: the terminal UI packages could not be installed (offline?)" >&2
-            fi
+      # Monitor requirements (TUI packages: textual/rich).
+      monitor_req="$STRATA_HOME/requirements-monitor.txt"
+      monitor_stamp="$STRATA_HOME/.venv/.monitor-requirements"
+      if [ -f "$monitor_req" ]; then
+        want_sum=$(sha256sum "$monitor_req" | cut -d' ' -f1)
+        have_sum=$(cat "$monitor_stamp" 2>/dev/null || true)
+        if [ "$want_sum" != "$have_sum" ]; then
+          echo "Strata: installing the terminal UI packages..." >&2
+          if uv pip install --python "$STRATA_HOME/.venv/bin/python" -r "$monitor_req" >&2; then
+            printf '%s\n' "$want_sum" > "$monitor_stamp"
+          else
+            echo "Strata: the terminal UI packages could not be installed (offline?)" >&2
           fi
         fi
+      fi
 
-        # Runtime requirements stamp: ensures pinned packages stay current
-        # after `home-manager switch`. CONTROL-mode installs never run pip,
-        # so the stamp is the only upgrade path.
-        req_stamp="$STRATA_HOME/.venv/.requirements"
-        if [ -f "$STRATA_HOME/requirements.txt" ]; then
-          want_sum=$(sha256sum "$STRATA_HOME/requirements.txt" | cut -d' ' -f1)
-          have_sum=$(cat "$req_stamp" 2>/dev/null || true)
-          if [ "$want_sum" != "$have_sum" ]; then
-            echo "Strata: updating runtime packages..." >&2
-            if uv pip install --python "$STRATA_HOME/.venv/bin/python" -r "$STRATA_HOME/requirements.txt" >&2; then
-              printf '%s\n' "$want_sum" > "$req_stamp"
-            else
-              echo "Strata: runtime packages could not be updated (offline?)" >&2
-            fi
+      # Runtime requirements stamp: ensures pinned packages stay current
+      # after `home-manager switch`. CONTROL-mode installs never run pip,
+      # so the stamp is the only upgrade path.
+      req_stamp="$STRATA_HOME/.venv/.requirements"
+      if [ -f "$STRATA_HOME/requirements.txt" ]; then
+        want_sum=$(sha256sum "$STRATA_HOME/requirements.txt" | cut -d' ' -f1)
+        have_sum=$(cat "$req_stamp" 2>/dev/null || true)
+        if [ "$want_sum" != "$have_sum" ]; then
+          echo "Strata: updating runtime packages..." >&2
+          if uv pip install --python "$STRATA_HOME/.venv/bin/python" -r "$STRATA_HOME/requirements.txt" >&2; then
+            printf '%s\n' "$want_sum" > "$req_stamp"
+          else
+            echo "Strata: runtime packages could not be updated (offline?)" >&2
           fi
         fi
+      fi
 
-        # Everything that needed a consistent runtime tree is done.
-        flock -u 9
+      # Everything that needed a consistent runtime tree is done.
+      flock -u 9
 
-        # Ensure --expert-cache on every run (native packs refuse without it).
-        ${configPatch}/bin/strata-patch-config
+      # Ensure --expert-cache on every run (native packs refuse without it).
+      ${configPatch}/bin/strata-patch-config
 
-        # Route to strata.py (the Terminal CLI).
-        # Legacy flags map to `launch`: bare `strata` = `launch`,
-        # --setup = removed (launch is the default), --vision yes/no = on/off.
-        # Everything else - --context, --model, --kv, --tune - is passed to
-        # `launch` as typed; Nix injects no engine flag.
-        # A sub-command goes to the CLI unchanged. This list is upstream's own
-        # parser (strata_cli/cli.py, the _SubParsersAction): anything missing
-        # here would be handed to `launch` and rejected as an unknown flag, so
-        # `strata launch` itself and `strata split-engine` are in it too.
-        # When running `strata launch` the wrapper inserts --api-key-env
-        # STRATA_API_KEY (unless the user already set --api-key or --api-key-env
-        # explicitly), so the TUI reads the key from the environment instead of
-        # generating a random one on first setup.
-        add_api_key_env() {
-          has_key=0
-          for a in "$@"; do
-            case "$a" in --api-key*|--no-api-key) has_key=1 ;; esac
-          done
-          if [ "$has_key" -eq 0 ] && [ -n "''${STRATA_API_KEY:-}" ]; then
-            set -- "$@" "--api-key-env" "STRATA_API_KEY"
-          fi
-        }
-
-        case "''${1:-}" in
-          -h | --help | -V | --version | \
-          launch | serve | bench | code | complete | components | config | connect | \
-          connection | doctor | drafting | engine | install | logs | models | monitor | ops | \
-          presets | profile | repair-access | runtime | split-engine | status | timeskip | \
-          tune | update)
-            # For 'strata launch' only, inject the env-var reader so a random
-            # key is never generated (the key comes from STRATA_API_KEY set by
-            # the systemd unit / home.sessionVariables).  If the user already
-            # passed --api-key/--api-key-env/--no-api-key the wrapper stays out.
-            if [ "''${1}" = "launch" ]; then
-              shift; set -- launch "$@"
-              add_api_key_env "$@"
-            fi
-            exec "$STRATA_HOME/.venv/bin/python" "$STRATA_HOME/strata.py" "$@"
-            ;;
-        esac
-
-        # Legacy mapping: bare `strata` = `launch`. Transform --vision yes/no -> on/off,
-        # pass every other flag through. A bash array keeps arguments with spaces
-        # intact. Also injects --api-key-env STRATA_API_KEY unless the user
-        # already passed --api-key/--api-key-env/--no-api-key (same check as
-        # add_api_key_env above) so we do not override an explicit --no-api-key.
-        launch_args=()
+      # Route to strata.py (the Terminal CLI).
+      # Legacy flags map to `launch`: bare `strata` = `launch`,
+      # --setup = removed (launch is the default), --vision yes/no = on/off.
+      # Everything else - --context, --model, --kv, --tune - is passed to
+      # `launch` as typed; Nix injects no engine flag.
+      # A sub-command goes to the CLI unchanged. This list is upstream's own
+      # parser (strata_cli/cli.py, the _SubParsersAction): anything missing
+      # here would be handed to `launch` and rejected as an unknown flag, so
+      # `strata launch` itself and `strata split-engine` are in it too.
+      # When running `strata launch` the wrapper inserts --api-key-env
+      # STRATA_API_KEY (unless the user already set --api-key or --api-key-env
+      # explicitly), so the TUI reads the key from the environment instead of
+      # generating a random one on first setup.
+      add_api_key_env() {
         has_key=0
-        for arg in "$@"; do
-          case "$arg" in
-            --setup | "-s") ;;                                # no-op - launch is the default
-            --vision=yes) launch_args+=(--vision on) ;;
-            --vision=no) launch_args+=(--vision off) ;;
-            *) launch_args+=("$arg") ;;
-          esac
-          case "$arg" in --api-key*|--no-api-key) has_key=1 ;; esac
+        for a in "$@"; do
+          case "$a" in --api-key*|--no-api-key) has_key=1 ;; esac
         done
         if [ "$has_key" -eq 0 ] && [ -n "''${STRATA_API_KEY:-}" ]; then
-          launch_args+=("--api-key-env" "STRATA_API_KEY")
+          set -- "$@" "--api-key-env" "STRATA_API_KEY"
         fi
-        exec "$STRATA_HOME/.venv/bin/python" "$STRATA_HOME/strata.py" launch "''${launch_args[@]}"
-      '';
+      }
+
+      case "''${1:-}" in
+        -h | --help | -V | --version | \
+        launch | serve | bench | code | complete | components | config | connect | \
+        connection | doctor | drafting | engine | install | logs | models | monitor | ops | \
+        presets | profile | repair-access | runtime | split-engine | status | timeskip | \
+        tune | update)
+          # For 'strata launch' only, inject the env-var reader so a random
+          # key is never generated (the key comes from STRATA_API_KEY set by
+          # the systemd unit / home.sessionVariables).  If the user already
+          # passed --api-key/--api-key-env/--no-api-key the wrapper stays out.
+          if [ "''${1}" = "launch" ]; then
+            shift; set -- launch "$@"
+            add_api_key_env "$@"
+          fi
+          exec "$STRATA_HOME/.venv/bin/python" "$STRATA_HOME/strata.py" "$@"
+          ;;
+      esac
+
+      # Legacy mapping: bare `strata` = `launch`. Transform --vision yes/no -> on/off,
+      # pass every other flag through. A bash array keeps arguments with spaces
+      # intact. Also injects --api-key-env STRATA_API_KEY unless the user
+      # already passed --api-key/--api-key-env/--no-api-key (same check as
+      # add_api_key_env above) so we do not override an explicit --no-api-key.
+      launch_args=()
+      has_key=0
+      for arg in "$@"; do
+        case "$arg" in
+          --setup | "-s") ;;                                # no-op - launch is the default
+          --vision=yes) launch_args+=(--vision on) ;;
+          --vision=no) launch_args+=(--vision off) ;;
+          *) launch_args+=("$arg") ;;
+        esac
+        case "$arg" in --api-key*|--no-api-key) has_key=1 ;; esac
+      done
+      if [ "$has_key" -eq 0 ] && [ -n "''${STRATA_API_KEY:-}" ]; then
+        launch_args+=("--api-key-env" "STRATA_API_KEY")
+      fi
+      exec "$STRATA_HOME/.venv/bin/python" "$STRATA_HOME/strata.py" launch "''${launch_args[@]}"
+    '';
   };
 
   # --- `strata-chat`: terminal chat against a running Strata server ---
@@ -461,13 +461,13 @@ let
     name = "strata-chat";
     text = env
       + ''
-        if [ ! -x "$STRATA_HOME/.venv/bin/python" ]; then
-          echo "Strata: not set up yet - run 'strata' first." >&2
-          exit 1
-        fi
-        cd "$STRATA_HOME"
-        exec "$STRATA_HOME/.venv/bin/python" tools/chat.py "$@"
-      '';
+      if [ ! -x "$STRATA_HOME/.venv/bin/python" ]; then
+        echo "Strata: not set up yet - run 'strata' first." >&2
+        exit 1
+      fi
+      cd "$STRATA_HOME"
+      exec "$STRATA_HOME/.venv/bin/python" tools/chat.py "$@"
+    '';
   };
 
   # --- `strata-server`: the always-on, engine-optional server behind the
@@ -480,91 +480,91 @@ let
     name = "strata-server";
     text = env
       + ''
-        PY="$STRATA_HOME/.venv/bin/python"
-        if [ ! -x "$PY" ]; then
-          echo "Strata: not set up yet - run 'strata' once first." >&2
-          exit 1
-        fi
-        # Re-assert --expert-cache on the configs before serving.
-        ${configPatch}/bin/strata-patch-config
-        # Re-install the engine component from the store (covers home-manager
-        # switch service restarts: the store may have a newer engine).
-        ${componentInstall}/bin/strata-install-component
-        # What to serve, in order of precedence:
-        #
-        # 1. STRATA_CONFIG (set by the `strata.defaultConfig` option): an
-        #    absolute path, or a name under $STRATA_HOME. It wins over
-        #    everything, because naming one config is an explicit decision.
-        # 2. The newest run config `strata launch` wrote:
-        #    $XDG_STATE_HOME/strata/launch/<name>.json (upstream's
-        #    strata_cli/launch/runner.py:746). The launch screens answer every
-        #    engine choice - model, context, kv, vision, drafting, cards - and
-        #    launch writes the answers there as a run config. So the unit starts
-        #    what the last `strata launch` specified. Sidecars in that folder
-        #    (*.choices.json, *.tune.json) are not run configs: they carry no
-        #    "args", and the greedy test below skips them.
-        # 3. The newest setup-era config in $STRATA_HOME (strata-*.json), for a
-        #    host that has never run `strata launch`: the desktop app and the
-        #    old `strata --setup` write these.
-        #
-        # A launch preset saved with no start (no run config yet) cannot be
-        # served here: it holds choices, not engine arguments. Start that preset
-        # once (`strata launch --preset NAME`) to write its run config.
-        CFG=""
-        LAUNCH_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/strata/launch"
-        for f in "$LAUNCH_DIR"/*.json; do
+      PY="$STRATA_HOME/.venv/bin/python"
+      if [ ! -x "$PY" ]; then
+        echo "Strata: not set up yet - run 'strata' once first." >&2
+        exit 1
+      fi
+      # Re-assert --expert-cache on the configs before serving.
+      ${configPatch}/bin/strata-patch-config
+      # Re-install the engine component from the store (covers home-manager
+      # switch service restarts: the store may have a newer engine).
+      ${componentInstall}/bin/strata-install-component
+      # What to serve, in order of precedence:
+      #
+      # 1. STRATA_CONFIG (set by the `strata.defaultConfig` option): an
+      #    absolute path, or a name under $STRATA_HOME. It wins over
+      #    everything, because naming one config is an explicit decision.
+      # 2. The newest run config `strata launch` wrote:
+      #    $XDG_STATE_HOME/strata/launch/<name>.json (upstream's
+      #    strata_cli/launch/runner.py:746). The launch screens answer every
+      #    engine choice - model, context, kv, vision, drafting, cards - and
+      #    launch writes the answers there as a run config. So the unit starts
+      #    what the last `strata launch` specified. Sidecars in that folder
+      #    (*.choices.json, *.tune.json) are not run configs: they carry no
+      #    "args", and the greedy test below skips them.
+      # 3. The newest setup-era config in $STRATA_HOME (strata-*.json), for a
+      #    host that has never run `strata launch`: the desktop app and the
+      #    old `strata --setup` write these.
+      #
+      # A launch preset saved with no start (no run config yet) cannot be
+      # served here: it holds choices, not engine arguments. Start that preset
+      # once (`strata launch --preset NAME`) to write its run config.
+      CFG=""
+      LAUNCH_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/strata/launch"
+      for f in "$LAUNCH_DIR"/*.json; do
+        [ -f "$f" ] || continue
+        case "$f" in *.choices.json | *.shared-settings.json | *.tune.json) continue ;; esac
+        grep -q '"args"' "$f" 2>/dev/null || continue
+        if [ -z "$CFG" ] || [ "$f" -nt "$CFG" ]; then CFG="$f"; fi
+      done
+      if [ -z "$CFG" ]; then
+        for f in "$STRATA_HOME"/strata-*.json; do
           [ -f "$f" ] || continue
-          case "$f" in *.choices.json | *.shared-settings.json | *.tune.json) continue ;; esac
+          case "$f" in *.shared-settings.json) continue ;; esac
           grep -q '"args"' "$f" 2>/dev/null || continue
           if [ -z "$CFG" ] || [ "$f" -nt "$CFG" ]; then CFG="$f"; fi
         done
-        if [ -z "$CFG" ]; then
-          for f in "$STRATA_HOME"/strata-*.json; do
-            [ -f "$f" ] || continue
-            case "$f" in *.shared-settings.json) continue ;; esac
-            grep -q '"args"' "$f" 2>/dev/null || continue
-            if [ -z "$CFG" ] || [ "$f" -nt "$CFG" ]; then CFG="$f"; fi
-          done
+      fi
+      if [ -n "''${STRATA_CONFIG:-}" ]; then
+        case "''${STRATA_CONFIG}" in
+          /*) asked="''${STRATA_CONFIG}" ;;
+          *) asked="$STRATA_HOME/''${STRATA_CONFIG}" ;;
+        esac
+        if [ -f "$asked" ]; then
+          CFG="$asked"
+        else
+          echo "Strata: STRATA_CONFIG=$STRATA_CONFIG is not a file - ignored, the newest run config is served instead." >&2
         fi
-        if [ -n "''${STRATA_CONFIG:-}" ]; then
-          case "''${STRATA_CONFIG}" in
-            /*) asked="''${STRATA_CONFIG}" ;;
-            *) asked="$STRATA_HOME/''${STRATA_CONFIG}" ;;
-          esac
-          if [ -f "$asked" ]; then
-            CFG="$asked"
-          else
-            echo "Strata: STRATA_CONFIG=$STRATA_CONFIG is not a file - ignored, the newest run config is served instead." >&2
-          fi
-        fi
-        if [ -z "$CFG" ]; then
-          echo "Strata: no model configured - run 'strata launch' once first." >&2
-          exit 1
-        fi
-        echo "Strata: serving $(basename "$CFG")" >&2
-        # A preset that was saved but never started has no run config, so the
-        # unit cannot follow it. Say so once per start instead of serving the
-        # previous model without a word. `last_used` is set by the first start of
-        # the preset, so a preset saved after a successful launch stays quiet.
-        PRESET_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/strata/launch-presets"
-        for p in "$PRESET_DIR"/*.json; do
-          [ -f "$p" ] || continue
-          [ "$p" -nt "$CFG" ] || continue
-          grep -Eq '"last_used"[[:space:]]*:[[:space:]]*null' "$p" 2>/dev/null || continue
-          echo "Strata: the launch preset '$(basename "$p" .json)' was saved but never started, so it has no run config yet. Start it once (strata launch --preset NAME) to make the unit follow it." >&2
-          break
-        done
-        extra=(--host "''${STRATA_HOST:-127.0.0.1}" --port "''${STRATA_PORT:-8080}")
-        ${lib.optionalString (!preloadEngine) "extra+=(--lazy)"}
-        extra+=(--idle-unload "''${STRATA_IDLE_UNLOAD:-300}")
-        if [ -n "''${STRATA_MIN_FREE_VRAM:-}" ]; then
-          extra+=(--min-free-vram-mib "$STRATA_MIN_FREE_VRAM")
-        fi
-        if [ -n "''${STRATA_BEFORE_LOAD:-}" ]; then
-          extra+=(--before-load "$STRATA_BEFORE_LOAD")
-        fi
-        exec "$PY" ${share}/serve/server.py --engine strata --config "$CFG" "''${extra[@]}"
-      '';
+      fi
+      if [ -z "$CFG" ]; then
+        echo "Strata: no model configured - run 'strata launch' once first." >&2
+        exit 1
+      fi
+      echo "Strata: serving $(basename "$CFG")" >&2
+      # A preset that was saved but never started has no run config, so the
+      # unit cannot follow it. Say so once per start instead of serving the
+      # previous model without a word. `last_used` is set by the first start of
+      # the preset, so a preset saved after a successful launch stays quiet.
+      PRESET_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/strata/launch-presets"
+      for p in "$PRESET_DIR"/*.json; do
+        [ -f "$p" ] || continue
+        [ "$p" -nt "$CFG" ] || continue
+        grep -Eq '"last_used"[[:space:]]*:[[:space:]]*null' "$p" 2>/dev/null || continue
+        echo "Strata: the launch preset '$(basename "$p" .json)' was saved but never started, so it has no run config yet. Start it once (strata launch --preset NAME) to make the unit follow it." >&2
+        break
+      done
+      extra=(--host "''${STRATA_HOST:-127.0.0.1}" --port "''${STRATA_PORT:-8080}")
+      ${lib.optionalString (!preloadEngine) "extra+=(--lazy)"}
+      extra+=(--idle-unload "''${STRATA_IDLE_UNLOAD:-300}")
+      if [ -n "''${STRATA_MIN_FREE_VRAM:-}" ]; then
+        extra+=(--min-free-vram-mib "$STRATA_MIN_FREE_VRAM")
+      fi
+      if [ -n "''${STRATA_BEFORE_LOAD:-}" ]; then
+        extra+=(--before-load "$STRATA_BEFORE_LOAD")
+      fi
+      exec "$PY" ${share}/serve/server.py --engine strata --config "$CFG" "''${extra[@]}"
+    '';
   };
 in
 symlinkJoin {
@@ -575,7 +575,7 @@ symlinkJoin {
   # REAL strata_control/user_args.py through here.
   passthru = { runtimeShare = share; };
   meta = with lib; {
-    version = version;
+    inherit version;
     description = "Strata: local Qwen3.8-Flash-Next (125B MoE) inference with an OpenAI/Anthropic-compatible API";
     homepage = "https://github.com/Niko1221/Strata";
     license = licenses.mit;

@@ -158,7 +158,7 @@ in
             chmod 0600 /var/lib/AccountsService/users/${user}
             chown root:root /var/lib/AccountsService/users/${user}
           '';
-          users = [ ] ++ (if config.users.users ? sven then [ "sven" ] else [ ]) ++ (if config.users.users ? aaron then [ "aaron" ] else [ ]);
+          users = (if config.users.users ? sven then [ "sven" ] else [ ]) ++ (if config.users.users ? aaron then [ "aaron" ] else [ ]);
         in
         ''
           ${javaSrc}

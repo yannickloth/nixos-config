@@ -105,7 +105,7 @@
     # libqalculate sits in the closure but the CLI never reaches PATH.
     home.packages =
       [ pkgs.zoxide pkgs.libqalculate pkgs.numbat pkgs.bc ]
-      ++ builtins.attrValues (import ../packages/craft-apps { pkgs = pkgs; })
+      ++ builtins.attrValues (import ../packages/craft-apps { inherit pkgs; })
       # Ioskeley Mono, CachyOS only. roles/fonts.nix installs it system-wide via
       # the NixOS `fonts.packages` option, which does not exist here: the
       # standalone flake (users/flake.nix) builds only home-manager modules, so

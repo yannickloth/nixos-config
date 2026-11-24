@@ -13,7 +13,7 @@
 # Aliases are set via home-manager's `home.shellAliases`: each `name = "value"`
 # defines a shell alias `alias name='value'` in ~/.zshrc. They are written into
 # zsh (all users use zsh via programs.zsh.enable in common-hm.nix).
-{ ... }:
+_:
 
 {
   home.shellAliases = {

@@ -2,7 +2,7 @@
 #
 # User-level policies written by home-manager into each kid's profile, in
 # addition to the system-wide programs.firefox.policies (roles/system.nix).
-{ ... }:
+_:
 
 {
   programs.firefox.policies = {

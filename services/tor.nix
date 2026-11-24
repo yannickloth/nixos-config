@@ -71,8 +71,7 @@ in
     lib.mkAfter (lib.optionalString (kidUids != [ ]) (
       helpers.torBlockRules {
         uids = kidUids;
-        socksPort = socksPort;
-        controlPort = controlPort;
+        inherit socksPort controlPort;
         browserPort = torBrowserPort;
       }
     ));
