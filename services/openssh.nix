@@ -1,5 +1,5 @@
 # provides openssh defaults
-{ config, lib, ... }:
+{ lib, ... }:
 
 with lib;
 

@@ -2,7 +2,7 @@
 # Run `sudo nixos-generate-config --show-hardware-config` and replace
 # this file with the output after the first boot.
 
-{ config, lib, pkgs, modulesPath, ... }:
+{ lib, modulesPath, ... }:
 
 {
   imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];

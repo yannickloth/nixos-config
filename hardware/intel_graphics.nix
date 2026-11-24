@@ -1,4 +1,4 @@
-{ config, lib, pkgs, modulesPath, ... }:
+{ lib, pkgs, ... }:
 # Read this: https://wiki.archlinux.org/title/Hardware_video_acceleration#Comparison_tables
 {
   environment.systemPackages = with pkgs; [

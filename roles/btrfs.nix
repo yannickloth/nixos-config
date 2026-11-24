@@ -18,7 +18,7 @@
 #    /nix) is scrubbed exactly once. We only enable the service and
 #    pick the schedule; overriding fileSystems with all mount points
 #    would scrub each device once per subvolume.
-{ config, lib, pkgs, ... }:
+{ config, lib, ... }:
 
 with lib;
 

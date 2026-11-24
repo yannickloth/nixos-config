@@ -746,8 +746,6 @@ let
   # pi ships no native catalog for any of these providers (the rank gateway
   # and the direct backends all speak OpenAI-compatible HTTP), so every
   # provider is emitted as a full openai-completions definition.
-  # `piNativeIds` stays empty.
-  piNativeIds = { };
 
   # opencode stores keys as {file:...} interpolations; pi resolves a leading
   # "!" as a command at request time. Reuse the very same key files (materialized
@@ -837,7 +835,7 @@ in
           stripV1 = provider:
             if provider ? package then
               provider // {
-                models = lib.mapAttrs (id: model:
+                models = lib.mapAttrs (_id: model:
                   removeAttrs model [ "reasoning" "attachment" ]
                 ) provider.models;
               }

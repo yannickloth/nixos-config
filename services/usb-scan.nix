@@ -7,7 +7,7 @@
 #
 # Parents who need an exclusive read-only view can `sudo mount -o remount,ro`
 # the drive; kids cannot.
-{ config, lib, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   services.udev.extraRules = ''

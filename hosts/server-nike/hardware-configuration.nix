@@ -11,7 +11,7 @@
 #   - sda (1.8T): LUKS data disk (btrfs) at /data, unlocked in the initrd
 #     with the same passphrase as root (boot.initrd.luks.reusePassphrases)
 # - Network: DHCP
-{ config, lib, pkgs, modulesPath, ... }:
+{ config, lib, modulesPath, ... }:
 
 {
   imports =

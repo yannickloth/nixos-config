@@ -1,6 +1,6 @@
 # configuration for fonts
 
-{ config, lib, pkgs, ... }:
+{ lib, pkgs, ... }:
 
 with lib;
 

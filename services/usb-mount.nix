@@ -20,7 +20,7 @@
 # ClamAV still scans every inserted USB filesystem (services/usb-scan.nix) and
 # reports the result to the user. The scan is read-only; the drive itself is now
 # read-write, as `noexec` and `nosuid` stay set.
-{ config, lib, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   config = {

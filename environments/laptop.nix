@@ -1,6 +1,6 @@
 # laptop role is used on all portable laptop machines
 
-{ config, lib, pkgs, ... }:
+{ lib, ... }:
 
 with lib;
 

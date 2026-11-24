@@ -23,7 +23,7 @@
 #   laptop-xps:   apps/noson.nix, apps/wine.nix, desktop/plasma.nix
 #   desktop-leto: desktop/plasma.nix, apps/wine.nix, plus its own GPU/Wi-Fi
 #                 hardening
-{ lib, ... }:
+{ ... }:
 
 {
   imports = [

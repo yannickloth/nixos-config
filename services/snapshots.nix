@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   # Nightly read-only btrfs snapshots of /home into /.snapshots/home (kept 14),

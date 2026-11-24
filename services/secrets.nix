@@ -9,7 +9,7 @@
 # See secrets-structure/README.md for the full workflow (rekey, backup, new
 # host bring-up).
 
-{ config, lib, pkgs, ... }:
+{ config, lib, ... }:
 
 with lib;
 

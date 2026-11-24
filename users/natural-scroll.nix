@@ -12,7 +12,7 @@
 # The NaturalScroll.java script merges those keys into the existing file
 # (preserving the user's other settings, including per-device overrides) as a
 # Java 25 compact source file.
-{ config, lib, pkgs, ... }:
+{ lib, pkgs, ... }:
 
 {
   # Explicit dependency: the setNaturalScroll activation runs

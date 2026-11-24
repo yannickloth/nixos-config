@@ -1,4 +1,4 @@
-{ config, ... }:
+{ ... }:
 
 {
   # enable bluetooth support on all workstations

@@ -9,7 +9,7 @@
 # versions, and needs the peers online. Keep both in the docs — parents.md
 # spells out which is which, because the two names look identical in a file
 # manager.
-{ config, lib, ... }:
+{ lib, ... }:
 
 with lib;
 
