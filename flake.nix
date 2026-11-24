@@ -50,7 +50,9 @@
       };
       # Stable pkgs (nixpkgs) are the base for every user; only the AI tooling
       # list in overlays/ai-unstable.nix is swapped to unstable builds, and only
-      # for the adults (nicky, aeiuno). sven/aaron stay on plain stable.
+      # for the family accounts (nicky, aeiuno, sven, aaron — see
+      # users/ai-pkgs.nix). The kids are on it too: they learn to code with the
+      # same tooling as the adults.
       unstablePkgs = import nixpkgs-unstable {
         inherit system;
         config.allowUnfree = true;
@@ -555,10 +557,10 @@
           commonModules = [
             home-manager.nixosModules.home-manager
             agenix.nixosModules.default
-            # Give nicky/aeiuno the AI-unstable pkgs overlay (opencode,
+            # Give every family account the AI-unstable pkgs overlay (opencode,
             # opencode-desktop, pi, herdr, jetbrains-toolbox, vscode,
-            # hermes-agent, magpie, deepseek-harness); sven/aaron keep plain
-            # stable pkgs.
+            # hermes-agent, magpie, deepseek-harness): the adults and the kids
+            # (users/ai-pkgs.nix keeps the account list).
             ./users/ai-pkgs.nix
             # Inject the agenix home-manager module so home-manager users can
             # use `age.secrets` (nicky and aeiuno do, for the opencode provider
