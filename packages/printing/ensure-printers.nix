@@ -9,6 +9,8 @@
 {
   lib,
   writeShellApplication,
+  bash,
+  coreutils,
   cups,
   ensurePrinters,
   # The nixpkgs submodule type declares `location`/`description` as
@@ -36,7 +38,13 @@ let
   # error that should fail the unit.
   ensurePrinter = writeShellApplication {
     name = "ensure-printer";
-    runtimeInputs = [ cups ];
+    # bash for the /dev/tcp probe, coreutils for timeout and sleep — neither
+    # may come from the inherited PATH: the systemd unit's default PATH has
+    # coreutils but no bash, so `bash -c` inside the probe failed with
+    # "command not found" (stderr eaten by the probe's 2>/dev/null) and every
+    # printer was declared off or unreachable — on real systems only; the
+    # flake check never saw it because the build sandbox has bash on PATH.
+    runtimeInputs = [ bash coreutils cups ];
     text = ''
       set -uo pipefail
       NAME=$1; DEVICE=$2; MODEL=$3; DESC=$4; LOC=$5
