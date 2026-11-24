@@ -1,4 +1,4 @@
-{ ... }:
+_:
 
 {
   # Automatic garbage collection via the native NixOS nix.gc option — the
