@@ -1220,13 +1220,9 @@ let
       # k3-256k and the 10K studio copy without burning a provider call).
       enable_pre_call_checks: true
 
-      # Session affinity: pin a conversation to the deployment that served its
-      # first request (x-litellm-session-id / x-<vendor>-session-id header or
-      # metadata.session_id) — keeps provider prompt caches (Z.ai, Kimi) warm.
-      # No-op for clients that send no session id; a cooled-down pin falls
-      # through to the healthy deployments and is kept for when it recovers.
-      optional_pre_call_checks:
-        - session_affinity
+      # No session affinity for local Strata: the simple-shuffle distributes
+      # requests across server-nike + laptop-p16 without a pinning layer that
+      # would route every session to whichever instance served first.
 
       # Cross-rank fallbacks — local + free-cloud only. Sergeant is deliberately
       # NOT in this chain: its swift-1.5 pool is the same Strata deployment

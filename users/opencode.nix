@@ -203,15 +203,23 @@ let
   # providers.proxy (the gateway's explicit ids and unranked pool) and the
   # direct per-backend providers below (see DIRECT PROVIDERS). Grouped by
   # backend, so a new model card lands on the gateway and on that backend's
-  # direct provider in one edit. Rank association lives in the display name
-  # (docs/ai-ranks.md); it stays accurate whichever path a call takes.
+  # direct provider in one edit.
+  #
+  # Display-name rule (the picker searches on id + name, so the name decides
+  # what a search returns):
+  #   - a concrete model card names the model and its backend only — never a
+  #     rank name, so searching a rank returns ranks and nothing else;
+  #   - a rank card names the rank and its role only — never a model name, so
+  #     searching a model returns models and nothing else.
+  # The rank↔model mapping lives in services/litellm-proxy.nix and
+  # docs/ai-ranks.md, where a model swap can update it in one place.
   # ---------------------------------------------------------------------------
 
   # Kimi Code (legacy Allegretto plan: all six ids are entitled, and the
   # 1M context on k3.1-pro / k3 is Allegretto's 1M tier).
   kimiModels = {
     "k3.1-pro" = {
-      name = "k3.1-pro @ Kimi (Brigadier General)";
+      name = "k3.1-pro @ Kimi (subscription)";
       reasoning = true;
       attachment = true; # Kimi model table: image+video; live pixel test
       # 2026-11-17 on the K3.1 Pro line answered correctly
@@ -221,7 +229,7 @@ let
       };
     };
     "k3" = {
-      name = "k3 @ Kimi (Lieutenant Colonel)";
+      name = "k3 @ Kimi (subscription)";
       reasoning = true;
       attachment = true; # Kimi model table: image+video; live pixel tests
       # 2026-09 answered correctly
@@ -231,7 +239,7 @@ let
       };
     };
     "k3-256k" = {
-      name = "k3-256k @ Kimi (Lieutenant Colonel, 262K)";
+      name = "k3-256k @ Kimi (subscription, 262K window)";
       reasoning = true;
       attachment = true; # Kimi model table: image only (no video)
       limit = {
@@ -240,7 +248,7 @@ let
       };
     };
     "kimi-for-coding" = {
-      name = "kimi-for-coding @ Kimi (Major, K2.8)";
+      name = "kimi-for-coding @ Kimi (subscription, K2.8)";
       reasoning = true;
       attachment = true; # Kimi model table: image+video; live /v1/models
       # reports supports_image_in true and a live pixel test on this id
@@ -255,7 +263,7 @@ let
   # Z.ai Coding Plan (subscription quota, coding endpoint only).
   zaiModels = {
     "glm-5.3" = {
-      name = "glm-5.3 @ Z.ai Coding Plan (Lieutenant Colonel)";
+      name = "glm-5.3 @ Z.ai Coding Plan (subscription)";
       reasoning = true;
       # GLM-5.3 is text-only by provider spec.
       limit = {
@@ -264,7 +272,7 @@ let
       };
     };
     "glm-5.3-flash" = {
-      name = "glm-5.3-flash @ Z.ai Coding Plan (Major)";
+      name = "glm-5.3-flash @ Z.ai Coding Plan (subscription)";
       reasoning = true;
       attachment = true; # the GLM-5.3 series' multimodal line
       limit = {
@@ -273,7 +281,7 @@ let
       };
     };
     "glm-5-turbo" = {
-      name = "glm-5-turbo @ Z.ai Coding Plan (Captain Commandant)";
+      name = "glm-5-turbo @ Z.ai Coding Plan (subscription, 200K window)";
       reasoning = true;
       limit = {
         context = 200000;
@@ -285,7 +293,7 @@ let
   # DeepSeek API (pay-per-token).
   deepseekModels = {
     "deepseek-flash" = {
-      name = "deepseek-flash (Captain)";
+      name = "deepseek-flash @ DeepSeek (paid)";
       reasoning = true;
       attachment = true;
       limit = {
@@ -294,7 +302,7 @@ let
       };
     };
     "deepseek-v4-pro" = {
-      name = "deepseek-v4-pro (Captain Commandant / Major)";
+      name = "deepseek-v4-pro @ DeepSeek (paid)";
       reasoning = true;
       limit = {
         context = 1048576;
@@ -312,28 +320,28 @@ let
   # that), no cross-rank fallback, free tier so no cost.
   hetznerModels = {
     "Qwen/Qwen3.6-35B-A3B" = {
-      name = "Qwen3.6-35B-A3B @ Hetzner (Warrant Officer, free cloud)";
+      name = "Qwen3.6-35B-A3B @ Hetzner (free cloud)";
       limit = {
         context = 262144;
         output = 32768;
       };
     };
     "Qwen/Qwen3.6-35B-A3B-FP8" = {
-      name = "Qwen3.6-35B-A3B-FP8 @ Hetzner (Warrant Officer, free cloud)";
+      name = "Qwen3.6-35B-A3B-FP8 @ Hetzner (free cloud)";
       limit = {
         context = 262144;
         output = 32768;
       };
     };
     "Qwen/Qwen3.8-27B" = {
-      name = "Qwen3.8-27B @ Hetzner (Second Lieutenant, free cloud)";
+      name = "Qwen3.8-27B @ Hetzner (free cloud)";
       limit = {
         context = 262144;
         output = 32768;
       };
     };
     "Qwen3.8-27B" = {
-      name = "Qwen3.8-27B @ Hetzner (Second Lieutenant, free cloud)";
+      name = "Qwen3.8-27B @ Hetzner (free cloud)";
       limit = {
         context = 262144;
         output = 32768;
@@ -347,7 +355,7 @@ let
   # of the Coding Plan's glm-5.3.
   cheaperModels = {
     "deepseek-v4.1-flash" = {
-      name = "deepseek-v4.1-flash (paid, CI: Captain's model at 56% off)";
+      name = "deepseek-v4.1-flash @ CheaperInference (paid)";
       reasoning = true;
       attachment = true;
       limit = {
@@ -356,7 +364,7 @@ let
       };
     };
     "gpt-5.6-luna" = {
-      name = "gpt-5.6-luna (paid escalation, CI)";
+      name = "gpt-5.6-luna @ CheaperInference (paid)";
       reasoning = true;
       attachment = true;
       limit = {
@@ -365,7 +373,7 @@ let
       };
     };
     "claude-sonnet-5.5" = {
-      name = "claude-sonnet-5.5 (paid escalation, CI)";
+      name = "claude-sonnet-5.5 @ CheaperInference (paid)";
       reasoning = true;
       attachment = true;
       limit = {
@@ -374,7 +382,7 @@ let
       };
     };
     "claude-opus-5.5" = {
-      name = "claude-opus-5.5 (paid escalation, CI)";
+      name = "claude-opus-5.5 @ CheaperInference (paid)";
       reasoning = true;
       attachment = true;
       limit = {
@@ -383,7 +391,7 @@ let
       };
     };
     "glm-5.3-payg" = {
-      name = "glm-5.3-payg (paid, per-token, CI)";
+      name = "glm-5.3-payg @ CheaperInference (paid, per-token)";
       reasoning = true;
       limit = {
         context = 1000000;
@@ -417,7 +425,7 @@ let
   # per-model context budget as 128256.
   unslothModels = {
     "unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF" = {
-      name = "NVIDIA-Nemotron-3.5-Bolt-E4B @ Unsloth Studio (sergeant order-2)";
+      name = "NVIDIA-Nemotron-3.5-Bolt-E4B @ Unsloth Studio (local engine)";
       limit = {
         context = 128256;
         output = 65536;
@@ -447,6 +455,10 @@ let
   #      upstream id, merged in from the shared card bindings above;
   #   3. the unranked pay-as-you-go pool (CheaperInference + glm-5.3-payg),
   #      also from a shared binding.
+  # Display names keep the two classes separate (see the shared-card header
+  # above): a rank card never names a model, a model card never names a rank.
+  # A picker search on "Warrant" therefore returns the warrant ranks only, and
+  # a search on "Qwen" returns the Qwen model cards only.
   # Only -v ranks and the model ids whose model really sees images carry
   # `attachment = true`; plain ranks stay text-only by contract.
   providers = {
@@ -527,7 +539,7 @@ let
           };
         };
         "captain" = {
-          name = "Captain — cheap fast coding (DeepSeek, paid)";
+          name = "Captain — cheap fast coding (paid)";
           reasoning = true;
           # Text-only rank (deepseek-flash); the vision slot is captain-v.
           limit = {
@@ -545,7 +557,7 @@ let
           };
         };
         "captain-commandant" = {
-          name = "Captain Commandant — mid paid coding (Z.ai, then DeepSeek)";
+          name = "Captain Commandant — mid paid coding (paid)";
           reasoning = true;
           # No -v sibling: glm-5-turbo and deepseek-v4-pro are both text-only.
           # Group max: the Z.ai row serves 200K, deepseek-v4-pro 1M, so the
@@ -596,7 +608,7 @@ let
           };
         };
         "brigadier-general" = {
-          name = "Brigadier General — k3.1-pro flagship (paid)";
+          name = "Brigadier General — flagship (paid)";
           reasoning = true;
           # Text-only rank; the vision slot is brigadier-general-v. Thinking
           # cannot be disabled on k3.1-pro — the proxy pins reasoning_effort.
@@ -606,7 +618,7 @@ let
           };
         };
         "brigadier-general-v" = {
-          name = "Brigadier General (vision) — k3.1-pro multimodal (paid)";
+          name = "Brigadier General (vision) — flagship multimodal (paid)";
           reasoning = true;
           attachment = true; # Kimi model table: image+video; live test OK
           limit = {

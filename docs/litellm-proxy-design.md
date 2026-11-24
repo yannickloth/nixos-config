@@ -314,6 +314,14 @@ researched context/output limits (opencode compacts at `limit.context`) and the
 modality flags consumed by pi. Routing and deployment metadata live in the
 proxy config; keep the two in step when adding a model.
 
+**Display names.** Keep the two name classes separate. A rank card's display
+name never names a model. A model card's display name never names a rank.
+Harnesses search the model list on the id and the display name, so a mixed
+name returns the wrong entries: a search for `Warrant` must return only the
+warrant ranks, and a search for `Qwen` only the Qwen model cards. The
+rank-to-model mapping stays in `config.yaml` and `docs/ai-ranks.md`, where a
+model swap updates it in one place.
+
 **Direct providers (the no-gateway path).** One extra provider per backend
 lets the harnesses use the subscription and other models without LiteLLM, so
 an outage of server-nike, the `litellm-proxy` unit or the Tailscale path does
@@ -433,9 +441,10 @@ Adding a model: add the deployment to `services/litellm-proxy.nix`, add the
 model card to the backend's shared card group in `users/opencode.nix` (it
 then appears on the gateway and on that backend's direct provider), commit,
 switch on each proxy host (server-nike, laptop-p16), then run the health +
-completion checks. For a local model, confirm its id and served context
-first: `GET http://127.0.0.1:8080/v1/models` for Strata, `GET
-http://127.0.0.1:8888/api/inference/models` for Studio.
+completion checks. Name the card `<model id> @ <backend> (<cost class>)`; do
+not put a rank name in it (see **Display names** above). For a local model,
+confirm its id and served context first: `GET http://127.0.0.1:8080/v1/models`
+for Strata, `GET http://127.0.0.1:8888/api/inference/models` for Studio.
 
 ## References
 
