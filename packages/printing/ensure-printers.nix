@@ -16,8 +16,12 @@
   # pass "" for "unset". shellcheck also reads them, hence the clean strings.
   ensureDefaultPrinter ? null,
   # Budget for one TCP probe of the printer's IPP port. A switched-off printer
-  # drops the SYN, so this is what turns a 30 s lpadmin timeout into 1 s.
-  probeTimeout ? 1,
+  # drops the SYN, so this is what turns a 30 s lpadmin timeout into a short
+  # probe; 3 s because a deep-sleeping Brother laser needs a moment to wake
+  # before the connect completes (with the old 1 s it was declared off at
+  # every switch time on server-nike, 2026-11-24, despite being up seconds
+  # later under a 3 s probe).
+  probeTimeout ? 3,
   # The wrapper gives up (and stops the retry timer) after this many failed
   # probes, i.e. ~5 h at the timer's 15 min cadence.
   maxAttempts ? 20,
