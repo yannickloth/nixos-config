@@ -239,6 +239,14 @@ in
     Login.HandleLidSwitchExternalPower = "ignore";
   };
 
+  # --- GPU power management ---
+  # The RX 570 (Ellesmere, GCN 1.5) hangs on runtime PM transitions: every ~1 s
+  # the kernel logs `ring sdma0 timeout` followed by `GPU Recovery Failed: -19`.
+  # This is a known issue with open-source amdgpu on RX 400/500 series.
+  # Disabling runtime PM (`runpm=0`) stops the hangs with negligible power
+  # impact on a desktop (the card stays at idle power ~15 W instead of ~10 W).
+  boot.kernelParams = [ "amdgpu.runpm=0" ];
+
   # --- Suspend ---
   # The MT7925 (mt7925e) loses its firmware state over suspend-to-RAM on this
   # board: every resume logs `pci_pm_resume returns -110`, mac80211 reports

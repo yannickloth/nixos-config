@@ -12,52 +12,44 @@ with lib;
     # (see the file header for why).
     ../../hardware/nvidia_ampere.nix
 
-    # Minimal server environment: base policy, SSH, Tailscale, Syncthing, podman.
-    # No gaming, no kids' services, no peripheral daemons.
-    ../../environments/server.nix
+    # Shared family-host module set (IVP, see environments/family-host.nix):
+    # the same chassis-independent family policy the portables get via
+    # family-laptop.nix — roles, KDE Plasma desktop stack, family services
+    # (printing/scanning/avahi, samba, xRDP, Syncthing, nix-serve, podman,
+    # postgres), kids' flatpak gating. server-nike is used daily as a desktop,
+    # so it is a family host, not a bare server; keeping this shared instead
+    # of hand-picking modules stops the drift from laptop-p16.
+    ../../environments/family-host.nix
 
-    # Desktop stack (KDE Plasma, same as the family hosts): server-nike is
-    # also used as a powerful desktop, not only as the inference server.
-    ../../desktop/console.nix
-    ../../desktop/pipewire.nix
-    ../../desktop/xserver.nix
-    ../../desktop/xwayland.nix
+    # Host delta (like laptop-xps and desktop-leto): sddm.wayland = false for
+    # the NVIDIA open driver — kwin_wayland spins on open NVIDIA KMS/drm-mode
+    # paths. family-host's xserver.nix enables Plasma + sddm; this corrects
+    # the NVIDIA bit.
     ../../desktop/plasma.nix
-
-    # NetworkManager (host delta, like the desktop stack above): the base
-    # server environment leaves DHCP to dhcpcd, but the Plasma panel's network
-    # applet (plasma-nm) only shows up when NetworkManager is running. Same
-    # setup as the family laptops/desktops via environments/family-laptop.nix.
-    # NixOS disables dhcpcd automatically once networkmanager is enabled.
-    ../../services/network-manager.nix
-
-    # Printer stack (same as laptop-p16): avahi for mDNS, CUPS, hardware
-    # profiles, and the offline-aware ensure-printers wrapper.
-    # Override the server-base disables from environments/server.nix.
-    ../../hardware/printers/brother-mfcl2700dw.nix
-    ../../hardware/printers/epson-xp15000.nix
-    ../../services/avahi.nix
-    ../../services/printing.nix
-    ../../services/scanning.nix
-    {
-      services.avahi.enable = lib.mkForce true;
-      services.printing.enable = lib.mkForce true;
-    }
 
     # USB Wi-Fi dongles (two Realtek RTL8191SU/RTL8188SU sticks). Driven by
     # the in-tree r8712u staging driver, which only exists in kernels <= 6.12 -
     # see hardware/usb-wifi.nix for the kernel-update constraint.
     ../../hardware/usb-wifi.nix
 
-    # PostgreSQL backs the LiteLLM proxy's admin UI, virtual keys and spend
-    # ledger. The module creates the `litellm` role/database only when the
-    # proxy is enabled (services/postgresql.nix).
-    ../../services/postgresql.nix
-
     # LiteLLM rank gateway (services/litellm-proxy.nix): the single LLM
     # endpoint for opencode/pi on every host. Sits next to Unsloth Studio
-    # (loopback) and reaches Strata on laptop-p16 over Tailscale.
+    # (loopback) and reaches Strata on laptop-p16 over Tailscale. PostgreSQL
+    # (its admin UI/virtual keys/spend ledger) comes from family-host's
+    # services/postgresql.nix import.
     ../../services/litellm-proxy.nix
+
+    # Pinned age host identity (services/host-age.nix): the keypair in
+    # ssh-keys/hosts/server-nike is pinned as the /etc/ssh host key (private key installed per
+    # secrets-structure/README.md) and audited against secrets.nix at build time, so a stale recipient set
+    # fails the build instead of locking the host out of its own logins.
+    ../../services/host-age.nix
+    {
+      services.hostAge = {
+        enable = true;
+        pubKey = ../../ssh-keys/hosts/server-nike.pub;
+      };
+    }
 
     # Pinned age host identity (services/host-age.nix): the keypair in
     # ssh-keys/hosts/server-nike is pinned as the /etc/ssh host key (private key installed per
@@ -192,8 +184,9 @@ with lib;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.loader.systemd-boot.configurationLimit = 5;
 
-  # Belgian home server (roles/base.nix defaults to Europe/Luxembourg).
-  time.timeZone = "Europe/Brussels";
+  # Timezone: roles/base.nix defaults to Europe/Luxembourg (Messancy sits on
+  # the Belgian-Luxembourg border; same UTC offset as Brussels). No host pins
+  # its own — single source, no mkForce conflict.
 
   # Dell 5810: 2× Xeon E5-2699C v4 (Broadwell-EP, 22C/44T) — parallel
   # builds with all cores.
@@ -235,6 +228,18 @@ with lib;
   # system instance and systemd.user.extraConfig for the user instance.
   systemd.settings.Manager.DefaultLimitMEMLOCK = "infinity";
   systemd.user.extraConfig = "DefaultLimitMEMLOCK=infinity";
+
+  # Same nftables backend as environments/laptop-firewall.nix (this used to
+  # come from environments/server.nix): the scoped extraInputRules below are
+  # nftables-only text — with the iptables default backend they are silently
+  # inert — and the avahi/tor/sonos module assertions require nftables.
+  # The base firewall itself is on by default.
+  networking.nftables.enable = true;
+
+  # Tailscale DERP fallback port (came from environments/server.nix; the
+  # tailscale service itself arrives via roles/system.nix, imported by every
+  # <host>-configuration.nix).
+  networking.firewall.allowedUDPPorts = [ 41641 ];
 
   # nicky's always-on Orca runtime server (packages/orca/home.nix,
   # orca.server.enable) must survive logout, which needs lingering.

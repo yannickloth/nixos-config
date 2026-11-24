@@ -83,8 +83,9 @@ in
   # wraps the actual activation in its own `mkIf cfg.enable` so this is safe
   # and avoids any option-evaluation recursion.
   services.postgresql = {
-    # environments/server.nix disables postgres on servers by default; this
-    # module is the explicit opt-in, so force it back on.
+    # Every family host imports this module via environments/family-host.nix,
+    # so postgres is an explicit, unconditional opt-in (mkForce keeps it on
+    # regardless of any base default).
     enable = lib.mkForce true;
     package = pkgs.postgresql_18;                     # 18.6, latest in pinned nixpkgs
     dataDir = "/data/postgres/18";                    # non-default → module sets ReadWritePaths
