@@ -63,7 +63,7 @@ let
         attempts=$((attempts + 1))
         echo "$attempts" > "$state"
         if [ "$attempts" -ge ${toString maxAttempts} ]; then
-          printf 'ERROR: giving up on %s after %s attempts - switch it on and rerun: sudo systemctl start ensure-printers\n' \
+          printf 'ERROR: giving up on %s after %s attempts - switch it on and rerun: sudo systemctl restart ensure-printers\n' \
             "$NAME" "$attempts" >&2
           systemctl stop ensure-printers-retry.timer 2>/dev/null || true
         else
