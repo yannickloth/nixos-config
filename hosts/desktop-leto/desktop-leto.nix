@@ -247,6 +247,15 @@ in
   # impact on a desktop (the card stays at idle power ~15 W instead of ~10 W).
   boot.kernelParams = [ "amdgpu.runpm=0" ];
 
+  # mt7925e ships 802.11 power save enabled and it is a documented trigger for
+  # link drops and latency spikes on MT7925 (Ubuntu #2170180, openwrt/mt76 #1108).
+  # The NixOS wifi.powersave boolean has a mapping bug: `false` produces NM value
+  # 2 (enable) instead of 1 (disable) — see networkmanager.nix line:
+  #   "wifi.powersave" = if cfg.wifi.powersave then 3 else 2;
+  # Use settings to write the correct value directly.
+  networking.networkmanager.wifi.powersave = lib.mkForce false;
+  networking.networkmanager.settings.connection."wifi.powersave" = 1;
+
   # --- Suspend ---
   # The MT7925 (mt7925e) loses its firmware state over suspend-to-RAM on this
   # board: every resume logs `pci_pm_resume returns -110`, mac80211 reports
@@ -269,18 +278,6 @@ in
     "1.1.1.3"
     "1.0.0.3"
   ];
-
-  # mt7925e ships 802.11 power save enabled (`iw dev wlp2s0 get power_save`
-  # reports "on") and it is a documented trigger for link drops and latency
-  # spikes on MT7925 (Ubuntu #2170180, openwrt/mt76 #1108). Measured neutral on
-  # this link so far, but keep it off — a desktop has no reason to save power
-  # on its only uplink.
-  #
-  # The NixOS wifi.powersave boolean has a mapping bug: `false` produces NM
-  # value 2 (enable) instead of 1 (disable). Use settings to override with
-  # the correct value. See networkmanager.nix line: `if cfg.wifi.powersave then 3 else 2`.
-  networking.networkmanager.wifi.powersave = lib.mkForce false;
-  networking.networkmanager.settings.connection."wifi.powersave" = 1;
 
   # Keep the card out of PCIe ASPM as well. This board currently disables ASPM
   # on every link (LnkCtl: ASPM Disabled), so this is insurance: a BIOS reset or
