@@ -75,10 +75,22 @@ let
 
       # Only network printers are probed. Local/spooler URIs (cups-pdf:/pdf,
       # usb://..., hp:/...) have no IPP endpoint and must never be skipped.
+      # Three tries with a pause: a Wi-Fi printer in power save (the Brother
+      # answers pings at ~8 ms, then vanishes for seconds at a time) fails one
+      # connect and answers the next; a genuinely off printer fails all of
+      # them and the whole loop still costs ~13 s.
       case "$scheme" in
         ipp|ipps|http|https)
-          timeout "${toString probeTimeout}" bash -c \
-            "exec 3<>/dev/tcp/$host/$port" 2>/dev/null || skip
+          probe_ok=""
+          for _ in 1 2 3; do
+            if timeout "${toString probeTimeout}" bash -c \
+              "exec 3<>/dev/tcp/$host/$port" 2>/dev/null; then
+              probe_ok=1
+              break
+            fi
+            sleep 2
+          done
+          [ -n "$probe_ok" ] || skip
           ;;
       esac
 
