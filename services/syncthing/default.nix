@@ -182,6 +182,15 @@ in
     # the services.syncthing settings above (GUI 8384 on LAN/Wi-Fi + tailnet,
     # sync 22000).
 
+    # ACL rules use the *lower-case* verb (`a`, not `A`). An upper-case rule is
+    # recursive and is re-applied on every boot *and* every switch (the switch
+    # runs systemd-tmpfiles-resetup through sysinit-reactivation.target), i.e. a
+    # full metadata walk of the tree each time. On laptop-hera /sync holds ~66k
+    # files on a 5400 rpm SMR disk and that pass took 15+ minutes, stalling
+    # `nixos-rebuild switch` in sysinit-reactivation. New content inherits the
+    # ACLs through the `d:` default entries, and the activation script below
+    # repairs existing content (stamp-gated for the whole tree, per-switch for
+    # roms and FileDrop), so the recursive tmpfiles pass buys nothing.
     systemd.tmpfiles.rules = [
       # 2770 (no "others"): only the syncthing group (parents) can reach /sync.
       "d /sync 2770 syncthing syncthing -"
@@ -189,26 +198,26 @@ in
       # rule and the activation script cannot drift apart. The `d:` entries
       # are the *default* ACL entries that make new content inherit these
       # permissions (without them only existing files are covered).
-      "A /sync 2770 syncthing syncthing - ${syncRootAcl}"
+      "a /sync 2770 syncthing syncthing - ${syncRootAcl}"
       # Per-kid folders: setgid (2770) so new content inherits group syncthing
       # (parents + syncthing daemon both rw), plus a named ACL so the kid is rw.
       "d /sync/sven 2770 syncthing syncthing -"
-      "A /sync/sven 2770 syncthing syncthing - u::rwx,u:sven:rwx,g::rwx,o::---,d:u::rwx,d:u:sven:rwx,d:g::rwx,d:o::---"
+      "a /sync/sven 2770 syncthing syncthing - u::rwx,u:sven:rwx,g::rwx,o::---,d:u::rwx,d:u:sven:rwx,d:g::rwx,d:o::---"
       "d /sync/aaron 2770 syncthing syncthing -"
-      "A /sync/aaron 2770 syncthing syncthing - u::rwx,u:aaron:rwx,g::rwx,o::---,d:u::rwx,d:u:aaron:rwx,d:g::rwx,d:o::---"
+      "a /sync/aaron 2770 syncthing syncthing - u::rwx,u:aaron:rwx,g::rwx,o::---,d:u::rwx,d:u:aaron:rwx,d:g::rwx,d:o::---"
       # Shared drop folder: the device-to-device drop (phones, laptops, nestor),
       # and the kids' only writable spot in the synced tree besides their own
       # folder. Syncthing creates the folder root at first start; the `d` line
-      # makes it exist from the first boot (idempotent) and `A` heals the whole
-      # subtree (A is recursive).
+      # makes it exist from the first boot (idempotent); existing content is
+      # healed by the activation script below.
       "d ${fileDropDir} 2770 syncthing syncthing -"
-      "A ${fileDropDir} 2770 syncthing syncthing - ${fileDropAcl}"
+      "a ${fileDropDir} 2770 syncthing syncthing - ${fileDropAcl}"
       # RetroArch ROM library (games/games.nix points RetroArch's
       # system_directory at roms/BIOS): every user must be able to read it, so
       # the kids get read+traverse here (files r, dirs rx). Quoted path: the
       # synced folder name contains spaces (systemd tmpfiles quoting).
       "d \"/sync/90-99 - Public stuff/roms\" 2770 syncthing syncthing -"
-      "A \"/sync/90-99 - Public stuff/roms\" - - - - u::rwx,u:sven:rX,u:aaron:rX,g::rwx,o::---,d:u::rwx,d:u:sven:rX,d:u:aaron:rX,d:g::rwx,d:o::---"
+      "a \"/sync/90-99 - Public stuff/roms\" - - - - u::rwx,u:sven:rX,u:aaron:rX,g::rwx,o::---,d:u::rwx,d:u:sven:rX,d:u:aaron:rX,d:g::rwx,d:o::---"
       "d /var/lib/syncthing 0700 syncthing syncthing -"
       # Device identity (agenix writes cert.pem/key.pem here as 0640
       # root:syncthing, so the daemon can read them).
