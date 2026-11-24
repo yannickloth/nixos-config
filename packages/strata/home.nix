@@ -7,7 +7,7 @@
 # `strata-server`, and the desktop AppImage.
 #
 # The engine is installed as an upstream engine component (~/.local/share/strata/
-# components/engine/0.1.64-linux-x86_64-cuda/) with a per-file SHA-256 manifest,
+# components/engine/0.1.67-linux-x86_64-cuda/) with a per-file SHA-256 manifest,
 # built in the Nix store by engine.nix. The component folder holds a small
 # `strata` wrapper, the picture reader and BUILD.json; the engine binary itself
 # stays in the store. The Terminal tree (setup.py, strata.py, serve/,

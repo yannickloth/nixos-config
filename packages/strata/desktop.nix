@@ -24,13 +24,13 @@
 
 let
   # Version-locked with packages/strata/default.nix: both use the same tag.
-  tag = "v0.2.20";
-  version = "0.2.20";
+  tag = "v0.2.21";
+  version = "0.2.21";
 
   src = fetchurl {
     name = "Strata-${version}-linux-x86_64.AppImage";
     url = "https://github.com/Niko1221/Strata/releases/download/${tag}/Strata-${version}-linux-x86_64.AppImage";
-    hash = "sha256:0781kx1spnhp1bi0hvv6plcfim75ibllg08hwx34svzxql54mk0h";
+    hash = "sha256:1133vdl06ablkg8xjif4grz3clirs6rbh31p2nri01jy40bb3qk2";
   };
 
   icon = fetchurl {
