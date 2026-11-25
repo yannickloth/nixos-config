@@ -134,20 +134,33 @@ with lib;
   # systemd mount units do not create their bind source, and activation runs
   # before mounts at boot, so the bind source is created by a unit ordered
   # between /data and /sync (the activation script below only handles the
-  # legacy /sync symlink migration at switch time).
-  # This service runs before sync.mount to create /data/sync and set its
-  # ownership/permissions. We reverse the dependency: the service wants the
-  # mount (not the other way around). If sync.mount wanted this service, the
-  # mount unit would be part of local-fs.target, and the service would chain
-  # through basic → sockets → cups.socket → sysinit → local-fs.target,
-  # creating a cycle that systemd resolves by deleting the mount unit.
+  # legacy /sync symlink migration at switch time). The service wants the
+  # mount, not the other way around: sync.mount is part of local-fs.target,
+  # and a unit wanted by it would chain back through the targets into a
+  # cycle.
+  #
+  # The unit must run in the local-fs phase, and must not carry the default
+  # service dependencies: with DefaultDependencies=yes systemd adds
+  # After=basic.target (plus After/Requires=sysinit.target) to the unit, but
+  # basic.target is reached after local-fs.target. The unit is before
+  # sync.mount (hence before local-fs.target) and after basic.target at the
+  # same time: an ordering cycle. On the Nov 25 2026 boot systemd found 19
+  # copies of this cycle and deleted 19 jobs to break it, among them
+  # dbus-broker.service/start. NetworkManager BindsTo the bus unit, so its
+  # start job was cancelled with it, and the host came up without a network
+  # until NetworkManager was started by hand. apparmor.service,
+  # avahi-daemon.socket, local-fs.target (three times) and the
+  # tmpfiles/update-done jobs were deleted as well.
+  # DefaultDependencies=false removes the basic.target ordering, so the unit
+  # runs where it belongs: after data.mount, before sync.mount.
   systemd.services.syncthing-nike-data-dir = {
     description = "Create the /data/sync bind source before /sync mounts";
     wants = [ "sync.mount" ];
     requires = [ "data.mount" ];
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = [ "local-fs.target" ];
     after = [ "data.mount" ];
     before = [ "sync.mount" ];
+    unitConfig.DefaultDependencies = "false";
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
