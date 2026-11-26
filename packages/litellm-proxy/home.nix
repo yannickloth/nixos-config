@@ -29,71 +29,71 @@ let
   # Derives /tmp/litellm-proxy.env from the shared opencode-keys secret.
   # Writes: all LITELLM_* keys + LITELLM_MASTER_KEY (which the NixOS
   # derive-keys-env.py forgot to include).
-  deriveKeysEnv = pkgs.writeShellApplication {
-    name = "litellm-proxy-derive-keys";
-    runtimeInputs = [ pkgs.python3 pkgs.jq ];
-    text = ''
-      import json, os, sys
+  # Uses pkgs.writeText (not writeShellApplication) so the Python code
+  # stays in a .py file and is invoked with python3 — avoiding the bash
+  # wrapper mangling Python f-string syntax like {var}.
+  deriveKeysPy = pkgs.writeText "litellm-proxy-derive-keys.py" ''
+    #!${pkgs.python3.interpreter}
+    import json, os, sys
 
-      # Home-manager agenix decrypts the shared opencode-keys secret to
-      # ~/.config/agenix/opencode-keys.env (see users/nicky/nicky-hm.nix
-      # age.secrets."opencode-keys.env"). On NixOS the NixOS module
-      # mounts it at /etc/secrets/opencode-keys.env — check both.
-      HOME_DIR = os.environ.get("HOME", "/home/nicky")
-      candidates = [
-          HOME_DIR + "/.config/agenix/opencode-keys.env",
-          "/etc/secrets/opencode-keys.env",
-      ]
-      SRC = None
-      for p in candidates:
-          if os.path.isfile(p):
-              SRC = p
-              break
-      if SRC is None:
-          print(f"litellm-proxy: opencode-keys secret not found at {candidates}", file=sys.stderr)
-          sys.exit(1)
+    # Home-manager agenix mounts secrets at /run/user/<uid>/agenix/ (see
+    # users/nicky/nicky-hm.nix age.secrets."opencode-keys.env").
+    # On NixOS the NixOS module mounts it at /etc/secrets/opencode-keys.env —
+    # check both.
+    RUN_AGENIX = os.environ.get("XDG_RUNTIME_DIR", "/run/user/1000") + "/agenix"
+    candidates = [
+        RUN_AGENIX + "/opencode-keys.env",
+        "/etc/secrets/opencode-keys.env",
+    ]
+    SRC = None
+    for p in candidates:
+        if os.path.isfile(p):
+            SRC = p
+            break
+    if SRC is None:
+        print("litellm-proxy: opencode-keys secret not found at " + str(candidates), file=sys.stderr)
+        sys.exit(1)
 
-      DST = "/tmp/litellm-proxy.env"
+    DST = "/tmp/litellm-proxy.env"
 
-      # env var -> base URL under which the key is stored in the secret
-      mapping = {
-          "LITELLM_MASTER_KEY": "http://server-nike.bee-blues.ts.net:4000/v1",
-          "LITELLM_UNSLOTH_API_KEY": "http://server-nike.bee-blues.ts.net:8888/v1",
-          "LITELLM_HETZNER_API_KEY": "https://inference.hetzner.com/api/v1",
-          "LITELLM_DEEPSEEK_API_KEY": "https://api.deepseek.com",
-          "LITELLM_ZAI_API_KEY": "https://api.z.ai/api/paas/v4/",
-          "LITELLM_KIMI_API_KEY": "https://api.kimi.com/coding/v1",
-          "LITELLM_CHEAPERINFERENCE_API_KEY": "https://api.cheaperinference.com/v1",
-      }
+    # env var -> base URL under which the key is stored in the secret
+    mapping = {
+        "LITELLM_MASTER_KEY": "http://server-nike.bee-blues.ts.net:4000/v1",
+        "LITELLM_UNSLOTH_API_KEY": "http://server-nike.bee-blues.ts.net:8888/v1",
+        "LITELLM_HETZNER_API_KEY": "https://inference.hetzner.com/api/v1",
+        "LITELLM_DEEPSEEK_API_KEY": "https://api.deepseek.com",
+        "LITELLM_ZAI_API_KEY": "https://api.z.ai/api/paas/v4/",
+        "LITELLM_KIMI_API_KEY": "https://api.kimi.com/coding/v1",
+        "LITELLM_CHEAPERINFERENCE_API_KEY": "https://api.cheaperinference.com/v1",
+    }
 
-      with open(SRC) as fh:
-          _, _, payload = fh.read().partition("=")
-      keys = json.loads(payload.strip())
+    with open(SRC) as fh:
+        _, _, payload = fh.read().partition("=")
+    keys = json.loads(payload.strip())
 
-      missing = []
-      lines = []
-      for var, url in mapping.items():
-          value = keys.get(url)
-          if not value:
-              missing.append(var)
-              print(f"litellm-proxy: no key for {url} in {SRC}; {var} unset", file=sys.stderr)
-              continue
-          lines.append(f"{var}={value}")
+    missing = []
+    lines = []
+    for var, url in mapping.items():
+        value = keys.get(url)
+        if not value:
+            missing.append(var)
+            print("litellm-proxy: no key for " + url + " in " + SRC + "; " + var + " unset", file=sys.stderr)
+            continue
+        lines.append(var + "=" + value)
 
-      if missing:
-          print(f"litellm-proxy: refusing to start with missing keys: {', '.join(missing)}", file=sys.stderr)
-          sys.exit(1)
+    if missing:
+        print("litellm-proxy: refusing to start with missing keys: " + ", ".join(missing), file=sys.stderr)
+        sys.exit(1)
 
-      # No PostgreSQL: the proxy falls back to SQLite.
-      # The NixOS module writes DATABASE_URL here; we leave it unset.
-      # lines.append("DATABASE_URL=...")
+    # No PostgreSQL: the proxy falls back to SQLite.
+    # The NixOS module writes DATABASE_URL here; we leave it unset.
+    # lines.append("DATABASE_URL=...")
 
-      fd = os.open(DST, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-      with os.fdopen(fd, "w") as out:
-          out.write("\n".join(lines) + "\n")
-      print(f"litellm-proxy: wrote {DST} ({len(lines)} keys)")
-    '';
-  };
+    fd = os.open(DST, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as out:
+        out.write("\n".join(lines) + "\n")
+    print("litellm-proxy: wrote " + DST + " (" + str(len(lines)) + " keys)")
+  '';
 
   # Writable, pre-restructured copy of the packaged UI.
   # The same preparation the NixOS module does, but under the user's home.
@@ -860,44 +860,48 @@ in
     # $HOME/.ssh/agenix_opencode_keys.env (the secret name from
     # users/opencode.nix).
     systemd.user.services.litellm-proxy-derive-keys = {
-      description = "Derive LiteLLM proxy key environment from opencode-keys secret";
-      after = [ "default.target" ];
-      wantedBy = [ "default.target" ];
-      serviceConfig = {
+      Unit.Description = "Derive LiteLLM proxy key environment from opencode-keys secret";
+      Unit.After = [ "default.target" ];
+      Install.WantedBy = [ "default.target" ];
+      Service = {
         Type = "oneshot";
         RemainAfterExit = true;
-        ExecStart = "${deriveKeysEnv}/bin/litellm-proxy-derive-keys";
+        ExecStart = "${pkgs.python3}/bin/python3 ${deriveKeysPy}";
       };
     };
 
-    # Writable, pre-restructured copy of the packaged admin UI.
+    # Writable, pre-restructured copy of the packaged UI.
     systemd.user.services.litellm-proxy-ui = {
-      description = "Prepare writable, pre-restructured LiteLLM admin UI";
-      after = [ "default.target" "litellm-proxy-derive-keys.service" ];
-      before = [ "litellm-proxy.service" ];
-      wantedBy = [ "default.target" ];
-      serviceConfig = {
+      Unit = {
+        Description = "Prepare writable, pre-restructured LiteLLM admin UI";
+        After = [ "default.target" "litellm-proxy-derive-keys.service" ];
+        Before = [ "litellm-proxy.service" ];
+      };
+      Install.WantedBy = [ "default.target" ];
+      Service = {
         Type = "oneshot";
         RemainAfterExit = true;
         ExecStart = prepareUi;
+        Path = [ pkgs.coreutils pkgs.findutils ];
       };
-      path = [ pkgs.coreutils pkgs.findutils ];
     };
 
     # The proxy itself.
     systemd.user.services.litellm-proxy = {
-      description = "LiteLLM proxy — rank gateway for the local + paid LLM backends";
-      after = [
-        "network-online.target"
-        "litellm-proxy-derive-keys.service"
-        "litellm-proxy-ui.service"
-      ];
-      requires = [
-        "litellm-proxy-derive-keys.service"
-        "litellm-proxy-ui.service"
-      ];
-      wants = [ "network-online.target" ];
-      serviceConfig = {
+      Unit = {
+        Description = "LiteLLM proxy — rank gateway for the local + paid LLM backends";
+        After = [
+          "network-online.target"
+          "litellm-proxy-derive-keys.service"
+          "litellm-proxy-ui.service"
+        ];
+        Requires = [
+          "litellm-proxy-derive-keys.service"
+          "litellm-proxy-ui.service"
+        ];
+        Wants = [ "network-online.target" ];
+      };
+      Service = {
         Type = "simple";
         ExecStart =
           "${pkgs.litellm}/bin/litellm --config ${pkgs.writeText "litellm-config.yaml" proxyConfig} "
@@ -914,7 +918,7 @@ in
         Restart = "always";
         RestartSec = 5;
       };
-      wantedBy = [ "default.target" ];
+      Install.WantedBy = [ "default.target" ];
     };
   };
 }
