@@ -75,11 +75,10 @@ let
   # litellm-proxy instance (services/litellm-proxy.nix, same config as
   # server-nike) on NixOS, so its clients use the local proxy and the rank
   # names keep resolving with no network at all (Strata answers on loopback).
-  # The CachyOS install of p16 (the live one today) has no NixOS proxy
-  # service, so it keeps the server-nike gateway over Tailscale like every
-  # other host.
+  # CachyOS on laptop-p16 now runs the same proxy via home-manager
+  # (packages/litellm-proxy/home.nix), so it also uses the local gateway.
   proxyBaseURL =
-    if hn == "laptop-p16" && ! config.commonHm.isCachyOS then
+    if hn == "laptop-p16" then
       "http://127.0.0.1:4000/v1"
     else
       "http://server-nike.bee-blues.ts.net:4000/v1";
@@ -1088,6 +1087,9 @@ in
           "https://api.cheaperinference.com/v1": "cheaperinference.key",
           # LiteLLM proxy master key (also used by services/litellm-proxy.nix).
           "http://server-nike.bee-blues.ts.net:4000/v1": "litellm-proxy.key",
+          # local proxy (laptop-p16, both CachyOS and NixOS).
+          # Same master key value regardless of host.
+          "http://127.0.0.1:4000/v1": "litellm-proxy.key",
       }
       if envfile is None:
           print("opencode: no key source found (%s); skipping key setup" % ", ".join(candidates))

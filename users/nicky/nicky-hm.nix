@@ -72,6 +72,7 @@ in
     ../emacs-adult.nix
     ../../packages/strata/home.nix
     ../../packages/unsloth-studio/home.nix
+    ../../packages/litellm-proxy/home.nix
     ../../packages/kintsugi-27b/home.nix
     ../natural-scroll.nix
     ../nix-serve.nix
@@ -456,6 +457,10 @@ in
   # because the only model it serves (27B) is outclassed by Strata's 125B MoE.
   # Recoverable from git if a stronger EXL3 model ever appears.
   # Enable the shared developer tools (neovim, vscode, direnv, etc.)
+  # LiteLLM proxy: rank gateway on laptop-p16 only, CachyOS variant.
+  # NixOS hosts (server-nike, future laptop-p16) use the system module.
+  litellm-proxy.enable = isP16 && isCachyOS;
+
   commonHm.enableDeveloperTools = true;
 
   # Home Manager needs a bit of information about you and the paths it should
