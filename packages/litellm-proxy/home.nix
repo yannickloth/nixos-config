@@ -908,6 +908,9 @@ in
           + "--host 0.0.0.0 --port ${toString cfg.port}";
         EnvironmentFile = "/tmp/litellm-proxy.env";
         Environment = [
+          # Writable UI copy: LiteLLM restructures exported HTML routes
+          # (e.g. login.html -> login/index.html) on first start.
+          "LITELLM_UI_PATH=/home/nicky/.local/state/litellm-proxy/ui"
           # Prisma CLI cache (unused without --use_prisma_db_push, but present
           # for compatibility).
           "PRISMA_BINARY_CACHE_DIR=${prismaCli}"
