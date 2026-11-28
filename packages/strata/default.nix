@@ -1,4 +1,4 @@
-# Strata 0.2.21 — NixOS packaging.
+# Strata 0.2.23 — NixOS packaging.
 #
 # Upstream 0.2.16 restructured the repo (Terminal → terminal/, Engine → engine/),
 # and 0.2.16+ ships the engine as a versioned "component" with a per-file
@@ -16,10 +16,17 @@
 # lives in the runtime directory, untouched by Nix.
 #
 # Since Strata 0.2.0 the tree holds three separately versioned products: the
-# engine (0.1.67), the Terminal (0.2.21, `strata.py` + `strata_cli`), and the
-# desktop app (0.2.21). The engine is versioned apart from the app. The desktop
+# engine (0.1.70), the Terminal (0.2.23, `strata.py` + `strata_cli`), and the
+# desktop app (0.2.23). The engine is versioned apart from the app. The desktop
 # AppImage is packaged separately (desktop.nix) and version-locked to the
 # Terminal in the flake declaration (home.nix).
+#
+# 0.2.23 version split. Upstream labels the app and the Terminal 0.2.23, and
+# Control 0.1.70. The engine source in this tag declares 0.1.70
+# (engine/CMakeLists.txt), so this package labels its built engine 0.1.70.
+# Upstream's signed feed serves 0.1.69 for linux-x86_64-cuda: upstream did not
+# rebuild the Linux CUDA Qwen binary. Control picks the newest usable
+# component in the folder, so the label needs no match with the feed.
 #
 # Pictures (the strata-vision encoder) are a build-time choice only:
 # `visionEncoder` says whether the package BUILDS and ships the encoder. Whether
@@ -58,7 +65,7 @@
 #   engine is a SEPARATE component (components/shapes/<shape>/engine/...,
 #   strata-hy4 0.1.67) which this package does not build; the Terminal and the
 #   app fetch it from the signed feed when a Hy4-Flash pack is chosen. The
-#   Qwen 125B keeps the Strata engine built here (0.1.67). Nothing else
+#   Qwen 125B keeps the Strata engine built here (0.1.70). Nothing else
 #   changes for this package: same run-config keys, same --expert-cache rule,
 #   same component manifest schema.
 # - Component model: the engine is an installed component (~/.local/share/strata/
@@ -88,17 +95,17 @@
 , strataSrc ? fetchFromGitHub {
     owner = "Niko1221";
     repo = "Strata";
-    rev = "v0.2.21"; # App and Terminal 0.2.21; engine 0.1.67
-    hash = "sha256-AhmGZPvxkBqFGsA2CDxiaiW1CwncjOuZESJX1G2Xv0A=";
+    rev = "v0.2.23"; # App and Terminal 0.2.23; engine 0.1.70 (feed 139)
+    hash = "sha256-s6Kuz3JIDdygNCMpvCtJZlkpjpyK6bwUKFVcTfQQXp8=";
   }
 ,
 }:
 
 let
-  version = "0.2.21";
-  engineVersion = "0.1.67";
+  version = "0.2.23";
+  engineVersion = "0.1.70";
   # The component folder name upstream's package_engine.py builds:
-  #   f"{version}-{platform}-{backend}"  (0.1.67-linux-x86_64-cuda)
+  #   f"{version}-{platform}-{backend}"  (0.1.70-linux-x86_64-cuda)
   componentDirName = "${engineVersion}-linux-x86_64-cuda";
 
   # The engine build's own id (read_manifest requires a non-empty one).
@@ -169,7 +176,7 @@ let
   # below must match what tools/packaging/package_engine.py produces:
   #
   #   {"schema_version": 2, "id": "strata-engine", "name": "strata-engine",
-  #    "version": "0.1.67", "platform": "linux-x86_64", "backend": "cuda",
+  #    "version": "0.1.70", "platform": "linux-x86_64", "backend": "cuda",
   #    "archs": ["sm_86", "compute_86"], "min_driver": {"nvidia": "575.51"},
   #    "build_id": "...", "entrypoint": "strata",
   #    "files": [{"path": ..., "sha256": ..., "bytes": ...}, ...],

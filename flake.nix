@@ -19,8 +19,8 @@
     namaka.inputs.nixpkgs.follows = "nixpkgs";
     namaka.inputs.haumea.inputs.nixpkgs.follows = "nixpkgs";
     # Strata (github.com/Niko1221/Strata) is not a flake input: packages/strata
-    # fetches it directly with fetchFromGitHub, pinned to v0.2.20 (engine 0.1.64,
-    # feed 130). The engine is a separately-versioned CUDA build (engine.nix) and
+    # fetches it directly with fetchFromGitHub, pinned to v0.2.23 (engine 0.1.70,
+    # feed 139). The engine is a separately-versioned CUDA build (engine.nix) and
     # the desktop AppImage is a separate package (desktop.nix), version-locked to
     # the Terminal in the flake declaration. (Since 0.2.16 the engine is an
     # "engine component" with a per-file SHA-256 manifest — both the Terminal and

@@ -370,9 +370,9 @@ in
   # which host the shared ranks point at. `dataOnDataVolume` keeps the model files
   # on /data (laptop-p16 only, see below).
   #
-  # Upstream 0.2.18: engine/Control 0.1.64. The new Hy4-Flash shape engine is a
+  # Upstream 0.2.23: engine/Control 0.1.70. The Hy4-Flash shape engine is a
   # separate component fetched on demand; the Qwen 125B keeps the engine this
-  # package builds. Still 0.2.17 defaults: route-tail-skip OFF, 17 GB RAM free.
+  # package builds. Still the 0.2.17 defaults: route-tail-skip OFF, 17 GB RAM free.
   # The engine is an upstream engine component (versioned, per-file manifest)
   # built in the Nix store — the app and the Terminal are version-locked together.
   # All engine tuning (context, KV format, rope scaling, PCIe fraction, pool
@@ -818,7 +818,7 @@ in
       gpu = 0;
       gpus_asked = true;
       vision = {
-        exe = "${config.home.homeDirectory}/.local/share/strata/components/engine/0.1.64-linux-x86_64-cuda/strata-vision";
+        exe = "${config.home.homeDirectory}/.local/share/strata/components/engine/0.1.70-linux-x86_64-cuda/strata-vision";
         mmproj = if isP16 then "/data/Strata-data/models/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf"
           else "${config.home.homeDirectory}/.local/share/Strata-data/models/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf";
         model = if isP16 then "/data/Strata-data/models/swift-IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf"
